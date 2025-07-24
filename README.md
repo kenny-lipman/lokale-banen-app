@@ -2,7 +2,7 @@
 
 *Local development project - no longer synced with v0.dev*
 
-<!-- Local development project -->
+<!-- Local development project - deployment trigger -->
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/kenny-6978s-projects/v0-lokale-banen-web-app)
 
