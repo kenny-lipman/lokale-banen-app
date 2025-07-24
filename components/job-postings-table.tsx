@@ -6,8 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star, CheckCircle, Clock, XCircle, AlertCircle, Archive, Crown } from "lucide-react"
 import { supabaseService } from "@/lib/supabase-service"
+import { createClient } from "@/lib/supabase"
+import { useJobPostingsCache } from "@/hooks/use-job-postings-cache"
+import { TableFilters, TablePagination } from "@/components/ui/table-filters"
+import { useDebounce } from "@/hooks/use-debounce"
+import { TableSkeleton, LoadingSpinner } from "@/components/ui/loading-states"
 
 interface JobPosting {
   id: string
@@ -26,53 +31,98 @@ interface JobPosting {
   salary?: string
   url?: string
   country?: string
+  company_website?: string
+  source_id: string
+  region?: string;
+  source_name?: string;
 }
 
 interface JobPostingsTableProps {
   onCompanyClick?: (company: any) => void
+  data?: any[] // Optional: override data for custom use (e.g. Otis scraped jobs)
 }
 
-export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTableProps) {
-  const [jobPostings, setJobPostings] = useState<JobPosting[]>([])
-  const [loading, setLoading] = useState(true)
+export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPostingsTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [reviewStatusFilter, setReviewStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [regionFilter, setRegionFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [regions, setRegions] = useState<{ id: string, plaats: string, regio_platform: string }[]>([]);
+  const [jobSourceList, setJobSourceList] = useState<{id: string, name: string}[]>([]);
+  const [jobPostings, setJobPostings] = useState<JobPosting[]>([])
+  const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
-  const itemsPerPage = 10
+  const [totalPages, setTotalPages] = useState(1)
+  const [jobSourceMap, setJobSourceMap] = useState<{ [id: string]: string }>({})
+  const [error, setError] = useState<any>(null)
 
-  const fetchJobPostings = async () => {
-    setLoading(true)
-
-    try {
-      const result = await supabaseService.getJobPostings({
-        page: currentPage,
-        limit: itemsPerPage,
-        search: searchTerm,
-        status: statusFilter === "all" ? undefined : statusFilter,
-        review_status: reviewStatusFilter === "all" ? undefined : reviewStatusFilter,
-      })
-
-      setJobPostings(result.data)
-      setTotalCount(result.count)
-      setTotalPages(result.totalPages)
-    } catch (error) {
-      console.error("Error fetching job postings:", error)
-      // Fall back to empty data if database is not accessible
-      setJobPostings([])
-      setTotalCount(0)
-      setTotalPages(1)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Gebruik cache hook alleen als er geen data prop is (Otis)
+  const {
+    data: jobPostingsResult,
+    loading: loadingFromHook,
+    error: errorFromHook,
+    refetch,
+  } = useJobPostingsCache(
+    data
+      ? {} // Als data prop, niet fetchen
+      : {
+          page: currentPage,
+          limit: itemsPerPage,
+          search: debouncedSearchTerm,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          region_id: regionFilter !== "all" && regionFilter !== "none" ? regions.find(r => r.plaats === regionFilter)?.id : regionFilter === "none" ? null : undefined,
+          source_id: sourceFilter !== "all" ? sourceFilter : undefined,
+        }
+  )
 
   useEffect(() => {
-    const timeoutId = setTimeout(fetchJobPostings, 300) // Debounce search
-    return () => clearTimeout(timeoutId)
-  }, [searchTerm, statusFilter, reviewStatusFilter, currentPage])
+    const fetchJobSources = async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from("job_sources").select("id, name")
+      if (data) {
+        const map: { [id: string]: string } = {}
+        data.forEach((src: any) => { map[src.id] = src.name })
+        setJobSourceMap(map)
+      }
+    }
+    fetchJobSources()
+    supabaseService.getCompanySources().then(setJobSourceList)
+    // Haal alle regio's op
+    supabaseService.getRegions().then(setRegions)
+  }, [])
+
+  // Debounce search term for better performance
+  const debouncedSearchTerm = useDebounce(searchTerm, 500)
+  
+  useEffect(() => {
+    setLoading(loadingFromHook)
+    setError(errorFromHook)
+    setJobPostings(jobPostingsResult?.data || [])
+    setTotalCount(jobPostingsResult?.count || 0)
+    setTotalPages(jobPostingsResult?.totalPages || 1)
+  }, [jobPostingsResult, loadingFromHook, errorFromHook])
+
+  // Client-side filter op bron/platform als fallback
+  const filteredJobPostings = jobPostings.filter((job) => {
+    if (sourceFilter !== "all") {
+      // Filter op platform/source_name (case-insensitive)
+      return (job.platform || job.source_name || "").toLowerCase() === jobSourceList.find(s => s.id === sourceFilter)?.name?.toLowerCase();
+    }
+    return true;
+  });
+
+  // Helper: haal de juiste bron/platform naam op client-side
+  function getJobSourceName(job: JobPosting): string | undefined {
+    if (job.platform && job.platform.trim() !== "") return job.platform;
+    if (job.source_name && job.source_name.trim() !== "") return job.source_name;
+    if (job.source_id && jobSourceList.length > 0) {
+      const found = jobSourceList.find(s => s.id === job.source_id);
+      if (found && found.name && found.name.trim() !== "") return found.name;
+    }
+    return undefined;
+  }
 
   const handleCompanyClick = async (job: JobPosting) => {
     try {
@@ -86,40 +136,40 @@ export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTable
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "new":
-        return <Badge className="bg-blue-100 text-blue-800">Nieuw</Badge>
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Nieuw
+          </Badge>
+        )
       case "active":
-        return <Badge className="bg-green-100 text-green-800">Actief</Badge>
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-200">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Actief
+          </Badge>
+        )
       case "inactive":
-        return <Badge className="bg-gray-100 text-gray-800">Inactief</Badge>
+        return (
+          <Badge className="bg-gray-100 text-gray-800 border-gray-200">
+            <Clock className="w-3 h-3 mr-1" />
+            Inactief
+          </Badge>
+        )
       case "archived":
-        return <Badge className="bg-red-100 text-red-800">Gearchiveerd</Badge>
-      default:
-        return <Badge className="bg-orange-100 text-orange-800">{status || "Onbekend"}</Badge>
-    }
-  }
-
-  const getReviewStatusBadge = (reviewStatus: string) => {
-    switch (reviewStatus) {
-      case "pending":
         return (
-          <Badge variant="outline" className="text-yellow-600 border-yellow-300">
-            In afwachting
-          </Badge>
-        )
-      case "approved":
-        return (
-          <Badge variant="outline" className="text-green-600 border-green-300">
-            Goedgekeurd
-          </Badge>
-        )
-      case "rejected":
-        return (
-          <Badge variant="outline" className="text-red-600 border-red-300">
-            Afgewezen
+          <Badge className="bg-red-100 text-red-800 border-red-200">
+            <Archive className="w-3 h-3 mr-1" />
+            Gearchiveerd
           </Badge>
         )
       default:
-        return <Badge variant="outline">{reviewStatus || "Onbekend"}</Badge>
+        return (
+          <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+            <XCircle className="w-3 h-3 mr-1" />
+            {status || "Onbekend"}
+          </Badge>
+        )
     }
   }
 
@@ -136,43 +186,61 @@ export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTable
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Zoek op titel, locatie, bedrijf..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Status filter" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle statussen</SelectItem>
-            <SelectItem value="new">Nieuw</SelectItem>
-            <SelectItem value="active">Actief</SelectItem>
-            <SelectItem value="inactive">Inactief</SelectItem>
-            <SelectItem value="archived">Gearchiveerd</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={reviewStatusFilter} onValueChange={setReviewStatusFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Review status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle reviews</SelectItem>
-            <SelectItem value="pending">In afwachting</SelectItem>
-            <SelectItem value="approved">Goedgekeurd</SelectItem>
-            <SelectItem value="rejected">Afgewezen</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="text-sm text-gray-600 flex items-center">
-          {totalCount > 0 ? `${totalCount} vacatures gevonden` : "Geen vacatures gevonden"}
-        </div>
-      </div>
+      <TableFilters
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Zoek op vacaturetitel, locatie of bedrijf..."
+        totalCount={totalCount}
+        resultText="vacatures"
+        onResetFilters={() => {
+          setSearchTerm("")
+          setRegionFilter("all")
+          setSourceFilter("all")
+          setStatusFilter("all")
+          setCurrentPage(1)
+        }}
+        filters={[
+          {
+            id: "region",
+            label: "Regio",
+            value: regionFilter,
+            onValueChange: setRegionFilter,
+            options: [
+              { value: "all", label: "Alle regio's" },
+              { value: "none", label: "Geen regio" },
+              ...Array.from(new Set(regions.map(r => r.plaats)))
+                .sort((a, b) => a.localeCompare(b, 'nl'))
+                .map(plaats => ({ value: plaats, label: plaats }))
+            ],
+            placeholder: "Filter op regio"
+          },
+          {
+            id: "source",
+            label: "Bron",
+            value: sourceFilter,
+            onValueChange: setSourceFilter,
+            options: [
+              { value: "all", label: "Alle bronnen" },
+              ...jobSourceList.map(s => ({ value: s.id, label: s.name }))
+            ],
+            placeholder: "Filter op bron"
+          },
+          {
+            id: "status",
+            label: "Status",
+            value: statusFilter,
+            onValueChange: setStatusFilter,
+            options: [
+              { value: "all", label: "Alle statussen" },
+              { value: "new", label: "Nieuw" },
+              { value: "active", label: "Actief" },
+              { value: "inactive", label: "Inactief" },
+              { value: "archived", label: "Gearchiveerd" }
+            ],
+            placeholder: "Filter op status"
+          }
+        ]}
+      />
 
       {/* Table */}
       <div className="border rounded-lg">
@@ -182,38 +250,41 @@ export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTable
               <TableHead>Vacature</TableHead>
               <TableHead>Bedrijf</TableHead>
               <TableHead>Locatie</TableHead>
+              <TableHead>Regio</TableHead>
+              <TableHead>Salaris</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Platform</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Review</TableHead>
               <TableHead>Datum</TableHead>
               <TableHead className="w-[120px]">Acties</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              Array.from({ length: 5 }).map((_, index) => (
-                <TableRow key={index}>
-                  {Array.from({ length: 9 }).map((_, cellIndex) => (
-                    <TableCell key={cellIndex}>
-                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : jobPostings.length === 0 ? (
+              <TableSkeleton rows={5} columns={10} />
+            ) : filteredJobPostings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                   Geen vacatures gevonden
                 </TableCell>
               </TableRow>
             ) : (
-              jobPostings.map((job) => (
-                <TableRow key={job.id} className="hover:bg-orange-50">
+              filteredJobPostings.map((job) => (
+                <TableRow key={String(job.id ?? job.title ?? job.company_name ?? Math.random())} className="hover:bg-orange-50">
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="font-medium">{job.title}</div>
-                      {job.salary && <div className="text-xs text-gray-500">{job.salary}</div>}
+                      <div className="font-medium flex items-center gap-2">
+                        {job.title}
+                      </div>
+                      {/* Badge met bron/platform onder de functietitel, zelfde stijl als /companies */}
+                      {(() => {
+                        const sourceName: string | undefined = getJobSourceName(job);
+                        return sourceName ? (
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {sourceName}
+                          </Badge>
+                        ) : undefined;
+                      })()}
+                      {job.salary && <div className="text-xs text-gray-500 md:hidden">{job.salary}</div>}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -226,14 +297,21 @@ export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTable
                         />
                       )}
                       <div>
-                        <button
-                          onClick={() => handleCompanyClick(job)}
-                          className="text-orange-600 hover:text-orange-800 hover:underline font-medium"
-                        >
-                          {job.company_name}
-                        </button>
+                        {job.company_website ? (
+                          <a
+                            href={job.company_website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-orange-600 hover:text-orange-800 hover:underline font-medium"
+                          >
+                            {job.company_name}
+                          </a>
+                        ) : (
+                          <span className="font-medium">{job.company_name}</span>
+                        )}
                         {job.is_customer && (
-                          <Badge variant="outline" className="ml-1 text-xs">
+                          <Badge className="bg-green-100 text-green-800 border-green-200 ml-1 text-xs">
+                            <Crown className="w-3 h-3 mr-1" />
                             Klant
                           </Badge>
                         )}
@@ -243,6 +321,7 @@ export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTable
                             {job.company_rating}
                           </div>
                         )}
+                        {/* Verwijder de bron-badge hier */}
                       </div>
                     </div>
                   </TableCell>
@@ -254,25 +333,31 @@ export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTable
                       )}
                     </div>
                   </TableCell>
+                  <TableCell>{job.region || "Onbekend"}</TableCell>
                   <TableCell>
-                    {job.job_type && (
-                      <Badge variant="outline" className="text-xs">
-                        {job.job_type}
-                      </Badge>
-                    )}
+                    {job.salary && <span>{job.salary}</span>}
                   </TableCell>
-                  <TableCell>{job.platform}</TableCell>
+                  <TableCell>
+                    {job.job_type && Array.isArray(job.job_type)
+                      ? job.job_type.map((type, idx) => (
+                          <Badge key={type + idx} variant="outline" className="text-xs mr-1">
+                            {type}
+                          </Badge>
+                        ))
+                      : job.job_type &&
+                        job.job_type
+                          .split(/[\/,|]+|\s+/)
+                          .filter((t) => t && t.trim() !== "")
+                          .map((type, idx) => (
+                            <Badge key={type + idx} variant="outline" className="text-xs mr-1">
+                              {type}
+                            </Badge>
+                          ))}
+                  </TableCell>
                   <TableCell>{getStatusBadge(job.status)}</TableCell>
-                  <TableCell>{getReviewStatusBadge(job.review_status)}</TableCell>
                   <TableCell className="text-sm text-gray-600">{formatDate(job.scraped_at)}</TableCell>
                   <TableCell>
                     <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="w-4 h-4 text-gray-500" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="w-4 h-4 text-gray-500" />
-                      </Button>
                       {job.url && (
                         <Button variant="ghost" size="sm" asChild>
                           <a href={job.url} target="_blank" rel="noopener noreferrer">
@@ -290,31 +375,19 @@ export function JobPostingsTable({ onCompanyClick = () => {} }: JobPostingsTable
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-600">
-          Pagina {currentPage} van {totalPages} ({totalCount} totaal)
-        </p>
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Vorige
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-          >
-            Volgende
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      {!loading && filteredJobPostings.length > 0 && (
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newItemsPerPage) => {
+            setItemsPerPage(newItemsPerPage)
+            setCurrentPage(1)
+          }}
+        />
+      )}
     </div>
   )
 }

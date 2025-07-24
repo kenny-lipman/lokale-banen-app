@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe } from "lucide-react"
+import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive } from "lucide-react"
 
 interface Company {
   id: string
@@ -20,6 +20,7 @@ interface Company {
   size_max?: number | null
   is_customer?: boolean | null
   source?: string | null
+  source_name?: string | null
   job_count: number
   recent_jobs: Array<{
     id: string
@@ -28,7 +29,7 @@ interface Company {
     status: string
     review_status: string
     created_at: string
-    job_type?: string
+    job_type?: string | string[]
     salary?: string
   }>
 }
@@ -53,13 +54,40 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "new":
-        return <Badge className="bg-blue-100 text-blue-800">Nieuw</Badge>
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Nieuw
+          </Badge>
+        )
       case "active":
-        return <Badge className="bg-green-100 text-green-800">Actief</Badge>
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-200">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Actief
+          </Badge>
+        )
       case "inactive":
-        return <Badge className="bg-gray-100 text-gray-800">Inactief</Badge>
+        return (
+          <Badge className="bg-gray-100 text-gray-800 border-gray-200">
+            <Clock className="w-3 h-3 mr-1" />
+            Inactief
+          </Badge>
+        )
+      case "archived":
+        return (
+          <Badge className="bg-red-100 text-red-800 border-red-200">
+            <Archive className="w-3 h-3 mr-1" />
+            Gearchiveerd
+          </Badge>
+        )
       default:
-        return <Badge className="bg-orange-100 text-orange-800">{status}</Badge>
+        return (
+          <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            {status}
+          </Badge>
+        )
     }
   }
 
@@ -91,7 +119,12 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <SheetTitle className="text-xl">{company.name}</SheetTitle>
-                {company.is_customer && <Badge className="bg-green-100 text-green-800">Klant</Badge>}
+                {company.is_customer && (
+                  <Badge className="bg-green-100 text-green-800 border-green-200">
+                    <Crown className="w-3 h-3 mr-1" />
+                    Klant
+                  </Badge>
+                )}
               </div>
               <SheetDescription>Bedrijfsdetails en vacatures</SheetDescription>
             </div>
@@ -158,7 +191,9 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               </div>
             )}
 
-            {company.source && <div className="text-xs text-gray-500">Bron: {company.source}</div>}
+            {company.source && (
+              <div className="text-xs text-gray-500">Bron: {company.source_name || company.source}</div>
+            )}
           </div>
 
           {/* Description */}
@@ -200,11 +235,21 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {job.job_type && (
-                            <Badge variant="outline" className="text-xs">
-                              {job.job_type}
-                            </Badge>
-                          )}
+                          {job.job_type && Array.isArray(job.job_type)
+                            ? job.job_type.map((type, idx) => (
+                                <Badge key={type + idx} variant="outline" className="text-xs mr-1">
+                                  {type}
+                                </Badge>
+                              ))
+                            : job.job_type &&
+                              job.job_type
+                                .split(/[\/,|]+|\s+/)
+                                .filter((t) => t && t.trim() !== "")
+                                .map((type, idx) => (
+                                  <Badge key={type + idx} variant="outline" className="text-xs mr-1">
+                                    {type}
+                                  </Badge>
+                                ))}
                         </TableCell>
                         <TableCell className="text-sm">{job.location}</TableCell>
                         <TableCell>{getStatusBadge(job.status)}</TableCell>
@@ -219,8 +264,6 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
 
           {/* Actions */}
           <div className="flex space-x-3 pt-4 border-t">
-            <Button className="bg-orange-500 hover:bg-orange-600">Bewerk Bedrijf</Button>
-            <Button variant="outline">Bekijk Alle Vacatures</Button>
             {company.indeed_url && (
               <Button variant="outline" asChild>
                 <a href={company.indeed_url} target="_blank" rel="noopener noreferrer">

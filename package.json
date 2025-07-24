@@ -1,12 +1,13 @@
 {
-  "name": "my-v0-project",
+  "name": "lokale-banen-web-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "dev": "NODE_OPTIONS='--no-warnings' next dev",
     "build": "next build",
-    "dev": "next dev",
+    "start": "next start",
     "lint": "next lint",
-    "start": "next start"
+    "clear-cache": "rm -rf .next/cache && echo 'Next.js cache cleared successfully'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -64,6 +65,8 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.31.0",
+    "eslint-config-next": "15.4.2",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"

@@ -2,23 +2,24 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, Users, Star, TrendingUp } from "lucide-react"
+import { Building2, Users, TrendingUp } from "lucide-react"
 import { supabaseService } from "@/lib/supabase-service"
 
 interface CompanyStatsData {
   totalCompanies: number
   customerCompanies: number
-  averageRating: number
   companiesWithJobs: number
   topCompanies: Array<{
     name: string
     job_count: number
     rating_indeed?: number
   }>
+  statusCounts?: Record<string, number>
 }
 
-export function CompanyStats() {
+export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
   const [stats, setStats] = useState<CompanyStatsData | null>(null)
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,15 +27,21 @@ export function CompanyStats() {
       try {
         const data = await supabaseService.getCompanyStats()
         setStats(data)
+        // Haal status counts op
+        if (supabaseService.getCompanyStatusCounts) {
+          const statusData = await supabaseService.getCompanyStatusCounts()
+          setStatusCounts(statusData)
+        } else if (data.statusCounts) {
+          setStatusCounts(data.statusCounts)
+        }
       } catch (error) {
         console.error("Error fetching company stats:", error)
       } finally {
         setLoading(false)
       }
     }
-
     fetchStats()
-  }, [])
+  }, [refreshKey])
 
   if (loading) {
     return (
@@ -58,7 +65,7 @@ export function CompanyStats() {
   if (!stats) return null
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Totaal Bedrijven</CardTitle>
@@ -72,38 +79,26 @@ export function CompanyStats() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Klanten</CardTitle>
-          <Users className="h-4 w-4 text-orange-500" />
+          <CardTitle className="text-sm font-medium">Status per bedrijf</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.customerCompanies.toLocaleString()}</div>
-          <p className="text-xs text-gray-600">
-            {stats.totalCompanies > 0
-              ? `${Math.round((stats.customerCompanies / stats.totalCompanies) * 100)}% van totaal`
-              : "0% van totaal"}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Gemiddelde Rating</CardTitle>
-          <Star className="h-4 w-4 text-orange-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating.toFixed(1) : "N/A"}</div>
-          <p className="text-xs text-gray-600">Indeed reviews</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Actieve Bedrijven</CardTitle>
-          <TrendingUp className="h-4 w-4 text-orange-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.companiesWithJobs.toLocaleString()}</div>
-          <p className="text-xs text-gray-600">Met vacatures</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded-full bg-gray-400"></span>
+              <span className="text-sm">Prospect:</span>
+              <span className="font-bold">{statusCounts["Prospect"] || 0}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
+              <span className="text-sm">Qualified:</span>
+              <span className="font-bold">{statusCounts["Qualified"] || 0}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded-full bg-red-500"></span>
+              <span className="text-sm">Disqualified:</span>
+              <span className="font-bold">{statusCounts["Disqualified"] || 0}</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
