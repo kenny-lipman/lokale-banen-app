@@ -479,6 +479,7 @@ export type Database = {
           campaign_id: string | null
           campaign_name: string | null
           company_id: string | null
+          company_status: string | null
           created_at: string | null
           email: string | null
           email_status: string | null
@@ -492,6 +493,7 @@ export type Database = {
           name: string | null
           phone: string | null
           source: string | null
+          status: string | null
           title: string | null
         }
         Insert: {
@@ -499,6 +501,7 @@ export type Database = {
           campaign_id?: string | null
           campaign_name?: string | null
           company_id?: string | null
+          company_status?: string | null
           created_at?: string | null
           email?: string | null
           email_status?: string | null
@@ -512,6 +515,7 @@ export type Database = {
           name?: string | null
           phone?: string | null
           source?: string | null
+          status?: string | null
           title?: string | null
         }
         Update: {
@@ -519,6 +523,7 @@ export type Database = {
           campaign_id?: string | null
           campaign_name?: string | null
           company_id?: string | null
+          company_status?: string | null
           created_at?: string | null
           email?: string | null
           email_status?: string | null
@@ -532,6 +537,7 @@ export type Database = {
           name?: string | null
           phone?: string | null
           source?: string | null
+          status?: string | null
           title?: string | null
         }
         Relationships: [

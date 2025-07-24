@@ -128,14 +128,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // First, try to get the current session
-        const { data: { session }, error: sessionError } = await supabaseService.client.auth.getSession()
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Auth initialization timeout')), 10000) // 10 second timeout
+        })
+
+        // First, try to get the current session with timeout
+        const sessionPromise = supabaseService.client.auth.getSession()
+        const { data: { session }, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise]) as any
         
         if (!mounted) return
 
         if (sessionError) {
           console.error('Session error:', sessionError)
-          setAuthState('ERROR')
+          // Don't set error state for session errors, just set as unauthenticated
+          setAuthState('UNAUTHENTICATED')
           setLoading(false)
           return
         }
@@ -171,7 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Auth initialization error:', error)
         if (mounted) {
-          setAuthState('ERROR')
+          // Don't set error state for general errors, just set as unauthenticated
+          setAuthState('UNAUTHENTICATED')
           setLoading(false)
         }
       }

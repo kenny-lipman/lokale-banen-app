@@ -984,7 +984,222 @@ export class SupabaseService {
     }
   }
 
-  // Get all contacts with company info
+  // Get contacts with server-side pagination and filtering
+  // Helper method to apply contact filters consistently
+  private applyContactFilters(
+    query: any,
+    filters: {
+      search?: string
+      hoofddomein?: string[]
+      size?: string[]
+      campaign?: 'all' | 'with' | 'without'
+      status?: string[]
+      source?: string[]
+      start?: string[]
+      statusCampagne?: string[]
+      statusBedrijf?: string[]
+    }
+  ) {
+    // Apply search filter with proper text search
+    if (filters.search && filters.search.trim() !== "") {
+      const searchTerm = filters.search.trim()
+      query = query.or(
+        `first_name.ilike.%${searchTerm}%,` +
+        `last_name.ilike.%${searchTerm}%,` +
+        `name.ilike.%${searchTerm}%,` +
+        `email.ilike.%${searchTerm}%,` +
+        `title.ilike.%${searchTerm}%,` +
+        `company_name.ilike.%${searchTerm}%`
+      )
+    }
+
+    // Apply region filter (hoofddomein)
+    if (filters.hoofddomein && filters.hoofddomein.length > 0) {
+      query = query.in('company_region', filters.hoofddomein)
+    }
+
+    // Apply campaign filter
+    if (filters.campaign && filters.campaign !== 'all') {
+      if (filters.campaign === 'with') {
+        query = query.not('campaign_name', 'is', null).not('campaign_name', 'eq', '')
+      } else if (filters.campaign === 'without') {
+        query = query.or('campaign_name.is.null,campaign_name.eq.')
+      }
+    }
+
+    // Apply status filter
+    if (filters.status && filters.status.length > 0) {
+      query = query.in('company_status', filters.status)
+    }
+
+    // Apply size filter
+    if (filters.size && filters.size.length > 0) {
+      query = query.in('category_size', filters.size)
+    }
+
+    // Apply company status filter (Status Bedrijf PH)
+    if (filters.statusBedrijf && filters.statusBedrijf.length > 0) {
+      query = query.in('klant_status', filters.statusBedrijf)
+    }
+
+    // Apply source filter
+    if (filters.source && filters.source.length > 0) {
+      query = query.in('source_name', filters.source)
+    }
+
+    // Apply start filter
+    if (filters.start && filters.start.length > 0) {
+      query = query.in('start', filters.start)
+    }
+
+    // Apply campaign status filter (Status campagne)
+    if (filters.statusCampagne && filters.statusCampagne.length > 0) {
+      query = query.in('company_status_field', filters.statusCampagne)
+    }
+
+    return query
+  }
+
+  async getContactsPaginated(
+    page: number = 1,
+    limit: number = 15,
+    filters: {
+      search?: string
+      hoofddomein?: string[]
+      size?: string[]
+      campaign?: 'all' | 'with' | 'without'
+      status?: string[]
+      source?: string[]
+      start?: string[]
+      statusCampagne?: string[]
+      statusBedrijf?: string[]
+    } = {}
+  ) {
+    try {
+      console.log("Starting optimized getContactsPaginated with filters:", filters)
+      
+      // First, get the total count with filters to validate pagination
+      let countQuery = this.client
+        .from("contacts_optimized")
+        .select("*", { count: 'exact', head: true })
+
+      // Apply all filters to count query
+      countQuery = this.applyContactFilters(countQuery, filters)
+      
+      const { count: totalCount, error: countError } = await countQuery
+      
+      if (countError) {
+        console.error("Error getting total count:", countError)
+        throw new Error(`Database error: ${countError.message}`)
+      }
+
+      // Calculate safe pagination values
+      const safeTotalCount = totalCount || 0
+      const maxPage = Math.ceil(safeTotalCount / limit)
+      const safePage = Math.max(1, Math.min(page, maxPage || 1))
+      const offset = (safePage - 1) * limit
+      
+      console.log(`Pagination: requested page ${page}, safe page ${safePage}, total count ${safeTotalCount}, max page ${maxPage}`)
+      
+      // Build the data query using the optimized view
+      let query = this.client
+        .from("contacts_optimized")
+        .select("*")
+        .order("last_touch", { ascending: false, nullsLast: true })
+        .range(offset, offset + limit - 1)
+
+      // Apply all filters to data query
+      query = this.applyContactFilters(query, filters)
+
+      // Execute the query
+      const { data, error } = await query
+
+      if (error) {
+        console.error("Error fetching paginated contacts:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log(`Fetched ${data?.length || 0} contacts from optimized view (page ${safePage}, limit ${limit})`)
+
+      const totalPages = Math.max(1, Math.ceil(safeTotalCount / limit))
+
+      return {
+        data: data || [],
+        count: safeTotalCount,
+        totalPages,
+        currentPage: safePage,
+        requestedPage: page
+      }
+    } catch (error) {
+      console.error("Error in getContactsPaginated:", error)
+      throw error
+    }
+  }
+
+  // Get contact statistics for dashboard cards
+  async getContactStats() {
+    try {
+      console.log("Getting contact statistics...")
+      
+      // Get total count
+      const { count: totalCount, error: countError } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+      
+      if (countError) {
+        console.error("Error getting total count:", countError)
+        throw new Error(`Count error: ${countError.message}`)
+      }
+
+      // Get campaign statistics server-side
+      const { data: campaignStats, error: campaignError } = await this.client
+        .from("contacts")
+        .select("campaign_name")
+        .or('campaign_name.is.null,campaign_name.eq.')
+
+      if (campaignError) {
+        console.error("Error getting campaign stats:", campaignError)
+        throw new Error(`Campaign stats error: ${campaignError.message}`)
+      }
+
+      // Calculate statistics server-side
+      const contactsWithoutCampaign = campaignStats?.length || 0
+      const contactsWithCampaign = (totalCount || 0) - contactsWithoutCampaign
+
+      // Get regions for unique regions list
+      let regions: any[] = [];
+      try {
+        const { data: regionsData, error: regionsError } = await this.client.from("regions").select("id, plaats, regio_platform");
+        if (regionsError) {
+          console.error("Error fetching regions:", regionsError.message, regionsError)
+        } else {
+          regions = regionsData || [];
+          console.log(`Fetched ${regions.length} regions for mapping`)
+        }
+      } catch (error) {
+        console.error("Failed to fetch regions:", error instanceof Error ? error.message : String(error))
+      }
+
+      // Extract unique region platforms
+      const uniqueRegions = Array.from(new Set(
+        regions
+          .map((r: any) => r.regio_platform)
+          .filter((r: string): r is string => typeof r === "string" && r.trim() !== "")
+      ))
+
+      return {
+        totalContacts: totalCount || 0,
+        contactsWithCampaign,
+        contactsWithoutCampaign,
+        uniqueRegions
+      }
+    } catch (error) {
+      console.error("Error in getContactStats:", error)
+      throw error
+    }
+  }
+
+  // Get all contacts with company info (legacy method - kept for backward compatibility)
   async getContacts() {
     try {
       console.log("Starting getContacts - fetching ALL contacts using pagination...")
@@ -1020,7 +1235,7 @@ export class SupabaseService {
         
         const { data, error } = await this.client
           .from("contacts")
-          .select("*, companies(id, name, size_min, size_max, location, status, category_size)")
+          .select("*, companies(id, name, website, size_min, size_max, location, status, category_size, enrichment_status, start, \"Klant Status company field\")")
           .order("last_touch", { ascending: false })
           .range(startIndex, endIndex)
         
@@ -1321,6 +1536,129 @@ export class SupabaseService {
     } catch (error) {
       console.error("Error fetching company status counts:", error)
       return { Prospect: 0, Qualified: 0, Disqualified: 0 }
+    }
+  }
+
+  // Get contact statistics using the materialized view
+  async getContactStatsOptimized() {
+    try {
+      console.log("Getting contact statistics from materialized view...")
+      
+      const { data, error } = await this.client
+        .from("contacts_stats")
+        .select("*")
+        .single()
+      
+      if (error) {
+        console.error("Error fetching contact stats:", error)
+        // Fallback to manual calculation if materialized view fails
+        return await this.getContactStats()
+      }
+      
+      return {
+        totalContacts: data?.total_contacts || 0,
+        contactsWithCampaign: data?.contacts_with_campaign || 0,
+        contactsWithoutCampaign: data?.contacts_without_campaign || 0,
+        uniqueRegions: data?.unique_regions || 0,
+        uniqueSizes: data?.unique_sizes || 0,
+        uniqueStatuses: data?.unique_statuses || 0
+      }
+    } catch (error) {
+      console.error("Error in getContactStatsOptimized:", error)
+      // Return default values instead of throwing
+      return {
+        totalContacts: 0,
+        contactsWithCampaign: 0,
+        contactsWithoutCampaign: 0,
+        uniqueRegions: 0,
+        uniqueSizes: 0,
+        uniqueStatuses: 0
+      }
+    }
+  }
+
+  // Optimized contact search - using the working getContactsPaginated method
+  async searchContactsOptimized(
+    page: number = 1,
+    limit: number = 15,
+    filters: {
+      search?: string
+      hoofddomein?: string[]
+      size?: string[]
+      campaign?: 'all' | 'with' | 'without'
+      status?: string[]
+      source?: string[]
+      start?: string[]
+      statusCampagne?: string[]
+      statusBedrijf?: string[]
+    } = {}
+  ) {
+    try {
+      console.log("Starting optimized contact search with filters:", filters)
+      
+      // Use the working getContactsPaginated method directly
+      const result = await this.getContactsPaginated(page, limit, filters)
+      
+      console.log(`Optimized search returned ${result?.data?.length || 0} contacts`)
+      
+      return result
+    } catch (error) {
+      console.error("Error in searchContactsOptimized:", error)
+      // Return empty result instead of throwing
+      return {
+        data: [],
+        count: 0,
+        totalPages: 1
+      }
+    }
+  }
+
+  // Get all available filter options for contacts
+  async getContactFilterOptions() {
+    try {
+      console.log("Getting contact filter options...")
+      
+      // Get all unique values for each filter field
+      const { data: sizeData, error: sizeError } = await this.client
+        .from("contacts_optimized")
+        .select("category_size")
+        .not("category_size", "is", null)
+        .not("category_size", "eq", "")
+      
+      const { data: bedrijfStatusData, error: bedrijfStatusError } = await this.client
+        .from("contacts_optimized")
+        .select("company_status_field")
+        .not("company_status_field", "is", null)
+        .not("company_status_field", "eq", "")
+      
+      const { data: campagneStatusData, error: campagneStatusError } = await this.client
+        .from("contacts_optimized")
+        .select("klant_status")
+        .not("klant_status", "is", null)
+        .not("klant_status", "eq", "")
+      
+      if (sizeError || bedrijfStatusError || campagneStatusError) {
+        console.error("Error fetching filter options:", { sizeError, bedrijfStatusError, campagneStatusError })
+        throw new Error("Failed to fetch filter options")
+      }
+      
+      // Extract unique values
+      const sizes = Array.from(new Set((sizeData || []).map((item: any) => item.category_size)))
+      const bedrijfStatuses = Array.from(new Set((bedrijfStatusData || []).map((item: any) => item.company_status_field)))
+      const campagneStatuses = Array.from(new Set((campagneStatusData || []).map((item: any) => item.klant_status)))
+      
+      return {
+        sizes: sizes.sort(),
+        bedrijfStatuses: bedrijfStatuses.sort(),
+        campagneStatuses: campagneStatuses.sort()
+      }
+    } catch (error) {
+      console.error("Error in getContactFilterOptions:", error)
+      return {
+        sizes: [],
+        bedrijfStatuses: [],
+        campagneStatuses: []
+      }
     }
   }
 }

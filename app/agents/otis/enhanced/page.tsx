@@ -434,15 +434,15 @@ export default function SimplifiedOtisDashboard() {
             }
             return job
           }))
+          
+          // Load all contacts for this run AFTER the detailed results are set
+          await loadAllContactsForCurrentRun()
         }
       } catch (error) {
         console.error('Error loading run results:', error)
         // Fallback to refreshResults if the run endpoint fails
         await refreshResults(newJob.id)
       }
-      
-      // Load all contacts for this run
-      await loadAllContactsForCurrentRun()
       
       // Start background polling for this existing run
       startBackgroundResultsPolling(newJob.id)
@@ -531,6 +531,9 @@ export default function SimplifiedOtisDashboard() {
         }
         return job
       }))
+      
+      // Load contacts after updating the scraping results
+      await loadAllContactsForCurrentRun()
       
       toast({
         title: "Results Refreshed",
@@ -1102,38 +1105,86 @@ export default function SimplifiedOtisDashboard() {
 
   // Load all contacts for the current run's companies
   const loadAllContactsForCurrentRun = async () => {
+    console.log('🔄 loadAllContactsForCurrentRun called')
     try {
       // Get the current scraping job
       const currentJob = scrapingJobs[0]
       if (!currentJob?.apifyRunId) {
-        console.log('No current run with apifyRunId found')
+        console.log('❌ No current run with apifyRunId found')
         return
       }
 
-      console.log('Loading all contacts for current run:', currentJob.apifyRunId)
+      console.log('✅ Loading all contacts for current run:', currentJob.apifyRunId)
       
       // Get all company IDs from the current run
-      const companyIds = currentJob.detailedResults?.companies?.map(c => c.id) || []
+      let companyIds = currentJob.detailedResults?.companies?.map(c => c.id) || []
+      
+      // If no companies in detailedResults, try to get them from the database directly
+      if (companyIds.length === 0) {
+        console.log('No companies in detailedResults, fetching from database...')
+        try {
+          const response = await fetch(`/api/otis/scraping-results/run/${currentJob.apifyRunId}`)
+          if (response.ok) {
+            const runResults = await response.json()
+            if (runResults.success && runResults.data?.companies) {
+              companyIds = runResults.data.companies.map((c: any) => c.id)
+              console.log('Fetched company IDs from database:', companyIds.length)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching companies from database:', error)
+        }
+      }
+      
       if (companyIds.length === 0) {
         console.log('No companies found in current run')
         return
       }
 
+      console.log('Fetching contacts for company IDs:', companyIds.slice(0, 5), '... (total:', companyIds.length, ')')
+
       // Fetch contacts for all companies in the current run
-      const response = await fetch('/api/contacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyIds })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch contacts')
-      }
-
-      const result = await response.json()
-      console.log('All contacts API result:', result)
+      let result = null
       
-              if (result && Array.isArray(result)) {
+      try {
+        const response = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyIds })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch contacts')
+        }
+
+        result = await response.json()
+        console.log('All contacts API result:', result)
+        console.log('Result type:', typeof result, 'Is array:', Array.isArray(result))
+        console.log('Result length:', result?.length)
+      } catch (error) {
+        console.error('Error fetching contacts via /api/contacts:', error)
+        
+        // Fallback: try the otis contacts endpoint
+        try {
+          console.log('Trying fallback to /api/otis/contacts...')
+          const fallbackResponse = await fetch(`/api/otis/contacts?apifyRunId=${currentJob.apifyRunId}`)
+          if (fallbackResponse.ok) {
+            const fallbackResult = await fallbackResponse.json()
+            if (fallbackResult.success && fallbackResult.data?.contacts) {
+              result = fallbackResult.data.contacts
+              console.log('Fallback successful, got contacts:', result.length)
+            }
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError)
+        }
+      }
+      
+      if (result && Array.isArray(result)) {
+        console.log('✅ Got contacts result, processing...')
+      }
+      
+      if (result && Array.isArray(result)) {
           // Create a single enrichment job entry with all contacts
           const enrichmentJob: EnrichmentJob = {
             id: `all_contacts_${currentJob.apifyRunId}`,
@@ -1157,8 +1208,9 @@ export default function SimplifiedOtisDashboard() {
             }))
         }
         
-        console.log('Setting all contacts enrichment job:', enrichmentJob)
+        console.log('✅ Setting all contacts enrichment job:', enrichmentJob)
         setEnrichmentJobs([enrichmentJob])
+        console.log('✅ Contacts set in state, should now appear in UI')
       }
     } catch (error) {
       console.error('Error loading all contacts:', error)

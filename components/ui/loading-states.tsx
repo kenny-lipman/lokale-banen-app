@@ -56,14 +56,19 @@ export function Skeleton({ className = "", lines = 1 }: SkeletonProps) {
   )
 }
 
-export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+export function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
   return (
-    <div className="animate-pulse">
-      <div className="h-10 bg-gray-200 rounded mb-4" />
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-12 bg-gray-100 rounded mb-2" />
+    <>
+      {Array.from({ length: rows }).map((_, rowIndex) => (
+        <tr key={rowIndex} className="animate-pulse">
+          {Array.from({ length: columns }).map((_, colIndex) => (
+            <td key={colIndex} className="p-4">
+              <div className="h-4 bg-gray-200 rounded" style={{ width: `${Math.random() * 40 + 60}%` }} />
+            </td>
+          ))}
+        </tr>
       ))}
-    </div>
+    </>
   )
 }
 

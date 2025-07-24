@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { supabaseService } from "@/lib/supabase-service"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { useContactsCache } from "@/hooks/use-contacts-cache"
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Building2, Users, Crown, Target } from "lucide-react";
+import { useContactsPaginated, useContactStats } from "@/hooks/use-contacts-paginated"
+import { useDebounce } from "@/hooks/use-debounce"
+import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle, XCircle, AlertCircle, Building2, Users, Crown, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TableFilters, TablePagination } from "@/components/ui/table-filters";
 
@@ -17,45 +18,185 @@ interface Contact {
   id: string
   company_id: string | null
   first_name: string | null
+  last_name: string | null
   name: string | null
   title: string | null
   email: string | null
+  email_status: string | null
   linkedin_url: string | null
   source: string | null
   found_at: string | null
   last_touch: string | null
   created_at: string | null
-  companies?: {
-    name: string | null
-    location: string | null
-    size_min?: number
-    size_max?: number
-    category_size?: string | null
-    status?: string | null
-  }
-  campaign_name?: string | null
-  company_status?: string | null
-  company_source_name?: string | null
-  company_region?: string | null
+  campaign_id: string | null
+  campaign_name: string | null
+  phone: string | null
+  instantly_id: string | null
+  apollo_id: string | null
+  status: string | null
+  company_status: string | null
+  // Company data from optimized view
+  company_name: string | null
+  company_location: string | null
+  size_min: number | null
+  size_max: number | null
+  category_size: string | null
+  company_status_field: string | null
+  klant_status: string | null
+  start: string | null
+  website: string | null
+  company_phone: string | null
+  company_linkedin: string | null
+  company_region: string | null
+  source_name: string | null
+  enrichment_status: string | null
+  // Additional fields from job_postings mapping
+  region_id: string | null
+  source_id: string | null
 }
 
 export default function ContactsPage() {
-  const { data: contacts, loading, error, refetch } = useContactsCache()
+  console.log('ContactsPage: Component rendering...')
+  
   const [selected, setSelected] = useState<string[]>([])
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
-  const [hoofddomeinFilter, setHoofddomeinFilter] = useState<string>("all")
-  const [sizeFilter, setSizeFilter] = useState<string>("all")
+  const [selectionScope, setSelectionScope] = useState<'page' | 'all'>('page')
+  const [hoofddomeinFilter, setHoofddomeinFilter] = useState<string[]>([])
+  const [sizeFilter, setSizeFilter] = useState<string[]>([])
   const [instantlyCampaigns, setInstantlyCampaigns] = useState<{ id: string, name: string }[]>([]);
-  const [campaignFilter, setCampaignFilter] = useState<'all' | 'with' | 'without'>('all');
+  const [campaignFilter, setCampaignFilter] = useState<string[]>(['all']);
   const [regions, setRegions] = useState<{ id: string, plaats: string, regio_platform: string }[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
+  const [startFilter, setStartFilter] = useState<string[]>([]);
+  const [statusCampagneFilter, setStatusCampagneFilter] = useState<string[]>([]);
+  const [statusBedrijfFilter, setStatusBedrijfFilter] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sources, setSources] = useState<{ id: string, name: string }[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [addingToCampaign, setAddingToCampaign] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  // State for all available filter options (independent of current filters)
+  const [allAvailableSizes, setAllAvailableSizes] = useState<string[]>([]);
+  const [allAvailableBedrijfStatuses, setAllAvailableBedrijfStatuses] = useState<string[]>([]);
+  const [allAvailableCampagneStatuses, setAllAvailableCampagneStatuses] = useState<string[]>([]);
+
+  // Debounced search query for better performance
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Reset page to 1 when filters change (additional safety measure)
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [
+    JSON.stringify(hoofddomeinFilter),
+    JSON.stringify(sizeFilter), 
+    JSON.stringify(campaignFilter),
+    JSON.stringify(statusFilter),
+    JSON.stringify(sourceFilter),
+    JSON.stringify(startFilter),
+    JSON.stringify(statusCampagneFilter),
+    JSON.stringify(statusBedrijfFilter),
+    debouncedSearchQuery
+  ])
+
+  // Build filters object for server-side pagination
+  const filters = {
+    search: debouncedSearchQuery,
+    hoofddomein: hoofddomeinFilter,
+    size: sizeFilter,
+    campaign: campaignFilter.length > 0 ? campaignFilter[0] as 'all' | 'with' | 'without' : 'all',
+    status: statusFilter,
+    source: sourceFilter,
+    start: startFilter,
+    statusCampagne: statusCampagneFilter,
+    statusBedrijf: statusBedrijfFilter,
+  }
+
+  const { data: contacts, loading, error, count, totalPages: serverTotalPages, currentPage: actualPage, refetch } = useContactsPaginated(
+    currentPage, 
+    itemsPerPage, 
+    filters,
+    (newPage) => setCurrentPage(newPage)
+  )
+
+  // Use optimized contact statistics hook
+  const { stats: contactStats, loading: statsLoading } = useContactStats()
+
+  // Handler functions for multiple select filters
+  const handleHoofddomeinFilterChange = (value: string) => {
+    setHoofddomeinFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
+
+  const handleSizeFilterChange = (value: string) => {
+    setSizeFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
+
+  const handleSourceFilterChange = (value: string) => {
+    setSourceFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
+
+  const handleStartFilterChange = (value: string) => {
+    setStartFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
+
+  const handleStatusBedrijfFilterChange = (value: string) => {
+    setStatusBedrijfFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
+
+  const handleStatusCampagneFilterChange = (value: string) => {
+    setStatusCampagneFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
+
+  const handleCampaignFilterChange = (value: string) => {
+    setCampaignFilter(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
+  };
 
   // Helper functions for consistent badge styling
   const getCompanySizeBadge = (size: string | null | undefined) => {
     if (!size) {
       return (
-        <Badge variant="outline" className="text-gray-600 text-xs">
+        <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
           <AlertCircle className="w-3 h-3 mr-1" />
-          Onbekend
+          -
         </Badge>
       )
     }
@@ -63,28 +204,28 @@ export default function ContactsPage() {
     switch (size) {
       case "Groot":
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
+          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
             <Building2 className="w-3 h-3 mr-1" />
             Groot
           </Badge>
         )
       case "Middel":
         return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
             <Users className="w-3 h-3 mr-1" />
             Middel
           </Badge>
         )
       case "Klein":
         return (
-          <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
+          <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs px-2 py-1">
             <AlertCircle className="w-3 h-3 mr-1" />
             Klein
           </Badge>
         )
       default:
         return (
-          <Badge variant="outline" className="text-gray-600 text-xs">
+          <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
             <AlertCircle className="w-3 h-3 mr-1" />
             {size}
           </Badge>
@@ -95,9 +236,9 @@ export default function ContactsPage() {
   const getStatusBadge = (status: string | null | undefined, isCompanyStatus = false) => {
     if (!status) {
       return (
-        <Badge variant="outline" className="text-gray-600">
+        <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
           <AlertCircle className="w-3 h-3 mr-1" />
-          {isCompanyStatus ? "Prospect" : "Onbekend"}
+          {isCompanyStatus ? "Prospect" : "-"}
         </Badge>
       )
     }
@@ -105,42 +246,156 @@ export default function ContactsPage() {
     switch (status.toLowerCase()) {
       case "qualified":
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-200">
+          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
             <CheckCircle className="w-3 h-3 mr-1" />
             Qualified
           </Badge>
         )
       case "disqualified":
         return (
-          <Badge className="bg-red-100 text-red-800 border-red-200">
+          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-2 py-1">
             <XCircle className="w-3 h-3 mr-1" />
             Disqualified
           </Badge>
         )
       case "prospect":
         return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
             <Target className="w-3 h-3 mr-1" />
             Prospect
           </Badge>
         )
       default:
         return (
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200">
+          <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-2 py-1">
             <AlertCircle className="w-3 h-3 mr-1" />
             {status}
           </Badge>
         )
     }
   }
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [startFilter, setStartFilter] = useState<string>("all");
-  const [statusCampagneFilter, setStatusCampagneFilter] = useState<string>("all");
-  const [sources, setSources] = useState<{ id: string, name: string }[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
-  const [addingToCampaign, setAddingToCampaign] = useState(false);
+
+  const getEmailStatusBadge = (emailStatus: string | null | undefined) => {
+    if (!emailStatus) {
+      return (
+        <Badge variant="outline" className="text-gray-500 text-xs px-2 py-1 border-gray-300">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Onbekend
+        </Badge>
+      )
+    }
+
+    switch (emailStatus.toLowerCase()) {
+      case "valid":
+      case "verified":
+      case "confirmed":
+        return (
+          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs px-2 py-1 font-medium">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Geldig
+          </Badge>
+        )
+      case "invalid":
+      case "bounced":
+      case "hard_bounce":
+      case "soft_bounce":
+        return (
+          <Badge className="bg-red-50 text-red-700 border-red-200 text-xs px-2 py-1 font-medium">
+            <XCircle className="w-3 h-3 mr-1" />
+            Ongeldig
+          </Badge>
+        )
+      case "pending":
+      case "checking":
+      case "verifying":
+        return (
+          <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs px-2 py-1 font-medium">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            In behandeling
+          </Badge>
+        )
+      case "unknown":
+      case "unverified":
+        return (
+          <Badge className="bg-slate-50 text-slate-600 border-slate-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Onbekend
+          </Badge>
+        )
+      case "disposable":
+      case "temp":
+        return (
+          <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-xs px-2 py-1 font-medium">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Tijdelijk
+          </Badge>
+        )
+      case "role":
+      case "generic":
+        return (
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-1 font-medium">
+            <Users className="w-3 h-3 mr-1" />
+            Generiek
+          </Badge>
+        )
+      default:
+        return (
+          <Badge className="bg-gray-50 text-gray-600 border-gray-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            {emailStatus}
+          </Badge>
+        )
+    }
+  }
+
+  const getEnrichmentStatusBadge = (enrichmentStatus: string | null | undefined) => {
+    if (!enrichmentStatus) {
+      return (
+        <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          -
+        </Badge>
+      )
+    }
+
+    switch (enrichmentStatus.toLowerCase()) {
+      case "completed":
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Completed
+          </Badge>
+        )
+      case "processing":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Processing
+          </Badge>
+        )
+      case "failed":
+        return (
+          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-2 py-1">
+            <XCircle className="w-3 h-3 mr-1" />
+            Failed
+          </Badge>
+        )
+      case "pending":
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        )
+      default:
+        return (
+          <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            {enrichmentStatus}
+          </Badge>
+        )
+    }
+  }
   // Haal Instantly campagnes op via eigen API route
   useEffect(() => {
     async function fetchInstantlyCampaigns() {
@@ -165,32 +420,64 @@ export default function ContactsPage() {
     supabaseService.getCompanySources().then((data) => {
       setSources(data || [])
     })
+    // Fetch all available filter options
+    supabaseService.getContactFilterOptions().then((data) => {
+      setAllAvailableSizes(data.sizes || [])
+      setAllAvailableBedrijfStatuses(data.bedrijfStatuses || [])
+      setAllAvailableCampagneStatuses(data.campagneStatuses || [])
+    })
   }, [])
 
   const toggleSelect = (id: string) => {
     // Vind het contact
-    const contact = filteredContacts.find((c: Contact) => c.id === id);
+    const contact = uniqueContacts.find((c: Contact) => c.id === id);
     // Alleen selecteren als het contact GEEN campagne heeft
     if (contact && (!contact.campaign_name || contact.campaign_name.trim() === '' || contact.campaign_name === null)) {
       setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
     }
   }
+  const selectPage = () => {
+    // Selecteer alleen contacten op de huidige pagina zonder campagne
+    const pageIds = getPageAvailableContacts().map((c: Contact) => c.id);
+    
+    const allPageSelected = pageIds.every((id: string) => selected.includes(id));
+    if (allPageSelected) {
+      // Deselecteer alle contacten op deze pagina
+      setSelected(prev => prev.filter((id: string) => !pageIds.includes(id)));
+    } else {
+      // Selecteer alle contacten op deze pagina
+      setSelected(prev => [...new Set([...prev, ...pageIds])]);
+    }
+  }
+
   const selectAll = () => {
-    // Alleen contacten zonder campagne selecteren
-    const ids = filteredContacts
-      .filter((c: Contact) => !c.campaign_name || c.campaign_name.trim() === '' || c.campaign_name === null)
-      .map((c: Contact) => c.id);
-    if (selected.length === ids.length) setSelected([]);
-    else setSelected(ids);
+    // Selecteer alle contacten zonder campagne (alle pagina's)
+    const allIds = getAvailableContacts().map((c: Contact) => c.id);
+    
+    const allSelected = allIds.every((id: string) => selected.includes(id));
+    if (allSelected) {
+      setSelected([]);
+    } else {
+      setSelected(allIds);
+    }
   }
 
   const { toast } = useToast();
+
+  // Helper function to get available contacts for selection
+  const getAvailableContacts = () => {
+    return uniqueContacts.filter((c: Contact) => !c.campaign_name || c.campaign_name.trim() === '' || c.campaign_name === null);
+  };
+
+  const getPageAvailableContacts = () => {
+    return uniqueContacts.filter((c: Contact) => !c.campaign_name || c.campaign_name.trim() === '' || c.campaign_name === null);
+  };
 
   const handleAddToCampaign = async () => {
     if (!selectedCampaign || selected.length === 0) return;
     
     // Controleer eerst of alle geselecteerde contacten een email hebben
-    const selectedContactsData = filteredContacts.filter((c: Contact) => selected.includes(c.id));
+    const selectedContactsData = uniqueContacts.filter((c: Contact) => selected.includes(c.id));
     const contactsWithoutEmail = selectedContactsData.filter((c: Contact) => !c.email || c.email.trim() === '');
     
     if (contactsWithoutEmail.length > 0) {
@@ -285,75 +572,84 @@ export default function ContactsPage() {
     }
   };
 
-  // Filter contacts client-side
-  const filteredContacts = (contacts ?? []).filter((c: Contact) => {
-    let hoofddomeinOk = true
-    let sizeOk = true
-    let campaignOk = true;
-    let statusOk = true;
-    let sourceOk = true;
-    let startOk = true;
-    let statusCampagneOk = true;
+  const handleBulkStatusUpdate = async () => {
+    if (!selectedStatus || selected.length === 0) return;
     
-    if (hoofddomeinFilter !== "all") {
-      if (hoofddomeinFilter === "none") {
-        hoofddomeinOk = !c.company_region || c.company_region === '';
+    setUpdatingStatus(true);
+    
+    toast({
+      title: "Bezig met bijwerken...",
+      description: `${selected.length} contacten worden bijgewerkt naar status "${selectedStatus}".`,
+    });
+    
+    try {
+      const res = await fetch("/api/contacts/status", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          contactIds: selected, 
+          status: selectedStatus 
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast({
+          title: "Status bijgewerkt! ✅",
+          description: `Status van ${selected.length} contacten succesvol bijgewerkt naar "${selectedStatus}".`,
+        });
+        
+        // Refresh contactenlijst
+        await refetch();
+        setSelected([]);
+        setSelectedStatus("");
       } else {
-        hoofddomeinOk = c.company_region === hoofddomeinFilter;
+        toast({
+          title: "Fout bij bijwerken",
+          description: data.error || "Er is een fout opgetreden bij het bijwerken van de status.",
+          variant: "destructive",
+        });
       }
+    } catch (e) {
+      toast({
+        title: "Netwerkfout",
+        description: `Er is een netwerkfout opgetreden: ${e?.toString() || "Onbekende fout"}`,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(false);
     }
-    if (sizeFilter !== "all") {
-      // Gebruik category_size in plaats van berekening
-      sizeOk = c.companies?.category_size === sizeFilter;
-    }
-    if (campaignFilter === 'with') campaignOk = Boolean(c.campaign_name && c.campaign_name.trim() !== '' && c.campaign_name !== null);
-    if (campaignFilter === 'without') campaignOk = Boolean(!c.campaign_name || c.campaign_name.trim() === '' || c.campaign_name === null);
-    if (statusFilter !== "all") statusOk = c.company_status === statusFilter;
-    
-    // Fix source filtering - check beide company_source_name EN source velden tegen de bronnen lijst
-    if (sourceFilter !== "all") {
-      const selectedSource = sources.find(s => s.id === sourceFilter);
-      if (selectedSource) {
-        sourceOk = c.company_source_name === selectedSource.name || c.source === selectedSource.name;
-        // Debug logging voor Indeed filtering
-        if (selectedSource.name === "Indeed") {
-          console.log(`Checking contact ${c.id}: company_source_name="${c.company_source_name}", source="${c.source}", sourceOk=${sourceOk}`);
-        }
-      } else {
-        sourceOk = false;
-      }
-    }
-    
+  };
 
-    if (statusCampagneFilter !== "all") statusCampagneOk = c.companies?.status === statusCampagneFilter;
-    if (startFilter !== "all") {
-      // Filter op basis van company status (als alternatief voor start)
-      const statusValue = c.companies?.status;
-      if (startFilter === "with") startOk = Boolean(statusValue && statusValue !== "Prospect");
-      else if (startFilter === "without") startOk = Boolean(!statusValue || statusValue === "Prospect");
-    }
-    return hoofddomeinOk && sizeOk && campaignOk && statusOk && sourceOk && startOk && statusCampagneOk
-  })
+  // Use server-side paginated data directly (no client-side filtering needed)
+  const uniqueContacts = contacts || []
 
-  // Extract unique sizes from contacts using category_size
-  const sizes = Array.from(new Set((contacts ?? [])
-    .map((c: Contact) => c.companies?.category_size)
-    .filter((s: string | null | undefined): s is string => typeof s === "string" && s.trim() !== "")));
+  // Optimized computed values with useMemo
+  const sizes = useMemo(() => Array.from(new Set(uniqueContacts
+    .map((c: Contact) => c.category_size)
+    .filter((s: string | null | undefined): s is string => typeof s === "string" && s.trim() !== ""))), [uniqueContacts]);
 
-  // Statistieken
-  const contactsWithCampaign = (contacts ?? []).filter((c: Contact) => c.campaign_name && c.campaign_name.trim() !== '' && c.campaign_name !== null);
-  const contactsWithoutCampaign = (contacts ?? []).filter((c: Contact) => !c.campaign_name || c.campaign_name.trim() === '' || c.campaign_name === null);
+  // Extract unique status values for bedrijf and campagne
+  const bedrijfStatuses = useMemo(() => Array.from(new Set(uniqueContacts
+    .map((c: Contact) => c.klant_status)
+    .filter((s: string | null | undefined): s is string => typeof s === "string" && s.trim() !== ""))), [uniqueContacts]);
+
+  const campagneStatuses = useMemo(() => Array.from(new Set(uniqueContacts
+    .map((c: Contact) => c.company_status_field)
+    .filter((s: string | null | undefined): s is string => typeof s === "string" && s.trim() !== ""))), [uniqueContacts]);
 
   // Final bulletproof filter for rendering
-  const filteredHoofddomeinen = Array.from(new Set(regions.map((r: { id: string, plaats: string, regio_platform: string }) => r.regio_platform).filter((r: string): r is string => typeof r === "string" && r.trim() !== "")));
-  const filteredSizes = (sizes as string[]).filter((s: string) => typeof s === "string" && s.trim() !== "");
-  const filteredSources = sources.map(s => s.name).filter((s: string) => typeof s === "string" && s.trim() !== "");
-  const statusCampagneOptions = ['Prospect', 'Qualified', 'Disqualified'];
+  const filteredHoofddomeinen = useMemo(() => Array.from(new Set(regions.map((r: { id: string, plaats: string, regio_platform: string }) => r.regio_platform).filter((r: string): r is string => typeof r === "string" && r.trim() !== ""))), [regions]);
+  const filteredSizes = useMemo(() => (allAvailableSizes as string[]).filter((s: string) => typeof s === "string" && s.trim() !== ""), [allAvailableSizes]);
+  const filteredSources = useMemo(() => sources.map(s => s.name).filter((s: string) => typeof s === "string" && s.trim() !== ""), [sources]);
+  const filteredBedrijfStatuses = useMemo(() => (allAvailableBedrijfStatuses as string[]).filter((s: string) => typeof s === "string" && s.trim() !== ""), [allAvailableBedrijfStatuses]);
+  const filteredCampagneStatuses = useMemo(() => (allAvailableCampagneStatuses as string[]).filter((s: string) => typeof s === "string" && s.trim() !== ""), [allAvailableCampagneStatuses]);
 
-  // Na filtering:
-  const totalRows = filteredContacts.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / itemsPerPage));
-  const pagedContacts = filteredContacts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Use server-side pagination data
+  const totalRows = count || 0;
+  const totalPages = serverTotalPages || 1;
+  const pagedContacts = uniqueContacts;
 
   return (
     <div>
@@ -368,7 +664,9 @@ export default function ContactsPage() {
             <CardTitle>Contacten zonder campagne</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{contactsWithoutCampaign.length}</div>
+            <div className="text-2xl font-bold">
+              {contactStats ? contactStats.contactsWithoutCampaign : (statsLoading ? '...' : '0')}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -376,25 +674,29 @@ export default function ContactsPage() {
             <CardTitle>Contacten met campagne</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{contactsWithCampaign.length}</div>
+            <div className="text-2xl font-bold">
+              {contactStats ? contactStats.contactsWithCampaign : (statsLoading ? '...' : '0')}
+            </div>
           </CardContent>
         </Card>
       </div>
       {/* Filters en bulk-actie gegroepeerd */}
       <TableFilters
-        searchValue=""
-        onSearchChange={() => {}}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
         searchPlaceholder="Zoek contacten op naam, email of bedrijf..."
         totalCount={totalRows}
         resultText="contacten"
         onResetFilters={() => {
-          setHoofddomeinFilter("all")
-          setSizeFilter("all") 
-          setCampaignFilter("all")
-          setStatusFilter("all")
-          setSourceFilter("all")
-          setStatusCampagneFilter("all")
-          setStartFilter("all")
+          setHoofddomeinFilter([])
+          setSizeFilter([]) 
+          setCampaignFilter(['all'])
+          setStatusFilter([])
+          setSourceFilter([])
+          setStatusCampagneFilter([])
+          setStatusBedrijfFilter([])
+          setStartFilter([])
+          setSearchQuery("")
           setCurrentPage(1)
         }}
         filters={[
@@ -402,60 +704,97 @@ export default function ContactsPage() {
             id: "hoofddomein",
             label: "Regio",
             value: hoofddomeinFilter,
-            onValueChange: setHoofddomeinFilter,
+            onValueChange: handleHoofddomeinFilterChange,
             options: [
-              { value: "all", label: "Alle regio's" },
               { value: "none", label: "Geen regio" },
               ...filteredHoofddomeinen.map(r => ({ value: r, label: r }))
             ],
-            placeholder: "Filter op regio"
+            placeholder: "Filter op regio",
+            multiple: true
           },
           {
             id: "size",
             label: "Bedrijfsgrootte", 
             value: sizeFilter,
-            onValueChange: setSizeFilter,
+            onValueChange: handleSizeFilterChange,
             options: [
-              { value: "all", label: "Alle groottes" },
               ...filteredSizes.map(s => ({ value: s, label: s }))
             ],
-            placeholder: "Filter op grootte"
+            placeholder: "Filter op grootte",
+            multiple: true
           },
           {
             id: "campaign",
             label: "Campagne",
             value: campaignFilter,
-            onValueChange: (v: string) => setCampaignFilter(v as 'all' | 'with' | 'without'),
+            onValueChange: handleCampaignFilterChange,
             options: [
               { value: "all", label: "Alle contacten" },
               { value: "without", label: "Zonder campagne" },
               { value: "with", label: "Met campagne" }
             ],
-            placeholder: "Filter op campagne"
+            placeholder: "Filter op campagne",
+            multiple: true
           },
           {
             id: "status",
             label: "Status",
             value: statusFilter,
-            onValueChange: setStatusFilter,
+            onValueChange: handleStatusFilterChange,
             options: [
-              { value: "all", label: "Alle statussen" },
               { value: "Prospect", label: "Prospect" },
               { value: "Qualified", label: "Qualified" },
               { value: "Disqualified", label: "Disqualified" }
             ],
-            placeholder: "Filter op status"
+            placeholder: "Filter op status",
+            multiple: true
           },
           {
             id: "source",
             label: "Bron",
             value: sourceFilter,
-            onValueChange: setSourceFilter,
+            onValueChange: handleSourceFilterChange,
             options: [
-              { value: "all", label: "Alle bronnen" },
               ...sources.map(source => ({ value: source.name, label: source.name }))
             ],
-            placeholder: "Filter op bron"
+            placeholder: "Filter op bron",
+            multiple: true
+          },
+          {
+            id: "start",
+            label: "Start",
+            value: startFilter,
+            onValueChange: handleStartFilterChange,
+            options: [
+              { value: "Ja", label: "Ja" },
+              { value: "Nee", label: "Nee" },
+              { value: "On Hold", label: "On Hold" },
+              { value: "Onbekend", label: "Onbekend" }
+            ],
+            placeholder: "Filter op start",
+            multiple: true
+          },
+          {
+            id: "statusBedrijf",
+            label: "Status Bedrijf",
+            value: statusBedrijfFilter,
+            onValueChange: handleStatusBedrijfFilterChange,
+            options: [
+              ...filteredBedrijfStatuses.map(s => ({ value: s, label: s }))
+            ],
+            placeholder: "Filter op status PH campagne",
+            multiple: true
+          },
+          {
+            id: "statusCampagne",
+            label: "Status Campagne",
+            value: statusCampagneFilter,
+            onValueChange: handleStatusCampagneFilterChange,
+            options: [
+              ...filteredCampagneStatuses.map(s => ({ value: s, label: s }))
+            ],
+            placeholder: "Filter op PH status bedrijf",
+            multiple: true
           }
         ]}
         bulkActions={
@@ -466,6 +805,11 @@ export default function ContactsPage() {
                 <Users className="w-3 h-3 mr-1" />
                 {selected.length} contacten
               </Badge>
+              {selected.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  ({pagedContacts.filter((c: Contact) => selected.includes(c.id)).length} op deze pagina)
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
@@ -502,6 +846,41 @@ export default function ContactsPage() {
                 )}
               </Button>
             </div>
+            <div className="flex items-center gap-2">
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Status wijzigen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Prospect">Prospect</SelectItem>
+                  <SelectItem value="Qualified">Qualified</SelectItem>
+                  <SelectItem value="Disqualified">Disqualified</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                disabled={selected.length === 0 || !selectedStatus || updatingStatus}
+                onClick={handleBulkStatusUpdate}
+                title={
+                  updatingStatus 
+                    ? 'Bezig met bijwerken van status...' 
+                    : selected.length === 0 
+                    ? 'Selecteer eerst contacten' 
+                    : !selectedStatus 
+                    ? 'Selecteer een status' 
+                    : 'Wijzig status'
+                }
+              >
+                {updatingStatus ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Bezig...
+                  </>
+                ) : (
+                  'Wijzig Status'
+                )}
+              </Button>
+            </div>
           </div>
         }
       />
@@ -511,35 +890,77 @@ export default function ContactsPage() {
           <CardDescription>Alle contacten in de database</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
-                    <input
-                      type="checkbox"
-                      checked={selected.length === filteredContacts.length && filteredContacts.length > 0}
-                      onChange={selectAll}
-                      aria-label="Selecteer alles"
-                    />
+                  <TableHead className="w-8">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={getPageAvailableContacts().length > 0 && getPageAvailableContacts()
+                          .every((c: Contact) => selected.includes(c.id))}
+                        onChange={selectPage}
+                        aria-label="Selecteer pagina"
+                        className="cursor-pointer"
+                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-1 h-4 w-4 p-0 hover:bg-gray-100"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="p-2">
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium">Selectie opties:</div>
+                            <div className="space-y-1">
+                              <button
+                                onClick={selectPage}
+                                className="block w-full text-left text-xs px-2 py-1 rounded hover:bg-gray-100"
+                              >
+                                Selecteer pagina ({getPageAvailableContacts().length} contacten)
+                              </button>
+                              <button
+                                onClick={selectAll}
+                                className="block w-full text-left text-xs px-2 py-1 rounded hover:bg-gray-100"
+                              >
+                                Selecteer alles ({getAvailableContacts().length} contacten)
+                              </button>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                   </TableHead>
-                  <TableHead>Hoofddomein</TableHead>
-                  <TableHead>Naam</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Bedrijf</TableHead>
-                  <TableHead>Grootte</TableHead>
-                  <TableHead>Campagne</TableHead>
-                  <TableHead>Laatste contact</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Bron</TableHead>
-                  <TableHead>Status campagne</TableHead>
-                  <TableHead>Start</TableHead>
+                  <TableHead className="w-24">Hoofddomein</TableHead>
+                  <TableHead className="w-32">Naam</TableHead>
+                  <TableHead className="w-28">Functie</TableHead>
+                  <TableHead className="w-40">Email</TableHead>
+                  <TableHead className="w-24">Email Status</TableHead>
+                  <TableHead className="w-36">Bedrijf</TableHead>
+                  <TableHead className="w-20">Verrijkt</TableHead>
+                  <TableHead className="w-20">Grootte</TableHead>
+                  <TableHead className="w-32">Campagne</TableHead>
+                  <TableHead className="w-24">Laatste contact</TableHead>
+                  <TableHead className="w-24">Status</TableHead>
+                  <TableHead className="w-20">Bron</TableHead>
+                  <TableHead className="w-28">Status campagne</TableHead>
+                  <TableHead className="w-20">Start</TableHead>
+                  <TableHead className="w-24">Status Bedrijf PH</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                             {loading ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={17} className="text-center py-8 text-gray-500">
                   <div className="space-y-2">
                     {Array.from({ length: 6 }).map((_, idx) => (
                       <div key={idx} className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
@@ -549,13 +970,13 @@ export default function ContactsPage() {
               </TableRow>
             ) : pagedContacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={17} className="text-center py-8 text-gray-500">
                   Geen contacten gevonden.
                 </TableCell>
               </TableRow>
                 ) : (
-                  pagedContacts.map((c: Contact) => (
-                    <TableRow key={c.id} className={selected.includes(c.id) ? "bg-orange-50" : undefined}>
+                  pagedContacts.map((c: Contact, index: number) => (
+                    <TableRow key={`${c.id}-${index}`} className={selected.includes(c.id) ? "bg-orange-50" : undefined}>
                       <TableCell>
                         {Boolean(c.campaign_name && c.campaign_name.trim() !== '' && c.campaign_name !== null) ? (
                           <Tooltip>
@@ -586,6 +1007,7 @@ export default function ContactsPage() {
                       </TableCell>
                       <TableCell>{c.company_region || '-'}</TableCell>
                       <TableCell>{c.first_name || c.name || '-'}</TableCell>
+                      <TableCell>{c.title || '-'}</TableCell>
                       <TableCell>
                         {c.email ? (
                           c.email
@@ -593,32 +1015,52 @@ export default function ContactsPage() {
                           <span className="text-red-500 text-sm italic">Geen email</span>
                         )}
                       </TableCell>
-                      <TableCell>{c.companies?.name || '-'}</TableCell>
                       <TableCell>
-                        {getCompanySizeBadge(c.companies?.category_size)}
+                        {getEmailStatusBadge(c.email_status)}
+                      </TableCell>
+                      <TableCell>{c.company_name || '-'}</TableCell>
+                      <TableCell>
+                        {getEnrichmentStatusBadge(c.enrichment_status)}
+                      </TableCell>
+                      <TableCell>
+                        {c.category_size ? (
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              c.category_size === "Groot"
+                                ? "text-amber-800 bg-amber-100 border-amber-200 text-xs"
+                                : c.category_size === "Middel"
+                                ? "text-blue-800 bg-blue-100 border-blue-200 text-xs"
+                                : c.category_size === "Klein"
+                                ? "text-yellow-800 bg-yellow-100 border-yellow-200 text-xs"
+                                : "text-xs"
+                            }
+                          >
+                            {c.category_size}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-gray-400">
+                            Onbekend
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>{c.campaign_name || '-'}</TableCell>
-                      <TableCell>{(c.found_at || c.created_at) ? new Date(c.found_at || c.created_at!).toLocaleDateString("nl-NL") : '-'}</TableCell>
+                      <TableCell>
+                        {c.last_touch ? 
+                          new Date(c.last_touch).toLocaleDateString("nl-NL") : 
+                          (c.found_at ? new Date(c.found_at).toLocaleDateString("nl-NL") : '-')
+                        }
+                      </TableCell>
                       <TableCell>
                         {getStatusBadge(c.company_status, true)}
                       </TableCell>
-                      <TableCell>{c.company_source_name || c.source || '-'}</TableCell>
-
+                      <TableCell>{c.source_name || c.source || '-'}</TableCell>
                       <TableCell>
-                        {getStatusBadge(c.companies?.status || "prospect", true)}
+                        {getStatusBadge(c.company_status_field, true)}
                       </TableCell>
+                      <TableCell>{c.start || '-'}</TableCell>
                       <TableCell>
-                        {c.companies?.status && c.companies.status.toLowerCase() !== "prospect" ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            {c.companies.status}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-gray-600">
-                            <AlertCircle className="w-3 h-3 mr-1" />
-                            -
-                          </Badge>
-                        )}
+                        {getStatusBadge(c.klant_status, true)}
                       </TableCell>
                     </TableRow>
                   ))
@@ -632,7 +1074,9 @@ export default function ContactsPage() {
             totalPages={totalPages}
             totalCount={totalRows}
             itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
+            onPageChange={(newPage: number) => {
+              setCurrentPage(newPage)
+            }}
             onItemsPerPageChange={(newItemsPerPage: number) => {
               setItemsPerPage(newItemsPerPage)
               setCurrentPage(1)

@@ -50,9 +50,12 @@ export async function POST(req: Request) {
           last_name,
           email,
           title,
+          phone,
+          linkedin_url,
           company_id,
           companies (
-            name
+            name,
+            website
           )
         `)
         .in("company_id", companyIds)
@@ -126,10 +129,14 @@ export async function POST(req: Request) {
           email: contact.email.trim(),
           personalization: "", // Fill in if desired
           website: contact.companies?.website || "",
-          last_name: contact.name?.split(" ").slice(-1)[0] || "",
-          first_name: contact.name?.split(" ").slice(0, -1).join(" ") || contact.name || "",
+          first_name: contact.first_name || contact.name?.split(" ").slice(0, -1).join(" ") || contact.name || "",
+          last_name: contact.last_name || contact.name?.split(" ").slice(-1)[0] || "",
+          phone: contact.phone || "",
           company_name: contact.companies?.name || "",
-          phone: "",
+          custom_variables: {
+            linkedIn: contact.linkedin_url || "",
+            jobTitle: contact.title || ""
+          },
           lt_interest_status: 1,
           pl_value_lead: "High",
           list_id: "560405f8-7aad-49c0-87ad-d9f023f734c9", // <-- Accessible list

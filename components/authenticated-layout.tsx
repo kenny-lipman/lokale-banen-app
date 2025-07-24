@@ -1,11 +1,12 @@
 "use client"
 
-import { ReactNode, useEffect, useMemo } from "react"
+import { ReactNode, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/components/auth-provider"
 import Sidebar from "@/components/Sidebar"
 import { MainLayout } from "@/components/main-layout"
 import { usePathname, useRouter } from "next/navigation"
 import { PageLoadingOverlay } from "@/components/ui/loading-states"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -26,6 +27,20 @@ export default function AuthenticatedLayout({ children }: { children: ReactNode 
   const { isAuthenticated, loading, authState, refresh } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
+  const [loadingTimeout, setLoadingTimeout] = useState(false)
+
+  // Add timeout for loading state
+  useEffect(() => {
+    if (loading || authState === 'INITIALIZING') {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true)
+      }, 15000) // 15 second timeout
+
+      return () => clearTimeout(timer)
+    } else {
+      setLoadingTimeout(false)
+    }
+  }, [loading, authState])
 
   // Memoize route calculations with improved logic
   const routeInfo = useMemo(() => {
@@ -78,30 +93,38 @@ export default function AuthenticatedLayout({ children }: { children: ReactNode 
     }
   }, [routeInfo, router, loading, authState])
 
-  // Show loading overlay during auth initialization
+  // Show loading overlay during auth initialization with timeout
   if (loading || authState === 'INITIALIZING') {
     return (
       <PageLoadingOverlay 
-        message="Authenticatie controleren..." 
+        message={loadingTimeout ? "Authenticatie duurt langer dan verwacht..." : "Authenticatie controleren..."} 
         showRefreshButton={true}
         onRefresh={refresh}
       />
     )
   }
 
-  // Show error state
+  // Show error state - but be more permissive
   if (authState === 'ERROR') {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-red-600 mb-2">Authenticatie Fout</h2>
           <p className="text-gray-600 mb-4">Er is een probleem opgetreden bij het laden van uw account.</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Opnieuw Proberen
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={refresh} 
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mr-2"
+            >
+              Opnieuw Proberen
+            </button>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Pagina Vernieuwen
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -124,10 +147,12 @@ export default function AuthenticatedLayout({ children }: { children: ReactNode 
   // Render authenticated layout - more permissive check
   if (isAuthenticated && !routeInfo.isPublic) {
     return (
-      <div className="flex h-screen w-screen overflow-hidden">
-        <Sidebar />
-        <MainLayout>{children}</MainLayout>
-      </div>
+      <TooltipProvider>
+        <div className="flex h-screen w-screen overflow-hidden">
+          <Sidebar />
+          <MainLayout>{children}</MainLayout>
+        </div>
+      </TooltipProvider>
     )
   }
 
@@ -135,10 +160,12 @@ export default function AuthenticatedLayout({ children }: { children: ReactNode 
   // This prevents the login page from showing when user is already logged in
   if (isAuthenticated && routeInfo.isPublic) {
     return (
-      <div className="flex h-screen w-screen overflow-hidden">
-        <Sidebar />
-        <MainLayout>{children}</MainLayout>
-      </div>
+      <TooltipProvider>
+        <div className="flex h-screen w-screen overflow-hidden">
+          <Sidebar />
+          <MainLayout>{children}</MainLayout>
+        </div>
+      </TooltipProvider>
     )
   }
 
