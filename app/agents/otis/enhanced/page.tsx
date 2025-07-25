@@ -225,6 +225,11 @@ export default function SimplifiedOtisDashboard() {
       setCompanySearchTerm('')
       setSelectedCompanies(new Set())
       
+      // Clear existing contacts when starting new scraping
+      setEnrichmentJobs([])
+      setSelectedContacts(new Set())
+      setContactSearchTerm('')
+      
       toast({
         title: "Scraping Started",
         description: `Job scraping started for "${jobTitle}" in ${selectedRegion.plaats}. Any existing runs have been cleared.`,
@@ -413,6 +418,9 @@ export default function SimplifiedOtisDashboard() {
       // Replace any existing jobs with the new one (only show one run at a time)
       setScrapingJobs([newJob])
       
+      // Load contacts immediately for this run (don't wait for detailed results)
+      await loadAllContactsForCurrentRun()
+      
       // Load results from the apify run directly
       try {
         const response = await fetch(`/api/otis/scraping-results/run/${selectedRunId}`)
@@ -435,8 +443,8 @@ export default function SimplifiedOtisDashboard() {
             return job
           }))
           
-          // Load all contacts for this run AFTER the detailed results are set
-          await loadAllContactsForCurrentRun()
+          // Refresh contacts with the detailed results data
+          await loadAllContactsForCurrentRun(runResults.data)
         }
       } catch (error) {
         console.error('Error loading run results:', error)
@@ -533,7 +541,7 @@ export default function SimplifiedOtisDashboard() {
       }))
       
       // Load contacts after updating the scraping results
-      await loadAllContactsForCurrentRun()
+      await loadAllContactsForCurrentRun(detailedResults.data)
       
       toast({
         title: "Results Refreshed",
@@ -615,7 +623,7 @@ export default function SimplifiedOtisDashboard() {
           }))
           
           // Refresh contacts for the updated results
-          await loadAllContactsForCurrentRun()
+          await loadAllContactsForCurrentRun(detailedResults.data)
         }
       } catch (error) {
         console.error('Background results polling error:', error)
@@ -1104,7 +1112,7 @@ export default function SimplifiedOtisDashboard() {
   }
 
   // Load all contacts for the current run's companies
-  const loadAllContactsForCurrentRun = async () => {
+  const loadAllContactsForCurrentRun = async (detailedResultsData?: any) => {
     console.log('🔄 loadAllContactsForCurrentRun called')
     try {
       // Get the current scraping job
@@ -1117,11 +1125,22 @@ export default function SimplifiedOtisDashboard() {
       console.log('✅ Loading all contacts for current run:', currentJob.apifyRunId)
       
       // Get all company IDs from the current run
-      let companyIds = currentJob.detailedResults?.companies?.map(c => c.id) || []
+      // Use passed detailedResultsData if available, otherwise try to get from state
+      let companyIds: string[] = []
       
-      // If no companies in detailedResults, try to get them from the database directly
+      if (detailedResultsData?.companies) {
+        // Use the data passed directly (avoiding state timing issues)
+        companyIds = detailedResultsData.companies.map((c: any) => c.id)
+        console.log('Using passed detailed results data, found companies:', companyIds.length)
+      } else {
+        // Fallback to state (might be stale due to async updates)
+        companyIds = currentJob.detailedResults?.companies?.map(c => c.id) || []
+        console.log('Using state data, found companies:', companyIds.length)
+      }
+      
+      // If still no companies, try to get them from the database directly
       if (companyIds.length === 0) {
-        console.log('No companies in detailedResults, fetching from database...')
+        console.log('No companies found, fetching from database...')
         try {
           const response = await fetch(`/api/otis/scraping-results/run/${currentJob.apifyRunId}`)
           if (response.ok) {
@@ -2336,7 +2355,7 @@ export default function SimplifiedOtisDashboard() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={loadAllContactsForCurrentRun}
+                          onClick={() => loadAllContactsForCurrentRun()}
                           className="bg-white hover:bg-blue-100 text-blue-700 border-blue-300"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />
