@@ -11,6 +11,7 @@ import Link from "next/link"
 import { PasswordInput } from "@/components/ui/password-input"
 import { useAuth } from "@/components/auth-provider"
 import { Loader2, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react"
+import { Logo } from "@/components/ui/logo"
 
 function validateEmail(email: string) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
@@ -110,8 +111,13 @@ export default function LoginPage() {
     <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center pb-6">
-          <CardTitle className="text-2xl font-bold text-gray-900">Welkom terug</CardTitle>
-          <p className="text-gray-600 mt-2">Log in op uw account</p>
+          <div className="flex flex-col items-center space-y-4 mb-6">
+            <Logo size="xl" className="text-gray-900" />
+            <div>
+              <CardTitle className="text-2xl font-bold text-gray-900">Welkom terug</CardTitle>
+              <p className="text-gray-600 mt-2">Log in op uw account</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-6">

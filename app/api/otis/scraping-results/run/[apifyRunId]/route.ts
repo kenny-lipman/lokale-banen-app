@@ -52,7 +52,10 @@ export async function GET(
             rating_indeed,
             normalized_name,
             enrichment_status,
-            created_at
+            created_at,
+            qualification_status,
+            qualification_timestamp,
+            qualification_notes
           )
       `)
       .eq('apify_run_id', apifyRunId)
@@ -143,6 +146,10 @@ export async function GET(
             enrichment_status: job.companies.enrichment_status || 'pending', // Use actual value from database
             contactsFound: contactCount, // Actual contact count
             created_at: job.companies.created_at,
+            // Include qualification fields from database
+            qualification_status: job.companies.qualification_status || 'pending',
+            qualification_timestamp: job.companies.qualification_timestamp,
+            qualification_notes: job.companies.qualification_notes,
             jobs: [] // Will be populated below
           })
         }

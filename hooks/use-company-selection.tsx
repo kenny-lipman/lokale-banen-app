@@ -9,6 +9,7 @@ export interface Company {
   website?: string | null
   location?: string | null
   job_counts: number // Number of job postings for this company
+  apollo_enriched_at?: string | null // Apollo enrichment timestamp
   // Add other Company interface properties as needed
 }
 
@@ -35,12 +36,24 @@ export function useCompanySelection({
 
   // Get selected companies eligible for Apollo enrichment (must have job postings)
   const enrichableCompanies = useMemo(() => 
-    selectedCompanies.filter(company => company.job_counts > 0), // Only companies with job postings
+    selectedCompanies.filter(company => company.job_counts > 0 && !company.apollo_enriched_at), // Only companies with job postings and not yet enriched
     [selectedCompanies]
   )
 
-  // Get companies that cannot be enriched (0 job postings)
+  // Get companies that cannot be enriched (0 job postings or already enriched)
   const unenrichableCompanies = useMemo(() => 
+    selectedCompanies.filter(company => company.job_counts === 0 || company.apollo_enriched_at),
+    [selectedCompanies]
+  )
+
+  // Get companies that are already enriched
+  const alreadyEnrichedCompanies = useMemo(() => 
+    selectedCompanies.filter(company => company.apollo_enriched_at),
+    [selectedCompanies]
+  )
+
+  // Get companies with no job postings
+  const noJobPostingsCompanies = useMemo(() => 
     selectedCompanies.filter(company => company.job_counts === 0),
     [selectedCompanies]
   )
@@ -73,19 +86,23 @@ export function useCompanySelection({
 
   // Select all companies (with batch limit validation)
   const selectAll = useCallback(() => {
-    if (selectedIds.length === companies.length) {
+    // Get all companies that can be enriched (have job postings and not already enriched)
+    const enrichableCompanyIds = companies
+      .filter(c => c.job_counts > 0 && !c.apollo_enriched_at)
+      .map(c => c.id)
+    
+    if (selectedIds.length === enrichableCompanyIds.length) {
       // Deselect all
       setSelectedIds([])
       onSelectionChange?.([])
     } else {
-      // Select all (up to batch limit)
-      const allIds = companies.map(c => c.id)
-      const limitedSelection = allIds.slice(0, maxBatchSize)
+      // Select all enrichable companies (up to batch limit)
+      const limitedSelection = enrichableCompanyIds.slice(0, maxBatchSize)
       
-      if (allIds.length > maxBatchSize) {
+      if (enrichableCompanyIds.length > maxBatchSize) {
         toast({
           title: "Selection Limited",
-          description: `Selected first ${maxBatchSize} companies. Maximum batch size is ${maxBatchSize}.`,
+          description: `Selected first ${maxBatchSize} enrichable companies. Maximum batch size is ${maxBatchSize}.`,
           variant: "default",
         })
       }
@@ -102,14 +119,22 @@ export function useCompanySelection({
   }, [onSelectionChange])
 
   // Check if all (visible) companies are selected
-  const isAllSelected = companies.length > 0 && selectedIds.length === Math.min(companies.length, maxBatchSize)
+  const isAllSelected = useMemo(() => {
+    const enrichableCompanyIds = companies
+      .filter(c => c.job_counts > 0 && !c.apollo_enriched_at)
+      .map(c => c.id)
+    return enrichableCompanyIds.length > 0 && selectedIds.length === Math.min(enrichableCompanyIds.length, maxBatchSize)
+  }, [companies, selectedIds.length, maxBatchSize])
 
   // Get companies for Apollo webhook (including those without websites)
   const getApolloPayload = useCallback(() => {
     return {
       companies: enrichableCompanies.map(company => ({
         id: company.id,
-        website: company.website || '' // Include empty string for companies without websites
+        website: company.website || '', // Include empty string for companies without websites
+        name: company.name,
+        location: company.location || null,
+        region_id: company.region_id
       }))
     }
   }, [enrichableCompanies])
@@ -119,16 +144,27 @@ export function useCompanySelection({
     if (selectedIds.length === 0) return "Select companies to enrich with Apollo"
     if (exceedsBatchLimit) return `Too many companies selected. Maximum: ${maxBatchSize}`
     
-    const unenrichableCount = unenrichableCompanies.length
-    if (unenrichableCount > 0 && enrichableCompanies.length === 0) {
-      return `Cannot enrich selected companies: ${unenrichableCount} ${unenrichableCount === 1 ? 'company has' : 'companies have'} 0 job postings`
-    }
-    if (unenrichableCount > 0) {
-      return `Ready to enrich ${enrichableCompanies.length} companies with Apollo (${unenrichableCount} excluded: no job postings)`
+    const alreadyEnrichedCount = alreadyEnrichedCompanies.length
+    const noJobPostingsCount = noJobPostingsCompanies.length
+    const enrichableCount = enrichableCompanies.length
+    
+    if (enrichableCount === 0) {
+      const reasons = []
+      if (alreadyEnrichedCount > 0) reasons.push(`${alreadyEnrichedCount} already enriched`)
+      if (noJobPostingsCount > 0) reasons.push(`${noJobPostingsCount} have no job postings`)
+      return `Cannot enrich selected companies: ${reasons.join(', ')}`
     }
     
-    return `Ready to enrich ${enrichableCompanies.length} companies with Apollo`
-  }, [selectedIds.length, exceedsBatchLimit, enrichableCompanies.length, unenrichableCompanies.length, maxBatchSize])
+    const excludedReasons = []
+    if (alreadyEnrichedCount > 0) excludedReasons.push(`${alreadyEnrichedCount} already enriched`)
+    if (noJobPostingsCount > 0) excludedReasons.push(`${noJobPostingsCount} no job postings`)
+    
+    if (excludedReasons.length > 0) {
+      return `Ready to enrich ${enrichableCount} companies with Apollo (${excludedReasons.join(', ')} excluded)`
+    }
+    
+    return `Ready to enrich ${enrichableCount} companies with Apollo`
+  }, [selectedIds.length, exceedsBatchLimit, enrichableCompanies.length, alreadyEnrichedCompanies.length, noJobPostingsCompanies.length, maxBatchSize])
 
   return {
     // Selection state

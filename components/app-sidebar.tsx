@@ -25,12 +25,14 @@ import {
   LogOut,
   Bot,
   ChevronRight,
+  Layers,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase"
 import { useState } from "react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Logo } from "@/components/ui/logo"
 
 const data = {
   navMain: [
@@ -67,6 +69,11 @@ const data = {
       icon: Users,
     },
     {
+      title: "Bufferzone",
+      url: "/bufferzone",
+      icon: Layers,
+    },
+    {
       title: "Regio's",
       url: "/regios",
       icon: MapPin,
@@ -91,11 +98,8 @@ export function AppSidebar() {
   return (
     <Sidebar variant="inset">
       <SidebarHeader>
-        <div className="flex items-center space-x-2 px-4 py-2">
-          <div className="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center">
-            <span className="text-white font-bold text-sm">LB</span>
-          </div>
-          <span className="font-bold text-xl text-gray-900">LokaleBanen</span>
+        <div className="flex items-center px-4 py-2">
+          <Logo size="md" className="text-gray-900" />
         </div>
       </SidebarHeader>
       <SidebarContent>

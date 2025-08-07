@@ -150,8 +150,18 @@ export function TableFilters({
             {showResults && (
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-white border-gray-200 text-gray-700 font-medium">
-                  {totalCount === 0 ? "Geen resultaten" : `${totalCount} ${resultText || "resultaten"}`}
+                  {totalCount === 0 ? "Geen resultaten" : `${totalCount.toLocaleString('nl-NL')} ${resultText || "resultaten"}`}
                 </Badge>
+                {totalCount > 1000 && (
+                  <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                    Gebruik filters om resultaten te beperken
+                  </Badge>
+                )}
+                {hasActiveFilters && (
+                  <Badge variant="secondary" className="bg-orange-50 text-orange-700 border-orange-200 text-xs">
+                    Filters actief
+                  </Badge>
+                )}
               </div>
             )}
           </div>
@@ -250,7 +260,10 @@ export function TablePagination({
       {/* Info & Items per page */}
       <div className="flex items-center gap-4 text-sm text-gray-600">
         <span>
-          Pagina {currentPage} van {totalPages} ({totalCount} totaal)
+          Pagina {currentPage} van {totalPages} ({totalCount.toLocaleString('nl-NL')} totaal)
+        </span>
+        <span className="text-gray-500">
+          {((currentPage - 1) * itemsPerPage + 1).toLocaleString('nl-NL')} - {Math.min(currentPage * itemsPerPage, totalCount).toLocaleString('nl-NL')} van {totalCount.toLocaleString('nl-NL')}
         </span>
         <div className="flex items-center gap-2">
           <label>Per pagina:</label>
@@ -259,9 +272,12 @@ export function TablePagination({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[10, 15, 20, 30, 50, 100].map(num => (
+              {[15, 25, 50, 100, 250, 500].map(num => (
                 <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
               ))}
+              {totalCount <= 1000 && (
+                <SelectItem value={totalCount.toString()}>Alle ({totalCount.toLocaleString('nl-NL')})</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>

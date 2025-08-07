@@ -28,33 +28,44 @@ export function BulkActionBar({
   onClearSelection,
   className = ""
 }: BulkActionBarProps) {
-  if (selectedCount === 0) return null
-
+  // Always show the bar, but with different content based on selection state
   return (
     <Card className={`p-4 bg-gradient-to-r from-blue-50 to-orange-50 border-l-4 border-l-orange-500 ${className}`}>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Selection Info */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-              <Users className="w-3 h-3 mr-1" />
-              {selectedCount} bedrijven geselecteerd
-            </Badge>
-            
-            {/* All selected companies are now enrichable */}
-            
-            {exceedsBatchLimit && (
-              <Badge className="bg-red-100 text-red-800 border-red-200">
-                <AlertTriangle className="w-3 h-3 mr-1" />
-                Max 100 bedrijven
+          {selectedCount > 0 ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                  <Users className="w-3 h-3 mr-1" />
+                  {selectedCount} bedrijven geselecteerd
+                </Badge>
+                
+                {exceedsBatchLimit && (
+                  <Badge className="bg-red-100 text-red-800 border-red-200">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Max 100 bedrijven
+                  </Badge>
+                )}
+              </div>
+              
+              {/* Validation Message */}
+              <div className="text-sm text-gray-600">
+                {validationMessage}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Badge className="bg-gray-100 text-gray-600 border-gray-200">
+                <Users className="w-3 h-3 mr-1" />
+                Geen bedrijven geselecteerd
               </Badge>
-            )}
-          </div>
-          
-          {/* Validation Message */}
-          <div className="text-sm text-gray-600">
-            {validationMessage}
-          </div>
+              <div className="text-sm text-gray-500">
+                Selecteer bedrijven om te verrijken met Apollo
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -87,17 +98,19 @@ export function BulkActionBar({
             )}
           </Button>
 
-          {/* Clear Selection */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClearSelection}
-            className="hover:bg-gray-50"
-            title="Selectie wissen"
-          >
-            <X className="w-4 h-4 mr-1" />
-            Wissen
-          </Button>
+          {/* Clear Selection - only show when there are selections */}
+          {selectedCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClearSelection}
+              className="hover:bg-gray-50"
+              title="Selectie wissen"
+            >
+              <X className="w-4 h-3 mr-1" />
+              Wissen
+            </Button>
+          )}
         </div>
       </div>
       

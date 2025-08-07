@@ -84,9 +84,10 @@ export class SupabaseService {
       review_status?: string
       region_id?: string
       source_id?: string
+      regio_platform?: string // Add regio_platform filter
     } = {},
   ) {
-    const { page = 1, limit = 10, search = "", status, review_status, region_id, source_id } = options
+    const { page = 1, limit = 10, search = "", status, review_status, region_id, source_id, regio_platform } = options
 
     try {
       let query = this.client.from("job_postings").select(
@@ -140,6 +141,17 @@ export class SupabaseService {
         query = query.eq("source_id", source_id)
       }
 
+      // Add regio_platform filter
+      if (regio_platform) {
+        if (regio_platform === "none") {
+          // Filter for jobs without regio_platform
+          query = query.is("regions.regio_platform", null)
+        } else {
+          // Filter for specific regio_platform
+          query = query.eq("regions.regio_platform", regio_platform)
+        }
+      }
+
       // Add pagination
       const from = (page - 1) * limit
       const to = from + limit - 1
@@ -161,11 +173,16 @@ export class SupabaseService {
           platform = await this.getJobSourceNameById(job.source_id);
         }
         let region = "Onbekend";
+        let regio_platform = null;
         if (Array.isArray(job.regions)) {
           const r = job.regions[0];
-          if (r) region = r.plaats + (r.regio_platform ? ` (${r.regio_platform})` : "");
+          if (r) {
+            region = r.plaats + (r.regio_platform ? ` (${r.regio_platform})` : "");
+            regio_platform = r.regio_platform;
+          }
         } else if (job.regions && typeof job.regions === 'object') {
           region = job.regions.plaats + (job.regions.regio_platform ? ` (${job.regions.regio_platform})` : "");
+          regio_platform = job.regions.regio_platform;
         }
         return {
           id: job.id,
@@ -180,6 +197,7 @@ export class SupabaseService {
           source_name: platform || null, // <-- altijd meesturen
           source_id: job.job_sources?.id || job.source_id || null,
           region,
+          regio_platform, // Add regio_platform field
           status: job.status,
           review_status: job.review_status,
           scraped_at: job.scraped_at || job.created_at,
@@ -223,7 +241,7 @@ export class SupabaseService {
       hasContacts?: 'all' | 'with_contacts' | 'no_contacts'
     } = {},
   ) {
-    const { page = 1, limit = 15, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts } = options
+    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts } = options
 
     try {
       console.log("getCompanies: Starting with params:", options)
@@ -459,6 +477,49 @@ export class SupabaseService {
         }
       }
 
+      // Get regions data for company_region mapping
+      const { data: regions } = await this.client.from("regions").select("*")
+      
+      // Get recent job postings for each company to determine their region
+      const companyIdsForRegions = (data || []).map(c => c.id)
+      const companyRegions: Record<string, string | null> = {}
+      
+      if (companyIdsForRegions.length > 0) {
+        try {
+          // Get the most recent job posting for each company to determine region
+          const { data: recentJobPostings } = await this.client
+            .from("job_postings")
+            .select("company_id, region_id")
+            .in("company_id", companyIdsForRegions)
+            .not("company_id", "is", null)
+            .order("created_at", { ascending: false })
+          
+          // Create a map of company_id to region_id (using the most recent posting)
+          const companyToRegionMap = new Map<string, string>()
+          if (recentJobPostings) {
+            recentJobPostings.forEach((posting: any) => {
+              if (posting.company_id && !companyToRegionMap.has(posting.company_id)) {
+                companyToRegionMap.set(posting.company_id, posting.region_id)
+              }
+            })
+          }
+          
+          // Map region_id to regio_platform
+          companyIdsForRegions.forEach(companyId => {
+            const regionId = companyToRegionMap.get(companyId)
+            if (regionId && regions) {
+              const region = regions.find((r: any) => r.id === regionId)
+              companyRegions[companyId] = region ? region.regio_platform : null
+            } else {
+              companyRegions[companyId] = null
+            }
+          })
+        } catch (error) {
+          console.warn("getCompanies: Error fetching company regions:", error)
+          // Continue without region data
+        }
+      }
+
       // Transform data: combine all information
       const transformedData = (data || []).map((company: any) => {
         let source_name = null;
@@ -472,6 +533,8 @@ export class SupabaseService {
           contact_count: contactCounts[company.id] || 0,
           source_name: source_name,
           source_id: company.source,
+          company_region: companyRegions[company.id] || null,
+          enrichment_status: company.enrichment_status || null,
           // Computed filter fields for client-side validation
           has_apollo_enrichment: !!company.apollo_enriched_at,
           has_contacts: (contactCounts[company.id] || 0) > 0,
@@ -845,6 +908,7 @@ export class SupabaseService {
       const { data, error } = await this.client
         .from("apify_runs_with_platform")
         .select("*")
+        .eq("actor_id", "hMvNSpz3JnHgl5jkh")
         .order("created_at", { ascending: false })
       if (error) throw error
       // Map naar frontend kolommen
@@ -1303,7 +1367,7 @@ export class SupabaseService {
 
       // Haal alle job_postings op (alleen meest recente per company_id)
       const companyIds = Array.from(new Set((data || []).map((c: any) => c.companies?.id).filter(Boolean)));
-      let recentPostings: Record<string, any> = {};
+      const recentPostings: Record<string, any> = {};
       
       if (companyIds.length > 0) {
         console.log(`Fetching job postings for ${companyIds.length} companies...`)
@@ -1356,7 +1420,7 @@ export class SupabaseService {
       
       const result = (data || []).map((contact: any) => {
         try {
-          let company_status = contact.companies ? contact.companies.status || null : null;
+          const company_status = contact.companies ? contact.companies.status || null : null;
           let company_region = null;
           let company_source_name = null;
           const companyId = contact.companies?.id;
@@ -1422,6 +1486,22 @@ export class SupabaseService {
       return sources
     } catch (error) {
       console.error("Error fetching company sources:", error)
+      return []
+    }
+  }
+
+  // Haal alle job sources op met cost en webhook informatie
+  async getJobSourcesWithCosts() {
+    try {
+      const { data, error } = await this.client
+        .from("job_sources")
+        .select("id, name, cost_per_1000_results, webhook_url, active")
+        .eq("active", true)
+        .order("name", { ascending: true })
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error("Error fetching job sources with costs:", error)
       return []
     }
   }

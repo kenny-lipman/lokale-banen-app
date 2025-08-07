@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase"
+import { apolloRetryService } from "@/lib/apollo-retry-service"
 
 interface EnrichmentRequest {
   batchId: string
   companies: Array<{
     id: string
     website: string
+    name?: string
+    region_id?: string
+    location?: string
   }>
 }
 
@@ -63,19 +67,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Create enrichment batch record
-    const { data: batchData, error: batchError } = await supabase
-      .from('enrichment_batches')
-      .insert({
-        batch_id: batchId,
-        status: 'pending',
-        total_companies: companies.length,
-        webhook_url: 'https://ba.grive-dev.com/webhook/receive-companies-website',
-        webhook_payload: { batchId, companies },
-        started_at: new Date().toISOString()
-      })
-      .select()
-      .single()
+          // Create enrichment batch record
+      const { data: batchData, error: batchError } = await supabase
+        .from('enrichment_batches')
+        .insert({
+          batch_id: batchId,
+          status: 'pending',
+          total_companies: companies.length,
+          webhook_url: '/api/webhooks/apollo', // Using internal proxy instead of external URL
+          webhook_payload: { batchId, companies },
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single()
 
     if (batchError) {
       console.error('Error creating batch:', batchError)
@@ -117,38 +121,62 @@ export async function POST(req: NextRequest) {
       batchId,
       companies: companies.map(c => ({
         id: c.id,
-        website: c.website
+        website: c.website,
+        name: c.name,
+        region_id: c.region_id
       }))
     }
 
-    // Call Apollo webhook for each company in parallel
+    // Call Apollo webhook for each company with retry logic
     try {
       const webhookPromises = companies.map(async (company) => {
         const companyPayload = {
-          id: company.id,
-          website: company.website || null
+          company_name: company.name,
+          website: company.website || null,
+          location: company.location || null,
+          batch_id: batchId,
+          company_id: company.id,
+          region_id: company.region_id
         }
 
-        try {
-          const response = await fetch('https://ba.grive-dev.com/webhook/receive-companies-website', {
+        // Define the webhook operation with retry logic
+        const webhookOperation = async () => {
+          const webhookUrl = `${req.nextUrl.origin}/api/webhooks/apollo`
+          const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(companyPayload),
+            timeout: 30000 // 30 second timeout
           })
 
-          const responseData = response.ok 
-            ? await response.json().catch(() => ({}))
-            : { error: `HTTP ${response.status}: ${response.statusText}` }
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
 
-          // Update individual company status
+          const responseData = await response.json().catch(() => ({}))
+          return { response, data: responseData }
+        }
+
+        // Execute with retry logic
+        const retryResult = await apolloRetryService.executeWithRetry(
+          webhookOperation,
+          {
+            batchId,
+            companyId: company.id,
+            operationType: 'apollo_webhook'
+          }
+        )
+
+        if (retryResult.success && retryResult.result) {
+          // Update individual company status as successful
           await supabase
             .from('enrichment_status')
             .update({
-              status: response.ok ? 'processing' : 'failed',
-              webhook_response: responseData,
-              error_message: response.ok ? null : `Webhook failed: ${response.statusText}`,
+              status: 'processing',
+              webhook_response: retryResult.result.data,
+              error_message: null,
               processed_at: new Date().toISOString()
             })
             .eq('batch_id', batchData.id)
@@ -156,28 +184,18 @@ export async function POST(req: NextRequest) {
 
           return {
             companyId: company.id,
-            success: response.ok,
-            status: response.status,
-            data: responseData
+            success: true,
+            status: retryResult.result.response.status,
+            data: retryResult.result.data,
+            attempts: retryResult.attempts.length
           }
-        } catch (error) {
-          console.error(`Error calling webhook for company ${company.id}:`, error)
-          
-          // Update individual company status as failed
-          await supabase
-            .from('enrichment_status')
-            .update({
-              status: 'failed',
-              error_message: `Webhook error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              processed_at: new Date().toISOString()
-            })
-            .eq('batch_id', batchData.id)
-            .eq('company_id', company.id)
-
+        } else {
+          // All retries failed - status already updated by retry service
           return {
             companyId: company.id,
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: retryResult.error?.message || 'Webhook failed after retries',
+            attempts: retryResult.attempts.length
           }
         }
       })
@@ -200,8 +218,8 @@ export async function POST(req: NextRequest) {
           status: batchStatus,
           webhook_response: {
             total_companies: companies.length,
-            successful_calls,
-            failed_calls,
+            successful_calls: successfulCalls,
+            failed_calls: failedCalls,
             results: webhookResults
           },
           error_message: failedCalls > 0 ? `${failedCalls} webhook calls failed` : null,

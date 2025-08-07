@@ -20,6 +20,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
+    // Log the error for debugging
+    console.error('ErrorBoundary caught an error:', error)
     return { hasError: true, error }
   }
 
@@ -60,10 +62,10 @@ export class ErrorBoundary extends Component<Props, State> {
                 Terug naar Home
               </button>
             </div>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {(process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') && this.state.error && (
               <details className="mt-4 text-left">
                 <summary className="cursor-pointer text-sm text-gray-500">Debug informatie</summary>
-                <pre className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded overflow-auto">
+                <pre className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded overflow-auto max-h-40">
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack}
                 </pre>

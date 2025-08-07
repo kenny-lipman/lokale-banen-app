@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
-  const webhookUrl = 'https://ba.grive-dev.com/webhook/receive-companies-website'
+  // Use internal proxy instead of direct external URL
+  const webhookUrl = `${req.nextUrl.origin}/api/webhooks/apollo`
   
   try {
-    console.log('🧪 Testing webhook connectivity to:', webhookUrl)
+    console.log('🧪 Testing webhook connectivity via proxy:', webhookUrl)
     
     const response = await fetch(webhookUrl, {
       method: 'POST',

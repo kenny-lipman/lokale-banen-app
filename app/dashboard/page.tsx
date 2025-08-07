@@ -121,7 +121,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Platform Verdeling</CardTitle>
-            <CardDescription>Jobs per platform deze week</CardDescription>
+            <CardDescription>Jobs per platform</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

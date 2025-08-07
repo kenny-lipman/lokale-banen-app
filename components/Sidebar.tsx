@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Bot
 } from "lucide-react"
+import { Logo } from "@/components/ui/logo"
 
 const menu = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -55,7 +56,14 @@ export default function Sidebar() {
     >
       {/* Header met logo en expand/collapse knop */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 min-h-[56px]">
-        <span className={`text-orange-600 font-bold text-2xl transition-all duration-200 ${collapsed ? "opacity-0 w-0" : "opacity-100 w-auto"}`}>LokaleBanen</span>
+        <div className={`flex items-center transition-all duration-200 ${collapsed ? "opacity-0 w-0" : "opacity-100 w-auto"}`}>
+          <Logo size="md" className="text-gray-900" />
+        </div>
+        {collapsed && (
+          <div className="absolute left-1/2 top-4 transform -translate-x-1/2">
+            <Logo size="sm" className="text-gray-900" />
+          </div>
+        )}
         <button
           onClick={() => setCollapsed((v) => !v)}
           className="flex items-center justify-center w-10 h-10 rounded hover:bg-orange-100 transition z-10"

@@ -40,39 +40,49 @@ export class OtisErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('OtisErrorBoundary caught an error:', {
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      errorType: this.state.errorType
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.error('OtisErrorBoundary caught an error:', {
+        error: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+        errorType: this.state.errorType
+      })
+    }
     
     this.setState({ error, errorInfo })
     
-    // Log to console with more details
-    console.group('OTIS Error Details')
-    console.error('Error Message:', error.message)
-    console.error('Error Stack:', error.stack)
-    console.error('Component Stack:', errorInfo.componentStack)
-    console.error('Error Type:', this.state.errorType)
-    console.error('Timestamp:', new Date().toISOString())
-    console.error('URL:', window.location.href)
-    console.error('User Agent:', navigator.userAgent)
-    console.groupEnd()
+    // Log to console with more details (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      console.group('OTIS Error Details')
+      console.error('Error Message:', error.message)
+      console.error('Error Stack:', error.stack)
+      console.error('Component Stack:', errorInfo.componentStack)
+      console.error('Error Type:', this.state.errorType)
+      console.error('Timestamp:', new Date().toISOString())
+      console.error('URL:', window.location.href)
+      console.error('User Agent:', navigator.userAgent)
+      console.groupEnd()
+    }
   }
 
   handleRetry = () => {
-    console.log('Retrying after error...')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Retrying after error...')
+    }
     this.setState({ hasError: false, error: undefined, errorInfo: undefined })
   }
 
   handleReload = () => {
-    console.log('Reloading page...')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Reloading page...')
+    }
     window.location.reload()
   }
 
   handleGoHome = () => {
-    console.log('Navigating to OTIS home...')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Navigating to OTIS home...')
+    }
     window.location.href = '/agents/otis'
   }
 
@@ -208,7 +218,9 @@ export class OtisErrorBoundary extends Component<Props, State> {
 // Hook for functional components to handle errors
 export function useErrorHandler() {
   const handleError = (error: Error, context?: string) => {
-    console.error(`Error in ${context || 'component'}:`, error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`Error in ${context || 'component'}:`, error)
+    }
     
     // You could send this to an error reporting service
     // reportError(error, context)

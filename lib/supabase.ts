@@ -13,6 +13,10 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Missing Supabase environment variables:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseAnonKey
+    })
     throw new Error('Missing Supabase environment variables')
   }
 
@@ -22,29 +26,34 @@ export function createClient() {
     url: supabaseUrl.substring(0, 20) + '...'
   })
 
-  supabaseClient = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      storageKey: 'lokale-banen-auth', // Custom storage key to avoid conflicts
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      flowType: 'pkce' // More secure auth flow
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10
+  try {
+    supabaseClient = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        storageKey: 'lokale-banen-auth', // Custom storage key to avoid conflicts
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        flowType: 'pkce' // More secure auth flow
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'lokale-banen-web'
+        }
       }
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'lokale-banen-web'
-      }
-    }
-  })
+    })
 
-  console.log('Supabase client created successfully')
-  return supabaseClient
+    console.log('Supabase client created successfully')
+    return supabaseClient
+  } catch (error) {
+    console.error('Error creating Supabase client:', error)
+    throw error
+  }
 }
 
 // Export the singleton instance
@@ -480,6 +489,7 @@ export type Database = {
           campaign_name: string | null
           company_id: string | null
           company_status: string | null
+          contact_priority: number | null
           created_at: string | null
           email: string | null
           email_status: string | null
@@ -487,11 +497,16 @@ export type Database = {
           found_at: string | null
           id: string
           instantly_id: string | null
+          is_key_contact: boolean | null
           last_name: string | null
           last_touch: string | null
           linkedin_url: string | null
           name: string | null
           phone: string | null
+          qualification_notes: string | null
+          qualification_status: string | null
+          qualification_timestamp: string | null
+          qualified_by_user: string | null
           source: string | null
           status: string | null
           title: string | null
@@ -502,6 +517,7 @@ export type Database = {
           campaign_name?: string | null
           company_id?: string | null
           company_status?: string | null
+          contact_priority?: number | null
           created_at?: string | null
           email?: string | null
           email_status?: string | null
@@ -509,11 +525,16 @@ export type Database = {
           found_at?: string | null
           id?: string
           instantly_id?: string | null
+          is_key_contact?: boolean | null
           last_name?: string | null
           last_touch?: string | null
           linkedin_url?: string | null
           name?: string | null
           phone?: string | null
+          qualification_notes?: string | null
+          qualification_status?: string | null
+          qualification_timestamp?: string | null
+          qualified_by_user?: string | null
           source?: string | null
           status?: string | null
           title?: string | null
@@ -524,6 +545,7 @@ export type Database = {
           campaign_name?: string | null
           company_id?: string | null
           company_status?: string | null
+          contact_priority?: number | null
           created_at?: string | null
           email?: string | null
           email_status?: string | null
@@ -531,11 +553,16 @@ export type Database = {
           found_at?: string | null
           id?: string
           instantly_id?: string | null
+          is_key_contact?: boolean | null
           last_name?: string | null
           last_touch?: string | null
           linkedin_url?: string | null
           name?: string | null
           phone?: string | null
+          qualification_notes?: string | null
+          qualification_status?: string | null
+          qualification_timestamp?: string | null
+          qualified_by_user?: string | null
           source?: string | null
           status?: string | null
           title?: string | null

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { supabaseService } from "@/lib/supabase-service"
 import { PasswordInput } from "@/components/ui/password-input"
+import { Logo } from "@/components/ui/logo"
 
 function validateEmail(email: string) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
@@ -71,9 +72,15 @@ export default function RegisterPage() {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Registreren</CardTitle>
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="text-center pb-6">
+          <div className="flex flex-col items-center space-y-4 mb-6">
+            <Logo size="xl" className="text-gray-900" />
+            <div>
+              <CardTitle className="text-2xl font-bold text-gray-900">Account aanmaken</CardTitle>
+              <p className="text-gray-600 mt-2">Maak uw account aan</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">

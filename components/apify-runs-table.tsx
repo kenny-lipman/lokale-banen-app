@@ -96,7 +96,7 @@ export function ApifyRunsTable({
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    let filtered = data.filter(run => {
+    const filtered = data.filter(run => {
       if (!searchTerm) return true
       
       const searchLower = searchTerm.toLowerCase()

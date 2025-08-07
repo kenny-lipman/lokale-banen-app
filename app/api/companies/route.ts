@@ -27,7 +27,10 @@ export async function GET(req: NextRequest) {
         size_min,
         size_max,
         category_size,
-        description
+        description,
+        qualification_status,
+        qualification_timestamp,
+        qualification_notes
       `, { count: 'exact' })
 
     // Add search filter

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Card } from "@/components/ui/card"
-import { Zap, CheckCircle, XCircle, Clock, AlertCircle, X, Minimize2 } from "lucide-react"
+import { Zap, CheckCircle, XCircle, Clock, AlertCircle, X, Minimize2, RefreshCw } from "lucide-react"
 
 export interface EnrichmentJob {
   companyId: string
@@ -26,6 +26,8 @@ interface EnrichmentProgressModalProps {
   jobs: EnrichmentJob[]
   batchId?: string
   onComplete?: () => void
+  onRefresh?: () => void
+  isRefreshing?: boolean
   className?: string
 }
 
@@ -35,6 +37,8 @@ export function EnrichmentProgressModal({
   jobs,
   batchId,
   onComplete,
+  onRefresh,
+  isRefreshing = false,
   className = ""
 }: EnrichmentProgressModalProps) {
   const [isMinimized, setIsMinimized] = useState(false)
@@ -122,6 +126,19 @@ export function EnrichmentProgressModal({
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Refresh Button */}
+              {onRefresh && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onRefresh}
+                  disabled={isRefreshing}
+                  title="Ververs resultaten"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              )}
+              
               <Button
                 variant="ghost"
                 size="sm"
@@ -180,7 +197,21 @@ export function EnrichmentProgressModal({
 
             {/* Individual Job Status */}
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              <h3 className="font-semibold">Bedrijven Status</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Bedrijven Status</h3>
+                {onRefresh && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                    className="text-xs"
+                  >
+                    <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    Ververs Resultaten
+                  </Button>
+                )}
+              </div>
               {jobs.map((job) => (
                 <Card key={job.companyId} className="p-3 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center justify-between">

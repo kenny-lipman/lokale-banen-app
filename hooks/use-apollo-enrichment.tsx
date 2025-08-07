@@ -17,13 +17,18 @@ export function useApolloEnrichment({
   const [enrichmentJobs, setEnrichmentJobs] = useState<EnrichmentJob[]>([])
   const [showProgressModal, setShowProgressModal] = useState(false)
   const [currentBatchId, setCurrentBatchId] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const { toast } = useToast()
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const companyIdsRef = useRef<string[]>([])
 
   // Start enrichment process
-  const startEnrichment = useCallback(async (companies: Array<{ id: string, name: string, website: string }>) => {
+  const startEnrichment = useCallback(async (companies: Array<{ id: string, name: string, website: string, location?: string, region_id?: string }>) => {
     try {
       setIsEnriching(true)
+      
+      // Store company IDs for individual status polling
+      companyIdsRef.current = companies.map(c => c.id)
       
       // Create initial jobs
       const jobs: EnrichmentJob[] = companies.map(company => ({
@@ -45,7 +50,10 @@ export function useApolloEnrichment({
         batchId,
         companies: companies.map(c => ({
           id: c.id,
-          website: c.website
+          website: c.website,
+          name: c.name,
+          location: c.location,
+          region_id: c.region_id
         }))
       }
 
@@ -104,20 +112,35 @@ export function useApolloEnrichment({
 
     pollingIntervalRef.current = setInterval(async () => {
       try {
-        const response = await fetch(`/api/apollo/status/${batchId}`)
-        if (!response.ok) {
-          console.error('Failed to fetch status:', response.statusText)
+        // Poll both batch status and individual company status
+        const [batchResponse, companiesResponse] = await Promise.all([
+          fetch(`/api/apollo/status/${batchId}`),
+          fetch('/api/apollo/companies-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyIds: companyIdsRef.current })
+          })
+        ])
+
+        if (!batchResponse.ok) {
+          console.error('Failed to fetch batch status:', batchResponse.statusText)
           return
         }
 
-        const batchStatus = await response.json()
+        if (!companiesResponse.ok) {
+          console.error('Failed to fetch companies status:', companiesResponse.statusText)
+          return
+        }
+
+        const batchStatus = await batchResponse.json()
+        const companiesStatus = await companiesResponse.json()
         
-        // Convert API response to our job format
-        const updatedJobs: EnrichmentJob[] = batchStatus.companies.map((company: any) => ({
+        // Merge batch status with individual company status for more accurate data
+        const updatedJobs: EnrichmentJob[] = companiesStatus.companies.map((company: any) => ({
           companyId: company.companyId,
           companyName: company.companyName,
           website: company.website,
-          status: company.status,
+          status: company.enrichmentStatus,
           result: {
             contactsFound: company.contactsFound,
             error: company.errorMessage
@@ -142,6 +165,63 @@ export function useApolloEnrichment({
     }, 2000) // Poll every 2 seconds
   }, [onComplete])
 
+  // Manual refresh function
+  const refreshResults = useCallback(async () => {
+    if (companyIdsRef.current.length === 0) {
+      toast({
+        title: "Geen bedrijven om te verversen",
+        description: "Er zijn geen bedrijven geselecteerd voor verrijking",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsRefreshing(true)
+      
+      const response = await fetch('/api/apollo/companies-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyIds: companyIdsRef.current })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch companies status')
+      }
+
+      const companiesStatus = await response.json()
+      
+      // Update jobs with fresh data
+      const updatedJobs: EnrichmentJob[] = companiesStatus.companies.map((company: any) => ({
+        companyId: company.companyId,
+        companyName: company.companyName,
+        website: company.website,
+        status: company.enrichmentStatus,
+        result: {
+          contactsFound: company.contactsFound,
+          error: company.errorMessage
+        }
+      }))
+
+      setEnrichmentJobs(updatedJobs)
+
+      toast({
+        title: "Resultaten Ververst",
+        description: "De verrijkingsstatus is bijgewerkt",
+      })
+
+    } catch (error) {
+      console.error('Refresh error:', error)
+      toast({
+        title: "Verversing Mislukt",
+        description: error instanceof Error ? error.message : "Er is een fout opgetreden bij het verversen",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [toast])
+
   // Handle enrichment completion
   const handleEnrichmentComplete = useCallback(() => {
     const completedJobs = enrichmentJobs.filter(job => job.status === 'completed').length
@@ -164,6 +244,7 @@ export function useApolloEnrichment({
     setTimeout(() => {
       setEnrichmentJobs([])
       setCurrentBatchId(null)
+      companyIdsRef.current = []
     }, 300)
   }, [])
 
@@ -179,6 +260,7 @@ export function useApolloEnrichment({
     setEnrichmentJobs([])
     setShowProgressModal(false)
     setCurrentBatchId(null)
+    companyIdsRef.current = []
   }, [])
 
   // Cleanup polling on unmount
@@ -196,12 +278,14 @@ export function useApolloEnrichment({
     enrichmentJobs,
     showProgressModal,
     currentBatchId,
+    isRefreshing,
     
     // Actions
     startEnrichment,
     closeProgressModal,
     resetEnrichment,
     handleEnrichmentComplete,
+    refreshResults,
     
     // Computed
     progressStats: {

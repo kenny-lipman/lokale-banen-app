@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { supabaseService } from "@/lib/supabase-service"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { Logo } from "@/components/ui/logo"
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -104,8 +105,13 @@ export default function ResetPasswordPage() {
     <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center pb-6">
-          <CardTitle className="text-2xl font-bold text-gray-900">Nieuw wachtwoord instellen</CardTitle>
-          <p className="text-gray-600 mt-2">Voer uw nieuwe wachtwoord in</p>
+          <div className="flex flex-col items-center space-y-4 mb-6">
+            <Logo size="xl" className="text-gray-900" />
+            <div>
+              <CardTitle className="text-2xl font-bold text-gray-900">Nieuw wachtwoord instellen</CardTitle>
+              <p className="text-gray-600 mt-2">Voer uw nieuwe wachtwoord in</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleReset} className="space-y-6">

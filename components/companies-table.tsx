@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles } from "lucide-react"
+import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles, AlertCircle } from "lucide-react"
 import { supabaseService } from "@/lib/supabase-service"
 import { useToast } from "@/hooks/use-toast"
 import { Card } from "@/components/ui/card"
 import { useCompaniesCache } from "@/hooks/use-companies-cache"
-import { TablePagination } from "@/components/ui/table-filters"
+import { TablePagination, TableFilters } from "@/components/ui/table-filters"
 import { useCompanySelection } from "@/hooks/use-company-selection"
 import { BulkActionBar } from "@/components/bulk-action-bar"
 import { useApolloEnrichment } from "@/hooks/use-apollo-enrichment"
@@ -38,7 +38,6 @@ interface Company {
   created_at: string | null
   job_counts: number
   contact_count: number // Contact count from contacts table
-  postal_code?: string | null // Postal code field
   category_size?: string | null // Company size category
   region_id?: string | null; // Added for client-side filtering
   status?: string | null; // Added for bulk status
@@ -46,6 +45,8 @@ interface Company {
   apollo_contacts_count?: number | null; // Number of contacts found
   apollo_enrichment_data?: any; // Apollo enrichment data
   last_enrichment_batch_id?: string | null; // Last enrichment batch
+  company_region?: string | null; // Added for Hoofddomein column
+  enrichment_status?: string | null; // Added for Verrijkt column
 }
 
 interface CompaniesTableProps {
@@ -58,12 +59,15 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   const [searchTerm, setSearchTerm] = useState("")
   const [customerFilter, setCustomerFilter] = useState("all")
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+
+  const [regioPlatformFilter, setRegioPlatformFilter] = useState<string>("all"); // Add regio_platform filter
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(15)
+  const [itemsPerPage, setItemsPerPage] = useState(50)
   const tableRef = useRef<HTMLDivElement | null>(null)
   const [orderBy, setOrderBy] = useState<string>('created_at')
   const [orderDirection, setOrderDirection] = useState<'asc' | 'desc'>('desc')
   const [allSources, setAllSources] = useState<{id: string, name: string}[]>([]);
+  const [regions, setRegions] = useState<{ id: string, plaats: string, regio_platform: string }[]>([]); // Add regions state
   const [bulkStatus, setBulkStatus] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [websiteFilter, setWebsiteFilter] = useState<string>("all");
@@ -90,6 +94,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     categorySize: categorySizeFilter !== "all" ? categorySizeFilter : undefined,
     apolloEnriched: apolloEnrichedFilter !== "all" ? apolloEnrichedFilter : undefined,
     hasContacts: hasContactsFilter !== "all" ? hasContactsFilter : undefined,
+
   };
   // Vervang fetchCompanies en gerelateerde state
   const {
@@ -101,6 +106,21 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   const companies = companiesResult?.data || []
   const totalCount = companiesResult?.count || 0
   const totalPages = companiesResult?.totalPages || 1
+
+  // Client-side filter for regio_platform using company_region field
+  const filteredCompanies = companies.filter((company) => {
+    if (regioPlatformFilter === "all") return true;
+    if (regioPlatformFilter === "none") return !company.company_region || company.company_region.trim() === "";
+    
+    // Filter by company_region (Hoofddomein)
+    return company.company_region === regioPlatformFilter;
+  });
+
+  // Get unique regio_platform values for filter options from actual company data
+  const regioPlatformOptions = Array.from(new Set(companies.map(c => c.company_region)))
+    .filter((platform): platform is string => typeof platform === "string" && platform.trim() !== "")
+    .sort((a, b) => a.localeCompare(b, 'nl'))
+    .map((platform, index) => ({ value: platform, label: platform, key: `${platform}-${index}` }))
 
   // Enhanced company selection with Apollo enrichment support
   const {
@@ -116,7 +136,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     getValidationMessage,
     getApolloPayload
   } = useCompanySelection({
-    companies,
+    companies: filteredCompanies, // Use filtered companies
     maxBatchSize: 100,
     onSelectionChange: (selectedIds) => {
       // Optional: Handle selection changes
@@ -129,8 +149,10 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     isEnriching,
     enrichmentJobs,
     showProgressModal,
+    isRefreshing,
     startEnrichment,
-    closeProgressModal
+    closeProgressModal,
+    refreshResults
   } = useApolloEnrichment({
     onRefreshData: refetch
   })
@@ -140,7 +162,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   
   useEffect(() => {
     refetch()
-  }, [debouncedSearchTerm, customerFilter, sourceFilter, currentPage, statusFilter, websiteFilter, categorySizeFilter, apolloEnrichedFilter, hasContactsFilter])
+  }, [debouncedSearchTerm, customerFilter, sourceFilter, currentPage, statusFilter, websiteFilter, categorySizeFilter, apolloEnrichedFilter, hasContactsFilter, regioPlatformFilter])
 
   useEffect(() => {
     refetch()
@@ -151,8 +173,10 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     supabaseService.getCompanySources().then(setAllSources)
   }, [])
 
-
-
+  useEffect(() => {
+    // Haal alle mogelijke regio's op bij laden
+    supabaseService.getRegions().then(setRegions)
+  }, [])
 
 
   const formatDate = (dateString: string | null) => {
@@ -207,6 +231,55 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     )
   }
 
+  const getEnrichmentStatusBadge = (enrichmentStatus: string | null | undefined) => {
+    if (!enrichmentStatus) {
+      return (
+        <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          -
+        </Badge>
+      )
+    }
+
+    switch (enrichmentStatus.toLowerCase()) {
+      case "completed":
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Completed
+          </Badge>
+        )
+      case "processing":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Processing
+          </Badge>
+        )
+      case "failed":
+        return (
+          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-2 py-1">
+            <XCircle className="w-3 h-3 mr-1" />
+            Failed
+          </Badge>
+        )
+      case "pending":
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        )
+      default:
+        return (
+          <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-2 py-1">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            {enrichmentStatus}
+          </Badge>
+        )
+    }
+  }
+
   // Navigate to contacts page filtered by company
   const handleContactsClick = (companyId: string, event: React.MouseEvent) => {
     event.stopPropagation() // Prevent row selection
@@ -227,7 +300,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   }
 
   // Alleen paginering client-side
-  const pagedCompanies = companies;
+  const pagedCompanies = filteredCompanies.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   // Scroll to top on page change
   useEffect(() => {
     if (tableRef.current) {
@@ -278,7 +351,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       const enrichableCompanies = payload.companies.map(c => ({
         id: c.id,
         name: companies.find((comp: Company) => comp.id === c.id)?.name || 'Unknown',
-        website: c.website || '' // Include companies without websites
+        website: c.website || '', // Include companies without websites
+        location: companies.find((comp: Company) => comp.id === c.id)?.location || null,
+        region_id: companies.find((comp: Company) => comp.id === c.id)?.region_id
       }))
       
       await startEnrichment(enrichableCompanies)
@@ -321,106 +396,129 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         </div>
       </Card>
 
-      {/* Filters en bulk-actie gegroepeerd */}
-      <Card className="mb-6 p-4 border rounded-lg bg-gray-50">
-        <div className="flex flex-col md:flex-row md:items-end md:gap-6 gap-4">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-4 flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Zoek op bedrijf of locatie..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-              {loading && searchTerm && (
-                <LoadingSpinner 
-                  size="sm" 
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2" 
-                />
-              )}
-            </div>
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Bron filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle bronnen</SelectItem>
-                {allSources.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={categorySizeFilter} onValueChange={setCategorySizeFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Grootte filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle groottes</SelectItem>
-                <SelectItem value="Klein">Klein</SelectItem>
-                <SelectItem value="Middel">Middel</SelectItem>
-                <SelectItem value="Groot">Groot</SelectItem>
-                <SelectItem value="Onbekend">Onbekend</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Status filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle statussen</SelectItem>
-                <SelectItem value="Prospect">Prospect</SelectItem>
-                <SelectItem value="Qualified">Qualified</SelectItem>
-                <SelectItem value="Disqualified">Disqualified</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={apolloEnrichedFilter} onValueChange={setApolloEnrichedFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Apollo filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Verrijkt met Apollo</SelectItem>
-                <SelectItem value="enriched">Verrijkt</SelectItem>
-                <SelectItem value="not_enriched">Niet verrijkt</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={hasContactsFilter} onValueChange={setHasContactsFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Contacten filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Contacten</SelectItem>
-                <SelectItem value="with_contacts">Met contacten</SelectItem>
-                <SelectItem value="no_contacts">Zonder contacten</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={websiteFilter} onValueChange={setWebsiteFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Website filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Website</SelectItem>
-                <SelectItem value="with">Met website</SelectItem>
-                <SelectItem value="without">Zonder website</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="text-sm text-gray-600 flex items-center">
-              {totalCount > 0 ? `${totalCount} bedrijven gevonden` : "Geen bedrijven gevonden"}
-            </div>
-          </div>
-          {/* Bulk-actie: status-selectie + knop */}
-          <div className="flex flex-col gap-2 min-w-[270px]">
-            <label className="text-sm font-medium text-gray-700 mb-1">Bedrijven status wijzigen</label>
-            <div className="flex gap-2">
-              <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="border rounded px-2 py-1 w-44">
-                <option value="">Wijzig status naar...</option>
-                <option value="Prospect">Prospect</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Disqualified">Disqualified</option>
-              </select>
+      {/* Filters using TableFilters component for consistent styling */}
+      <TableFilters
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Zoek op bedrijf of locatie..."
+        totalCount={totalCount}
+        resultText="bedrijven"
+        onResetFilters={() => {
+          setSearchTerm("")
+          setCustomerFilter("all")
+          setSourceFilter("all")
+          setRegioPlatformFilter("all")
+          setStatusFilter("all")
+          setWebsiteFilter("all")
+          setCategorySizeFilter("all")
+          setApolloEnrichedFilter("all")
+          setHasContactsFilter("all")
+          setCurrentPage(1)
+        }}
+        filters={[
+          {
+            id: "source",
+            label: "Bron",
+            value: sourceFilter,
+            onValueChange: setSourceFilter,
+            options: [
+              { value: "all", label: "Alle bronnen" },
+              ...allSources.map((s) => ({ value: s.id, label: s.name }))
+            ],
+            placeholder: "Filter op bron"
+          },
+          {
+            id: "categorySize",
+            label: "Grootte",
+            value: categorySizeFilter,
+            onValueChange: setCategorySizeFilter,
+            options: [
+              { value: "all", label: "Alle groottes" },
+              { value: "Klein", label: "Klein" },
+              { value: "Middel", label: "Middel" },
+              { value: "Groot", label: "Groot" },
+              { value: "Onbekend", label: "Onbekend" }
+            ],
+            placeholder: "Filter op grootte"
+          },
+          {
+            id: "status",
+            label: "Status",
+            value: statusFilter,
+            onValueChange: setStatusFilter,
+            options: [
+              { value: "all", label: "Alle statussen" },
+              { value: "Prospect", label: "Prospect" },
+              { value: "Qualified", label: "Qualified" },
+              { value: "Disqualified", label: "Disqualified" }
+            ],
+            placeholder: "Filter op status"
+          },
+          {
+            id: "apolloEnriched",
+            label: "Apollo",
+            value: apolloEnrichedFilter,
+            onValueChange: setApolloEnrichedFilter,
+            options: [
+              { value: "all", label: "Verrijkt met Apollo" },
+              { value: "enriched", label: "Verrijkt" },
+              { value: "not_enriched", label: "Niet verrijkt" }
+            ],
+            placeholder: "Filter op Apollo"
+          },
+          {
+            id: "hasContacts",
+            label: "Contacten",
+            value: hasContactsFilter,
+            onValueChange: setHasContactsFilter,
+            options: [
+              { value: "all", label: "Contacten" },
+              { value: "with_contacts", label: "Met contacten" },
+              { value: "no_contacts", label: "Zonder contacten" }
+            ],
+            placeholder: "Filter op contacten"
+          },
+          {
+            id: "website",
+            label: "Website",
+            value: websiteFilter,
+            onValueChange: setWebsiteFilter,
+            options: [
+              { value: "all", label: "Website" },
+              { value: "with", label: "Met website" },
+              { value: "without", label: "Zonder website" }
+            ],
+            placeholder: "Filter op website"
+          },
+
+                      {
+              id: "regioPlatform",
+              label: "Hoofddomein",
+              value: regioPlatformFilter,
+              onValueChange: setRegioPlatformFilter,
+              options: [
+                { value: "all", label: "Alle hoofddomeinen" },
+                { value: "none", label: "Geen hoofddomein" },
+                ...regioPlatformOptions
+              ],
+              placeholder: "Filter op hoofddomein"
+            }
+        ]}
+        bulkActions={
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="Wijzig status naar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Prospect">Prospect</SelectItem>
+                  <SelectItem value="Qualified">Qualified</SelectItem>
+                  <SelectItem value="Disqualified">Disqualified</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4"
+                className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"
                 disabled={!bulkStatus || selectedCount === 0}
                 onClick={handleBulkStatus}
                 title={selectedCount === 0 ? 'Selecteer eerst bedrijven' : !bulkStatus ? 'Selecteer een status' : 'Wijzig status'}
@@ -428,12 +526,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                 Wijzig status
               </Button>
             </div>
-            <span className="text-xs text-gray-500">
-              Selecteer eerst bedrijven en een status.
-            </span>
           </div>
-        </div>
-      </Card>
+        }
+      />
       
       {/* Apollo Bulk Action Bar */}
       <BulkActionBar
@@ -463,7 +558,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               <TableHead>Bedrijf</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Website</TableHead>
-              <TableHead>Postcode</TableHead>
+              <TableHead>Hoofddomein</TableHead>
+              <TableHead>Verrijkt</TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => {
@@ -504,7 +600,29 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton rows={8} columns={9} />
+              <>
+                <TableSkeleton rows={8} columns={9} />
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-4 text-gray-500">
+                    <div className="flex items-center justify-center space-x-2">
+                      <LoadingSpinner size="sm" />
+                      <span>Bedrijven laden... ({totalCount.toLocaleString('nl-NL')} totaal)</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </>
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-8 text-red-500">
+                  <div className="flex flex-col items-center space-y-2">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                    <span>Fout bij het laden van bedrijven</span>
+                    <Button variant="outline" size="sm" onClick={() => refetch()}>
+                      Opnieuw proberen
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : pagedCompanies.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center py-8 text-gray-500">
@@ -523,7 +641,10 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                       type="checkbox"
                       checked={selectedIds.includes(company.id)}
                       onChange={() => toggleSelection(company.id)}
+                      disabled={company.apollo_enriched_at !== null} // Disable selection if already enriched
                       aria-label={`Selecteer bedrijf ${company.name}`}
+                      className={`${company.apollo_enriched_at ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={company.apollo_enriched_at ? 'Dit bedrijf is al verrijkt met Apollo' : `Selecteer bedrijf ${company.name}`}
                     />
                   </TableCell>
                   <TableCell>
@@ -595,7 +716,10 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                       <span className="text-gray-400 text-sm">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{company.postal_code || "-"}</TableCell>
+                  <TableCell className="text-sm">{company.company_region || "-"}</TableCell>
+                  <TableCell>
+                    {getEnrichmentStatusBadge(company.enrichment_status)}
+                  </TableCell>
                   <TableCell>
                     <Button 
                       variant="ghost" 
@@ -668,6 +792,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
           // Additional completion actions if needed
           console.log("Enrichment completed, table will refresh")
         }}
+        onRefresh={refreshResults}
+        isRefreshing={isRefreshing}
       />
 
       {/* Company Details Sidebar */}

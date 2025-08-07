@@ -1,5 +1,14 @@
 import { useState, useRef, useEffect } from "react"
-import { supabaseService } from "@/lib/supabase-service"
+
+// Lazy load supabaseService to avoid circular dependencies
+let supabaseService: any = null
+const getSupabaseService = async () => {
+  if (!supabaseService) {
+    const { supabaseService: service } = await import("@/lib/supabase-service")
+    supabaseService = service
+  }
+  return supabaseService
+}
 
 // In-memory cache (per sessie/tab)
 const jobPostingsCache: Record<string, any> = {}
@@ -11,6 +20,7 @@ export function useJobPostingsCache(params: {
   status?: string
   region_id?: string | null
   source_id?: string | null
+  regio_platform?: string // Add regio_platform filter
 }) {
   const cacheKey = JSON.stringify(params)
   const [data, setData] = useState<any>(jobPostingsCache[cacheKey] || null)
@@ -24,7 +34,8 @@ export function useJobPostingsCache(params: {
     fetchRef.current++
     const thisFetch = fetchRef.current
     try {
-      const result = await supabaseService.getJobPostings(params)
+      const service = await getSupabaseService()
+      const result = await service.getJobPostings(params)
       jobPostingsCache[cacheKey] = result
       if (thisFetch === fetchRef.current) {
         setData(result)

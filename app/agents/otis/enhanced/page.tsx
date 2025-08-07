@@ -1,98 +1,70 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useToast } from '@/hooks/use-toast'
+import { useState, useEffect } from 'react'
+import { WorkflowProvider } from '@/contexts/otis-workflow-context'
+import { OtisErrorBoundary } from '@/components/otis/ErrorBoundary'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Loader2, Play, CheckCircle, AlertCircle, Database, Users, Mail, ChevronsUpDown, Check, RefreshCw, Building2, ExternalLink, X, Search, Clock, XCircle, Phone, ChevronDown, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Checkbox } from '@/components/ui/checkbox'
+import { useToast } from '@/hooks/use-toast'
+import { 
+  Search, 
+  Building2, 
+  MapPin, 
+  Briefcase, 
+  Play, 
+  CheckCircle, 
+  AlertCircle, 
+  Clock, 
+  RefreshCw,
+  Download,
+  ExternalLink,
+  Bot,
+  Zap,
+  Target,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  History,
+  Plus,
+  FileText,
+  Globe,
+  Filter
+} from 'lucide-react'
+import { JobPostingsTable } from '@/components/job-postings-table'
+import { CompanyDetailsDrawer } from '@/components/company-details-drawer'
+import { CampaignConfirmationModal, Contact, Campaign } from '@/components/CampaignConfirmationModal'
 import { supabaseService } from '@/lib/supabase-service'
 
 interface ScrapingJob {
   id: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
   jobTitle: string
-  location: string
   platform: string
-  apifyRunId?: string
-  createdAt: string
-  completedAt?: string
-  jobCount?: number
-  companyCount?: number
-  detailedResults?: {
-    status: string
-    job_count: number
-    companies: Array<{
-      id: string
-      name: string
-      website: string
-      location: string
-      status: string
-      job_count: number
-      enrichment_status: string
-      contactsFound: number
-      category_size?: string
-    }>
-    jobs: Array<{
-      id: string
-      title: string
-      location: string
-      url: string
-      job_type: string
-      salary: string
-      status: string
-      review_status: string
-      created_at: string
-      company: {
-        id: string
-        name: string
-        website: string
-        location: string
-        status: string
-      } | null
-    }>
-    apify_run_id: string
-  }
-}
-
-interface EnrichmentJob {
-  id: string
+  selectedRegioPlatforms?: string[]
   status: 'pending' | 'running' | 'completed' | 'failed'
-  companyCount: number
-  contactsFound: number
   createdAt: string
-  completedAt?: string
-  contacts?: Array<{
-    id: string
-    name: string
-    email: string
-    title: string
-    linkedin_url?: string
-    campaign_id?: string
-    campaign_name?: string
-    email_status?: string
-    phone?: string
-    companyName: string
-    companyId: string
-  }>
+  resultsCount?: number
 }
 
+interface ScrapingConfig {
+  jobTitle: string
+  platform: string
+  selectedRegioPlatforms: string[]
+}
 
-
-interface Region {
+interface JobSource {
   id: string
-  plaats: string
-  regio_platform: string
-  created_at: string
+  name: string
+  cost_per_1000_results: number | null
+  webhook_url: string | null
+  active: boolean | null
 }
 
 interface ApifyRun {
@@ -100,1282 +72,2339 @@ interface ApifyRun {
   title: string
   platform: string
   location: string
-  regionPlatform: string
+  displayName: string
   createdAt: string
   finishedAt: string
-  displayName: string
 }
 
-export default function SimplifiedOtisDashboard() {
+type ScrapingMode = 'new' | 'existing'
+
+// Campaign status mapping
+const CAMPAIGN_STATUS_MAP = {
+  '0': { label: 'Draft', color: 'bg-gray-100 text-gray-800', icon: '📝' },
+  '1': { label: 'Active', color: 'bg-green-100 text-green-800', icon: '✅' },
+  '2': { label: 'Paused', color: 'bg-yellow-100 text-yellow-800', icon: '⏸️' },
+  '3': { label: 'Completed', color: 'bg-blue-100 text-blue-800', icon: '🏁' },
+  '4': { label: 'Running Subsequences', color: 'bg-purple-100 text-purple-800', icon: '🔄' },
+  '-99': { label: 'Account Suspended', color: 'bg-red-100 text-red-800', icon: '🚫' },
+  '-1': { label: 'Accounts Unhealthy', color: 'bg-orange-100 text-orange-800', icon: '⚠️' },
+  '-2': { label: 'Bounce Protect', color: 'bg-red-100 text-red-800', icon: '🛡️' }
+}
+
+// Enhanced Campaign Selector Component
+const EnhancedCampaignSelector = ({ 
+  campaigns, 
+  selectedCampaign, 
+  onCampaignChange 
+}: { 
+  campaigns: { id: string, name: string, status: string }[]
+  selectedCampaign: string
+  onCampaignChange: (value: string) => void
+}) => {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+
+  // Sort campaigns alphabetically by name
+  const sortedCampaigns = [...campaigns].sort((a, b) => a.name.localeCompare(b.name))
+
+  // Filter campaigns based on search term
+  const filteredCampaigns = sortedCampaigns.filter(campaign =>
+    campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const selectedCampaignData = campaigns.find(c => c.id === selectedCampaign)
+  const selectedStatus = selectedCampaignData ? CAMPAIGN_STATUS_MAP[selectedCampaignData.status as keyof typeof CAMPAIGN_STATUS_MAP] : null
+
+  // Handle search input change with proper event handling
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setSearchTerm(e.target.value)
+  }
+
+  // Handle search input click to prevent select from closing
+  const handleSearchClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  return (
+    <div className="relative">
+      <Select value={selectedCampaign} onValueChange={onCampaignChange} onOpenChange={setIsOpen}>
+        <SelectTrigger className="w-64">
+          <SelectValue placeholder="Select Campaign">
+            {selectedCampaignData && (
+              <div className="flex flex-col items-start w-full">
+                <span className="truncate w-full font-medium">{selectedCampaignData.name}</span>
+                {selectedStatus && (
+                  <Badge className={`${selectedStatus.color} text-xs mt-1`}>
+                    {selectedStatus.icon} {selectedStatus.label}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent className="w-64 max-h-96">
+          {/* Search Input */}
+          <div className="p-3 border-b">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search campaigns..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                onClick={handleSearchClick}
+                className="pl-9 h-9 text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setSearchTerm('')
+                  }
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Campaign List */}
+          <div className="max-h-64 overflow-y-auto">
+            {filteredCampaigns.length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                {searchTerm ? 'No campaigns found' : 'No campaigns available'}
+              </div>
+            ) : (
+              filteredCampaigns.map((campaign) => {
+                const status = CAMPAIGN_STATUS_MAP[campaign.status as keyof typeof CAMPAIGN_STATUS_MAP]
+                return (
+                  <SelectItem key={campaign.id} value={campaign.id} className="py-3">
+                    <div className="flex flex-col items-start w-full">
+                      <span className="truncate w-full font-medium">{campaign.name}</span>
+                      {status && (
+                        <Badge className={`${status.color} text-xs mt-1`}>
+                          {status.icon} {status.label}
+                        </Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                )
+              })
+            )}
+          </div>
+          
+          {/* Results count */}
+          {searchTerm && (
+            <div className="p-3 border-t text-xs text-gray-500 text-center bg-gray-50">
+              {filteredCampaigns.length} of {sortedCampaigns.length} campaigns
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+// Enhanced Campaign Filter Component (for filtering contacts by campaign)
+const EnhancedCampaignFilter = ({ 
+  campaigns, 
+  selectedCampaignId, 
+  onCampaignChange 
+}: { 
+  campaigns: { id: string, name: string, status: string }[]
+  selectedCampaignId: string
+  onCampaignChange: (value: string) => void
+}) => {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+
+  // Sort campaigns alphabetically by name
+  const sortedCampaigns = [...campaigns].sort((a, b) => a.name.localeCompare(b.name))
+
+  // Filter campaigns based on search term
+  const filteredCampaigns = sortedCampaigns.filter(campaign =>
+    campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const selectedCampaignData = campaigns.find(c => c.id === selectedCampaignId)
+  const selectedStatus = selectedCampaignData ? CAMPAIGN_STATUS_MAP[selectedCampaignData.status as keyof typeof CAMPAIGN_STATUS_MAP] : null
+
+  // Handle search input change with proper event handling
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setSearchTerm(e.target.value)
+  }
+
+  // Handle search input click to prevent select from closing
+  const handleSearchClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  return (
+    <div className="relative">
+      <Select value={selectedCampaignId} onValueChange={onCampaignChange} onOpenChange={setIsOpen}>
+        <SelectTrigger className="w-56">
+          <SelectValue placeholder="Specific Campaign">
+            {selectedCampaignId === 'all' ? (
+              <span>All Campaigns</span>
+            ) : selectedCampaignData ? (
+              <div className="flex flex-col items-start w-full">
+                <span className="truncate w-full font-medium">{selectedCampaignData.name}</span>
+                {selectedStatus && (
+                  <Badge className={`${selectedStatus.color} text-xs mt-1`}>
+                    {selectedStatus.icon} {selectedStatus.label}
+                  </Badge>
+                )}
+              </div>
+            ) : (
+              <span>Select Campaign</span>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent className="w-56 max-h-96">
+          {/* Search Input */}
+          <div className="p-3 border-b">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search campaigns..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                onClick={handleSearchClick}
+                className="pl-9 h-9 text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setSearchTerm('')
+                  }
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Campaign List */}
+          <div className="max-h-64 overflow-y-auto">
+            <SelectItem value="all" className="py-3 font-medium">
+              All Campaigns
+            </SelectItem>
+            {filteredCampaigns.length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                {searchTerm ? 'No campaigns found' : 'No campaigns available'}
+              </div>
+            ) : (
+              filteredCampaigns.map((campaign) => {
+                const status = CAMPAIGN_STATUS_MAP[campaign.status as keyof typeof CAMPAIGN_STATUS_MAP]
+                return (
+                  <SelectItem key={campaign.id} value={campaign.id} className="py-3">
+                    <div className="flex flex-col items-start w-full">
+                      <span className="truncate w-full font-medium">{campaign.name}</span>
+                      {status && (
+                        <Badge className={`${status.color} text-xs mt-1`}>
+                          {status.icon} {status.label}
+                        </Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                )
+              })
+            )}
+          </div>
+          
+          {/* Results count */}
+          {searchTerm && (
+            <div className="p-3 border-t text-xs text-gray-500 text-center bg-gray-50">
+              {filteredCampaigns.length} of {sortedCampaigns.length} campaigns
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function FullOtisDashboard() {
   const { toast } = useToast()
   
-  // Form state
-  const [jobTitle, setJobTitle] = useState('')
-  const [location, setLocation] = useState('')
-  const [selectedRegionId, setSelectedRegionId] = useState<string>('')
-  const [platform, setPlatform] = useState('indeed')
-  
-  // Existing run selection state
-  const [useExistingRun, setUseExistingRun] = useState(false)
-  const [existingRuns, setExistingRuns] = useState<ApifyRun[]>([])
-  const [selectedRunId, setSelectedRunId] = useState<string>('')
-  const [isLoadingRuns, setIsLoadingRuns] = useState(false)
-  const [runSearchTerm, setRunSearchTerm] = useState('')
-  
-  // Regions state
-  const [regions, setRegions] = useState<Region[]>([])
-  const [isLoadingRegions, setIsLoadingRegions] = useState(true)
-  const [locationSearchOpen, setLocationSearchOpen] = useState(false)
-  
-  // Job states
+  // State management
+  const [scrapingMode, setScrapingMode] = useState<ScrapingMode>('new')
+  const [scrapingConfig, setScrapingConfig] = useState<ScrapingConfig>({
+    jobTitle: '',
+    platform: 'indeed',
+    selectedRegioPlatforms: []
+  })
+  const [selectedExistingRun, setSelectedExistingRun] = useState<ApifyRun | null>(null)
+  const [isScraping, setIsScraping] = useState(false)
+  const [scrapingProgress, setScrapingProgress] = useState(0)
   const [scrapingJobs, setScrapingJobs] = useState<ScrapingJob[]>([])
-  const [enrichmentJobs, setEnrichmentJobs] = useState<EnrichmentJob[]>([])
-  
-  // Loading states
-  const [isStartingScraping, setIsStartingScraping] = useState(false)
-  const [isStartingEnrichment, setIsStartingEnrichment] = useState(false)
-  const [isRefreshingResults, setIsRefreshingResults] = useState<string | null>(null)
-  
-  // Polling state
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
-  
-  // Company selection state
+  const [regions, setRegions] = useState<string[]>([])
+  const [jobSources, setJobSources] = useState<JobSource[]>([])
+  const [existingRuns, setExistingRuns] = useState<ApifyRun[]>([])
+  const [isLoadingExistingRuns, setIsLoadingExistingRuns] = useState(false)
+  const [recentJobPostings, setRecentJobPostings] = useState<any[]>([])
+  const [loadedCompanies, setLoadedCompanies] = useState<any[]>([])
+  const [loadedContacts, setLoadedContacts] = useState<any[]>([])
+  const [contactsByCompany, setContactsByCompany] = useState<any[]>([])
+  const [contactsLoading, setContactsLoading] = useState(false)
+  const [contactFilters, setContactFilters] = useState({
+    qualification: 'all',
+    verification: 'all',
+    contactType: 'all',
+    campaignStatus: 'all',
+    campaignId: 'all',
+    search: ''
+  })
+  const [currentRunData, setCurrentRunData] = useState<any>(null)
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
-  const [companyPage, setCompanyPage] = useState<Record<string, number>>({})
-  const [companiesPerPage] = useState(100) // Show more companies at once with compact design
-  const [companySearchTerm, setCompanySearchTerm] = useState('')
-  
-  // Contact selection state
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set())
-  const [contactSearchTerm, setContactSearchTerm] = useState('')
-  
+  const [isQualifying, setIsQualifying] = useState<Set<string>>(new Set())
+  const [isEnriching, setIsEnriching] = useState<Set<string>>(new Set())
+  const [selectedCompanyForDetails, setSelectedCompanyForDetails] = useState<string | null>(null)
+  const [isCompanyDrawerOpen, setIsCompanyDrawerOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('scraping')
   // Campaign management state
-  const [campaigns, setCampaigns] = useState<Array<{id: string, name: string, status: string}>>([])
-  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false)
-  const [linkingCampaign, setLinkingCampaign] = useState<string | null>(null)
+  const [instantlyCampaigns, setInstantlyCampaigns] = useState<{ id: string, name: string, status: string }[]>([])
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("")
+  const [addingToCampaign, setAddingToCampaign] = useState(false)
   
-  // Company drawer state
-  const [selectedCompanyForDrawer, setSelectedCompanyForDrawer] = useState<string | null>(null)
-  const [companyJobPostings, setCompanyJobPostings] = useState<any[]>([])
-  const [isLoadingCompanyJobs, setIsLoadingCompanyJobs] = useState(false)
+  // Modal state management
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalLoading, setModalLoading] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
+  
+  // Enhanced modal state for progress tracking
+  const [modalProgress, setModalProgress] = useState<{
+    percentage: number
+    completedSteps: number
+    totalSteps: number
+    currentStep: 'creation' | 'movement' | 'completed'
+  } | undefined>(undefined)
+  const [modalSteps, setModalSteps] = useState<{
+    step1: {
+      name: string
+      completed: boolean
+      created: number
+      total: number
+      status: 'success' | 'failed' | 'pending'
+    }
+    step2: {
+      name: string
+      completed: boolean
+      moved: number
+      total: number
+      status: 'success' | 'failed' | 'skipped' | 'pending'
+    }
+  } | undefined>(undefined)
+  const [modalRetryRecommendations, setModalRetryRecommendations] = useState<string[]>([])
+  const [modalSeverity, setModalSeverity] = useState<'success' | 'warning' | 'error'>('error')
 
-  // Collapsible section states
-  const [configExpanded, setConfigExpanded] = useState(false)
-  const [resultsExpanded, setResultsExpanded] = useState(false)
-  const [contactsExpanded, setContactsExpanded] = useState(false)
+  const [stats, setStats] = useState({
+    totalJobs: 0,
+    totalCompanies: 0,
+    todayJobs: 0
+  })
+
+  // Debounced search functionality
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
   
-  // Bulk campaign management state
-  const [selectedCampaignForBulk, setSelectedCampaignForBulk] = useState<string>('')
-  const [isAddingToCampaign, setIsAddingToCampaign] = useState(false)
-  
-  // Start job scraping
-  const startScraping = async () => {
-    if (!jobTitle.trim() || !selectedRegionId) {
+  // Local search state for immediate UI feedback
+  const [localSearchTerm, setLocalSearchTerm] = useState('')
+
+  // Load initial data
+  useEffect(() => {
+    loadRegions()
+    loadJobSources()
+    loadStats()
+    loadRecentJobPostings()
+    loadInstantlyCampaigns()
+  }, [])
+
+  // Load existing runs when switching to existing mode, clear data when switching to new mode
+  useEffect(() => {
+    if (scrapingMode === 'existing' && existingRuns.length === 0) {
+      loadExistingRuns()
+    } else if (scrapingMode === 'new') {
+      // Clear loaded data when switching to new mode
+      setLoadedCompanies([])
+      setLoadedContacts([])
+      setCurrentRunData(null)
+      setSelectedExistingRun(null)
+      // Reset to showing general recent job postings
+      loadRecentJobPostings()
+      // Reset to scraping tab when switching to new mode
+      setActiveTab('scraping')
+    }
+  }, [scrapingMode])
+
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout)
+      }
+    }
+  }, [searchTimeout])
+
+  // Local search filter function for immediate UI feedback
+  const getFilteredContacts = () => {
+    let filtered = loadedContacts
+    
+    // Apply search filter
+    if (localSearchTerm) {
+      const searchLower = localSearchTerm.toLowerCase()
+      filtered = filtered.filter(contact => {
+        const name = `${contact.first_name || ''} ${contact.last_name || ''}`.trim().toLowerCase()
+        const companyName = (contact.companyName || '').toLowerCase()
+        const email = (contact.email || '').toLowerCase()
+        
+        return name.includes(searchLower) || 
+               companyName.includes(searchLower) || 
+               email.includes(searchLower)
+      })
+    }
+    
+    // Apply campaign status filter (only if not 'all')
+    if (contactFilters.campaignStatus === 'in_campaign') {
+      filtered = filtered.filter(contact => contact.campaign_id)
+    } else if (contactFilters.campaignStatus === 'not_in_campaign') {
+      filtered = filtered.filter(contact => !contact.campaign_id)
+    }
+    
+    // Apply specific campaign filter (only if a specific campaign is selected)
+    if (contactFilters.campaignId && contactFilters.campaignId !== 'all') {
+      filtered = filtered.filter(contact => contact.campaign_id === contactFilters.campaignId)
+    }
+    
+    return filtered
+  }
+
+  // Keyboard shortcuts for contact qualification
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only trigger shortcuts when on contacts tab and contacts are selected
+      if (activeTab !== 'contacts' || selectedContacts.size === 0) return
+      
+      // Ignore if user is typing in an input field
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      
+      // Check for Cmd/Ctrl + key combinations
+      if (event.metaKey || event.ctrlKey) {
+        switch (event.key.toLowerCase()) {
+          case 'q':
+            event.preventDefault()
+            handleBulkContactQualification('qualified')
+            break
+          case 'r':
+            event.preventDefault()
+            handleBulkContactQualification('review')
+            break
+          case 'd':
+            event.preventDefault()
+            handleBulkContactQualification('disqualified')
+            break
+          case 'a':
+            event.preventDefault()
+            // Select all contacts
+            const allContactIds = contactsByCompany.flatMap(company => 
+              company.contacts.map((contact: any) => contact.id)
+            )
+            setSelectedContacts(new Set(allContactIds))
+            break
+          case 'escape':
+            event.preventDefault()
+            // Clear selection
+            setSelectedContacts(new Set())
+            break
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [activeTab, selectedContacts, contactsByCompany])
+
+  const loadRegions = async () => {
+    try {
+      const regions = await supabaseService.getRegions()
+      // Get unique regio_platform values
+      const uniquePlatforms = [...new Set(regions.map((region: any) => region.regio_platform).filter(Boolean))]
+      setRegions(uniquePlatforms)
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading regions:', error)
+      }
+    }
+  }
+
+  const loadJobSources = async () => {
+    try {
+      const sources = await supabaseService.getJobSourcesWithCosts()
+      setJobSources(sources || [])
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading job sources:', error)
+      }
+    }
+  }
+
+  const loadExistingRuns = async () => {
+    setIsLoadingExistingRuns(true)
+    try {
+      const response = await fetch('/api/otis/successful-runs', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // Include cookies for authentication
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setExistingRuns(data.runs || [])
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading existing runs:', error)
+      }
       toast({
-        title: "Validation Error",
-        description: "Please fill in both job title and select a location",
+        title: "Error",
+        description: "Failed to load existing runs",
         variant: "destructive"
       })
+    } finally {
+      setIsLoadingExistingRuns(false)
+    }
+  }
+
+  // Load contacts by company from Apify run
+  const loadContactsByCompany = async (runId: string, searchTerm?: string, bypassCache?: boolean) => {
+    if (!runId) {
+      setContactsByCompany([])
+      setLoadedContacts([])
       return
     }
 
-    setIsStartingScraping(true)
-    
     try {
-      const selectedRegion = getSelectedRegion()
-      if (!selectedRegion) {
-        throw new Error('Selected region not found')
+      setContactsLoading(true)
+      console.log('Loading contacts for Apify run:', runId)
+
+      const queryParams = new URLSearchParams({
+        qualification: contactFilters.qualification,
+        verification: contactFilters.verification,
+        contactType: contactFilters.contactType,
+        limit: '100'
+      })
+
+      // Add cache bypass parameter if requested
+      if (bypassCache) {
+        queryParams.append('bypassCache', 'true')
       }
 
-      const response = await fetch('/api/otis/workflow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'start_scraping',
-          data: {
-            jobTitle: jobTitle.trim(),
-            location: selectedRegion.plaats,
-            platform,
-            regionId: selectedRegion.id,
-            regioPlatform: selectedRegion.regio_platform
-          }
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to start scraping job')
+      // Use the passed searchTerm if provided, otherwise use the current filter
+      const currentSearchTerm = searchTerm !== undefined ? searchTerm : contactFilters.search
+      if (currentSearchTerm) {
+        queryParams.append('search', currentSearchTerm)
       }
 
-      const result = await response.json()
-      
-      const newJob: ScrapingJob = {
-        id: result.jobId || `job_${Date.now()}`,
-        status: 'pending',
-        jobTitle: jobTitle.trim(),
-        location: selectedRegion.plaats,
-        platform,
-        createdAt: new Date().toISOString()
-      }
-      
-      // Replace any existing jobs when starting a new scraping (clear existing runs)
-      setScrapingJobs([newJob])
-      
-      // Clear existing run selection when starting new scraping
-      setSelectedRunId('')
-      setCompanySearchTerm('')
-      setSelectedCompanies(new Set())
-      
-      // Clear existing contacts when starting new scraping
-      setEnrichmentJobs([])
-      setSelectedContacts(new Set())
-      setContactSearchTerm('')
-      
-      toast({
-        title: "Scraping Started",
-        description: `Job scraping started for "${jobTitle}" in ${selectedRegion.plaats}. Any existing runs have been cleared.`,
-      })
-
-      // Start background polling for this job (Refresh Results functionality)
-      startBackgroundResultsPolling(newJob.id)
-      
-    } catch (error) {
-      console.error('Error starting scraping:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to start scraping",
-        variant: "destructive"
-      })
-    } finally {
-      setIsStartingScraping(false)
-    }
-  }
-
-  // Start Apollo enrichment
-  const startEnrichment = async (apifyRunId: string) => {
-    setIsStartingEnrichment(true)
-    
-    try {
-      // Check if any companies are selected
-      if (selectedCompanies.size === 0) {
-        throw new Error('Please select at least one company for enrichment')
+      // Only add campaignStatus if it's not 'all'
+      if (contactFilters.campaignStatus && contactFilters.campaignStatus !== 'all') {
+        queryParams.append('campaignStatus', contactFilters.campaignStatus)
       }
 
-      // Get selected company IDs
-      const selectedCompanyIds = Array.from(selectedCompanies)
-      
-      console.log('🎯 Starting enrichment with:', {
-        apifyRunId,
-        selectedCompanyIds,
-        selectedCount: selectedCompanyIds.length
-      })
+      // Only add campaignId if it's not 'all'
+      if (contactFilters.campaignId && contactFilters.campaignId !== 'all') {
+        queryParams.append('campaignId', contactFilters.campaignId)
+      }
 
-      const response = await fetch('/api/apollo/enrich-selected', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selectedCompanyIds,
-          apifyRunId
-        })
+      const url = `/api/otis/contacts/by-company/${runId}?${queryParams}`
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // Include cookies for authentication
       })
-
-      console.log('📥 API Response status:', response.status)
       
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ API Error:', errorText)
-        throw new Error(`Failed to start enrichment: ${response.status} - ${errorText}`)
+        console.error('API Response Error:', response.status, errorText)
+        throw new Error(`Failed to fetch contacts by company: ${response.status} - ${errorText}`)
       }
 
       const result = await response.json()
-      console.log('📦 API Response data:', result)
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Enrichment failed')
-      }
+      console.log('Loaded contacts by company:', result.data)
+      console.log('Sample company with category_size:', result.data.companies?.[0])
 
-      const newJob: EnrichmentJob = {
-        id: result.data.batchId,
-        status: 'pending',
-        companyCount: result.data.totalCompanies,
-        contactsFound: 0,
-        createdAt: new Date().toISOString()
-      }
-      
-      setEnrichmentJobs(prev => [newJob, ...prev])
-      
-      // Update UI to reflect the changes
-      setScrapingJobs(prev => prev.map(job => {
-        if (job.apifyRunId === apifyRunId && job.detailedResults?.companies) {
-          return {
-            ...job,
-            detailedResults: {
-              ...job.detailedResults,
-              companies: job.detailedResults.companies.map(company => 
-                selectedCompanies.has(company.id) 
-                  ? { 
-                      ...company, 
-                      status: 'Qualified',
-                      enrichment_status: 'pending'
-                    }
-                  : company
-              )
-            }
-          }
-        }
-        return job
-      }))
-      
-      // Clear selection after successful enrichment
-      clearCompanySelection()
-      
-      toast({
-        title: "Enrichment Started",
-        description: `Started enrichment for ${result.data.totalCompanies} selected companies. ${result.data.successfulRequests} webhook requests successful, ${result.data.failedRequests} failed.`,
-      })
+      if (result.success) {
+        setContactsByCompany(result.data.companies || [])
+        
+        // Also set flat contacts for backward compatibility
+        const flatContacts = (result.data.companies || []).flatMap((company: any) => 
+          company.contacts.map((contact: any) => ({
+            ...contact,
+            companyName: company.name,
+            companyWebsite: company.website,
+            companyCategorySize: company.category_size,
+            companyQualification: company.qualification_status,
+            companyLocation: company.location,
+            region_plaats: company.region_plaats,
+            region_platform: company.region_platform
+          }))
+        )
 
-      // Start polling for enrichment progress
-      startEnrichmentPolling(newJob.id)
-      
+        // Remove duplicate contacts based on ID
+        const uniqueContacts = flatContacts.filter((contact, index, self) => 
+          index === self.findIndex(c => c.id === contact.id)
+        )
+        
+
+        
+        setLoadedContacts(uniqueContacts)
+
+        toast({
+          title: "Contacts Loaded",
+          description: `Found ${result.data.total_contacts} contacts from ${result.data.total_companies} companies (${result.data.total_key_contacts} key contacts)`,
+        })
+      }
     } catch (error) {
-      console.error('Error starting enrichment:', error)
+      console.error('Error loading contacts by company:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to start enrichment",
+        description: `Failed to load contacts: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive"
       })
     } finally {
-      setIsStartingEnrichment(false)
+      setContactsLoading(false)
     }
   }
 
-
-
-  // Load existing successful Apify runs
-  const loadExistingRuns = useCallback(async () => {
-    setIsLoadingRuns(true)
-    
+  const loadStats = async () => {
     try {
-      const response = await fetch('/api/otis/successful-runs')
-      if (!response.ok) {
-        throw new Error('Failed to fetch existing runs')
-      }
-
-      const data = await response.json()
-      setExistingRuns(data.runs || [])
-      
-      if (data.runs && data.runs.length === 0) {
-        toast({
-          title: "No Runs Found",
-          description: "No successful Apify runs found. Start a new scraping session instead.",
-          variant: "destructive"
-        })
-      }
-      
-    } catch (error) {
-      console.error('Error loading existing runs:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load existing runs",
-        variant: "destructive"
+      const stats = await supabaseService.getDashboardStats()
+      setStats({
+        totalJobs: stats.totalJobs || 0,
+        totalCompanies: stats.totalCompanies || 0,
+        todayJobs: stats.todayJobs || 0
       })
-    } finally {
-      setIsLoadingRuns(false)
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading stats:', error)
+      }
     }
-  }, [toast])
+  }
 
-  // Load results from existing run
-  const loadExistingRunResults = async () => {
-    if (!selectedRunId) {
+  // Refresh functions for companies and contacts
+  const [isRefreshingCompanies, setIsRefreshingCompanies] = useState(false)
+  const [isRefreshingContacts, setIsRefreshingContacts] = useState(false)
+
+  const refreshCompanies = async () => {
+    if (!currentRunData?.apify_run?.id) {
       toast({
-        title: "Selection Required",
+        title: "No Run Selected",
         description: "Please select an existing run first",
         variant: "destructive"
       })
       return
     }
 
-    setIsStartingScraping(true)
-    
+    setIsRefreshingCompanies(true)
     try {
-      // Find the selected run details
-      const selectedRun = existingRuns.find(run => run.id === selectedRunId)
-      if (!selectedRun) {
-        throw new Error('Selected run not found')
-      }
-
-      // Create a job entry for the existing run
-      const newJob: ScrapingJob = {
-        id: `existing_${selectedRunId}`,
-        status: 'completed',
-        jobTitle: selectedRun.title,
-        location: selectedRun.location,
-        platform: selectedRun.platform,
-        apifyRunId: selectedRunId,
-        createdAt: selectedRun.createdAt,
-        completedAt: selectedRun.finishedAt
-      }
-      
-      // Replace any existing jobs with the new one (only show one run at a time)
-      setScrapingJobs([newJob])
-      
-      // Load contacts immediately for this run (don't wait for detailed results)
-      await loadAllContactsForCurrentRun()
-      
-      // Load results from the apify run directly
-      try {
-        const response = await fetch(`/api/otis/scraping-results/run/${selectedRunId}`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch run results')
-        }
-
-        const runResults = await response.json()
-        
-        if (runResults.success && runResults.data) {
-          setScrapingJobs(prev => prev.map(job => {
-            if (job.id === newJob.id) {
-              return {
-                ...job,
-                detailedResults: runResults.data,
-                jobCount: runResults.data.job_count,
-                companyCount: runResults.data.total_companies
-              }
-            }
-            return job
-          }))
-          
-          // Refresh contacts with the detailed results data
-          await loadAllContactsForCurrentRun(runResults.data)
-        }
-      } catch (error) {
-        console.error('Error loading run results:', error)
-        // Fallback to refreshResults if the run endpoint fails
-        await refreshResults(newJob.id)
-      }
-      
-      // Start background polling for this existing run
-      startBackgroundResultsPolling(newJob.id)
-      
       toast({
-        title: "Existing Run Loaded",
-        description: `Loaded results from "${selectedRun.title}" in ${selectedRun.location}`,
+        title: "Refreshing Companies",
+        description: "Loading updated company data...",
       })
-      
-    } catch (error) {
-      console.error('Error loading existing run:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load existing run",
-        variant: "destructive"
-      })
-    } finally {
-      setIsStartingScraping(false)
-    }
-  }
 
-  // Refresh detailed results from Supabase
-  const refreshResults = async (jobId: string) => {
-    setIsRefreshingResults(jobId)
-    
-    try {
-      // Find the job
-      const job = scrapingJobs.find(j => j.id === jobId)
-      if (!job) {
-        throw new Error('Job not found')
-      }
-
-      // For pending/running jobs without apifyRunId, first check the job status
-      if (!job.apifyRunId) {
-        const statusResponse = await fetch(`/api/otis/apify-runs?jobId=${jobId}`)
-        if (statusResponse.ok) {
-          const statusData = await statusResponse.json()
-          
-          // Update job with latest status and apifyRunId if available
-          setScrapingJobs(prev => prev.map(j => {
-            if (j.id === jobId) {
-              return {
-                ...j,
-                status: statusData.status || j.status,
-                apifyRunId: statusData.apifyRunId || j.apifyRunId,
-                jobCount: statusData.jobCount || j.jobCount,
-                companyCount: statusData.companyCount || j.companyCount,
-                completedAt: statusData.completedAt || j.completedAt
-              }
-            }
-            return j
-          }))
-
-          // If job is still pending/running without apifyRunId, show appropriate message
-          if (!statusData.apifyRunId) {
-            toast({
-              title: "Job Still Processing",
-              description: "The scraping job is still running. Please wait for it to complete.",
-            })
-            return
-          }
-        }
-      }
-
-      // Now get the updated job with apifyRunId
-      const updatedJob = scrapingJobs.find(j => j.id === jobId)
-      if (!updatedJob?.apifyRunId) {
-        throw new Error('No Apify Run ID found for this job')
-      }
-
-      const response = await fetch(`/api/otis/scraping-results/run/${updatedJob.apifyRunId}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch detailed results')
-      }
-
-      const detailedResults = await response.json()
-      
-      setScrapingJobs(prev => prev.map(job => {
-        if (job.id === jobId) {
-          return {
-            ...job,
-            detailedResults: detailedResults.data,
-            jobCount: detailedResults.data.job_count,
-            companyCount: detailedResults.data.companies?.length || 0
-          }
-        }
-        return job
-      }))
-      
-      // Load contacts after updating the scraping results
-      await loadAllContactsForCurrentRun(detailedResults.data)
-      
-      toast({
-        title: "Results Refreshed",
-        description: `Found ${detailedResults.data.job_count} jobs and ${detailedResults.data.companies?.length || 0} companies`,
-      })
-      
-    } catch (error) {
-      console.error('Error refreshing results:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to refresh results",
-        variant: "destructive"
-      })
-    } finally {
-      setIsRefreshingResults(null)
-    }
-  }
-
-  // Background polling for scraping results (Refresh Results functionality)
-  const startBackgroundResultsPolling = (jobId: string) => {
-    const interval = setInterval(async () => {
-      try {
-        // Find the job
-        const job = scrapingJobs.find(j => j.id === jobId)
-        if (!job) {
-          clearInterval(interval)
-          return
-        }
-
-        // For pending/running jobs without apifyRunId, first check the job status
-        if (!job.apifyRunId) {
-          const statusResponse = await fetch(`/api/otis/apify-runs?jobId=${jobId}`)
-          if (statusResponse.ok) {
-            const statusData = await statusResponse.json()
-            
-            // Update job with latest status and apifyRunId if available
-            setScrapingJobs(prev => prev.map(j => {
-              if (j.id === jobId) {
-                return {
-                  ...j,
-                  status: statusData.status || j.status,
-                  apifyRunId: statusData.apifyRunId || j.apifyRunId,
-                  jobCount: statusData.jobCount || j.jobCount,
-                  companyCount: statusData.companyCount || j.companyCount,
-                  completedAt: statusData.completedAt || j.completedAt
-                }
-              }
-              return j
-            }))
-
-            // If job is still pending/running without apifyRunId, continue polling
-            if (!statusData.apifyRunId) {
-              return
-            }
-          }
-        }
-
-        // Now get the updated job with apifyRunId
-        const updatedJob = scrapingJobs.find(j => j.id === jobId)
-        if (!updatedJob?.apifyRunId) {
-          return
-        }
-
-        // Fetch detailed results from the database
-        const response = await fetch(`/api/otis/scraping-results/run/${updatedJob.apifyRunId}`)
-        if (response.ok) {
-          const detailedResults = await response.json()
-          
-          setScrapingJobs(prev => prev.map(job => {
-            if (job.id === jobId) {
-              return {
-                ...job,
-                detailedResults: detailedResults.data,
-                jobCount: detailedResults.data.job_count,
-                companyCount: detailedResults.data.companies?.length || 0
-              }
-            }
-            return job
-          }))
-          
-          // Refresh contacts for the updated results
-          await loadAllContactsForCurrentRun(detailedResults.data)
-        }
-      } catch (error) {
-        console.error('Background results polling error:', error)
-      }
-    }, 5000) // Poll every 5 seconds
-    
-    setPollingInterval(interval)
-  }
-
-  // Simple polling for scraping progress (legacy - for job status only)
-  const startPolling = (jobId: string) => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/otis/apify-runs?jobId=${jobId}`)
-        if (response.ok) {
-          const data = await response.json()
-          
-          setScrapingJobs(prev => prev.map(job => {
-            if (job.id === jobId) {
-              return {
-                ...job,
-                status: data.status || job.status,
-                apifyRunId: data.apifyRunId || job.apifyRunId,
-                jobCount: data.jobCount || job.jobCount,
-                companyCount: data.companyCount || job.companyCount,
-                completedAt: data.completedAt || job.completedAt
-              }
-            }
-            return job
-          }))
-          
-          // Stop polling if job is completed or failed
-          if (data.status === 'completed' || data.status === 'failed') {
-            clearInterval(interval)
-          }
-        }
-      } catch (error) {
-        console.error('Polling error:', error)
-      }
-    }, 5000) // Poll every 5 seconds
-    
-    setPollingInterval(interval)
-  }
-
-  // Company selection and management functions
-  const toggleCompanySelection = (companyId: string) => {
-    console.log('🔍 Toggle called for company:', companyId)
-    setSelectedCompanies(prev => {
-      const newSet = new Set(prev)
-      const wasSelected = newSet.has(companyId)
-      if (wasSelected) {
-        newSet.delete(companyId)
-        console.log('❌ Removed company from selection')
-      } else {
-        newSet.add(companyId)
-        console.log('✅ Added company to selection')
-      }
-      console.log('📊 New selection count:', newSet.size)
-      return newSet
-    })
-  }
-
-  const selectAllCompanies = (companies: Array<{ id: string }>) => {
-    setSelectedCompanies(new Set(companies.map(c => c.id)))
-  }
-
-  const clearCompanySelection = () => {
-    setSelectedCompanies(new Set())
-  }
-
-  // Contact selection functions
-  const toggleContactSelection = (contactId: string) => {
-    setSelectedContacts(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(contactId)) {
-        newSet.delete(contactId)
-      } else {
-        newSet.add(contactId)
-      }
-      return newSet
-    })
-  }
-
-  const selectAllContacts = (contacts: Array<{ id: string }>) => {
-    setSelectedContacts(new Set(contacts.map(c => c.id)))
-  }
-
-  const clearContactSelection = () => {
-    setSelectedContacts(new Set())
-  }
-
-
-
-  const updateCompanyStatus = async (companyId: string, newStatus: string) => {
-    try {
-      const response = await fetch('/api/companies', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, status: newStatus })
+      // Fetch updated data from the specific Apify run
+      const response = await fetch(`/api/otis/scraping-results/run/${currentRunData.apify_run.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update company status')
+        throw new Error(`Failed to fetch data: ${response.statusText}`)
       }
 
       const result = await response.json()
-      
-      // Update the company status in the UI
-      setScrapingJobs(prev => prev.map(job => {
-        if (job.detailedResults?.companies) {
-          return {
-            ...job,
-            detailedResults: {
-              ...job.detailedResults,
-              companies: job.detailedResults.companies.map(company => 
-                company.id === companyId 
-                  ? { ...company, status: newStatus }
-                  : company
-              )
-            }
-          }
-        }
-        return job
-      }))
 
-      toast({
-        title: "Status Updated",
-        description: `${result.data.name} status changed to ${newStatus}`,
-      })
-
-    } catch (error) {
-      console.error('Error updating company status:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update company status",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const updateSelectedCompaniesStatus = async (newStatus: string) => {
-    try {
-      const promises = Array.from(selectedCompanies).map(companyId => 
-        updateCompanyStatus(companyId, newStatus)
-      )
-      
-      await Promise.all(promises)
-      
-      toast({
-        title: "Bulk Update Complete",
-        description: `Updated ${selectedCompanies.size} companies to ${newStatus}`,
-      })
-      
-      clearCompanySelection()
-      
-    } catch (error) {
-      console.error('Error updating selected companies:', error)
-      toast({
-        title: "Error",
-        description: "Failed to update some companies",
-        variant: "destructive"
-      })
-    }
-  }
-
-  // Company drawer functions
-  const openCompanyDrawer = async (companyId: string) => {
-    setSelectedCompanyForDrawer(companyId)
-    setIsLoadingCompanyJobs(true)
-    
-    try {
-      const response = await fetch(`/api/companies/${companyId}/job-postings`)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch company job postings: ${response.status}`)
-      }
-
-      const result = await response.json()
       if (!result.success) {
-        throw new Error(result.error || 'Failed to load job postings')
+        throw new Error(result.error || 'Failed to load run data')
       }
-      
-      setCompanyJobPostings(result.data.job_postings || [])
-      
-    } catch (error) {
-      console.error('Error fetching company job postings:', error)
+
+      const { data } = result
+
+      // Update the companies data
+      if (data.companies) {
+        setLoadedCompanies(data.companies)
+      }
+
+      // Update the current run data
+      setCurrentRunData(data)
+
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load job postings",
-        variant: "destructive"
+        title: "Companies Refreshed",
+        description: `Updated ${data.companies?.length || 0} companies`,
       })
-      setCompanyJobPostings([])
-    } finally {
-      setIsLoadingCompanyJobs(false)
-    }
-  }
-
-  const closeCompanyDrawer = () => {
-    setSelectedCompanyForDrawer(null)
-    setCompanyJobPostings([])
-  }
-
-  // Simple polling for enrichment progress
-  const startEnrichmentPolling = (jobId: string) => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/apollo/status/${jobId}`)
-        if (response.ok) {
-          const data = await response.json()
-          
-          // If enrichment is completed, fetch contact details
-          let contacts: any[] = []
-          if (data.status === 'completed' && data.companies) {
-            // Get contact details for enriched companies
-            const enrichedCompanyIds = data.companies
-              .filter((c: any) => c.status === 'enriched' && c.contactsFound > 0)
-              .map((c: any) => c.companyId)
-            
-            if (enrichedCompanyIds.length > 0) {
-              try {
-                const contactsResponse = await fetch('/api/contacts', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ companyIds: enrichedCompanyIds })
-                })
-                
-                if (contactsResponse.ok) {
-                  const contactsData = await contactsResponse.json()
-                  contacts = contactsData.map((contact: any) => ({
-                    id: contact.id,
-                    name: contact.name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-                    email: contact.email,
-                    title: contact.title,
-                    companyName: contact.companies?.name || 'Unknown Company',
-                    companyId: contact.company_id
-                  }))
-                }
-              } catch (contactError) {
-                console.error('Error fetching contact details:', contactError)
-              }
-            }
-          }
-          
-          setEnrichmentJobs(prev => prev.map(job => {
-            if (job.id === jobId) {
-              return {
-                ...job,
-                status: data.status || job.status,
-                companyCount: data.totalCompanies || job.companyCount,
-                contactsFound: data.companies?.reduce((sum: number, c: any) => sum + (c.contactsFound || 0), 0) || job.contactsFound,
-                completedAt: data.completedAt || job.completedAt,
-                contacts: contacts.length > 0 ? contacts : job.contacts
-              }
-            }
-            return job
-          }))
-          
-          // Stop polling if job is completed or failed
-          if (data.status === 'completed' || data.status === 'failed') {
-            clearInterval(interval)
-          }
-        }
-      } catch (error) {
-        console.error('Enrichment polling error:', error)
-      }
-    }, 5000) // Poll every 5 seconds
-  }
-
-  // Load regions data on component mount
-  useEffect(() => {
-    const loadRegions = async () => {
-      try {
-        setIsLoadingRegions(true)
-        const regionsData = await supabaseService.getRegions()
-        setRegions(regionsData)
-      } catch (error) {
-        console.error('Error loading regions:', error)
-        toast({
-          title: "Error",
-          description: "Failed to load regions data",
-          variant: "destructive"
-        })
-      } finally {
-        setIsLoadingRegions(false)
-      }
-    }
-
-    const initializeData = async () => {
-      await loadRegions()
-      await loadCampaigns()
-    }
-
-    initializeData()
-  }, []) // Removed toast dependency to prevent infinite re-renders
-
-  // Load existing runs when toggle is switched on
-  useEffect(() => {
-    if (useExistingRun && existingRuns.length === 0) {
-      loadExistingRuns()
-    }
-    // Clear search when switching modes
-    if (!useExistingRun) {
-      setRunSearchTerm('')
-      setSelectedRunId('')
-    }
-  }, [useExistingRun, loadExistingRuns, existingRuns.length])
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
-      }
-    }
-  }, [pollingInterval])
-
-  // Helper functions for location selection
-  const getSelectedRegion = () => {
-    return regions.find(region => region.id === selectedRegionId)
-  }
-
-  const handleLocationSelect = (regionId: string) => {
-    setSelectedRegionId(regionId)
-    const selectedRegion = regions.find(region => region.id === regionId)
-    if (selectedRegion) {
-      setLocation(selectedRegion.plaats)
-    }
-    setLocationSearchOpen(false)
-  }
-
-  // Group regions by plaats and get unique combinations
-  const getGroupedRegions = () => {
-    const grouped = regions.reduce((acc, region) => {
-      const key = region.plaats
-      if (!acc[key]) {
-        acc[key] = []
-      }
-      acc[key].push(region)
-      return acc
-    }, {} as Record<string, Region[]>)
-
-    // For each plaats, prefer the one with the most descriptive regio_platform
-    return Object.entries(grouped).map(([plaats, regions]) => {
-      // Sort by regio_platform length (longer descriptions first) and take the first one
-      const sortedRegions = regions.sort((a, b) => b.regio_platform.length - a.regio_platform.length)
-      return sortedRegions[0]
-    }).sort((a, b) => a.plaats.localeCompare(b.plaats))
-  }
-
-  // Filter existing runs based on search term
-  const getFilteredRuns = () => {
-    if (!runSearchTerm.trim()) {
-      return existingRuns
-    }
-    
-    const searchLower = runSearchTerm.toLowerCase()
-    return existingRuns.filter(run => 
-      run.title.toLowerCase().includes(searchLower) ||
-      run.location.toLowerCase().includes(searchLower) ||
-      run.platform.toLowerCase().includes(searchLower) ||
-      run.displayName.toLowerCase().includes(searchLower)
-    )
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-600" />
-      case 'running':
-        return <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
-      case 'failed':
-        return <AlertCircle className="w-4 h-4 text-red-600" />
-      default:
-        return <div className="w-4 h-4 bg-gray-300 rounded-full" />
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      completed: 'default',
-      running: 'secondary',
-      failed: 'destructive',
-      pending: 'outline'
-    } as const
-    
-    return (
-      <Badge variant={variants[status as keyof typeof variants] || 'outline'}>
-        {status}
-      </Badge>
-    )
-  }
-
-  const getEmailStatusBadge = (emailStatus: string) => {
-    switch (emailStatus?.toLowerCase()) {
-      case 'verified':
-      case 'valid':
-        return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">✓ {emailStatus}</Badge>
-      case 'invalid':
-        return <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">✗ {emailStatus}</Badge>
-      case 'unknown':
-      case 'unverified':
-        return <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">? {emailStatus}</Badge>
-      default:
-        return <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200">{emailStatus}</Badge>
-    }
-  }
-
-  const getCategorySizeBadge = (categorySize: string) => {
-    switch (categorySize?.toLowerCase()) {
-      case 'klein':
-        return <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Klein</Badge>
-      case 'middel':
-        return <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">Middel</Badge>
-      case 'groot':
-        return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Groot</Badge>
-      default:
-        return null
-    }
-  }
-
-  // Load available campaigns
-  const loadCampaigns = async () => {
-    try {
-      setIsLoadingCampaigns(true)
-      const response = await fetch('/api/instantly-campaigns')
-      if (!response.ok) {
-        throw new Error('Failed to fetch campaigns')
-      }
-
-      const result = await response.json()
-      if (result.campaigns) {
-        setCampaigns(result.campaigns)
-      }
     } catch (error) {
-      console.error('Error loading campaigns:', error)
+      console.error('Error refreshing companies:', error)
       toast({
         title: "Error",
-        description: "Failed to load campaigns",
+        description: `Failed to refresh companies: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive"
       })
     } finally {
-      setIsLoadingCampaigns(false)
+      setIsRefreshingCompanies(false)
     }
   }
 
-  // Link campaign to contact
-  const linkCampaignToContact = async (contactId: string, campaignId: string, campaignName: string) => {
-    try {
-      setLinkingCampaign(contactId)
-      const response = await fetch('/api/otis/contacts/link-campaign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contactId, campaignId, campaignName })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to link campaign')
-      }
-
-      const result = await response.json()
-      if (result.success) {
-        // Update the contact in the enrichment jobs
-        setEnrichmentJobs(prev => prev.map(job => ({
-          ...job,
-          contacts: job.contacts?.map(contact => 
-            contact.id === contactId 
-              ? { ...contact, campaign_id: campaignId, campaign_name: campaignName }
-              : contact
-          )
-        })))
-
-        toast({
-          title: "Success",
-          description: `Campaign linked to ${result.data.name || 'contact'}`,
-        })
-      }
-    } catch (error) {
-      console.error('Error linking campaign:', error)
+  const refreshContacts = async () => {
+    if (!currentRunData?.apify_run?.id) {
       toast({
-        title: "Error",
-        description: "Failed to link campaign to contact",
-        variant: "destructive"
-      })
-    } finally {
-      setLinkingCampaign(null)
-    }
-  }
-
-  // Load all contacts for the current run's companies
-  const loadAllContactsForCurrentRun = async (detailedResultsData?: any) => {
-    console.log('🔄 loadAllContactsForCurrentRun called')
-    try {
-      // Get the current scraping job
-      const currentJob = scrapingJobs[0]
-      if (!currentJob?.apifyRunId) {
-        console.log('❌ No current run with apifyRunId found')
-        return
-      }
-
-      console.log('✅ Loading all contacts for current run:', currentJob.apifyRunId)
-      
-      // Get all company IDs from the current run
-      // Use passed detailedResultsData if available, otherwise try to get from state
-      let companyIds: string[] = []
-      
-      if (detailedResultsData?.companies) {
-        // Use the data passed directly (avoiding state timing issues)
-        companyIds = detailedResultsData.companies.map((c: any) => c.id)
-        console.log('Using passed detailed results data, found companies:', companyIds.length)
-      } else {
-        // Fallback to state (might be stale due to async updates)
-        companyIds = currentJob.detailedResults?.companies?.map(c => c.id) || []
-        console.log('Using state data, found companies:', companyIds.length)
-      }
-      
-      // If still no companies, try to get them from the database directly
-      if (companyIds.length === 0) {
-        console.log('No companies found, fetching from database...')
-        try {
-          const response = await fetch(`/api/otis/scraping-results/run/${currentJob.apifyRunId}`)
-          if (response.ok) {
-            const runResults = await response.json()
-            if (runResults.success && runResults.data?.companies) {
-              companyIds = runResults.data.companies.map((c: any) => c.id)
-              console.log('Fetched company IDs from database:', companyIds.length)
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching companies from database:', error)
-        }
-      }
-      
-      if (companyIds.length === 0) {
-        console.log('No companies found in current run')
-        return
-      }
-
-      console.log('Fetching contacts for company IDs:', companyIds.slice(0, 5), '... (total:', companyIds.length, ')')
-
-      // Fetch contacts for all companies in the current run
-      let result = null
-      
-      try {
-        const response = await fetch('/api/contacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ companyIds })
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch contacts')
-        }
-
-        result = await response.json()
-        console.log('All contacts API result:', result)
-        console.log('Result type:', typeof result, 'Is array:', Array.isArray(result))
-        console.log('Result length:', result?.length)
-      } catch (error) {
-        console.error('Error fetching contacts via /api/contacts:', error)
-        
-        // Fallback: try the otis contacts endpoint
-        try {
-          console.log('Trying fallback to /api/otis/contacts...')
-          const fallbackResponse = await fetch(`/api/otis/contacts?apifyRunId=${currentJob.apifyRunId}`)
-          if (fallbackResponse.ok) {
-            const fallbackResult = await fallbackResponse.json()
-            if (fallbackResult.success && fallbackResult.data?.contacts) {
-              result = fallbackResult.data.contacts
-              console.log('Fallback successful, got contacts:', result.length)
-            }
-          }
-        } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError)
-        }
-      }
-      
-      if (result && Array.isArray(result)) {
-        console.log('✅ Got contacts result, processing...')
-      }
-      
-      if (result && Array.isArray(result)) {
-          // Create a single enrichment job entry with all contacts
-          const enrichmentJob: EnrichmentJob = {
-            id: `all_contacts_${currentJob.apifyRunId}`,
-            status: 'completed',
-            companyCount: companyIds.length,
-            contactsFound: result.length,
-            createdAt: new Date().toISOString(),
-            completedAt: new Date().toISOString(),
-                        contacts: result.map((contact: any) => ({
-              id: contact.id,
-              name: contact.name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-              email: contact.email || '',
-              title: contact.title || '',
-              linkedin_url: contact.linkedin_url,
-              campaign_id: contact.campaign_id,
-              campaign_name: contact.campaign_name,
-              email_status: contact.email_status,
-              phone: contact.phone,
-              companyName: contact.companies?.name || '',
-              companyId: contact.company_id
-            }))
-        }
-        
-        console.log('✅ Setting all contacts enrichment job:', enrichmentJob)
-        setEnrichmentJobs([enrichmentJob])
-        console.log('✅ Contacts set in state, should now appear in UI')
-      }
-    } catch (error) {
-      console.error('Error loading all contacts:', error)
-      // Don't show error toast as this is not critical
-    }
-  }
-
-  // Load contacts for the current apify run (legacy - for backward compatibility)
-  const loadContactsForRun = async (apifyRunId: string) => {
-    try {
-      console.log('Loading contacts for apify run:', apifyRunId)
-      const response = await fetch(`/api/otis/contacts?apifyRunId=${apifyRunId}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch contacts')
-      }
-
-      const result = await response.json()
-      console.log('Contacts API result:', result)
-      
-      if (result.success && result.data) {
-        // Create an enrichment job entry with the contacts
-        const enrichmentJob: EnrichmentJob = {
-          id: `enrichment_${apifyRunId}`,
-          status: 'completed',
-          companyCount: result.data.companyCount || 0,
-          contactsFound: result.data.contacts.length,
-          createdAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-          contacts: result.data.contacts.map((contact: any) => ({
-            id: contact.id,
-            name: contact.name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-            email: contact.email || '',
-            title: contact.title || '',
-            linkedin_url: contact.linkedin_url,
-            campaign_id: contact.campaign_id,
-            campaign_name: contact.campaign_name,
-            email_status: contact.email_status,
-            phone: contact.phone,
-            companyName: contact.company_name || '',
-            companyId: contact.company_id
-          }))
-        }
-        
-        console.log('Setting enrichment jobs with:', enrichmentJob)
-        setEnrichmentJobs([enrichmentJob])
-      }
-    } catch (error) {
-      console.error('Error loading contacts:', error)
-      // Don't show error toast as this is not critical
-    }
-  }
-
-  // Bulk add contacts to campaign
-  const addSelectedContactsToCampaign = async () => {
-    if (!selectedCampaignForBulk || selectedContacts.size === 0) {
-      toast({
-        title: "Selection Required",
-        description: "Please select a campaign and at least one contact",
+        title: "No Run Selected",
+        description: "Please select an existing run first",
         variant: "destructive"
       })
       return
     }
 
-    setIsAddingToCampaign(true)
-    
+    setIsRefreshingContacts(true)
     try {
-      const campaign = campaigns.find(c => c.id === selectedCampaignForBulk)
-      if (!campaign) {
-        throw new Error('Selected campaign not found')
-      }
+      toast({
+        title: "Refreshing Contacts",
+        description: "Loading updated contact data...",
+      })
 
-      // Get all contacts from all enrichment jobs
-      const allContacts = enrichmentJobs.flatMap(job => job.contacts || [])
-      const selectedContactData = allContacts.filter(contact => selectedContacts.has(contact.id))
-      
-      // Check if contacts have emails
-      const contactsWithoutEmail = selectedContactData.filter(contact => !contact.email || contact.email.trim() === '')
-      if (contactsWithoutEmail.length > 0) {
+      // Reload contacts data for this specific run with cache bypass
+      await loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search, true)
+
+      toast({
+        title: "Contacts Refreshed",
+        description: `Updated contact data from Apollo enrichment`,
+      })
+    } catch (error) {
+      console.error('Error refreshing contacts:', error)
+      toast({
+        title: "Error",
+        description: `Failed to refresh contacts: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive"
+      })
+    } finally {
+      setIsRefreshingContacts(false)
+    }
+  }
+
+  const loadRecentJobPostings = async () => {
+    try {
+      const result = await supabaseService.getJobPostings({ limit: 10 })
+      setRecentJobPostings(result.data || [])
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading recent job postings:', error)
+      }
+    }
+  }
+
+  const loadInstantlyCampaigns = async () => {
+    try {
+      const response = await fetch("/api/instantly-campaigns", {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // Include cookies for authentication
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setInstantlyCampaigns(data.campaigns || [])
+      } else {
+        console.error('Failed to load Instantly campaigns:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Error loading Instantly campaigns:', error)
+    }
+  }
+
+  const handleStartScraping = async () => {
+    if (scrapingMode === 'new') {
+      if (scrapingConfig.selectedRegioPlatforms.length === 0) {
         toast({
-          title: "⚠️ Contacten zonder email",
-          description: `${contactsWithoutEmail.length} van de ${selectedContacts.size} geselecteerde contacten hebben geen email adres.`,
-          variant: "destructive",
+          title: "Validation Error",
+          description: "Please select at least one Regio Platform",
+          variant: "destructive"
         })
         return
       }
+      await startNewScraping()
+    } else {
+      if (!selectedExistingRun) {
+        toast({
+          title: "Validation Error",
+          description: "Please select an existing Apify run",
+          variant: "destructive"
+        })
+        return
+      }
+      await useExistingRun()
+    }
+  }
 
-      const response = await fetch("/api/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          contactIds: Array.from(selectedContacts), 
-          campaignId: selectedCampaignForBulk, 
-          campaignName: campaign.name 
-        }),
+  const startNewScraping = async () => {
+    setIsScraping(true)
+    setScrapingProgress(0)
+
+    // Create new scraping job
+    const newJob: ScrapingJob = {
+      id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      jobTitle: scrapingConfig.jobTitle,
+      platform: scrapingConfig.platform,
+      selectedRegioPlatforms: scrapingConfig.selectedRegioPlatforms,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+
+    setScrapingJobs(prev => [newJob, ...prev])
+
+    try {
+      // Get the selected platform's webhook URL
+      const selectedSource = jobSources.find(source => source.name === scrapingConfig.platform)
+      const webhookUrl = selectedSource?.webhook_url
+
+      // Start scraping via workflow API
+      const response = await fetch('/api/otis/workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify({
+          action: 'start_scraping',
+          data: {
+            jobTitle: scrapingConfig.jobTitle,
+            platform: scrapingConfig.platform,
+            selectedRegioPlatforms: scrapingConfig.selectedRegioPlatforms,
+            webhookUrl: webhookUrl
+          }
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Update job status
+        setScrapingJobs(prev => prev.map(job => 
+          job.id === newJob.id 
+            ? { ...job, status: 'running', id: result.jobId }
+            : job
+        ))
+
+        // Simulate progress updates
+        const progressInterval = setInterval(() => {
+          setScrapingProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval)
+              return 90
+            }
+            return prev + 10
+          })
+        }, 1000)
+
+        toast({
+          title: "Scraping Started",
+          description: `Started scraping ${scrapingConfig.jobTitle || 'jobs'} with ${scrapingConfig.selectedRegioPlatforms.length} platforms`,
+        })
+
+        // Reset form
+        setScrapingConfig({
+          jobTitle: '',
+          platform: 'indeed',
+          selectedRegioPlatforms: []
+        })
+
+        // Complete after 5 seconds (simulation)
+        setTimeout(() => {
+          setScrapingProgress(100)
+          setScrapingJobs(prev => prev.map(job => 
+            job.id === newJob.id 
+              ? { ...job, status: 'completed', resultsCount: Math.floor(Math.random() * 50) + 10 }
+              : job
+          ))
+          setIsScraping(false)
+          setScrapingProgress(0)
+          loadStats()
+          loadRecentJobPostings()
+          
+          toast({
+            title: "Scraping Completed",
+            description: `Found ${Math.floor(Math.random() * 50) + 10} job postings`,
+          })
+        }, 5000)
+
+      } else {
+        throw new Error('Failed to start scraping')
+      }
+
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error starting scraping:', error)
+      }
+      setScrapingJobs(prev => prev.map(job => 
+        job.id === newJob?.id 
+          ? { ...job, status: 'failed' }
+          : job
+      ))
+      setIsScraping(false)
+      setScrapingProgress(0)
+      
+      toast({
+        title: "Scraping Failed",
+        description: "Failed to start scraping. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const useExistingRun = async () => {
+    if (!selectedExistingRun) return
+
+    setIsScraping(true)
+    setScrapingProgress(10)
+
+    try {
+      // Create job entry for existing run
+      const newJob: ScrapingJob = {
+        id: selectedExistingRun.id,
+        jobTitle: selectedExistingRun.title,
+        platform: selectedExistingRun.platform,
+        status: 'running',
+        createdAt: selectedExistingRun.createdAt
+      }
+
+      setScrapingJobs(prev => [newJob, ...prev])
+
+      toast({
+        title: "Loading Existing Data",
+        description: `Loading results from ${selectedExistingRun.displayName}`,
+      })
+
+      setScrapingProgress(30)
+
+      // Fetch actual data from the specific Apify run
+      const response = await fetch(`/api/otis/scraping-results/run/${selectedExistingRun.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // Include cookies for authentication
       })
       
-      const data = await response.json()
+      setScrapingProgress(60)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch data: ${response.statusText}`)
+      }
+
+      const result = await response.json()
       
-      if (response.ok) {
-        const successCount = data.results?.filter((r: any) => r.status === "success").length || 0
-        const errorCount = data.results?.filter((r: any) => r.status === "error").length || 0
+      setScrapingProgress(80)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load run data')
+      }
+
+      const { data } = result
+      const actualResultsCount = data.job_count || 0
+      const companiesCount = data.total_companies || 0
+
+      // Update the scraping job with actual results
+      setScrapingJobs(prev => prev.map(job => 
+        job.id === selectedExistingRun.id 
+          ? { ...job, status: 'completed', resultsCount: actualResultsCount }
+          : job
+      ))
+
+      // Stats will be updated when loadStats() is called
+
+      // Set the recent job postings to show data from this run
+      // Note: The API returns companies with job details, but we need job postings for the table
+      // We can extract job postings from the companies data
+      const jobPostingsFromRun: any[] = []
+      if (data.companies) {
+        data.companies.forEach((company: any) => {
+          if (company.jobs) {
+            company.jobs.forEach((job: any) => {
+              jobPostingsFromRun.push({
+                id: job.id,
+                title: job.title,
+                location: job.location,
+                status: job.status,
+                url: job.url,
+                created_at: job.created_at,
+                companyName: company.name,
+                company: {
+                  name: company.name,
+                  website: company.website,
+                  location: company.location
+                }
+              })
+            })
+          }
+        })
+      }
+
+      // Update recent job postings to show this run's data
+      if (jobPostingsFromRun.length > 0) {
+        setRecentJobPostings(jobPostingsFromRun.slice(0, 10)) // Show up to 10 most recent
+      }
+
+      // Store the companies data from this run
+      if (data.companies) {
+        setLoadedCompanies(data.companies)
+      }
+
+      // Store the current run data for reference
+      setCurrentRunData(data)
+
+      // Load contacts data for this specific run
+      if (selectedExistingRun?.id) {
+        await loadContactsByCompany(selectedExistingRun.id, contactFilters.search)
+      } else {
+        console.warn('No selectedExistingRun.id available for loading contacts')
+      }
+
+      setScrapingProgress(100)
+      
+      toast({
+        title: "Data Loaded Successfully", 
+        description: `Loaded ${actualResultsCount} job postings and ${companiesCount} companies`,
+      })
+
+      // Clear progress after a brief moment and navigate to companies tab
+      setTimeout(() => {
+        setScrapingProgress(0)
+        setIsScraping(false)
+        // Automatically navigate to COMPANIES tab after successful data loading
+        setActiveTab('companies')
+      }, 1000)
+
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error using existing run:', error)
+      }
+      setScrapingJobs(prev => prev.map(job => 
+        job.id === selectedExistingRun?.id 
+          ? { ...job, status: 'failed' }
+          : job
+      ))
+      setIsScraping(false)
+      setScrapingProgress(0)
+      
+      toast({
+        title: "Error Loading Data",
+        description: error instanceof Error ? error.message : "Failed to load existing run data",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>
+      case 'running':
+        return <Badge className="bg-blue-100 text-blue-800"><Clock className="w-3 h-3 mr-1" />Running</Badge>
+      case 'failed':
+        return <Badge className="bg-red-100 text-red-800"><AlertCircle className="w-3 h-3 mr-1" />Failed</Badge>
+      default:
+        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />Pending</Badge>
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  // Company qualification functions
+  const qualifyCompany = async (companyId: string, status: 'qualified' | 'disqualified' | 'review') => {
+    setIsQualifying(prev => new Set(prev).add(companyId))
+    
+    try {
+      const response = await fetch('/api/otis/companies/qualify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify({
+          companyId,
+          qualification_status: status
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${status} company`)
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // Update the company in loadedCompanies
+        setLoadedCompanies(prev => 
+          prev.map(company => 
+            company.id === companyId 
+              ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
+              : company
+          )
+        )
+
+        toast({
+          title: "Success",
+          description: result.data.message,
+        })
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error: any) {
+      console.error('Error qualifying company:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update company qualification",
+        variant: "destructive"
+      })
+    } finally {
+      setIsQualifying(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(companyId)
+        return newSet
+      })
+    }
+  }
+
+  // Company enrichment function
+  const enrichCompany = async (companyId: string) => {
+    setIsEnriching(prev => new Set(prev).add(companyId))
+    
+    try {
+      // Find the company to get its details for the batch enrichment
+      const company = loadedCompanies.find(c => c.id === companyId)
+      if (!company) {
+        throw new Error('Company not found')
+      }
+
+      // Create a batch request (the main Apollo API expects batch format)
+      const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const response = await fetch('/api/apollo/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify({ 
+          batchId,
+          companies: [{
+            id: company.id,
+            name: company.name,
+            website: company.website,
+            location: company.location,
+            region_id: company.region_id
+          }]
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to enrich company')
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // Update the company enrichment status (mark as processing since webhook will complete it)
+        setLoadedCompanies(prev => 
+          prev.map(company => 
+            company.id === companyId 
+              ? { 
+                  ...company, 
+                  enrichment_status: 'processing',
+                  enrichment_started_at: new Date().toISOString()
+                }
+              : company
+          )
+        )
+
+        toast({
+          title: "Enrichment Started",
+          description: `Apollo enrichment initiated for ${company.name}. Webhook processing in progress...`,
+        })
+
+        // The webhook will update the company status asynchronously
+        // Optionally poll for completion status or listen for real-time updates
         
-        if (successCount > 0) {
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error: any) {
+      console.error('Error enriching company:', error)
+      
+      // Update enrichment status to failed
+      setLoadedCompanies(prev => 
+        prev.map(company => 
+          company.id === companyId 
+            ? { ...company, enrichment_status: 'failed' }
+            : company
+        )
+      )
+
+      toast({
+        title: "Enrichment Failed",
+        description: error.message || "Failed to enrich company data",
+        variant: "destructive"
+      })
+    } finally {
+      setIsEnriching(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(companyId)
+        return newSet
+      })
+    }
+  }
+
+  // Company selection functions
+  const toggleCompanySelection = (companyId: string) => {
+    setSelectedCompanies(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(companyId)) {
+        newSet.delete(companyId)
+      } else {
+        newSet.add(companyId)
+      }
+      return newSet
+    })
+  }
+
+  const selectAllCompanies = () => {
+    if (selectedCompanies.size === loadedCompanies.length) {
+      setSelectedCompanies(new Set())
+    } else {
+      setSelectedCompanies(new Set(loadedCompanies.map(c => c.id)))
+    }
+  }
+
+  // Bulk qualification function
+  const bulkQualifyCompanies = async (status: 'qualified' | 'disqualified' | 'review') => {
+    const companyIds = Array.from(selectedCompanies)
+    if (companyIds.length === 0) return
+
+    companyIds.forEach(id => setIsQualifying(prev => new Set(prev).add(id)))
+    
+    try {
+      const response = await fetch('/api/otis/companies/qualify', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyIds,
+          qualification_status: status
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to bulk ${status} companies`)
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // Update all selected companies
+        setLoadedCompanies(prev => 
+          prev.map(company => 
+            companyIds.includes(company.id)
+              ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
+              : company
+          )
+        )
+
+        setSelectedCompanies(new Set()) // Clear selection
+
+        toast({
+          title: "Bulk Update Successful",
+          description: result.data.message,
+        })
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error: any) {
+      console.error('Error bulk qualifying companies:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to bulk update companies",
+        variant: "destructive"
+      })
+    } finally {
+      companyIds.forEach(id => 
+        setIsQualifying(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(id)
+          return newSet
+        })
+      )
+    }
+  }
+
+  // Company Details Drawer Handlers
+  const openCompanyDetails = (companyId: string) => {
+    setSelectedCompanyForDetails(companyId)
+    setIsCompanyDrawerOpen(true)
+  }
+
+  const closeCompanyDetails = () => {
+    setIsCompanyDrawerOpen(false)
+    setSelectedCompanyForDetails(null)
+  }
+
+  // Contact Qualification Handler
+  const handleContactQualification = async (contactId: string, status: string) => {
+    try {
+      const response = await fetch('/api/otis/contacts/qualification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contactId,
+          qualification_status: status
+        })
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Contact qualification API error:', response.status, errorText)
+        throw new Error(`Failed to update contact qualification: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: "Contact Updated",
+          description: `Contact ${status} successfully`,
+          variant: "default"
+        })
+        
+        // Reload contacts to reflect the change with cache bypass
+        if (currentRunData?.apify_run?.id) {
+          await loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search, true)
+        }
+      } else {
+        throw new Error(result.error || 'API returned success: false')
+      }
+    } catch (error) {
+      console.error('Contact qualification error:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update contact qualification",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Bulk Contact Qualification Handler
+  const handleBulkContactQualification = async (status: string) => {
+    if (selectedContacts.size === 0) return
+
+    try {
+      const contactIds = Array.from(selectedContacts)
+      const response = await fetch('/api/otis/contacts/qualification/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contactIds,
+          qualification_status: status
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update contacts qualification')
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: "Contacts Updated",
+          description: result.data.message,
+          variant: "default"
+        })
+        
+        // Clear selection and reload contacts with cache bypass
+        setSelectedContacts(new Set())
+        if (currentRunData?.apify_run?.id) {
+          await loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search, true)
+        }
+      }
+    } catch (error) {
+      console.error('Error updating contacts qualification:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update contacts qualification",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Add Selected Contacts to Campaign Handler
+  const handleAddToCampaign = async () => {
+    if (selectedContacts.size === 0 || !selectedCampaign) return
+
+
+
+    // Show confirmation modal instead of directly adding to campaign
+    setIsModalOpen(true)
+  }
+
+  const handleModalConfirm = async () => {
+    if (selectedContacts.size === 0 || !selectedCampaign) return
+
+    setModalLoading(true)
+    setModalError(null)
+    
+    // Initialize progress tracking
+    setModalProgress({
+      percentage: 0,
+      completedSteps: 0,
+      totalSteps: 2,
+      currentStep: 'creation'
+    })
+    
+    setModalSteps({
+      step1: {
+        name: 'Lead Creation',
+        completed: false,
+        created: 0,
+        total: selectedContacts.size,
+        status: 'pending'
+      },
+      step2: {
+        name: 'Campaign Movement',
+        completed: false,
+        moved: 0,
+        total: 0,
+        status: 'pending'
+      }
+    })
+    
+    try {
+      const contactIds = Array.from(selectedContacts)
+      const campaignObj = instantlyCampaigns.find((c) => c.id === selectedCampaign)
+      const campaignName = campaignObj ? campaignObj.name : ""
+
+      // Call the API to add contacts to campaign
+      const response = await fetch('/api/otis/contacts/add-to-campaign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contactIds,
+          campaignId: selectedCampaign,
+          campaignName,
+          runId: currentRunData?.apify_run?.id
+        })
+      })
+
+      const result = await response.json()
+      
+      // Handle enhanced API response
+      if (result.success || result.data) {
+        const data = result.data || result
+        
+        // Update progress and steps from API response
+        if (data.progress) {
+          setModalProgress(data.progress)
+        }
+        if (data.steps) {
+          setModalSteps(data.steps)
+        }
+        
+        // Handle severity and retry recommendations
+        if (data.severity) {
+          setModalSeverity(data.severity)
+        }
+        if (data.retryRecommendations) {
+          setModalRetryRecommendations(data.retryRecommendations)
+        }
+        
+        // Show appropriate toast based on severity
+        if (data.severity === 'success') {
           toast({
-            title: successCount === selectedContacts.size ? "Volledig succesvol! ✅" : "Gedeeltelijk succesvol ⚠️",
-            description: `${successCount} contacten toegevoegd aan "${campaign.name}"${errorCount > 0 ? `, ${errorCount} mislukt` : ''}`,
-            variant: errorCount > 0 ? "destructive" : "default",
+            title: "Success",
+            description: data.message || `${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''} added to "${campaignName}"`,
+            variant: "default"
           })
           
-          // Update contacts in UI to show they're linked
-          setEnrichmentJobs(prev => prev.map(job => ({
-            ...job,
-            contacts: job.contacts?.map(contact => 
-              selectedContacts.has(contact.id) 
-                ? { ...contact, campaign_id: selectedCampaignForBulk, campaign_name: campaign.name }
-                : contact
-            )
-          })))
-          
-          // Clear selection
+          // Clear selection and reload contacts on success
           setSelectedContacts(new Set())
-          setSelectedCampaignForBulk('')
-        } else {
+          setSelectedCampaign("")
+          if (currentRunData?.apify_run?.id) {
+            await loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search)
+          }
+          
+          // Close modal after a short delay to show success state
+          setTimeout(() => {
+            setIsModalOpen(false)
+            setModalProgress(undefined)
+            setModalSteps(undefined)
+            setModalRetryRecommendations([])
+          }, 2000)
+          
+        } else if (data.severity === 'warning') {
           toast({
-            title: "Alle contacten mislukt ❌",
-            description: data.error || "Alle contacten konden niet worden toegevoegd.",
-            variant: "destructive",
+            title: "Partial Success",
+            description: data.message || "Some contacts were added successfully",
+            variant: "default"
+          })
+          
+          // Don't close modal for warnings, let user see details
+          setModalError(data.message)
+          
+        } else {
+          // Error case
+          setModalError(data.message || 'Failed to add contacts to campaign')
+          toast({
+            title: "Error",
+            description: data.message || "Failed to add contacts to campaign",
+            variant: "destructive"
           })
         }
       } else {
-        toast({
-          title: "Fout bij toevoegen",
-          description: data.error || "Er is een onbekende fout opgetreden.",
-          variant: "destructive",
-        })
+        // Handle legacy error response
+        throw new Error(result.error || 'Failed to add contacts to campaign')
       }
     } catch (error) {
       console.error('Error adding contacts to campaign:', error)
+      setModalError(error instanceof Error ? error.message : 'Failed to add contacts to campaign')
+      setModalSeverity('error')
+      setModalRetryRecommendations(['Please check your connection and try again'])
       toast({
-        title: "Netwerkfout",
-        description: `Er is een netwerkfout opgetreden: ${error instanceof Error ? error.message : "Onbekende fout"}`,
-        variant: "destructive",
+        title: "Error",
+        description: "Failed to add contacts to campaign",
+        variant: "destructive"
       })
     } finally {
-      setIsAddingToCampaign(false)
+      setModalLoading(false)
     }
+  }
+
+  const handleModalClose = () => {
+    setIsModalOpen(false)
+    setModalError(null)
+    setModalLoading(false)
+    // Reset enhanced modal state
+    setModalProgress(undefined)
+    setModalSteps(undefined)
+    setModalRetryRecommendations([])
+    setModalSeverity('error')
+  }
+
+  // Enhanced company section renderer with workflow-specific styling and actions
+  const renderCompaniesSection = (companies: any[], qualificationState: string) => {
+    if (companies.length === 0) {
+      const emptyMessages = {
+        qualified: { 
+          icon: '❌', 
+          title: 'No qualified companies yet',
+          message: 'Companies you mark as qualified will appear here, ready for Apollo enrichment.'
+        },
+        review: { 
+          icon: '✨', 
+          title: 'No companies need review',
+          message: 'Companies marked for review will appear here when manual verification is needed.'
+        },
+        disqualified: { 
+          icon: '👍', 
+          title: 'No disqualified companies',
+          message: 'Companies marked as not suitable will be archived here.'
+        },
+        unqualified: { 
+          icon: '🚀', 
+          title: 'All companies qualified!',
+          message: 'Great work! All companies have been processed through your qualification workflow.'
+        }
+      }
+      const empty = emptyMessages[qualificationState as keyof typeof emptyMessages] || emptyMessages.unqualified
+
+      return (
+        <div className="text-center py-12 text-gray-500">
+          <div className="text-4xl mb-4">{empty.icon}</div>
+          <h3 className="font-medium text-gray-700 mb-2">{empty.title}</h3>
+          <p className="text-sm max-w-md mx-auto">{empty.message}</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Bulk Actions Bar for each qualification state */}
+        {companies.length > 0 && (
+          <div className={`flex items-center justify-between p-4 rounded-lg border ${
+            qualificationState === 'qualified' 
+              ? 'bg-green-50 border-green-200' 
+              : qualificationState === 'review'
+              ? 'bg-yellow-50 border-yellow-200'
+              : qualificationState === 'disqualified'
+              ? 'bg-red-50 border-red-200'
+              : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="flex items-center gap-4">
+              <input 
+                type="checkbox" 
+                className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                checked={companies.every(c => selectedCompanies.has(c.id))}
+                onChange={() => {
+                  const allSelected = companies.every(c => selectedCompanies.has(c.id))
+                  companies.forEach(company => {
+                    if (allSelected) {
+                      setSelectedCompanies(prev => {
+                        const newSet = new Set(prev)
+                        newSet.delete(company.id)
+                        return newSet
+                      })
+                    } else {
+                      setSelectedCompanies(prev => new Set(prev).add(company.id))
+                    }
+                  })
+                }}
+              />
+              <span className="text-sm font-medium">
+                Select All {qualificationState === 'qualified' ? 'Qualified' : 
+                          qualificationState === 'review' ? 'Review' :
+                          qualificationState === 'disqualified' ? 'Disqualified' : 'Unqualified'}
+              </span>
+              <div className="text-sm text-gray-600">
+                {companies.filter(c => selectedCompanies.has(c.id)).length} of {companies.length} selected
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {qualificationState === 'qualified' && (
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Enrich Selected ({companies.filter(c => selectedCompanies.has(c.id)).length})
+                </Button>
+              )}
+              {qualificationState === 'unqualified' && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
+                    onClick={() => {
+                      const selectedIds = companies.filter(c => selectedCompanies.has(c.id)).map(c => c.id)
+                      selectedIds.forEach(id => setIsQualifying(prev => new Set(prev).add(id)))
+                      // Bulk qualify logic would go here
+                      bulkQualifyCompanies('qualified')
+                    }}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Qualify Selected
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
+                    onClick={() => bulkQualifyCompanies('review')}
+                  >
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    Mark for Review
+                  </Button>
+                </>
+              )}
+              {qualificationState === 'review' && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
+                    onClick={() => bulkQualifyCompanies('qualified')}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Qualify Selected
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
+                    onClick={() => bulkQualifyCompanies('disqualified')}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Disqualify Selected
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Company Cards with workflow-specific styling */}
+        {companies.map((company: any) => (
+          <div 
+            key={company.id} 
+            className={`border rounded-lg p-4 space-y-3 transition-all hover:shadow-lg ${
+              qualificationState === 'qualified' 
+                ? 'border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50 shadow-sm' 
+                : qualificationState === 'disqualified'
+                ? 'border-l-4 border-l-red-500 bg-gradient-to-r from-red-50 to-rose-50 opacity-75'
+                : qualificationState === 'review'
+                ? 'border-l-4 border-l-yellow-500 bg-gradient-to-r from-yellow-50 to-amber-50 ring-1 ring-yellow-200'
+                : 'border-l-4 border-l-gray-300 bg-white hover:bg-gray-50'
+            }`}
+          >
+            {/* Company Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                  checked={selectedCompanies.has(company.id)}
+                  onChange={() => toggleCompanySelection(company.id)}
+                />
+                <div className="flex items-center gap-2">
+                  <Building2 className={`w-4 h-4 ${
+                    qualificationState === 'qualified' ? 'text-green-600' :
+                    qualificationState === 'review' ? 'text-yellow-600' :
+                    qualificationState === 'disqualified' ? 'text-red-400' :
+                    'text-gray-500'
+                  }`} />
+                  <span className={`font-medium ${
+                    qualificationState === 'qualified' ? 'text-green-900' :
+                    qualificationState === 'review' ? 'text-yellow-900' :
+                    qualificationState === 'disqualified' ? 'text-red-700' :
+                    'text-gray-900'
+                  }`}>{company.name}</span>
+                </div>
+                {company.website && (
+                  <a 
+                    href={company.website} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+                {/* Enhanced Qualification Status Badge */}
+                {qualificationState === 'qualified' && (
+                  <Badge className="bg-green-200 text-green-800 font-semibold">✅ Ready for Apollo</Badge>
+                )}
+                {qualificationState === 'review' && (
+                  <Badge className="bg-yellow-200 text-yellow-800 font-semibold animate-pulse">⭕ Needs Review</Badge>
+                )}
+                {qualificationState === 'disqualified' && (
+                  <Badge className="bg-red-200 text-red-800">❌ Archived</Badge>
+                )}
+                {qualificationState === 'unqualified' && (
+                  <Badge variant="outline" className="border-gray-400">⏳ Awaiting Qualification</Badge>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{company.job_count} jobs</Badge>
+                {company.contactsFound > 0 && (
+                  <Badge variant="secondary">{company.contactsFound} contacts</Badge>
+                )}
+                {/* Enrichment Status */}
+                {company.enrichment_status === 'completed' && (
+                  <Badge className="bg-blue-100 text-blue-800">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Enriched
+                  </Badge>
+                )}
+                {company.enrichment_status === 'processing' && (
+                  <Badge className="bg-blue-100 text-blue-800">
+                    <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                    Enriching
+                  </Badge>
+                )}
+                {company.enrichment_status === 'failed' && (
+                  <Badge className="bg-red-100 text-red-800">❌ Enrich Failed</Badge>
+                )}
+              </div>
+            </div>
+            
+            {/* Company Details */}
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              {company.location && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {company.location}
+                </div>
+              )}
+              {company.category_size && (
+                <div className="flex items-center gap-1">
+                  <BarChart3 className="w-3 h-3" />
+                  {company.category_size}
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {formatDate(company.created_at)}
+              </div>
+            </div>
+
+            {company.description && (
+              <p className="text-sm text-gray-700 line-clamp-2">{company.description}</p>
+            )}
+
+            {/* Smart Action Buttons - Different per qualification state */}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+              {qualificationState === 'qualified' ? (
+                // Qualified: Focus on enrichment
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-green-100 text-green-700 text-xs">✅ Apollo Ready</Badge>
+                </div>
+              ) : qualificationState === 'review' ? (
+                // Review: Quick decision actions
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-green-600 border-green-300 hover:bg-green-50"
+                    disabled={isQualifying.has(company.id)}
+                    onClick={() => qualifyCompany(company.id, 'qualified')}
+                  >
+                    {isQualifying.has(company.id) ? 'Updating...' : '✅ Qualify'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    disabled={isQualifying.has(company.id)}
+                    onClick={() => qualifyCompany(company.id, 'disqualified')}
+                  >
+                    {isQualifying.has(company.id) ? 'Updating...' : '❌ Disqualify'}
+                  </Button>
+                </div>
+              ) : qualificationState === 'disqualified' ? (
+                // Disqualified: Minimal actions
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-gray-500 text-xs"
+                    disabled={isQualifying.has(company.id)}
+                    onClick={() => qualifyCompany(company.id, 'review')}
+                  >
+                    {isQualifying.has(company.id) ? 'Updating...' : 'Move to Review'}
+                  </Button>
+                </div>
+              ) : (
+                // Unqualified: Full qualification options
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-green-600 border-green-300 hover:bg-green-50"
+                    disabled={isQualifying.has(company.id)}
+                    onClick={() => qualifyCompany(company.id, 'qualified')}
+                  >
+                    {isQualifying.has(company.id) ? 'Updating...' : 'Qualify'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    disabled={isQualifying.has(company.id)}
+                    onClick={() => qualifyCompany(company.id, 'disqualified')}
+                  >
+                    {isQualifying.has(company.id) ? 'Updating...' : 'Disqualify'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-yellow-600 border-yellow-300 hover:bg-yellow-50"
+                    disabled={isQualifying.has(company.id)}
+                    onClick={() => qualifyCompany(company.id, 'review')}
+                  >
+                    {isQualifying.has(company.id) ? 'Updating...' : 'Review'}
+                  </Button>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2">
+                {/* Only show Enrich button for qualified companies */}
+                {qualificationState === 'qualified' && (
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 font-semibold shadow-sm"
+                    disabled={company.enrichment_status === 'processing' || isEnriching.has(company.id)}
+                    onClick={() => enrichCompany(company.id)}
+                  >
+                    {(company.enrichment_status === 'processing' || isEnriching.has(company.id)) ? (
+                      <>
+                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                        Enriching...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3 h-3 mr-1" />
+                        Enrich with Apollo
+                      </>
+                    )}
+                  </Button>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => openCompanyDetails(company.id)}
+                >
+                  View Details
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Enhanced contact section renderer with workflow-specific styling and actions (similar to companies)
+  const renderContactsSection = (contacts: any[], qualificationState: string) => {
+    if (contacts.length === 0) {
+      const emptyMessages = {
+        qualified: { 
+          icon: '❌', 
+          title: 'No qualified contacts yet',
+          message: 'Contacts you mark as qualified will appear here, ready for campaign addition.'
+        },
+        review: { 
+          icon: '✨', 
+          title: 'No contacts need review',
+          message: 'Contacts marked for review will appear here when manual verification is needed.'
+        },
+        disqualified: { 
+          icon: '👍', 
+          title: 'No disqualified contacts',
+          message: 'Contacts marked as not suitable will be archived here.'
+        },
+        unqualified: { 
+          icon: '🚀', 
+          title: 'All contacts qualified!',
+          message: 'Great work! All contacts have been processed through your qualification workflow.'
+        }
+      }
+      const empty = emptyMessages[qualificationState as keyof typeof emptyMessages] || emptyMessages.unqualified
+
+      return (
+        <div className="text-center py-12 text-gray-500">
+          <div className="text-4xl mb-4">{empty.icon}</div>
+          <h3 className="font-medium text-gray-700 mb-2">{empty.title}</h3>
+          <p className="text-sm max-w-md mx-auto">{empty.message}</p>
+        </div>
+      )
+    }
+
+    // Group contacts by company
+    const contactsByCompany = contacts.reduce((acc: any, contact: any) => {
+      const companyName = contact.companyName || 'Unknown Company'
+      if (!acc[companyName]) {
+        acc[companyName] = {
+          name: companyName,
+          website: contact.companyWebsite,
+          category_size: contact.companyCategorySize || contact.category_size,
+          location: contact.companyLocation || contact.location,
+          region_plaats: contact.region_plaats,
+          region_platform: contact.region_platform,
+          contacts: []
+        }
+      }
+      acc[companyName].contacts.push(contact)
+      return acc
+    }, {})
+
+    const companyGroups = Object.values(contactsByCompany)
+
+    return (
+      <div className="space-y-6">
+        {/* Bulk Actions Bar for each qualification state */}
+        {contacts.length > 0 && (
+          <div className={`flex items-center justify-between p-4 rounded-lg border ${
+            qualificationState === 'qualified' 
+              ? 'bg-green-50 border-green-200' 
+              : qualificationState === 'review'
+              ? 'bg-yellow-50 border-yellow-200'
+              : qualificationState === 'disqualified'
+              ? 'bg-red-50 border-red-200'
+              : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="flex items-center gap-4">
+              <input 
+                type="checkbox" 
+                className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                checked={contacts.every(c => selectedContacts.has(c.id))}
+                onChange={() => {
+                  const allSelected = contacts.every(c => selectedContacts.has(c.id))
+                  contacts.forEach(contact => {
+                    if (allSelected) {
+                      setSelectedContacts(prev => {
+                        const newSet = new Set(prev)
+                        newSet.delete(contact.id)
+                        return newSet
+                      })
+                    } else {
+                      setSelectedContacts(prev => new Set(prev).add(contact.id))
+                    }
+                  })
+                }}
+              />
+              <span className="text-sm font-medium">
+                Select All {qualificationState === 'qualified' ? 'Qualified' : 
+                          qualificationState === 'review' ? 'Review' :
+                          qualificationState === 'disqualified' ? 'Disqualified' : 'Unqualified'}
+              </span>
+              <div className="text-sm text-gray-600">
+                {contacts.filter(c => selectedContacts.has(c.id)).length} of {contacts.length} selected
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {qualificationState === 'qualified' && (
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0 || !selectedCampaign}
+                  onClick={handleAddToCampaign}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add to Campaign ({contacts.filter(c => selectedContacts.has(c.id)).length})
+                </Button>
+              )}
+              {qualificationState === 'unqualified' && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
+                    onClick={() => handleBulkContactQualification('qualified')}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Qualify Selected
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
+                    onClick={() => handleBulkContactQualification('review')}
+                  >
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    Mark for Review
+                  </Button>
+                </>
+              )}
+              {qualificationState === 'review' && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
+                    onClick={() => handleBulkContactQualification('qualified')}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Qualify Selected
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
+                    onClick={() => handleBulkContactQualification('disqualified')}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Disqualify Selected
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Company Groups with Contact Cards */}
+        {companyGroups.map((companyGroup: any) => (
+          <div key={companyGroup.name} className="border rounded-lg overflow-hidden">
+            {/* Company Header */}
+            <div className="bg-gray-50 p-4 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                    checked={companyGroup.contacts.every((c: any) => selectedContacts.has(c.id))}
+                    ref={(el) => {
+                      if (el) {
+                        // Handle indeterminate state (some contacts selected but not all)
+                        const selectedCount = companyGroup.contacts.filter((c: any) => selectedContacts.has(c.id)).length
+                        el.indeterminate = selectedCount > 0 && selectedCount < companyGroup.contacts.length
+                      }
+                    }}
+                    onChange={(e) => {
+                      // Select/deselect all contacts in this company
+                      const newSelected = new Set(selectedContacts)
+                      if (e.target.checked) {
+                        // Select all contacts in this company
+                        companyGroup.contacts.forEach((contact: any) => {
+                          newSelected.add(contact.id)
+                        })
+                      } else {
+                        // Deselect all contacts in this company
+                        companyGroup.contacts.forEach((contact: any) => {
+                          newSelected.delete(contact.id)
+                        })
+                      }
+                      setSelectedContacts(newSelected)
+                    }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-gray-700" />
+                    <div>
+                      <span className="font-medium text-lg">{companyGroup.name}</span>
+                      <p className="text-sm text-gray-600">
+                        {companyGroup.website} • {companyGroup.contacts.length} contacts
+                        {companyGroup.category_size && ` • ${companyGroup.category_size}`}
+                        {companyGroup.location && ` • 📍 ${companyGroup.location}`}
+                        {companyGroup.region_plaats && ` • 🏢 ${companyGroup.region_plaats}`}
+                        {companyGroup.region_platform && ` • 🌐 ${companyGroup.region_platform}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{companyGroup.contacts.length} contacts</Badge>
+                  {companyGroup.contacts.some((c: any) => c.isKeyContact) && (
+                    <Badge className="bg-yellow-100 text-yellow-800">👑 Key Contacts</Badge>
+                  )}
+                  {companyGroup.contacts.some((c: any) => c.verificationStatus === 'verified') && (
+                    <Badge className="bg-green-100 text-green-800">✓ Verified</Badge>
+                  )}
+                  {/* Show selection count for this company */}
+                  <Badge variant="secondary">
+                    {companyGroup.contacts.filter((c: any) => selectedContacts.has(c.id)).length} selected
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Cards */}
+            <div className="p-4 space-y-3">
+              {companyGroup.contacts.map((contact: any) => (
+                <div 
+                  key={contact.id} 
+                  className={`border rounded-lg p-4 space-y-3 transition-all hover:shadow-lg ${
+                    qualificationState === 'qualified' 
+                      ? 'border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50 shadow-sm' 
+                      : qualificationState === 'disqualified'
+                      ? 'border-l-4 border-l-red-500 bg-gradient-to-r from-red-50 to-rose-50 opacity-75'
+                      : qualificationState === 'review'
+                      ? 'border-l-4 border-l-yellow-500 bg-gradient-to-r from-yellow-50 to-amber-50 ring-1 ring-yellow-200'
+                      : 'border-l-4 border-l-gray-300 bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  {/* Contact Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                        checked={selectedContacts.has(contact.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedContacts)
+                          if (e.target.checked) {
+                            newSelected.add(contact.id)
+                          } else {
+                            newSelected.delete(contact.id)
+                          }
+                          setSelectedContacts(newSelected)
+                        }}
+                      />
+                      <div className="flex items-center gap-2">
+                        {contact.isKeyContact && (
+                          <span className="text-xl">👑</span>
+                        )}
+                        <div>
+                          <div className={`font-medium ${
+                            qualificationState === 'qualified' ? 'text-green-900' :
+                            qualificationState === 'review' ? 'text-yellow-900' :
+                            qualificationState === 'disqualified' ? 'text-red-700' :
+                            'text-gray-900'
+                          }`}>
+                            {contact.first_name || contact.last_name 
+                              ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
+                              : contact.name || 'No name'
+                            }
+                          </div>
+                          {contact.title && (
+                            <div className="text-sm text-gray-600">{contact.title}</div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Enhanced Qualification Status Badge */}
+                      {qualificationState === 'qualified' && (
+                        <Badge className="bg-green-200 text-green-800 font-semibold">✅ Ready for Campaign</Badge>
+                      )}
+                      {qualificationState === 'review' && (
+                        <Badge className="bg-yellow-200 text-yellow-800 font-semibold animate-pulse">⭕ Needs Review</Badge>
+                      )}
+                      {qualificationState === 'disqualified' && (
+                        <Badge className="bg-red-200 text-red-800">❌ Archived</Badge>
+                      )}
+                      {qualificationState === 'unqualified' && (
+                        <Badge variant="outline" className="border-gray-400">⏳ Awaiting Qualification</Badge>
+                      )}
+                      
+                      {/* Campaign Status Badge */}
+                      {contact.campaign_id && contact.campaign_name && (
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                          <Target className="w-3 h-3 mr-1" />
+                          {contact.campaign_name}
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {contact.isKeyContact && (
+                        <Badge className="bg-yellow-100 text-yellow-800">👑 Key Contact</Badge>
+                      )}
+                      {contact.verificationStatus === 'verified' && (
+                        <Badge className="bg-green-100 text-green-800">✓ Verified</Badge>
+                      )}
+                      {contact.verificationStatus === 'pending' && (
+                        <Badge variant="outline">⏳ Pending</Badge>
+                      )}
+                      {contact.verificationStatus === 'failed' && (
+                        <Badge className="bg-red-100 text-red-800">❌ Failed</Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Contact Details */}
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-1">
+                      <span>📧</span>
+                      {contact.email || 'No email'}
+                    </div>
+                    {contact.linkedin_url && (
+                      <a 
+                        href={contact.linkedin_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                      >
+                        LinkedIn Profile
+                      </a>
+                    )}
+                    {contact.companyWebsite && (
+                      <div className="flex items-center gap-1">
+                        <Globe className="w-3 h-3" />
+                        {contact.companyWebsite}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Smart Action Buttons - Different per qualification state */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                    {qualificationState === 'qualified' ? (
+                      // Qualified: Focus on campaign addition
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-100 text-green-700 text-xs">✅ Campaign Ready</Badge>
+                      </div>
+                    ) : qualificationState === 'review' ? (
+                      // Review: Quick decision actions
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-green-600 border-green-300 hover:bg-green-50"
+                          onClick={() => handleContactQualification(contact.id, 'qualified')}
+                        >
+                          ✅ Qualify
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={() => handleContactQualification(contact.id, 'disqualified')}
+                        >
+                          ❌ Disqualify
+                        </Button>
+                      </div>
+                    ) : qualificationState === 'disqualified' ? (
+                      // Disqualified: Minimal actions
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-gray-500 text-xs"
+                          onClick={() => handleContactQualification(contact.id, 'review')}
+                        >
+                          Move to Review
+                        </Button>
+                      </div>
+                    ) : (
+                      // Unqualified: Full qualification options
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-green-600 border-green-300 hover:bg-green-50"
+                          onClick={() => handleContactQualification(contact.id, 'qualified')}
+                        >
+                          Qualify
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={() => handleContactQualification(contact.id, 'disqualified')}
+                        >
+                          Disqualify
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-yellow-600 border-yellow-300 hover:bg-yellow-50"
+                          onClick={() => handleContactQualification(contact.id, 'review')}
+                        >
+                          Review
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Only show Add to Campaign button for qualified contacts */}
+                      {qualificationState === 'qualified' && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 font-semibold shadow-sm"
+                          disabled={!selectedCampaign}
+                          onClick={handleAddToCampaign}
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add to Campaign
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (
@@ -1383,1435 +2412,1062 @@ export default function SimplifiedOtisDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">OTIS Job Scraper</h1>
-          <p className="text-gray-600 mt-2">Simple job scraping workflow with Apollo enrichment and Instantly campaigns</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <Bot className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">OTIS Agent Dashboard</h1>
+          </div>
+          <p className="text-gray-600">Intelligent job vacancy scraping and management system</p>
         </div>
 
-        {/* Job Configuration - Collapsible */}
-        <Card className="mb-6">
-          <CardHeader 
-            className="cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => setConfigExpanded(!configExpanded)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                <CardTitle className="text-lg">Job Scraping Configuration</CardTitle>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Jobs</p>
+                  <p className="text-2xl font-bold">{stats.totalJobs.toLocaleString()}</p>
+                </div>
+                <Briefcase className="w-8 h-8 text-orange-500" />
               </div>
-              {configExpanded ? (
-                <ChevronDown className="h-4 w-4 text-gray-500" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500" />
-              )}
-            </div>
-            <CardDescription>
-              Configure and start a new job scraping session
-            </CardDescription>
-          </CardHeader>
-          
-          {configExpanded && (
-            <CardContent>
-              {/* Mode Selection */}
-              <div className="mb-6">
-                <Label className="text-base font-medium mb-3 block">Scraping Mode</Label>
-                <RadioGroup 
-                  value={useExistingRun ? "existing" : "new"} 
-                  onValueChange={(value) => setUseExistingRun(value === "existing")}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="new" id="new-scraping" />
-                    <Label htmlFor="new-scraping" className="flex items-center gap-2 cursor-pointer">
-                      <Play className="w-4 h-4" />
-                      <div>
-                        <div className="font-medium">Start New Scraping</div>
-                        <div className="text-sm text-gray-500">Create a new job scraping session</div>
-                      </div>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="existing" id="existing-run" />
-                    <Label htmlFor="existing-run" className="flex items-center gap-2 cursor-pointer">
-                      <Database className="w-4 h-4" />
-                      <div>
-                        <div className="font-medium">Use Existing Run</div>
-                        <div className="text-sm text-gray-500">Load results from previous successful runs</div>
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {/* New Scraping Form */}
-              {!useExistingRun && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <Label htmlFor="jobTitle">Job Title</Label>
-                      <Input
-                        id="jobTitle"
-                        value={jobTitle}
-                        onChange={(e) => setJobTitle(e.target.value)}
-                        placeholder="e.g., Software Engineer"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="location">Location</Label>
-                      <Popover open={locationSearchOpen} onOpenChange={setLocationSearchOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={locationSearchOpen}
-                            className="w-full justify-between"
-                            disabled={isLoadingRegions}
-                          >
-                            {isLoadingRegions ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Loading locations...
-                              </>
-                            ) : selectedRegionId ? (
-                              (() => {
-                                const selected = getSelectedRegion()
-                                return selected ? (
-                                  <div className="text-left">
-                                    <div className="font-medium">{selected.plaats}</div>
-                                    <div className="text-xs text-gray-500">{selected.regio_platform}</div>
-                                  </div>
-                                ) : "Select location..."
-                              })()
-                            ) : (
-                              "Select location..."
-                            )}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search locations..." />
-                            <CommandList>
-                              <CommandEmpty>No location found.</CommandEmpty>
-                              <CommandGroup>
-                                {getGroupedRegions().map((region) => (
-                                  <CommandItem
-                                    key={region.id}
-                                    value={`${region.plaats} ${region.regio_platform}`}
-                                    onSelect={() => handleLocationSelect(region.id)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        selectedRegionId === region.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{region.plaats}</span>
-                                      <span className="text-xs text-gray-500">{region.regio_platform}</span>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div>
-                      <Label htmlFor="platform">Platform</Label>
-                      <Select value={platform} onValueChange={setPlatform}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="indeed" className="flex items-center justify-between">
-                            <span>Indeed</span>
-                          </SelectItem>
-                          <SelectItem value="linkedin" disabled className="flex items-center justify-between">
-                            <span>LinkedIn</span>
-                            <Badge variant="secondary" className="ml-2 text-xs">Coming Soon</Badge>
-                          </SelectItem>
-                          <SelectItem value="glassdoor" disabled className="flex items-center justify-between">
-                            <span>Glassdoor</span>
-                            <Badge variant="secondary" className="ml-2 text-xs">Coming Soon</Badge>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={startScraping} 
-                    disabled={isStartingScraping || !jobTitle.trim() || !selectedRegionId}
-                    className="w-full md:w-auto"
-                  >
-                    {isStartingScraping ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Starting Scraping...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-2" />
-                        Start Job Scraping
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
-
-              {/* Existing Run Selection */}
-              {useExistingRun && (
-                <>
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Label htmlFor="existingRun">Select Existing Run</Label>
-                      {scrapingJobs.length > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setScrapingJobs([])
-                            setSelectedRunId('')
-                            setCompanySearchTerm('')
-                            setSelectedCompanies(new Set())
-                            setEnrichmentJobs([]) // Clear the scraped contacts
-                            setSelectedContacts(new Set()) // Clear selected contacts
-                            setContactSearchTerm('') // Clear contact search term
-                            setLinkingCampaign(null) // Clear linking state
-                            toast({
-                              title: "Run Cleared",
-                              description: "Current run has been cleared. You can now select a different run.",
-                            })
-                          }}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <X className="w-3 h-3 mr-1" />
-                          Clear Current Run
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {/* Search Input */}
-                    <div className="mb-3">
-                      <div className="relative">
-                        <Input
-                          placeholder="Search runs by title, location, or platform..."
-                          value={runSearchTerm}
-                          onChange={(e) => setRunSearchTerm(e.target.value)}
-                          className="mb-2 pr-8"
-                        />
-                        {runSearchTerm && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setRunSearchTerm('')}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        )}
-                      </div>
-                      {runSearchTerm && (
-                        <div className="text-sm text-gray-500 mb-2">
-                          Found {getFilteredRuns().length} of {existingRuns.length} runs
-                        </div>
-                      )}
-                    </div>
-
-                    <Select value={selectedRunId} onValueChange={setSelectedRunId}>
-                      <SelectTrigger disabled={isLoadingRuns}>
-                        {isLoadingRuns ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading runs...
-                          </>
-                        ) : (
-                          <SelectValue placeholder={
-                            scrapingJobs.length > 0 
-                              ? "Choose a different run to replace current" 
-                              : "Choose a successful run to load"
-                          } />
-                        )}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getFilteredRuns().length === 0 ? (
-                          <div className="p-2 text-sm text-gray-500">
-                            {runSearchTerm ? 'No runs match your search' : 'No successful runs found'}
-                          </div>
-                        ) : (
-                          getFilteredRuns().map((run) => (
-                            <SelectItem key={run.id} value={run.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{run.displayName}</span>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(run.createdAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    
-                    {/* Current Run Status */}
-                    {scrapingJobs.length > 0 && scrapingJobs[0]?.apifyRunId && (
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CheckCircle className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-900">Currently Loaded Run</span>
-                        </div>
-                        <div className="text-sm text-blue-700">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{scrapingJobs[0].jobTitle}</span>
-                            <span className="text-blue-600">•</span>
-                            <span>{scrapingJobs[0].location}</span>
-                            <span className="text-blue-600">•</span>
-                            <span>{scrapingJobs[0].companyCount || 0} companies</span>
-                            <span className="text-blue-600">•</span>
-                            <span>{scrapingJobs[0].jobCount || 0} jobs</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <Button 
-                    onClick={loadExistingRunResults} 
-                    disabled={isStartingScraping || !selectedRunId}
-                    className="w-full md:w-auto"
-                  >
-                    {isStartingScraping ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Loading Results...
-                      </>
-                    ) : (
-                      <>
-                        <Database className="w-4 h-4 mr-2" />
-                        {scrapingJobs.length > 0 ? 'Replace Current Run' : 'Load Selected Run'}
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
             </CardContent>
-          )}
-        </Card>
-
-        {/* Scraping Jobs - Collapsible */}
-        <Card className="mb-6">
-          <CardHeader 
-            className="cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => setResultsExpanded(!resultsExpanded)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                <CardTitle className="text-lg">
-                  {useExistingRun ? 'Current Run Results' : 'Scraping Jobs'}
-                </CardTitle>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Companies</p>
+                  <p className="text-2xl font-bold">{stats.totalCompanies.toLocaleString()}</p>
+                </div>
+                <Building2 className="w-8 h-8 text-blue-500" />
               </div>
-              {resultsExpanded ? (
-                <ChevronDown className="h-4 w-4 text-gray-500" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500" />
-              )}
-            </div>
-            <CardDescription>
-              {useExistingRun 
-                ? 'View and manage results from the selected existing run' 
-                : 'Monitor job scraping progress and results'
-              }
-            </CardDescription>
-          </CardHeader>
-          
-          {resultsExpanded && (
-            <CardContent>
-              {scrapingJobs.length === 0 ? (
-                <div className="text-center py-12">
-                  {useExistingRun ? (
-                    <div className="max-w-md mx-auto">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                        <Database className="w-8 h-8 text-gray-400" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Today's Jobs</p>
+                  <p className="text-2xl font-bold">{stats.todayJobs.toLocaleString()}</p>
+                </div>
+                <BarChart3 className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="scraping">1. SCRAPE</TabsTrigger>
+            <TabsTrigger value="companies">2. COMPANIES</TabsTrigger>
+            <TabsTrigger value="contacts">3. CONTACTS</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="scraping" className="space-y-6">
+            {/* Mode Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Scraping Configuration
+                </CardTitle>
+                <CardDescription>
+                  Choose how you want to gather job data - start a new scraping job or use existing results
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Mode Selection Tabs */}
+                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setScrapingMode('new')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all hover-lift ${
+                      scrapingMode === 'new'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Start New Scraping
+                  </button>
+                  <button
+                    onClick={() => setScrapingMode('existing')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all hover-lift ${
+                      scrapingMode === 'existing'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <History className="w-4 h-4" />
+                    Use Existing Run
+                  </button>
+                </div>
+
+                {/* New Scraping Form */}
+                {scrapingMode === 'new' && (
+                  <div className="space-y-6 animate-in slide-in-from-top-2 duration-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <Label htmlFor="jobTitle" className="flex items-center gap-2">
+                          Job Title
+                          <Badge variant="outline" className="text-xs">Optional</Badge>
+                        </Label>
+                        <Input
+                          id="jobTitle"
+                          placeholder="e.g., Software Engineer, Marketing Manager"
+                          value={scrapingConfig.jobTitle}
+                          onChange={(e) => setScrapingConfig(prev => ({ ...prev, jobTitle: e.target.value }))}
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Leave empty to scrape all job types
+                        </p>
                       </div>
-                      <h4 className="text-lg font-medium text-gray-900 mb-2">No Run Loaded</h4>
-                      <p className="text-gray-600 mb-4">Select an existing run from the dropdown above to view its results.</p>
-                      <div className="text-sm text-gray-500">
-                        <p>• Choose a run from the "Select Existing Run" dropdown</p>
-                        <p>• Click "Load Selected Run" to view companies and jobs</p>
-                        <p>• Only one run can be viewed at a time</p>
+                      
+                      <div>
+                        <Label htmlFor="platform">Platform</Label>
+                        <Select 
+                          value={scrapingConfig.platform} 
+                          onValueChange={(value) => setScrapingConfig(prev => ({ ...prev, platform: value }))}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {jobSources.map(source => (
+                              <SelectItem key={source.id} value={source.name}>
+                                <div className="flex items-center justify-between w-full">
+                                  <span>{source.name}</span>
+                                  {source.cost_per_1000_results && (
+                                    <Badge variant="outline" className="ml-2 text-xs">
+                                      ${source.cost_per_1000_results}/1k
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
+                    
+                    <div>
+                      <Label className="flex items-center gap-2 mb-3">
+                        Regio Platforms
+                        <Badge variant="outline" className="text-xs">Required</Badge>
+                      </Label>
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {regions.map((platform) => (
+                            <div key={platform} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={platform}
+                                checked={scrapingConfig.selectedRegioPlatforms.includes(platform)}
+                                onCheckedChange={(checked) => {
+                                  setScrapingConfig(prev => ({
+                                    ...prev,
+                                    selectedRegioPlatforms: checked 
+                                      ? [...prev.selectedRegioPlatforms, platform]
+                                      : prev.selectedRegioPlatforms.filter(p => p !== platform)
+                                  }))
+                                }}
+                              />
+                              <Label htmlFor={platform} className="text-sm font-normal cursor-pointer flex-1">
+                                {platform}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                        {scrapingConfig.selectedRegioPlatforms.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                Selected: {scrapingConfig.selectedRegioPlatforms.length} platform{scrapingConfig.selectedRegioPlatforms.length !== 1 ? 's' : ''}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setScrapingConfig(prev => ({ ...prev, selectedRegioPlatforms: [] }))}
+                              >
+                                Clear All
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing Run Selection */}
+                {scrapingMode === 'existing' && (
+                  <div className="space-y-6 animate-in slide-in-from-top-2 duration-300">
+                    <div>
+                      <Label className="flex items-center gap-2 mb-3">
+                        Select Existing Apify Run
+                        <Badge variant="outline" className="text-xs">Required</Badge>
+                      </Label>
+                      
+                      {isLoadingExistingRuns ? (
+                        <div className="border rounded-lg p-8 text-center">
+                          <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin text-gray-400" />
+                          <p className="text-gray-600">Loading existing runs...</p>
+                        </div>
+                      ) : existingRuns.length === 0 ? (
+                        <div className="border rounded-lg p-8 text-center bg-gray-50">
+                          <History className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                          <h3 className="font-medium text-gray-900 mb-2">No Existing Runs Found</h3>
+                          <p className="text-gray-500 mb-4">
+                            Start your first scraping job to see results here
+                          </p>
+                          <Button 
+                            onClick={() => setScrapingMode('new')}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Start New Scraping
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                                                     {existingRuns.map((run) => (
+                             <div
+                               key={run.id}
+                               onClick={() => setSelectedExistingRun(run)}
+                               className={`border rounded-lg p-4 cursor-pointer transition-all hover-lift ${
+                                 selectedExistingRun?.id === run.id
+                                   ? 'border-orange-500 bg-orange-50 shadow-md'
+                                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                               }`}
+                             >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <FileText className="w-4 h-4 text-gray-500" />
+                                    <span className="font-medium text-gray-900">
+                                      {run.title || 'Untitled Run'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {run.location}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Briefcase className="w-3 h-3" />
+                                      {run.platform}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      {formatDate(run.createdAt)}
+                                    </div>
+                                  </div>
+                                </div>
+                                {selectedExistingRun?.id === run.id && (
+                                  <CheckCircle className="w-5 h-5 text-orange-500" />
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Progress Bar */}
+                {isScraping && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>
+                        {scrapingMode === 'new' ? 'Starting new scraping...' : 'Loading existing data...'}
+                      </span>
+                      <span>{scrapingProgress}%</span>
+                    </div>
+                    <Progress value={scrapingProgress} className="w-full" />
+                  </div>
+                )}
+
+                {/* Action Button */}
+                <Button 
+                  onClick={handleStartScraping} 
+                  disabled={isScraping || 
+                    (scrapingMode === 'new' && scrapingConfig.selectedRegioPlatforms.length === 0) ||
+                    (scrapingMode === 'existing' && !selectedExistingRun)
+                  }
+                  className="w-full md:w-auto hover-lift"
+                  size="lg"
+                >
+                  {isScraping ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      {scrapingMode === 'new' ? 'Starting Scraping...' : 'Loading Data...'}
+                    </>
                   ) : (
-                    <p className="text-gray-500">No scraping jobs yet. Start a new job above.</p>
+                    <>
+                      {scrapingMode === 'new' ? (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Start New Scraping
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 mr-2" />
+                          Use Selected Run
+                        </>
+                      )}
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+
+
+          <TabsContent value="companies" className="space-y-6">
+            {/* Companies Management */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5" />
+                      Companies Management
+                      {currentRunData && (
+                        <Badge variant="outline" className="ml-2">
+                          From: {currentRunData.apify_run?.title || 'Selected Run'}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {loadedCompanies.length > 0 
+                        ? `Qualify companies and manage Apollo enrichment (${loadedCompanies.length} companies)`
+                        : "No companies data loaded. Select an existing run to manage companies."
+                      }
+                    </CardDescription>
+                  </div>
+                  {currentRunData && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refreshCompanies}
+                      className="flex items-center gap-2"
+                      disabled={isRefreshingCompanies}
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isRefreshingCompanies ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {scrapingJobs.map((job) => (
-                    <div key={job.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(job.status)}
-                          <span className="font-medium">{job.jobTitle}</span>
-                          <span className="text-gray-500">in {job.location}</span>
-                        </div>
-                        {getStatusBadge(job.status)}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                        <div>
-                          <span className="text-sm text-gray-500">Platform:</span>
-                          <p className="font-medium">{job.platform}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Jobs Found:</span>
-                          <p className="font-medium">{job.jobCount || 0}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Companies:</span>
-                          <p className="font-medium">{job.companyCount || 0}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Created:</span>
-                          <p className="font-medium">{new Date(job.createdAt).toLocaleString()}</p>
+              </CardHeader>
+              <CardContent>
+                {loadedCompanies.length > 0 ? (
+                  <>
+                    {/* Qualification Progress Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-green-600">✅ Qualified</p>
+                            <p className="text-2xl font-bold text-green-700">
+                              {loadedCompanies.filter(c => c.qualification_status === 'qualified').length}
+                            </p>
+                            <p className="text-xs text-green-600">Ready for Apollo</p>
+                          </div>
+                          <CheckCircle className="w-8 h-8 text-green-500" />
                         </div>
                       </div>
-
-                      {/* Summary when detailed results are available */}
-                      {job.detailedResults && (
-                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="w-4 h-4 text-blue-600" />
-                            <span className="font-medium text-blue-900">Latest Results from Database</span>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-yellow-600">⭕ Review Needed</p>
+                            <p className="text-2xl font-bold text-yellow-700">
+                              {loadedCompanies.filter(c => c.qualification_status === 'review').length}
+                            </p>
+                            <p className="text-xs text-yellow-600">Needs attention</p>
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <span className="text-blue-700">Total Jobs:</span>
-                              <p className="font-medium text-blue-900">{job.detailedResults.job_count}</p>
-                            </div>
-                            <div>
-                              <span className="text-blue-700">Total Companies:</span>
-                              <p className="font-medium text-blue-900">{job.detailedResults.companies?.length || 0}</p>
-                            </div>
-                            <div>
-                              <span className="text-blue-700">Last Updated:</span>
-                              <p className="font-medium text-blue-900">{new Date().toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <span className="text-blue-700">Status:</span>
-                              <Badge variant="outline" className="text-xs">
-                                {job.detailedResults.status}
-                              </Badge>
-                            </div>
-                          </div>
+                          <AlertCircle className="w-8 h-8 text-yellow-500" />
                         </div>
-                      )}
-
-                      {job.status === 'running' && (
-                        <Progress value={job.jobCount ? Math.min((job.jobCount / 100) * 100, 100) : 0} className="mb-3" />
-                      )}
-
-                      {/* Action buttons for different job statuses */}
-                      {(job.status === 'pending' || job.status === 'running') && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => refreshResults(job.id)}
-                            disabled={isRefreshingResults === job.id}
-                          >
-                            {isRefreshingResults === job.id ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Refreshing...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                {job.apifyRunId ? 'Refresh Results' : 'Check Status'}
-                              </>
-                            )}
-                          </Button>
-                          {!job.apifyRunId && (
-                            <div className="text-xs text-gray-500 flex items-center">
-                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                              Waiting for Apify run to start...
-                            </div>
-                          )}
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-red-600">❌ Disqualified</p>
+                            <p className="text-2xl font-bold text-red-700">
+                              {loadedCompanies.filter(c => c.qualification_status === 'disqualified').length}
+                            </p>
+                            <p className="text-xs text-red-600">Not suitable</p>
+                          </div>
+                          <RefreshCw className="w-8 h-8 text-red-500" />
                         </div>
-                      )}
-
-                      {job.status === 'completed' && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => refreshResults(job.id)}
-                            disabled={isRefreshingResults === job.id}
-                          >
-                            {isRefreshingResults === job.id ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Refreshing...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Refresh Results
-                              </>
-                            )}
-                          </Button>
-                          {job.apifyRunId && (
-                            <Button
-                              size="sm"
-                              onClick={() => startEnrichment(job.apifyRunId!)}
-                              disabled={isStartingEnrichment || selectedCompanies.size === 0}
-                              title={
-                                selectedCompanies.size === 0 
-                                  ? 'Please select at least one company to start enrichment' 
-                                  : ''
-                              }
-                            >
-                              {isStartingEnrichment ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Starting...
-                                </>
-                              ) : (
-                                <>
-                                  <Users className="w-4 h-4 mr-2" />
-                                  Start Apollo Enrichment
-                                </>
-                              )}
-                            </Button>
-                          )}
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">⏳ Unqualified</p>
+                            <p className="text-2xl font-bold text-gray-700">
+                              {loadedCompanies.filter(c => !c.qualification_status || c.qualification_status === 'pending').length}
+                            </p>
+                            <p className="text-xs text-gray-600">Needs qualification</p>
+                          </div>
+                          <Clock className="w-8 h-8 text-gray-400" />
                         </div>
-                      )}
-
-                      {/* Detailed Company Information */}
-                      {job.detailedResults && job.detailedResults.companies && job.detailedResults.companies.length > 0 && (
-                        <div className="mt-4">
-                          <Separator className="my-3" />
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="w-4 h-4 text-gray-600" />
-                              <h4 className="font-medium text-gray-900">
-                                Companies Found ({job.detailedResults.companies.length})
-                                {selectedCompanies.size > 0 && (
-                                  <span className="text-sm font-semibold text-blue-700 ml-2 bg-blue-100 px-2 py-1 rounded-full">
-                                    {selectedCompanies.size} selected
-                                  </span>
-                                )}
-                              </h4>
-                            </div>
-                            
-                            {/* Bulk Actions */}
-                            {selectedCompanies.size > 0 && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateSelectedCompaniesStatus('Disqualified')}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  <X className="w-3 h-3 mr-1" />
-                                  Disqualify Selected
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateSelectedCompaniesStatus('Qualified')}
-                                  className="text-green-600 hover:text-green-700"
-                                >
-                                  <Check className="w-3 h-3 mr-1" />
-                                  Qualify Selected
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={clearCompanySelection}
-                                >
-                                  Clear Selection
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Company Selection Controls */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => selectAllCompanies(job.detailedResults?.companies || [])}
-                              >
-                                Select All
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={clearCompanySelection}
-                              >
-                                Clear All
-                              </Button>
-                            </div>
-                            
-                            {/* Search Companies */}
-                            <div className="flex items-center gap-2">
-                              <div className="relative">
-                                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                  type="text"
-                                  placeholder="Search companies..."
-                                  value={companySearchTerm}
-                                  onChange={(e) => {
-                                    setCompanySearchTerm(e.target.value)
-                                    // Reset page when searching
-                                    setCompanyPage(prev => ({ ...prev, [job.id]: 1 }))
-                                  }}
-                                  className="pl-8 pr-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                              </div>
-                              {companySearchTerm && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setCompanySearchTerm('')
-                                    setCompanyPage(prev => ({ ...prev, [job.id]: 1 }))
-                                  }}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Pagination Controls */}
-                          {(() => {
-                            const filteredCompanies = (job.detailedResults?.companies || []).filter(company => 
-                              !companySearchTerm || 
-                              company.name.toLowerCase().includes(companySearchTerm.toLowerCase()) ||
-                              company.location?.toLowerCase().includes(companySearchTerm.toLowerCase())
-                            )
-                            const totalPages = Math.ceil(filteredCompanies.length / companiesPerPage)
-                            
-                            return filteredCompanies.length > companiesPerPage && (
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="text-sm text-gray-600">
-                                  Page {companyPage[job.id] || 1} of {totalPages} 
-                                  {companySearchTerm && (
-                                    <span className="ml-2 text-blue-600">
-                                      ({filteredCompanies.length} of {job.detailedResults?.companies?.length || 0} companies)
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setCompanyPage(prev => ({ ...prev, [job.id]: Math.max(1, (prev[job.id] || 1) - 1) }))}
-                                    disabled={(companyPage[job.id] || 1) <= 1}
-                                  >
-                                    Previous
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setCompanyPage(prev => ({ ...prev, [job.id]: Math.min(totalPages, (prev[job.id] || 1) + 1) }))}
-                                    disabled={(companyPage[job.id] || 1) >= totalPages}
-                                  >
-                                    Next
-                                  </Button>
-                                </div>
-                              </div>
-                            )
-                          })()}
-
-                          <div className="grid gap-2 max-h-[600px] overflow-y-auto">
-                            {(job.detailedResults?.companies || [])
-                              .filter(company => 
-                                !companySearchTerm || 
-                                company.name.toLowerCase().includes(companySearchTerm.toLowerCase()) ||
-                                company.location?.toLowerCase().includes(companySearchTerm.toLowerCase())
-                              )
-                              .slice(
-                                ((companyPage[job.id] || 1) - 1) * companiesPerPage,
-                                (companyPage[job.id] || 1) * companiesPerPage
-                              )
-                              .map((company) => (
-                              <div key={company.id} className={`border rounded-md p-2 transition-colors ${
-                                selectedCompanies.has(company.id) ? 'bg-blue-100 border-blue-300 ring-2 ring-blue-200' : 'bg-gray-50 border-gray-200'
-                              }`}>
-                                <div className="flex items-center gap-2">
-                                  {/* Checkbox for selection - separate clickable area */}
-                                  <div 
-                                    className={`flex items-center justify-center w-6 h-6 cursor-pointer rounded transition-colors ${
-                                      selectedCompanies.has(company.id) 
-                                        ? 'bg-blue-100 hover:bg-blue-200' 
-                                        : 'hover:bg-gray-100'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedCompanies.has(company.id)}
-                                      onChange={(e) => {
-                                        e.stopPropagation()
-                                        toggleCompanySelection(company.id)
-                                      }}
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-                                      aria-label={`Select ${company.name}`}
-                                    />
-                                  </div>
-                                  
-                                  {/* Company info - clickable area for drawer */}
-                                  <div 
-                                    className="flex-1 min-w-0 cursor-pointer hover:bg-gray-100 rounded p-1 -m-1"
-                                    onClick={() => openCompanyDrawer(company.id)}
-                                  >
-                                  
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <h5 className="font-medium text-gray-900 truncate">{company.name}</h5>
-                                      <Badge variant="outline" className="text-xs flex-shrink-0">
-                                        {company.job_count} job{company.job_count !== 1 ? 's' : ''}
-                                      </Badge>
-                                      {company.category_size && getCategorySizeBadge(company.category_size)}
-                                    </div>
-                                    <div className="flex items-center gap-4 text-xs text-gray-600">
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium">Location:</span>
-                                        <span className="truncate">{company.location || 'Not specified'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium">Status:</span>
-                                        <Badge 
-                                          variant={company.status === 'Prospect' ? 'default' : 
-                                                 company.status === 'Qualified' ? 'secondary' : 
-                                                 company.status === 'Disqualified' ? 'destructive' : 'outline'}
-                                          className="text-xs"
-                                        >
-                                          {company.status || 'Unknown'}
-                                        </Badge>
-                                        {company.status === 'Prospect' && (
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={(e) => {
-                                              e.stopPropagation() // Prevent drawer from opening
-                                              updateCompanyStatus(company.id, 'Disqualified')
-                                            }}
-                                            className="h-5 px-1 text-red-600 hover:text-red-700"
-                                          >
-                                            <X className="w-3 h-3" />
-                                          </Button>
-                                        )}
-                                        {company.status === 'Disqualified' && (
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={(e) => {
-                                              e.stopPropagation() // Prevent drawer from opening
-                                              updateCompanyStatus(company.id, 'Prospect')
-                                            }}
-                                            className="h-5 px-1 text-blue-600 hover:text-blue-700"
-                                          >
-                                            <Check className="w-3 h-3" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium">Enrichment:</span>
-                                        <Badge 
-                                          variant={
-                                            company.enrichment_status === 'enriched' ? 'default' : 
-                                            company.enrichment_status === 'completed' ? 'default' :
-                                            company.enrichment_status === 'processing' ? 'secondary' :
-                                            company.enrichment_status === 'failed' ? 'destructive' :
-                                            company.enrichment_status === 'pending' ? 'outline' : 'secondary'
-                                          }
-                                          className={`text-xs font-semibold ${
-                                            company.enrichment_status === 'enriched' || company.enrichment_status === 'completed'
-                                              ? 'bg-green-100 text-green-800 border-green-200'
-                                              : company.enrichment_status === 'processing'
-                                              ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                              : company.enrichment_status === 'failed'
-                                              ? 'bg-red-100 text-red-800 border-red-200'
-                                              : company.enrichment_status === 'pending'
-                                              ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                                              : 'bg-gray-100 text-gray-600 border-gray-200'
-                                          }`}
-                                        >
-                                          {company.enrichment_status === 'enriched' || company.enrichment_status === 'completed' ? (
-                                            <>
-                                              <CheckCircle className="w-3 h-3 mr-1" />
-                                              Enriched
-                                            </>
-                                          ) : company.enrichment_status === 'processing' ? (
-                                            <>
-                                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                              Processing
-                                            </>
-                                          ) : company.enrichment_status === 'failed' ? (
-                                            <>
-                                              <XCircle className="w-3 h-3 mr-1" />
-                                              Failed
-                                            </>
-                                          ) : company.enrichment_status === 'pending' ? (
-                                            <>
-                                              <Clock className="w-3 h-3 mr-1" />
-                                              Pending
-                                            </>
-                                          ) : (
-                                            <>
-                                              <XCircle className="w-3 h-3 mr-1" />
-                                              Not enriched
-                                            </>
-                                          )}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium">Contacts:</span>
-                                        <Badge 
-                                          variant={company.contactsFound > 0 ? 'default' : 'outline'}
-                                          className={`text-xs font-semibold ${
-                                            company.contactsFound > 0 
-                                              ? 'bg-green-100 text-green-800 border-green-200' 
-                                              : 'bg-gray-100 text-gray-600 border-gray-200'
-                                          }`}
-                                        >
-                                          <Users className="w-3 h-3 mr-1" />
-                                          {company.contactsFound} contact{company.contactsFound !== 1 ? 's' : ''}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                {/* Website button - separate clickable area */}
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  {company.website && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={(e) => {
-                                        e.stopPropagation() // Prevent drawer from opening
-                                        window.open(company.website, '_blank')
-                                      }}
-                                      className="h-6 w-6 p-0"
-                                    >
-                                      <ExternalLink className="w-3 h-3" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Detailed Job Information */}
-                      {job.detailedResults && job.detailedResults.jobs && job.detailedResults.jobs.length > 0 && (
-                        <div className="mt-4">
-                          <Separator className="my-3" />
-                          <div className="flex items-center gap-2 mb-3">
-                            <Database className="w-4 h-4 text-gray-600" />
-                            <h4 className="font-medium text-gray-900">Jobs Found ({job.detailedResults.jobs.length})</h4>
-                          </div>
-                          <div className="grid gap-3 max-h-60 overflow-y-auto">
-                            {job.detailedResults.jobs.map((jobPosting) => (
-                              <div key={jobPosting.id} className="border rounded-lg p-3 bg-gray-50">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <h5 className="font-medium text-gray-900">{jobPosting.title}</h5>
-                                      {jobPosting.url && (
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => window.open(jobPosting.url, '_blank')}
-                                          className="h-6 w-6 p-0"
-                                        >
-                                          <ExternalLink className="w-3 h-3" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                    <div className="text-sm text-gray-600 space-y-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">Company:</span>
-                                        <span>{jobPosting.company?.name || 'Unknown'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">Location:</span>
-                                        <span>{jobPosting.location || 'Not specified'}</span>
-                                      </div>
-                                      {jobPosting.job_type && (
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-medium">Type:</span>
-                                          <Badge variant="outline" className="text-xs">
-                                            {jobPosting.job_type}
-                                          </Badge>
-                                        </div>
-                                      )}
-                                      {jobPosting.salary && (
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-medium">Salary:</span>
-                                          <span>{jobPosting.salary}</span>
-                                        </div>
-                                      )}
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">Status:</span>
-                                        <Badge 
-                                          variant={jobPosting.status === 'new' ? 'default' : 
-                                                 jobPosting.status === 'reviewed' ? 'secondary' : 'outline'}
-                                          className="text-xs"
-                                        >
-                                          {jobPosting.status || 'Unknown'}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">Review:</span>
-                                        <Badge 
-                                          variant={jobPosting.review_status === 'approved' ? 'default' : 
-                                                 jobPosting.review_status === 'pending' ? 'outline' : 'destructive'}
-                                          className="text-xs"
-                                        >
-                                          {jobPosting.review_status || 'Unknown'}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">Created:</span>
-                                        <span>{new Date(jobPosting.created_at).toLocaleString()}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          )}
-        </Card>
 
-        {/* All Contacts - Collapsible */}
-        <Card className="mb-6">
-          <CardHeader 
-            className="cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => setContactsExpanded(!contactsExpanded)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                <CardTitle className="text-lg">All Scraped Contacts</CardTitle>
-              </div>
-              <div className="flex items-center gap-2">
-                {enrichmentJobs.length > 0 && (
-                  <Badge variant="outline" className="text-xs">
-                    {enrichmentJobs.reduce((total, job) => total + (job.contactsFound || 0), 0)} contacts
-                  </Badge>
-                )}
-                {contactsExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-500" />
-                )}
-              </div>
-            </div>
-            <CardDescription>
-              All contacts from companies in the current run
-            </CardDescription>
-          </CardHeader>
-          
-          {contactsExpanded && (
-            <CardContent>
-              {enrichmentJobs.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Users className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">No Contacts Found</h4>
-                  <p className="text-gray-600 mb-4">Load a run with enriched companies to see contacts.</p>
-                  <div className="text-sm text-gray-500">
-                    <p>• Select an existing run from the dropdown above</p>
-                    <p>• Or start a new scraping job and run enrichment</p>
-                    <p>• Contacts will appear here automatically</p>
-                  </div>
-                </div>
-                              ) : (
-                  <div className="space-y-4">
-                    {/* Summary Stats */}
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-blue-600" />
-                          <span className="font-medium text-blue-900">Contacts Summary</span>
+                    {/* Qualification Workflow Tabs */}
+                    <Tabs defaultValue="qualified" className="space-y-4">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="qualified" className="text-green-700 data-[state=active]:bg-green-100">
+                          ✅ Qualified ({loadedCompanies.filter(c => c.qualification_status === 'qualified').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="review" className="text-yellow-700 data-[state=active]:bg-yellow-100">
+                          ⭕ Review ({loadedCompanies.filter(c => c.qualification_status === 'review').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="disqualified" className="text-red-700 data-[state=active]:bg-red-100">
+                          ❌ Disqualified ({loadedCompanies.filter(c => c.qualification_status === 'disqualified').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="unqualified" className="text-gray-700 data-[state=active]:bg-gray-100">
+                          ⏳ Unqualified ({loadedCompanies.filter(c => !c.qualification_status || c.qualification_status === 'pending').length})
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Qualified Companies - Apollo Ready Zone */}
+                      <TabsContent value="qualified" className="space-y-4">
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <Sparkles className="w-5 h-5 text-green-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-green-800">🚀 Apollo Enrichment Zone</h3>
+                                <p className="text-sm text-green-600">
+                                  {loadedCompanies.filter(c => c.qualification_status === 'qualified').length} qualified companies ready for enrichment
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="default" 
+                                className="bg-green-600 hover:bg-green-700"
+                                disabled={loadedCompanies.filter(c => c.qualification_status === 'qualified').length === 0}
+                              >
+                                <Zap className="w-4 h-4 mr-2" />
+                                Enrich All Qualified
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => loadAllContactsForCurrentRun()}
-                          className="bg-white hover:bg-blue-100 text-blue-700 border-blue-300"
+                        {renderCompaniesSection(loadedCompanies.filter(c => c.qualification_status === 'qualified'), 'qualified')}
+                      </TabsContent>
+
+                      {/* Review Needed - Attention Required Zone */}
+                      <TabsContent value="review" className="space-y-4">
+                        <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <AlertCircle className="w-5 h-5 text-yellow-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-yellow-800">⭕ Review Required</h3>
+                                <p className="text-sm text-yellow-600">
+                                  Companies marked for manual review - decide qualification status
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm">
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Quick Actions
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        {renderCompaniesSection(loadedCompanies.filter(c => c.qualification_status === 'review'), 'review')}
+                      </TabsContent>
+
+                      {/* Disqualified - Archive Zone */}
+                      <TabsContent value="disqualified" className="space-y-4">
+                        <div className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                <RefreshCw className="w-5 h-5 text-red-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-red-800">❌ Disqualified Companies</h3>
+                                <p className="text-sm text-red-600">
+                                  Companies not suitable for outreach - archived from workflow
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {renderCompaniesSection(loadedCompanies.filter(c => c.qualification_status === 'disqualified'), 'disqualified')}
+                      </TabsContent>
+
+                      {/* Unqualified - Triage Zone */}
+                      <TabsContent value="unqualified" className="space-y-4">
+                        <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <Target className="w-5 h-5 text-gray-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-gray-800">⏳ Qualification Needed</h3>
+                                <p className="text-sm text-gray-600">
+                                  New companies awaiting qualification - start your workflow here
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm">
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Bulk Qualify
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        {renderCompaniesSection(loadedCompanies.filter(c => !c.qualification_status || c.qualification_status === 'pending'), 'unqualified')}
+                      </TabsContent>
+                    </Tabs>
+
+
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Building2 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No companies data available</p>
+                    <p className="text-sm">Select an existing run to view companies data</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="contacts" className="space-y-6">
+            {/* Contact Management */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      Contact Management
+                      {currentRunData && (
+                        <Badge variant="outline" className="ml-2">
+                          From: {currentRunData.apify_run?.title || 'Selected Run'}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {contactsLoading 
+                        ? "Loading contacts from Apollo-enriched companies..."
+                        : loadedContacts.length > 0 
+                          ? `Qualify contacts and manage campaign addition (${loadedContacts.length} contacts)`
+                          : "No contacts data loaded. Contacts are enriched from companies after scraping."
+                      }
+                    </CardDescription>
+                  </div>
+                  {currentRunData && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refreshContacts}
+                      className="flex items-center gap-2"
+                      disabled={contactsLoading || isRefreshingContacts}
+                    >
+                      <RefreshCw className={`w-4 h-4 ${contactsLoading || isRefreshingContacts ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {currentRunData ? (
+                  <>
+                    {/* Contact Status Cards - Matching Companies tab design */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-green-600">✅ Qualified</p>
+                            <p className="text-2xl font-bold text-green-700">
+                              {getFilteredContacts().filter(c => c.qualificationStatus === 'qualified').length}
+                            </p>
+                            <p className="text-xs text-green-600">Ready for Campaign</p>
+                          </div>
+                          <CheckCircle className="w-8 h-8 text-green-500" />
+                        </div>
+                      </div>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-yellow-600">⭕ Review Needed</p>
+                            <p className="text-2xl font-bold text-yellow-700">
+                              {getFilteredContacts().filter(c => c.qualificationStatus === 'review').length}
+                            </p>
+                            <p className="text-xs text-yellow-600">Needs attention</p>
+                          </div>
+                          <AlertCircle className="w-8 h-8 text-yellow-500" />
+                        </div>
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-red-600">❌ Disqualified</p>
+                            <p className="text-2xl font-bold text-red-700">
+                              {getFilteredContacts().filter(c => c.qualificationStatus === 'disqualified').length}
+                            </p>
+                            <p className="text-xs text-red-600">Not suitable</p>
+                          </div>
+                          <RefreshCw className="w-8 h-8 text-red-500" />
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600">⏳ Pending</p>
+                            <p className="text-2xl font-bold text-gray-700">
+                              {getFilteredContacts().filter(c => !c.qualificationStatus || c.qualificationStatus === 'pending').length}
+                            </p>
+                            <p className="text-xs text-gray-600">Needs qualification</p>
+                          </div>
+                          <Clock className="w-8 h-8 text-gray-400" />
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-blue-600">🎯 In Campaigns</p>
+                            <p className="text-2xl font-bold text-blue-700">
+                              {getFilteredContacts().filter(c => c.campaign_id).length}
+                            </p>
+                            <p className="text-xs text-blue-600">Active in campaigns</p>
+                          </div>
+                          <Target className="w-8 h-8 text-blue-500" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Campaign Selection Bar */}
+                    <div className="relative flex items-center justify-between mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      {/* Active Filters Display */}
+                      {(localSearchTerm || contactFilters.campaignStatus !== 'all' || contactFilters.campaignId !== 'all') && (
+                        <div className="absolute -top-2 left-4 bg-white px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded shadow-sm flex items-center gap-2">
+                          <span>Active filters:</span>
+                          {localSearchTerm && <span className="text-blue-600">"{localSearchTerm}"</span>}
+                          {contactFilters.campaignStatus !== 'all' && (
+                            <span className="text-green-600">
+                              {contactFilters.campaignStatus === 'in_campaign' ? 'In Campaign' : 'Not in Campaign'}
+                            </span>
+                          )}
+                          {contactFilters.campaignId !== 'all' && (
+                            <span className="text-purple-600">
+                              {instantlyCampaigns.find(c => c.id === contactFilters.campaignId)?.name || 'Specific Campaign'}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => {
+                              setLocalSearchTerm('')
+                              setContactFilters({
+                                qualification: 'all',
+                                verification: 'all',
+                                contactType: 'all',
+                                campaignStatus: 'all',
+                                campaignId: 'all',
+                                search: ''
+                              })
+                              if (searchTimeout) {
+                                clearTimeout(searchTimeout)
+                              }
+                              if (currentRunData?.apify_run?.id) {
+                                loadContactsByCompany(currentRunData.apify_run.id, '')
+                              }
+                            }}
+                            className="text-red-500 hover:text-red-700 ml-1"
+                            title="Clear all filters"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4">
+                        {/* Enhanced Contact Search */}
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input 
+                            type="text" 
+                            placeholder="Search by name, company, or email..."
+                            value={localSearchTerm}
+                            onChange={(e) => {
+                              const newSearchTerm = e.target.value
+                              setLocalSearchTerm(newSearchTerm)
+                              setContactFilters(prev => ({ ...prev, search: newSearchTerm }))
+                              
+                              // Clear existing timeout
+                              if (searchTimeout) {
+                                clearTimeout(searchTimeout)
+                              }
+                              
+                              // If search term is empty, immediately reset the filter
+                              if (newSearchTerm === '') {
+                                if (currentRunData?.apify_run?.id) {
+                                  loadContactsByCompany(currentRunData.apify_run.id, '')
+                                }
+                              } else {
+                                // Set new timeout for debounced search only if there's a search term
+                                const timeout = setTimeout(() => {
+                                  if (currentRunData?.apify_run?.id) {
+                                    loadContactsByCompany(currentRunData.apify_run.id, newSearchTerm)
+                                  }
+                                }, 300) // Reduced from 500ms to 300ms for better responsiveness
+                                
+                                setSearchTimeout(timeout)
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && currentRunData?.apify_run?.id) {
+                                // Clear timeout and search immediately on Enter
+                                if (searchTimeout) {
+                                  clearTimeout(searchTimeout)
+                                }
+                                loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search)
+                              }
+                            }}
+                            className="pl-10 pr-12 py-2 border border-gray-300 rounded-md text-sm w-80 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                            {contactFilters.search && (
+                              <button
+                                                              onClick={() => {
+                                setLocalSearchTerm('')
+                                setContactFilters(prev => ({ ...prev, search: '' }))
+                                if (searchTimeout) {
+                                  clearTimeout(searchTimeout)
+                                }
+                                if (currentRunData?.apify_run?.id) {
+                                  loadContactsByCompany(currentRunData.apify_run.id, '')
+                                }
+                              }}
+                                className="text-gray-400 hover:text-gray-600 p-1"
+                                title="Clear search"
+                              >
+                                ✕
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                if (searchTimeout) {
+                                  clearTimeout(searchTimeout)
+                                }
+                                if (currentRunData?.apify_run?.id) {
+                                  loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search)
+                                }
+                              }}
+                              className="text-gray-400 hover:text-blue-600 p-1"
+                              title="Search"
+                            >
+                              <Search className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Campaign Status Filter */}
+                        <Select 
+                          value={contactFilters.campaignStatus} 
+                          onValueChange={(value) => {
+                            setContactFilters(prev => ({ ...prev, campaignStatus: value }))
+                            if (currentRunData?.apify_run?.id) {
+                              loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search)
+                            }
+                          }}
                         >
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                          Refresh Contacts
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Campaign Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Contacts</SelectItem>
+                            <SelectItem value="in_campaign">📧 In Campaign</SelectItem>
+                            <SelectItem value="not_in_campaign">⏳ Not in Campaign</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Specific Campaign Filter */}
+                        <EnhancedCampaignFilter
+                          campaigns={instantlyCampaigns}
+                          selectedCampaignId={contactFilters.campaignId}
+                          onCampaignChange={(value) => {
+                            setContactFilters(prev => ({ ...prev, campaignId: value }))
+                            if (currentRunData?.apify_run?.id) {
+                              loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search)
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {contactsLoading && (
+                          <RefreshCw className="w-4 h-4 animate-spin text-gray-500" />
+                        )}
+                        <EnhancedCampaignSelector
+                          campaigns={instantlyCampaigns}
+                          selectedCampaign={selectedCampaign}
+                          onCampaignChange={setSelectedCampaign}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Qualification Workflow Tabs - Matching Companies tab structure */}
+                    <Tabs defaultValue="qualified" className="space-y-4">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="qualified" className="text-green-700 data-[state=active]:bg-green-100">
+                          ✅ Qualified ({getFilteredContacts().filter(c => c.qualificationStatus === 'qualified').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="review" className="text-yellow-700 data-[state=active]:bg-yellow-100">
+                          ⭕ Review ({getFilteredContacts().filter(c => c.qualificationStatus === 'review').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="disqualified" className="text-red-700 data-[state=active]:bg-red-100">
+                          ❌ Disqualified ({getFilteredContacts().filter(c => c.qualificationStatus === 'disqualified').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="unqualified" className="text-gray-700 data-[state=active]:bg-gray-100">
+                          ⏳ Pending ({getFilteredContacts().filter(c => !c.qualificationStatus || c.qualificationStatus === 'pending').length})
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Qualified Contacts - Campaign Ready Zone */}
+                      <TabsContent value="qualified" className="space-y-4">
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <Plus className="w-5 h-5 text-green-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-green-800">🚀 Campaign Addition Zone</h3>
+                                <p className="text-sm text-green-600">
+                                  {loadedContacts.filter(c => c.qualificationStatus === 'qualified').length} qualified contacts ready for campaign addition
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="default" 
+                                className="bg-green-600 hover:bg-green-700"
+                                disabled={loadedContacts.filter(c => c.qualificationStatus === 'qualified').length === 0 || !selectedCampaign}
+                                onClick={handleAddToCampaign}
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add All Qualified to Campaign
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        {renderContactsSection(getFilteredContacts().filter(c => c.qualificationStatus === 'qualified'), 'qualified')}
+                      </TabsContent>
+
+                      {/* Review Needed - Attention Required Zone */}
+                      <TabsContent value="review" className="space-y-4">
+                        <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <AlertCircle className="w-5 h-5 text-yellow-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-yellow-800">⭕ Review Required</h3>
+                                <p className="text-sm text-yellow-600">
+                                  Contacts marked for manual review - decide qualification status
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm">
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Quick Actions
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        {renderContactsSection(getFilteredContacts().filter(c => c.qualificationStatus === 'review'), 'review')}
+                      </TabsContent>
+
+                      {/* Disqualified - Archive Zone */}
+                      <TabsContent value="disqualified" className="space-y-4">
+                        <div className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                <RefreshCw className="w-5 h-5 text-red-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-red-800">❌ Disqualified Contacts</h3>
+                                <p className="text-sm text-red-600">
+                                  Contacts not suitable for outreach - archived from workflow
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {renderContactsSection(getFilteredContacts().filter(c => c.qualificationStatus === 'disqualified'), 'disqualified')}
+                      </TabsContent>
+
+                      {/* Unqualified - Triage Zone */}
+                      <TabsContent value="unqualified" className="space-y-4">
+                        <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <Target className="w-5 h-5 text-gray-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-gray-800">⏳ Qualification Needed</h3>
+                                <p className="text-sm text-gray-600">
+                                  New contacts awaiting qualification - start your workflow here
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm">
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Bulk Qualify
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        {renderContactsSection(getFilteredContacts().filter(c => !c.qualificationStatus || c.qualificationStatus === 'pending'), 'unqualified')}
+                      </TabsContent>
+                    </Tabs>
+
+                    {/* No Results State - Show when there are no contacts due to filters */}
+                    {getFilteredContacts().length === 0 && loadedContacts.length > 0 && currentRunData && (
+                      <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                        <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <h3 className="font-medium text-gray-700 mb-2">No contacts found</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          No contacts match your current search criteria and filters
+                        </p>
+                        <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                          <span>Try adjusting your:</span>
+                          <Badge variant="outline" className="text-xs">Search terms</Badge>
+                          <Badge variant="outline" className="text-xs">Campaign filters</Badge>
+                          <Badge variant="outline" className="text-xs">Status filters</Badge>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-4"
+                          onClick={() => {
+                            setContactFilters({
+                              qualification: 'all',
+                              verification: 'all',
+                              contactType: 'all',
+                              campaignStatus: 'all',
+                              campaignId: 'all',
+                              search: ''
+                            })
+                            if (searchTimeout) {
+                              clearTimeout(searchTimeout)
+                            }
+                            if (currentRunData?.apify_run?.id) {
+                              loadContactsByCompany(currentRunData.apify_run.id, '')
+                            }
+                          }}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Clear All Filters
                         </Button>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-blue-700">Total Contacts:</span>
-                          <p className="font-medium text-blue-900">
-                            {enrichmentJobs.reduce((total, job) => total + (job.contactsFound || 0), 0)}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-blue-700">Companies with Contacts:</span>
-                          <p className="font-medium text-blue-900">
-                            {enrichmentJobs.reduce((total, job) => total + (job.companyCount || 0), 0)}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-blue-700">Linked to Campaigns:</span>
-                          <p className="font-medium text-blue-900">
-                            {enrichmentJobs.flatMap(job => job.contacts || []).filter(c => c.campaign_id).length}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-blue-700">Last Updated:</span>
-                          <p className="font-medium text-blue-900">{new Date().toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {enrichmentJobs.map((job) => (
-                    <div key={job.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(job.status)}
-                          <span className="font-medium">Enrichment Batch</span>
-                        </div>
-                        {getStatusBadge(job.status)}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                        <div>
-                          <span className="text-sm text-gray-500">Companies:</span>
-                          <p className="font-medium">{job.companyCount}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Contacts Found:</span>
-                          <p className="font-medium">{job.contactsFound}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Created:</span>
-                          <p className="font-medium">{new Date(job.createdAt).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-500">Completed:</span>
-                          <p className="font-medium">
-                            {job.completedAt ? new Date(job.completedAt).toLocaleString() : 'Pending'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {job.status === 'completed' && job.contactsFound > 0 && (
-                        <div className="space-y-3">
-                          {/* Bulk Campaign Management */}
-                          {selectedContacts.size > 0 && (
-                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
-                                    {selectedContacts.size} contacten geselecteerd
-                                  </Badge>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setSelectedContacts(new Set())
-                                    setSelectedCampaignForBulk('')
-                                  }}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Select value={selectedCampaignForBulk} onValueChange={setSelectedCampaignForBulk}>
-                                  <SelectTrigger className="w-64 h-9 text-sm">
-                                    <SelectValue placeholder="Selecteer campagne">
-                                      {selectedCampaignForBulk && (() => {
-                                        const campaign = campaigns.find(c => c.id === selectedCampaignForBulk)
-                                        return campaign ? (
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-medium text-gray-900">{campaign.name}</span>
-                                            <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                                              {campaign.status}
-                                            </Badge>
-                                          </div>
-                                        ) : null
-                                      })()}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {campaigns.map((campaign) => (
-                                      <SelectItem key={campaign.id} value={campaign.id}>
-                                        <div className="flex items-center justify-between w-full">
-                                          <span className="text-sm font-medium text-gray-900">{campaign.name}</span>
-                                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 ml-2">
-                                            {campaign.status}
-                                          </Badge>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Button
-                                  size="sm"
-                                  onClick={addSelectedContactsToCampaign}
-                                  disabled={!selectedCampaignForBulk || isAddingToCampaign}
-                                  className="bg-orange-500 hover:bg-orange-600 text-white"
-                                >
-                                  {isAddingToCampaign ? (
-                                    <>
-                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                      Bezig...
-                                    </>
-                                  ) : (
-                                    'Voeg toe aan campagne'
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Contact Selection Controls */}
-                          <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
-                            <div className="flex items-center gap-3">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => selectAllContacts(job.contacts || [])}
-                                className="bg-white hover:bg-gray-50"
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Select All
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={clearContactSelection}
-                                className="bg-white hover:bg-gray-50"
-                              >
-                                <X className="w-3 h-3 mr-1" />
-                                Clear All
-                              </Button>
-                              {selectedContacts.size > 0 && (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
-                                    {selectedContacts.size} selected
-                                  </Badge>
-                                  <span className="text-sm text-gray-600">
-                                    of {(job.contacts || []).length} total
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Search Contacts */}
-                            <div className="flex items-center gap-2">
-                              <div className="relative">
-                                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                  type="text"
-                                  placeholder="Search contacts..."
-                                  value={contactSearchTerm}
-                                  onChange={(e) => setContactSearchTerm(e.target.value)}
-                                  className="pl-8 pr-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                              </div>
-                              {contactSearchTerm && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setContactSearchTerm('')}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Compact Contacts List */}
-                          <div className="border rounded-lg bg-white max-h-96 overflow-y-auto shadow-sm">
-                            <div className="p-3 border-b bg-gray-50">
-                              <div className="flex items-center gap-2">
-                                <Users className="w-4 h-4 text-gray-600" />
-                                <span className="font-medium text-gray-900">Contacts Found</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {(job.contacts || []).length} total
-                                </Badge>
-                              </div>
-                            </div>
-                            <div className="p-2 space-y-1">
-                              {(job.contacts || [])
-                                .filter(contact => 
-                                  !contactSearchTerm || 
-                                  contact.name.toLowerCase().includes(contactSearchTerm.toLowerCase()) ||
-                                  contact.email.toLowerCase().includes(contactSearchTerm.toLowerCase()) ||
-                                  contact.companyName.toLowerCase().includes(contactSearchTerm.toLowerCase()) ||
-                                  (contact.phone && contact.phone.toLowerCase().includes(contactSearchTerm.toLowerCase()))
-                                )
-                                .map((contact) => (
-                                <div key={contact.id} className={`border rounded-md p-2 transition-all duration-200 hover:shadow-sm ${
-                                  selectedContacts.has(contact.id) 
-                                    ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' 
-                                    : 'bg-white border-gray-200 hover:border-gray-300'
-                                }`}>
-                                  <div className="flex items-center gap-2">
-                                    {/* Checkbox for contact selection */}
-                                    <div className="flex items-center justify-center w-4 h-4 cursor-pointer rounded transition-colors">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedContacts.has(contact.id)}
-                                        onChange={(e) => {
-                                          e.stopPropagation()
-                                          toggleContactSelection(contact.id)
-                                        }}
-                                        className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-                                        aria-label={`Select ${contact.name}`}
-                                      />
-                                    </div>
-                                  
-                                    {/* Compact contact info */}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <h6 className="font-medium text-gray-900 text-sm truncate">{contact.name}</h6>
-                                        <Badge 
-                                          variant="outline" 
-                                          className="text-xs flex-shrink-0 bg-gray-50 text-gray-700 border-gray-200"
-                                        >
-                                          {contact.title}
-                                        </Badge>
-                                        {contact.campaign_name && (
-                                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                                            {contact.campaign_name}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-4 text-xs text-gray-600">
-                                        <div className="flex items-center gap-1">
-                                          <Mail className="w-3 h-3 text-gray-400" />
-                                          <span className="truncate font-mono">{contact.email}</span>
-                                          {contact.email_status && getEmailStatusBadge(contact.email_status)}
-                                        </div>
-                                        {contact.phone && (
-                                          <div className="flex items-center gap-1">
-                                            <Phone className="w-3 h-3 text-gray-400" />
-                                            <span className="truncate font-mono">{contact.phone}</span>
-                                          </div>
-                                        )}
-                                        <div className="flex items-center gap-1">
-                                          <Building2 className="w-3 h-3 text-gray-400" />
-                                          <span className="truncate text-gray-700 font-medium">{contact.companyName}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Selection indicator */}
-                                    {selectedContacts.has(contact.id) && (
-                                      <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          )}
-        </Card>
-
-        {/* Company Job Postings Drawer */}
-        {selectedCompanyForDrawer && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end">
-            <div className="bg-white w-full max-w-3xl h-full overflow-hidden flex flex-col">
-              {/* Drawer Header */}
-              <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-                <div>
-                  <h3 className="text-lg font-semibold">Company Job Postings</h3>
-                  <p className="text-sm text-gray-600">
-                    {companyJobPostings.length} job posting{companyJobPostings.length !== 1 ? 's' : ''} found
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={closeCompanyDrawer}
-                  className="h-8 w-8 p-0"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              {/* Drawer Content */}
-              <div className="flex-1 overflow-y-auto">
-                {isLoadingCompanyJobs ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span className="ml-2">Loading job postings...</span>
-                  </div>
-                ) : companyJobPostings.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    <div className="max-w-md mx-auto">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                        <Database className="w-8 h-8 text-gray-400" />
-                      </div>
-                      <h4 className="text-lg font-medium text-gray-900 mb-2">No Job Postings Found</h4>
-                      <p className="text-gray-600">This company doesn't have any job postings in our database.</p>
-                    </div>
-                  </div>
+                    )}
+                  </>
                 ) : (
-                  <div className="p-4">
-                    {/* Summary Stats */}
-                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium text-blue-900">Total Jobs:</span>
-                          <p className="text-blue-700 font-semibold">{companyJobPostings.length}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-900">New:</span>
-                          <p className="text-blue-700 font-semibold">
-                            {companyJobPostings.filter(j => j.status === 'new').length}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-900">Reviewed:</span>
-                          <p className="text-blue-700 font-semibold">
-                            {companyJobPostings.filter(j => j.status === 'reviewed').length}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-900">Approved:</span>
-                          <p className="text-blue-700 font-semibold">
-                            {companyJobPostings.filter(j => j.review_status === 'approved').length}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Job Postings List */}
-                    <div className="space-y-3">
-                      {companyJobPostings.map((jobPosting, index) => (
-                        <div key={jobPosting.id} className="border rounded-lg p-3 bg-white hover:bg-gray-50 transition-colors">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs text-gray-500 font-mono">#{index + 1}</span>
-                                <h4 className="font-medium text-gray-900 truncate">{jobPosting.title}</h4>
-                              </div>
-                              {jobPosting.url && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => window.open(jobPosting.url, '_blank')}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">Location:</span>
-                              <span className="truncate">{jobPosting.location || 'Not specified'}</span>
-                            </div>
-                            
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">Status:</span>
-                              <Badge 
-                                variant={jobPosting.status === 'new' ? 'default' : 
-                                       jobPosting.status === 'reviewed' ? 'secondary' : 'outline'}
-                                className="text-xs"
-                              >
-                                {jobPosting.status || 'Unknown'}
-                              </Badge>
-                            </div>
-                            
-                            {jobPosting.job_type && (
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium">Type:</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {jobPosting.job_type}
-                                </Badge>
-                              </div>
-                            )}
-                            
-                            {jobPosting.salary && (
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium">Salary:</span>
-                                <span className="truncate">{jobPosting.salary}</span>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">Review:</span>
-                              <Badge 
-                                variant={jobPosting.review_status === 'approved' ? 'default' : 
-                                       jobPosting.review_status === 'pending' ? 'outline' : 'destructive'}
-                                className="text-xs"
-                              >
-                                {jobPosting.review_status || 'Unknown'}
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">Created:</span>
-                              <span className="text-xs">
-                                {new Date(jobPosting.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {jobPosting.description && (
-                            <div className="mt-2">
-                              <details className="group">
-                                <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
-                                  Description
-                                  <span className="ml-1 text-gray-500 group-open:hidden">▼</span>
-                                  <span className="ml-1 text-gray-500 hidden group-open:inline">▲</span>
-                                </summary>
-                                <p className="text-sm text-gray-600 mt-1 pl-4 border-l-2 border-gray-200">
-                                  {jobPosting.description}
-                                </p>
-                              </details>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                  <div className="text-center py-8 text-gray-500">
+                    <Target className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No contacts data available</p>
+                    <p className="text-sm">
+                      Select an Apify run to view contacts from Apollo-enriched companies
+                    </p>
+                    <p className="text-sm">
+                      Go to the <strong>COMPANIES</strong> tab and enrich companies with Apollo to generate contacts
+                    </p>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-        )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* Company Details Drawer */}
+      <CompanyDetailsDrawer
+        companyId={selectedCompanyForDetails}
+        open={isCompanyDrawerOpen}
+        onClose={closeCompanyDetails}
+        onQualify={qualifyCompany}
+        onEnrich={enrichCompany}
+      />
+
+      {/* Campaign Confirmation Modal */}
+      <CampaignConfirmationModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onConfirm={handleModalConfirm}
+        selectedContacts={Array.from(selectedContacts).map(contactId => {
+          const contact = loadedContacts.find(c => c.id === contactId)
+          // Construct name from first_name and last_name, fallback to name field, then to 'Unknown Contact'
+          const contactName = contact?.first_name || contact?.last_name 
+            ? `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim()
+            : contact?.name || 'Unknown Contact'
+          
+
+          
+          return {
+            id: contact?.id || contactId,
+            name: contactName,
+            first_name: contact?.first_name,
+            last_name: contact?.last_name,
+            email: contact?.email || '',
+            title: contact?.title,
+            companyName: contact?.companyName,
+            qualificationStatus: contact?.qualificationStatus,
+            isKeyContact: contact?.isKeyContact
+          } as Contact
+        })}
+        selectedCampaign={selectedCampaign ? {
+          id: selectedCampaign,
+          name: instantlyCampaigns.find(c => c.id === selectedCampaign)?.name || 'Unknown Campaign',
+          status: instantlyCampaigns.find(c => c.id === selectedCampaign)?.status
+        } as Campaign : null}
+        isLoading={modalLoading}
+        error={modalError}
+        onRetry={handleModalConfirm}
+        onSuccess={() => {
+          // Success is handled in handleModalConfirm
+        }}
+        onError={(error) => {
+          setModalError(error)
+        }}
+        // Enhanced props for progress tracking
+        progress={modalProgress}
+        steps={modalSteps}
+        retryRecommendations={modalRetryRecommendations}
+        severity={modalSeverity}
+      />
     </div>
   )
 }
+
+export default function OtisEnhancedPage() {
+  return (
+    <OtisErrorBoundary>
+      <WorkflowProvider>
+        <FullOtisDashboard />
+      </WorkflowProvider>
+    </OtisErrorBoundary>
+  )
+} 

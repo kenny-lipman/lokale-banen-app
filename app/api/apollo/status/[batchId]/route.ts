@@ -1,170 +1,111 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase"
-
-interface BatchStatus {
-  batchId: string
-  status: string
-  totalCompanies: number
-  completedCompanies: number
-  failedCompanies: number
-  processingCompanies: number
-  queuedCompanies: number
-  progressPercentage: number
-  companies: Array<{
-    companyId: string
-    companyName: string
-    website: string
-    status: string
-    contactsFound?: number
-    errorMessage?: string
-    processingStartedAt?: string
-    processingCompletedAt?: string
-  }>
-  startedAt?: string
-  completedAt?: string
-  errorMessage?: string
-}
+import { apolloStatusService } from "@/lib/apollo-status-service"
+import { statusApiLimiter } from "@/middleware/rate-limiting"
+import { performanceMonitor } from "@/lib/performance-monitoring"
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ batchId: string }> }
 ) {
+  const startTime = performance.now()
+  let responseStatus = 200
+  let cacheHit = false
+
   try {
     const { batchId } = await params
 
     if (!batchId) {
+      responseStatus = 400
       return NextResponse.json(
         { error: "batchId parameter is required" },
         { status: 400 }
       )
     }
 
-    const supabase = createClient()
-
-    // Get batch information
-    const { data: batchData, error: batchError } = await supabase
-      .from('enrichment_batches')
-      .select('*')
-      .eq('batch_id', batchId)
-      .single()
-
-    if (batchError) {
-      if (batchError.code === 'PGRST116') {
-        return NextResponse.json(
-          { error: "Batch not found" },
-          { status: 404 }
-        )
-      }
-      console.error('Error fetching batch:', batchError)
-      return NextResponse.json(
-        { error: "Failed to fetch batch information" },
-        { status: 500 }
+    // Enhanced rate limiting
+    const rateLimitResult = await statusApiLimiter.checkLimit(req)
+    if (!rateLimitResult.allowed) {
+      responseStatus = 429
+      const response = NextResponse.json(
+        { 
+          error: "Rate limit exceeded",
+          limit: rateLimitResult.limit,
+          remaining: rateLimitResult.remaining,
+          resetTime: rateLimitResult.resetTime
+        },
+        { status: 429 }
       )
-    }
-
-    // Get enrichment status for all companies in the batch
-    const { data: statusData, error: statusError } = await supabase
-      .from('enrichment_status')
-      .select(`
-        *,
-        companies (
-          name
-        )
-      `)
-      .eq('batch_id', batchData.id)
-      .order('created_at', { ascending: true })
-
-    if (statusError) {
-      console.error('Error fetching enrichment status:', statusError)
-      return NextResponse.json(
-        { error: "Failed to fetch enrichment status" },
-        { status: 500 }
-      )
-    }
-
-    // Get contact counts for all companies in the batch
-    const companyIds = statusData.map(s => s.company_id)
-    const { data: contactCounts, error: contactError } = await supabase
-      .from('contacts')
-      .select('company_id')
-      .in('company_id', companyIds)
-      .not('company_id', 'is', null)
-
-    if (contactError) {
-      console.error('Error fetching contact counts:', contactError)
-      return NextResponse.json(
-        { error: "Failed to fetch contact counts" },
-        { status: 500 }
-      )
-    }
-
-    // Calculate contact counts per company
-    const contactCountMap = new Map<string, number>()
-    contactCounts?.forEach(contact => {
-      const companyId = contact.company_id
-      contactCountMap.set(companyId, (contactCountMap.get(companyId) || 0) + 1)
-    })
-
-    if (statusError) {
-      console.error('Error fetching enrichment status:', statusError)
-      return NextResponse.json(
-        { error: "Failed to fetch enrichment status" },
-        { status: 500 }
-      )
-    }
-
-    // Calculate statistics based on actual enrichment status
-    const totalCompanies = statusData.length
-    const enrichedCompanies = statusData.filter(s => s.status === 'enriched').length
-    const failedCompanies = statusData.filter(s => s.status === 'failed').length
-    const processingCompanies = statusData.filter(s => s.status === 'processing').length
-    const queuedCompanies = statusData.filter(s => s.status === 'queued').length
-    
-    const progressPercentage = totalCompanies > 0 
-      ? Math.round(((enrichedCompanies + failedCompanies) / totalCompanies) * 100)
-      : 0
-
-    // Format company data with actual contact counts and enrichment status
-    const companies = statusData.map(status => {
-      const actualContactCount = contactCountMap.get(status.company_id) || 0
-      const isEnriched = actualContactCount > 0
       
-      return {
-        companyId: status.company_id,
-        companyName: status.companies?.name || 'Unknown Company',
-        website: status.website || '',
-        status: isEnriched ? 'enriched' : status.status,
-        contactsFound: actualContactCount,
-        errorMessage: status.error_message || undefined,
-        processingStartedAt: status.processing_started_at || undefined,
-        processingCompletedAt: status.processing_completed_at || undefined
-      }
-    })
-
-    // Prepare response
-    const response: BatchStatus = {
-      batchId: batchData.batch_id,
-      status: batchData.status,
-      totalCompanies,
-      completedCompanies: enrichedCompanies,
-      failedCompanies,
-      processingCompanies,
-      queuedCompanies,
-      progressPercentage,
-      companies,
-      startedAt: batchData.started_at || undefined,
-      completedAt: batchData.completed_at || undefined,
-      errorMessage: batchData.error_message || undefined
+      // Add rate limit headers
+      Object.entries({
+        'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+        'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+        'X-RateLimit-Reset': Math.ceil(rateLimitResult.resetTime / 1000).toString(),
+        'Retry-After': rateLimitResult.retryAfter?.toString() || '60'
+      }).forEach(([key, value]) => {
+        response.headers.set(key, value)
+      })
+      
+      return response
     }
 
-    return NextResponse.json(response)
+    // Check if lightweight polling is requested (for frequent polls)
+    const lightweight = req.nextUrl.searchParams.get('lightweight') === 'true'
+    
+    // Use optimized service layer
+    const result = lightweight 
+      ? await apolloStatusService.getLightweightBatchStatus(batchId)
+      : await apolloStatusService.getBatchStatus(batchId)
+
+    if (!result.success) {
+      responseStatus = result.error === "Batch not found" ? 404 : 500
+      return NextResponse.json(
+        { error: result.error, details: result.details },
+        { status: responseStatus }
+      )
+    }
+
+    // Check if response came from cache (would need to be implemented in service)
+    cacheHit = false // This would be set by the service layer
+
+    // Add response headers for performance
+    const response = NextResponse.json(result.data)
+    
+    // Cache headers for completed batches
+    if (result.data.status === 'completed' || result.data.status === 'failed') {
+      response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=30')
+    } else {
+      response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+    }
+    
+    // Add performance and rate limit headers
+    const processingTime = performance.now() - startTime
+    response.headers.set('X-Response-Time', processingTime.toFixed(2))
+    response.headers.set('X-Cache', cacheHit ? 'HIT' : 'MISS')
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString())
+    
+    return response
 
   } catch (error) {
     console.error('Status API error:', error)
+    responseStatus = 500
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     )
+  } finally {
+    // Record API performance metrics
+    const processingTime = performance.now() - startTime
+    performanceMonitor.recordAPICall({
+      endpoint: '/api/apollo/status/[batchId]',
+      method: 'GET',
+      statusCode: responseStatus,
+      responseTime: processingTime,
+      requestSize: req.headers.get('content-length') ? parseInt(req.headers.get('content-length')!) : 0,
+      responseSize: 0, // Would be calculated from response
+      userAgent: req.headers.get('user-agent') || undefined,
+      cacheHit
+    })
   }
 }
 

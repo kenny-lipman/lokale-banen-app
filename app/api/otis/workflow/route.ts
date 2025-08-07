@@ -10,6 +10,8 @@ export async function POST(req: NextRequest) {
     console.log('Workflow API called with action:', action, 'data:', data)
     
     switch (action) {
+      case 'create_session':
+        return await handleCreateSession(data, supabase)
       case 'start_scraping':
         return await handleStartScraping(data, supabase)
       case 'start_enrichment':
@@ -28,13 +30,54 @@ export async function POST(req: NextRequest) {
   }
 }
 
+async function handleCreateSession(data: any, supabase: any) {
+  const { stage } = data
+  
+  try {
+    // Generate a unique session ID
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    console.log('Creating session:', sessionId, 'with stage:', stage)
 
+    // Insert session into database
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('otis_workflow_sessions')
+      .insert({
+        session_id: sessionId,
+        current_stage: stage || 'scraping',
+        status: 'active'
+      })
+      .select()
+      .single()
+
+    if (sessionError) {
+      console.error('Error creating session in database:', sessionError)
+      throw new Error('Failed to create session in database')
+    }
+
+    console.log('Session created successfully:', sessionData)
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Session created',
+      sessionId: sessionId,
+      session: sessionData
+    })
+  } catch (error) {
+    console.error('Error creating session:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create session',
+      details: error.message
+    }, { status: 500 })
+  }
+}
 
 async function handleStartScraping(data: any, supabase: any) {
-  const { location, jobTitle, platform, regionId, regioPlatform, plaats } = data
+  const { location, jobTitle, platform, selectedRegioPlatforms, webhookUrl } = data
   
-  if (!location || !jobTitle) {
-    throw new Error('Location and job title are required')
+  if (!location) {
+    throw new Error('Location is required')
   }
   
   try {
@@ -43,17 +86,20 @@ async function handleStartScraping(data: any, supabase: any) {
     
     console.log('Starting scraping job:', jobId, 'for:', jobTitle, 'in:', location)
 
+    // Use the webhook URL from the database or fallback to default
+    const finalWebhookUrl = webhookUrl || "https://ba.grive-dev.com/webhook/ddb2acdd-5cb7-4a4a-b0e7-30bc4abc7015"
+    
     // Trigger Apify webhook with simplified payload
-    const webhookResponse = await fetch("https://ba.grive-dev.com/webhook/ddb2acdd-5cb7-4a4a-b0e7-30bc4abc7015", {
+    const webhookResponse = await fetch(finalWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        locatie: regioPlatform || location,
-        plaats: plaats || location,
-        functie: jobTitle,
+        locatie: location,
+        plaats: location,
+        functie: jobTitle || '', // Make job title optional
         platform: platform,
         session_id: jobId, // Use jobId as session_id for tracking
-        region_id: regionId
+        selectedRegioPlatforms: selectedRegioPlatforms || []
       }),
     })
 
