@@ -13,6 +13,10 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
+import { VirtualizedRunList } from '@/components/VirtualizedRunList'
+import { ViewModeToggle, useViewMode } from '@/components/ViewModeToggle'
+import { StatusFilterPills, StatusStats, useStatusFilter, calculateStatusCounts } from '@/components/StatusFilterPills'
+import { useApifyRunsProcessing } from '@/hooks/use-apify-runs-processing'
 import { 
   Search, 
   Building2, 
@@ -342,6 +346,13 @@ function FullOtisDashboard() {
   const [jobSources, setJobSources] = useState<JobSource[]>([])
   const [existingRuns, setExistingRuns] = useState<ApifyRun[]>([])
   const [isLoadingExistingRuns, setIsLoadingExistingRuns] = useState(false)
+  
+  // Enhanced runs processing state
+  const { viewMode, setMode: setViewMode } = useViewMode('list')
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  
+  // Processing hooks
+  const processingHooks = useApifyRunsProcessing({ initialRuns: existingRuns })
   const [recentJobPostings, setRecentJobPostings] = useState<any[]>([])
   const [loadedCompanies, setLoadedCompanies] = useState<any[]>([])
   const [loadedContacts, setLoadedContacts] = useState<any[]>([])
@@ -436,6 +447,19 @@ function FullOtisDashboard() {
       setActiveTab('scraping')
     }
   }, [scrapingMode])
+
+  // Synchronize legacy selectedExistingRun with new selection system
+  useEffect(() => {
+    if (selectedRunId) {
+      const selectedRun = existingRuns.find(run => run.id === selectedRunId)
+      if (selectedRun && selectedRun.id !== selectedExistingRun?.id) {
+        setSelectedExistingRun(selectedRun)
+      }
+    } else {
+      setSelectedExistingRun(null)
+    }
+  }, [selectedRunId, existingRuns, selectedExistingRun])
+
 
   // Cleanup search timeout on unmount
   useEffect(() => {
@@ -1611,6 +1635,11 @@ function FullOtisDashboard() {
   const renderCompaniesSection = (companies: any[], qualificationState: string) => {
     if (companies.length === 0) {
       const emptyMessages = {
+        enriched: { 
+          icon: '💎', 
+          title: 'No enriched companies yet',
+          message: 'Companies that have been enriched with Apollo data will appear here.'
+        },
         qualified: { 
           icon: '❌', 
           title: 'No qualified companies yet',
@@ -1626,13 +1655,13 @@ function FullOtisDashboard() {
           title: 'No disqualified companies',
           message: 'Companies marked as not suitable will be archived here.'
         },
-        unqualified: { 
+        pending: { 
           icon: '🚀', 
-          title: 'All companies qualified!',
+          title: 'All companies processed!',
           message: 'Great work! All companies have been processed through your qualification workflow.'
         }
       }
-      const empty = emptyMessages[qualificationState as keyof typeof emptyMessages] || emptyMessages.unqualified
+      const empty = emptyMessages[qualificationState as keyof typeof emptyMessages] || emptyMessages.pending
 
       return (
         <div className="text-center py-12 text-gray-500">
@@ -1677,7 +1706,8 @@ function FullOtisDashboard() {
                 }}
               />
               <span className="text-sm font-medium">
-                Select All {qualificationState === 'qualified' ? 'Qualified' : 
+                Select All {qualificationState === 'enriched' ? 'Enriched' :
+                          qualificationState === 'qualified' ? 'Qualified' : 
                           qualificationState === 'review' ? 'Review' :
                           qualificationState === 'disqualified' ? 'Disqualified' : 'Unqualified'}
               </span>
@@ -1697,7 +1727,7 @@ function FullOtisDashboard() {
                   Enrich Selected ({companies.filter(c => selectedCompanies.has(c.id)).length})
                 </Button>
               )}
-              {qualificationState === 'unqualified' && (
+              {qualificationState === 'pending' && (
                 <>
                   <Button 
                     variant="outline" 
@@ -1775,12 +1805,14 @@ function FullOtisDashboard() {
                 />
                 <div className="flex items-center gap-2">
                   <Building2 className={`w-4 h-4 ${
+                    qualificationState === 'enriched' ? 'text-purple-600' :
                     qualificationState === 'qualified' ? 'text-green-600' :
                     qualificationState === 'review' ? 'text-yellow-600' :
                     qualificationState === 'disqualified' ? 'text-red-400' :
                     'text-gray-500'
                   }`} />
                   <span className={`font-medium ${
+                    qualificationState === 'enriched' ? 'text-purple-900' :
                     qualificationState === 'qualified' ? 'text-green-900' :
                     qualificationState === 'review' ? 'text-yellow-900' :
                     qualificationState === 'disqualified' ? 'text-red-700' :
@@ -1798,6 +1830,9 @@ function FullOtisDashboard() {
                   </a>
                 )}
                 {/* Enhanced Qualification Status Badge */}
+                {qualificationState === 'enriched' && (
+                  <Badge className="bg-purple-200 text-purple-800 font-semibold">💎 Enriched with Apollo</Badge>
+                )}
                 {qualificationState === 'qualified' && (
                   <Badge className="bg-green-200 text-green-800 font-semibold">✅ Ready for Apollo</Badge>
                 )}
@@ -1807,7 +1842,7 @@ function FullOtisDashboard() {
                 {qualificationState === 'disqualified' && (
                   <Badge className="bg-red-200 text-red-800">❌ Archived</Badge>
                 )}
-                {qualificationState === 'unqualified' && (
+                {qualificationState === 'pending' && (
                   <Badge variant="outline" className="border-gray-400">⏳ Awaiting Qualification</Badge>
                 )}
               </div>
@@ -1862,7 +1897,15 @@ function FullOtisDashboard() {
 
             {/* Smart Action Buttons - Different per qualification state */}
             <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-              {qualificationState === 'qualified' ? (
+              {qualificationState === 'enriched' ? (
+                // Enriched: No qualification actions needed
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Enriched with Apollo
+                  </Badge>
+                </div>
+              ) : qualificationState === 'qualified' ? (
                 // Qualified: Focus on enrichment
                 <div className="flex items-center gap-2">
                   <Badge className="bg-green-100 text-green-700 text-xs">✅ Apollo Ready</Badge>
@@ -1977,6 +2020,11 @@ function FullOtisDashboard() {
   const renderContactsSection = (contacts: any[], qualificationState: string) => {
     if (contacts.length === 0) {
       const emptyMessages = {
+        in_campaign: { 
+          icon: '🎯', 
+          title: 'No contacts in campaigns yet',
+          message: 'Contacts added to campaigns will appear here for monitoring and management.'
+        },
         qualified: { 
           icon: '❌', 
           title: 'No qualified contacts yet',
@@ -1992,13 +2040,18 @@ function FullOtisDashboard() {
           title: 'No disqualified contacts',
           message: 'Contacts marked as not suitable will be archived here.'
         },
+        pending: { 
+          icon: '⏳', 
+          title: 'No pending contacts',
+          message: 'Contacts awaiting qualification will appear here for review.'
+        },
         unqualified: { 
           icon: '🚀', 
           title: 'All contacts qualified!',
           message: 'Great work! All contacts have been processed through your qualification workflow.'
         }
       }
-      const empty = emptyMessages[qualificationState as keyof typeof emptyMessages] || emptyMessages.unqualified
+      const empty = emptyMessages[qualificationState as keyof typeof emptyMessages] || emptyMessages.pending
 
       return (
         <div className="text-center py-12 text-gray-500">
@@ -2063,7 +2116,8 @@ function FullOtisDashboard() {
                 }}
               />
               <span className="text-sm font-medium">
-                Select All {qualificationState === 'qualified' ? 'Qualified' : 
+                Select All {qualificationState === 'enriched' ? 'Enriched' :
+                          qualificationState === 'qualified' ? 'Qualified' : 
                           qualificationState === 'review' ? 'Review' :
                           qualificationState === 'disqualified' ? 'Disqualified' : 'Unqualified'}
               </span>
@@ -2084,7 +2138,7 @@ function FullOtisDashboard() {
                   Add to Campaign ({contacts.filter(c => selectedContacts.has(c.id)).length})
                 </Button>
               )}
-              {qualificationState === 'unqualified' && (
+              {qualificationState === 'pending' && (
                 <>
                   <Button 
                     variant="outline" 
@@ -2260,7 +2314,7 @@ function FullOtisDashboard() {
                       {qualificationState === 'disqualified' && (
                         <Badge className="bg-red-200 text-red-800">❌ Archived</Badge>
                       )}
-                      {qualificationState === 'unqualified' && (
+                      {qualificationState === 'pending' && (
                         <Badge variant="outline" className="border-gray-400">⏳ Awaiting Qualification</Badge>
                       )}
                       
@@ -2600,14 +2654,37 @@ function FullOtisDashboard() {
                   </div>
                 )}
 
-                {/* Existing Run Selection */}
+                {/* Enhanced Existing Run Selection */}
                 {scrapingMode === 'existing' && (
                   <div className="space-y-6 animate-in slide-in-from-top-2 duration-300">
                     <div>
-                      <Label className="flex items-center gap-2 mb-3">
-                        Select Existing Apify Run
-                        <Badge variant="outline" className="text-xs">Required</Badge>
-                      </Label>
+                      <div className="flex items-center justify-between mb-4">
+                        <Label>
+                          Select & Manage Existing Runs
+                        </Label>
+                        
+                        {!isLoadingExistingRuns && existingRuns.length > 0 && (
+                          <div className="flex items-center gap-3">
+                            <ViewModeToggle
+                              currentMode={viewMode}
+                              onModeChange={setViewMode}
+                              availableModes={['list']}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Status filters and stats */}
+                      {!isLoadingExistingRuns && existingRuns.length > 0 && (
+                        <div className="space-y-3">
+                          <StatusFilterPills
+                            activeFilter={processingHooks.activeFilter}
+                            counts={processingHooks.statusCounts}
+                            onFilterChange={processingHooks.setActiveFilter}
+                          />
+                          <StatusStats counts={processingHooks.statusCounts} />
+                        </div>
+                      )}
                       
                       {isLoadingExistingRuns ? (
                         <div className="border rounded-lg p-8 text-center">
@@ -2631,47 +2708,33 @@ function FullOtisDashboard() {
                           </Button>
                         </div>
                       ) : (
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
-                                                     {existingRuns.map((run) => (
-                             <div
-                               key={run.id}
-                               onClick={() => setSelectedExistingRun(run)}
-                               className={`border rounded-lg p-4 cursor-pointer transition-all hover-lift ${
-                                 selectedExistingRun?.id === run.id
-                                   ? 'border-orange-500 bg-orange-50 shadow-md'
-                                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                               }`}
-                             >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <FileText className="w-4 h-4 text-gray-500" />
-                                    <span className="font-medium text-gray-900">
-                                      {run.title || 'Untitled Run'}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      {run.location}
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Briefcase className="w-3 h-3" />
-                                      {run.platform}
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3" />
-                                      {formatDate(run.createdAt)}
-                                    </div>
-                                  </div>
-                                </div>
-                                {selectedExistingRun?.id === run.id && (
-                                  <CheckCircle className="w-5 h-5 text-orange-500" />
-                                )}
+                        <>
+                          {/* Virtualized runs list */}
+                          <VirtualizedRunList
+                            runs={processingHooks.runs}
+                            selectedRun={selectedRunId}
+                            onRunSelect={setSelectedRunId}
+                            onStatusChange={processingHooks.updateRunStatus}
+                            onNotesChange={processingHooks.updateRunNotes}
+                            height={600}
+                          />
+                          
+                          {/* Selection info for legacy compatibility */}
+                          {selectedRunId && (
+                            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-blue-500" />
+                                <span>
+                                  Selected run will be used for workflow: 
+                                  <span className="font-medium ml-1">
+                                    {processingHooks.runs.find(r => r.id === selectedRunId)?.displayName}
+                                  </span>
+                                </span>
                               </div>
                             </div>
-                          ))}
-                        </div>
+                          )}
+                          
+                        </>
                       )}
                     </div>
                   </div>
@@ -2767,7 +2830,19 @@ function FullOtisDashboard() {
                 {loadedCompanies.length > 0 ? (
                   <>
                     {/* Qualification Progress Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-purple-600">💎 Enriched</p>
+                            <p className="text-2xl font-bold text-purple-700">
+                              {loadedCompanies.filter(c => c.qualification_status === 'enriched').length}
+                            </p>
+                            <p className="text-xs text-purple-600">Apollo data added</p>
+                          </div>
+                          <Sparkles className="w-8 h-8 text-purple-500" />
+                        </div>
+                      </div>
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -2819,8 +2894,11 @@ function FullOtisDashboard() {
                     </div>
 
                     {/* Qualification Workflow Tabs */}
-                    <Tabs defaultValue="qualified" className="space-y-4">
-                      <TabsList className="grid w-full grid-cols-4">
+                    <Tabs defaultValue="enriched" className="space-y-4">
+                      <TabsList className="grid w-full grid-cols-5">
+                        <TabsTrigger value="enriched" className="text-purple-700 data-[state=active]:bg-purple-100">
+                          💎 Enriched ({loadedCompanies.filter(c => c.qualification_status === 'enriched').length})
+                        </TabsTrigger>
                         <TabsTrigger value="qualified" className="text-green-700 data-[state=active]:bg-green-100">
                           ✅ Qualified ({loadedCompanies.filter(c => c.qualification_status === 'qualified').length})
                         </TabsTrigger>
@@ -2830,10 +2908,30 @@ function FullOtisDashboard() {
                         <TabsTrigger value="disqualified" className="text-red-700 data-[state=active]:bg-red-100">
                           ❌ Disqualified ({loadedCompanies.filter(c => c.qualification_status === 'disqualified').length})
                         </TabsTrigger>
-                        <TabsTrigger value="unqualified" className="text-gray-700 data-[state=active]:bg-gray-100">
-                          ⏳ Unqualified ({loadedCompanies.filter(c => !c.qualification_status || c.qualification_status === 'pending').length})
+                        <TabsTrigger value="pending" className="text-gray-700 data-[state=active]:bg-gray-100">
+                          ⏳ Pending ({loadedCompanies.filter(c => !c.qualification_status || c.qualification_status === 'pending').length})
                         </TabsTrigger>
                       </TabsList>
+
+                      {/* Enriched Companies - Successfully Enriched with Apollo */}
+                      <TabsContent value="enriched" className="space-y-4">
+                        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                                <Sparkles className="w-5 h-5 text-purple-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-purple-800">💎 Enriched Companies</h3>
+                                <p className="text-sm text-purple-600">
+                                  Companies successfully enriched with Apollo data
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {renderCompaniesSection(loadedCompanies.filter(c => c.qualification_status === 'enriched'), 'enriched')}
+                      </TabsContent>
 
                       {/* Qualified Companies - Apollo Ready Zone */}
                       <TabsContent value="qualified" className="space-y-4">
@@ -2911,8 +3009,8 @@ function FullOtisDashboard() {
                         {renderCompaniesSection(loadedCompanies.filter(c => c.qualification_status === 'disqualified'), 'disqualified')}
                       </TabsContent>
 
-                      {/* Unqualified - Triage Zone */}
-                      <TabsContent value="unqualified" className="space-y-4">
+                      {/* Pending - Triage Zone */}
+                      <TabsContent value="pending" className="space-y-4">
                         <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -2934,7 +3032,7 @@ function FullOtisDashboard() {
                             </div>
                           </div>
                         </div>
-                        {renderCompaniesSection(loadedCompanies.filter(c => !c.qualification_status || c.qualification_status === 'pending'), 'unqualified')}
+                        {renderCompaniesSection(loadedCompanies.filter(c => !c.qualification_status || c.qualification_status === 'pending'), 'pending')}
                       </TabsContent>
                     </Tabs>
 
@@ -2994,6 +3092,18 @@ function FullOtisDashboard() {
                   <>
                     {/* Contact Status Cards - Matching Companies tab design */}
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-blue-600">🎯 In Campaigns</p>
+                            <p className="text-2xl font-bold text-blue-700">
+                              {getFilteredContacts().filter(c => c.qualificationStatus === 'in_campaign').length}
+                            </p>
+                            <p className="text-xs text-blue-600">Active in campaigns</p>
+                          </div>
+                          <Target className="w-8 h-8 text-blue-500" />
+                        </div>
+                      </div>
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -3040,18 +3150,6 @@ function FullOtisDashboard() {
                             <p className="text-xs text-gray-600">Needs qualification</p>
                           </div>
                           <Clock className="w-8 h-8 text-gray-400" />
-                        </div>
-                      </div>
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-blue-600">🎯 In Campaigns</p>
-                            <p className="text-2xl font-bold text-blue-700">
-                              {getFilteredContacts().filter(c => c.campaign_id).length}
-                            </p>
-                            <p className="text-xs text-blue-600">Active in campaigns</p>
-                          </div>
-                          <Target className="w-8 h-8 text-blue-500" />
                         </div>
                       </div>
                     </div>
@@ -3224,8 +3322,11 @@ function FullOtisDashboard() {
                     </div>
 
                     {/* Qualification Workflow Tabs - Matching Companies tab structure */}
-                    <Tabs defaultValue="qualified" className="space-y-4">
-                      <TabsList className="grid w-full grid-cols-4">
+                    <Tabs defaultValue="in_campaign" className="space-y-4">
+                      <TabsList className="grid w-full grid-cols-5">
+                        <TabsTrigger value="in_campaign" className="text-blue-700 data-[state=active]:bg-blue-100">
+                          🎯 In Campaign ({getFilteredContacts().filter(c => c.qualificationStatus === 'in_campaign').length})
+                        </TabsTrigger>
                         <TabsTrigger value="qualified" className="text-green-700 data-[state=active]:bg-green-100">
                           ✅ Qualified ({getFilteredContacts().filter(c => c.qualificationStatus === 'qualified').length})
                         </TabsTrigger>
@@ -3235,10 +3336,30 @@ function FullOtisDashboard() {
                         <TabsTrigger value="disqualified" className="text-red-700 data-[state=active]:bg-red-100">
                           ❌ Disqualified ({getFilteredContacts().filter(c => c.qualificationStatus === 'disqualified').length})
                         </TabsTrigger>
-                        <TabsTrigger value="unqualified" className="text-gray-700 data-[state=active]:bg-gray-100">
+                        <TabsTrigger value="pending" className="text-gray-700 data-[state=active]:bg-gray-100">
                           ⏳ Pending ({getFilteredContacts().filter(c => !c.qualificationStatus || c.qualificationStatus === 'pending').length})
                         </TabsTrigger>
                       </TabsList>
+
+                      {/* In Campaign Contacts - Active in Campaigns */}
+                      <TabsContent value="in_campaign" className="space-y-4">
+                        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <Target className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-blue-800">🎯 Contacts in Campaigns</h3>
+                                <p className="text-sm text-blue-600">
+                                  Contacts actively enrolled in campaigns - manage and monitor campaign performance
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {renderContactsSection(getFilteredContacts().filter(c => c.qualificationStatus === 'in_campaign'), 'in_campaign')}
+                      </TabsContent>
 
                       {/* Qualified Contacts - Campaign Ready Zone */}
                       <TabsContent value="qualified" className="space-y-4">
@@ -3317,8 +3438,8 @@ function FullOtisDashboard() {
                         {renderContactsSection(getFilteredContacts().filter(c => c.qualificationStatus === 'disqualified'), 'disqualified')}
                       </TabsContent>
 
-                      {/* Unqualified - Triage Zone */}
-                      <TabsContent value="unqualified" className="space-y-4">
+                      {/* Pending - Triage Zone */}
+                      <TabsContent value="pending" className="space-y-4">
                         <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -3340,7 +3461,7 @@ function FullOtisDashboard() {
                             </div>
                           </div>
                         </div>
-                        {renderContactsSection(getFilteredContacts().filter(c => !c.qualificationStatus || c.qualificationStatus === 'pending'), 'unqualified')}
+                        {renderContactsSection(getFilteredContacts().filter(c => !c.qualificationStatus || c.qualificationStatus === 'pending'), 'pending')}
                       </TabsContent>
                     </Tabs>
 
