@@ -4,6 +4,7 @@ import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { ProcessingStatus, ProcessingStatusType } from './ProcessingStatus'
 import { ProcessingNotes } from './ProcessingNotes'
+import { ProcessingNotesModal } from './ProcessingNotesModal'
 import { Calendar, MapPin, Building2, Briefcase } from 'lucide-react'
 import { ApifyRun } from './RunListView'
 
@@ -39,6 +40,7 @@ const RunRow = React.memo(({
   style 
 }: RunRowProps) => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
 
   const handleStatusClick = async (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent row selection when clicking status
@@ -130,10 +132,20 @@ const RunRow = React.memo(({
         <ProcessingNotes
           notes={run.processing_notes}
           onSave={handleNotesChange}
+          onOpenModal={() => setIsNotesModalOpen(true)}
+          showModalButton={true}
           placeholder="Add notes..."
           className="text-xs"
         />
       </div>
+
+      {/* Notes Modal */}
+      <ProcessingNotesModal
+        isOpen={isNotesModalOpen}
+        onClose={() => setIsNotesModalOpen(false)}
+        run={run}
+        onSave={onNotesChange}
+      />
     </div>
   )
 })

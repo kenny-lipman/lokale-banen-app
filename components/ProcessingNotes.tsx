@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { Edit3, Save, X, FileText } from 'lucide-react'
+import { Edit3, Save, X, FileText, ExternalLink } from 'lucide-react'
 
 interface ProcessingNotesProps {
   notes: string | null
@@ -11,6 +11,8 @@ interface ProcessingNotesProps {
   maxLength?: number
   className?: string
   disabled?: boolean
+  onOpenModal?: () => void
+  showModalButton?: boolean
 }
 
 export function ProcessingNotes({
@@ -19,7 +21,9 @@ export function ProcessingNotes({
   placeholder = "Add processing notes...",
   maxLength = 500,
   className,
-  disabled = false
+  disabled = false,
+  onOpenModal,
+  showModalButton = false
 }: ProcessingNotesProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [currentNotes, setCurrentNotes] = useState(notes || '')
@@ -104,41 +108,58 @@ export function ProcessingNotes({
 
   if (!isEditing) {
     return (
-      <div 
-        className={cn(
-          'group flex items-start gap-1 min-h-[16px] cursor-pointer',
-          disabled && 'cursor-default opacity-50',
-          className
-        )}
-        onClick={handleEdit}
-      >
+      <div className={cn('group flex items-start gap-1 min-h-[16px]', className)}>
         <FileText size={12} className="text-gray-400 mt-0.5 flex-shrink-0" />
-        {notes ? (
-          <div className="flex-1">
-            <p className="text-xs text-gray-700 leading-tight">
-              {notes.length > 60 ? `${notes.slice(0, 60)}...` : notes}
-            </p>
-            {!disabled && (
-              <span className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                Click to edit
+        
+        <div className="flex-1 min-w-0">
+          <div 
+            className={cn(
+              'cursor-pointer',
+              disabled && 'cursor-default opacity-50'
+            )}
+            onClick={showModalButton ? onOpenModal : handleEdit}
+          >
+            {notes ? (
+              <div>
+                <p className="text-xs text-gray-700 leading-tight">
+                  {notes.length > 60 ? `${notes.slice(0, 60)}...` : notes}
+                </p>
+                {!disabled && (
+                  <span className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Click to {showModalButton ? 'edit in modal' : 'edit'}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span 
+                className={cn(
+                  "text-xs text-gray-400 italic",
+                  !disabled && "group-hover:text-gray-600 transition-colors"
+                )}
+              >
+                {placeholder}
               </span>
             )}
           </div>
-        ) : (
-          <span 
-            className={cn(
-              "text-xs text-gray-400 italic",
-              !disabled && "group-hover:text-gray-600 transition-colors"
-            )}
-          >
-            {placeholder}
-          </span>
-        )}
-        {!disabled && notes && (
-          <Edit3 
-            size={10} 
-            className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" 
-          />
+        </div>
+
+        {!disabled && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {showModalButton ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenModal?.()
+                }}
+                className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                title="Edit in modal"
+              >
+                <ExternalLink size={10} />
+              </button>
+            ) : notes ? (
+              <Edit3 size={10} className="text-gray-400 flex-shrink-0 mt-0.5" />
+            ) : null}
+          </div>
         )}
       </div>
     )
