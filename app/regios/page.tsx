@@ -7,8 +7,12 @@ import { supabaseService } from "@/lib/supabase-service"
 import { Search, ChevronDown, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown as ChevronDownIcon } from "lucide-react"
 import React from "react"
 import { useRegionsCache } from "@/hooks/use-regions-cache"
+import { useActiveRegions } from "@/hooks/use-active-regions"
+import { usePlatformStats } from "@/hooks/use-platform-stats"
 import { Button } from "@/components/ui/button"
 import { TablePagination } from "@/components/ui/table-filters"
+import { ActiveDomainsFilter } from "@/components/ActiveDomainsFilter"
+import { AddRegionModal } from "@/components/AddRegionModal"
 
 interface Region {
   id: string
@@ -22,21 +26,33 @@ interface Region {
 export default function RegionsPage() {
   // Vervang useState/useEffect door cache hook
   const { data: regions, loading, error, refetch } = useRegionsCache()
+  const { data: activeRegions } = useActiveRegions()
+  const { stats: platformStats, loading: statsLoading, error: statsError } = usePlatformStats()
   const [searchTerm, setSearchTerm] = useState("")
+  const [showActiveOnly, setShowActiveOnly] = useState(false)
   const [expanded, setExpanded] = useState<{ [plaats: string]: boolean }>({})
   const [orderBy, setOrderBy] = useState<'plaats' | 'vacatures'>("plaats")
   const [orderDirection, setOrderDirection] = useState<'asc' | 'desc'>("asc")
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
 
+  // Get active platforms for filtering
+  const activePlatforms = new Set(activeRegions?.map(r => r.regio_platform) || [])
+  
   // Client-side filter op plaats, regio_platform of postcode
   const filteredRegions = (regions || []).filter((region: Region) => {
     const term = searchTerm.toLowerCase()
-    return (
+    const matchesSearch = (
       region.plaats.toLowerCase().includes(term) ||
       region.regio_platform.toLowerCase().includes(term) ||
       region.postcode.toLowerCase().includes(term)
     )
+    
+    const matchesActiveFilter = showActiveOnly 
+      ? activePlatforms.has(region.regio_platform)
+      : true
+    
+    return matchesSearch && matchesActiveFilter
   })
 
   // Groepeer per plaats
@@ -83,6 +99,10 @@ export default function RegionsPage() {
     setExpanded((prev) => ({ ...prev, [plaats]: !prev[plaats] }))
   }
 
+  // Get platform statistics from platforms table (not from regions)
+  const totalPlatforms = platformStats?.total ?? 0
+  const activePlatformsCount = platformStats?.active ?? 0
+
   // Na sorteren/groeperen:
   const sortedPlaatsenArray = sortedPlaatsen as [string, Region[]][];
   const totalRows = sortedPlaatsenArray.length;
@@ -92,9 +112,23 @@ export default function RegionsPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Regio's</h1>
-        <p className="text-gray-600 mt-2">Overzicht van alle regio's in de database</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Regio's</h1>
+            <p className="text-gray-600 mt-2">Overzicht van alle regio's in de database</p>
+          </div>
+          <AddRegionModal onRegionAdded={refetch} />
+        </div>
       </div>
+
+      {/* Active Domains Filter */}
+      <ActiveDomainsFilter
+        showActiveOnly={showActiveOnly}
+        onFilterChange={setShowActiveOnly}
+        totalPlatforms={totalPlatforms}
+        activePlatforms={activePlatformsCount}
+      />
+
       {/* Zoekveld met icoon */}
       <div className="mb-4 max-w-md relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />

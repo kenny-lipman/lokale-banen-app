@@ -1,4 +1,4 @@
-import { supabase } from "./supabase"
+import { supabase, createServiceRoleClient } from "./supabase"
 import type { Database } from "./supabase"
 
 type JobPosting = Database["public"]["Tables"]["job_postings"]["Row"]
@@ -7,9 +7,14 @@ type JobSource = Database["public"]["Tables"]["job_sources"]["Row"]
 type SearchRequest = Database["public"]["Tables"]["search_requests"]["Row"]
 
 export class SupabaseService {
-  /** Use the singleton Supabase client instance */
-  private get client() {
+  /** Use the singleton Supabase client instance for authenticated operations */
+  get client() {
     return supabase
+  }
+
+  /** Use service role client for server-side operations that need full access */
+  get serviceClient() {
+    return createServiceRoleClient()
   }
 
   // Helper: haal bron-namen op per id (cache)
@@ -239,15 +244,17 @@ export class SupabaseService {
       categorySize?: 'all' | 'Klein' | 'Middel' | 'Groot' | 'Onbekend'
       apolloEnriched?: 'all' | 'enriched' | 'not_enriched'
       hasContacts?: 'all' | 'with_contacts' | 'no_contacts'
+      regioPlatformFilter?: string
+      qualification_status?: 'pending' | 'qualified' | 'disqualified' | 'review' | 'all'
     } = {},
   ) {
-    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts } = options
+    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts, regioPlatformFilter, qualification_status } = options
 
     try {
       console.log("getCompanies: Starting with params:", options)
       
       // Multi-filter validation and logging
-      const activeFilters = []
+      const activeFilters: string[] = []
       if (search) activeFilters.push('search')
       if (is_customer !== undefined) activeFilters.push('customer')
       if (source && source !== 'all') activeFilters.push('source')
@@ -256,6 +263,8 @@ export class SupabaseService {
       if (categorySize && categorySize !== 'all') activeFilters.push('categorySize')
       if (apolloEnriched && apolloEnriched !== 'all') activeFilters.push('apolloEnriched')
       if (hasContacts && hasContacts !== 'all') activeFilters.push('hasContacts')
+      if (regioPlatformFilter && regioPlatformFilter !== 'all') activeFilters.push('regioPlatformFilter')
+      if (qualification_status && qualification_status !== 'all') activeFilters.push('qualification_status')
       
       console.log("getCompanies: Active filters (AND logic):", activeFilters)
       
@@ -329,6 +338,17 @@ export class SupabaseService {
         query = query.is('apollo_enriched_at', null)
       }
 
+      // Qualification status filter for tab-based view
+      if (qualification_status && qualification_status !== 'all') {
+        console.log("getCompanies: Applying qualification_status filter:", qualification_status)
+        if (qualification_status === 'pending') {
+          // For 'pending', include both null and 'pending' values to handle transition period
+          query = query.or('qualification_status.is.null,qualification_status.eq.pending')
+        } else {
+          query = query.eq('qualification_status', qualification_status)
+        }
+      }
+
       // Handle contacts filter with proper multi-filter AND logic
       let contactFilteredCompanyIds: string[] | null = null
       if (hasContacts && hasContacts !== 'all') {
@@ -395,6 +415,78 @@ export class SupabaseService {
         } catch (error) {
           console.error("getCompanies: Error applying contacts filter:", error)
           // Continue without contacts filter rather than failing completely
+        }
+      }
+
+      // Handle regio_platform filter (hoofddomein) 
+      let regioPlatformFilteredCompanyIds: string[] | null = null
+      if (regioPlatformFilter && regioPlatformFilter !== 'all') {
+        console.log("getCompanies: Applying regio_platform filter:", regioPlatformFilter)
+        
+        try {
+          if (regioPlatformFilter === 'none') {
+            // Get companies that DON'T have any regio_platform (no job_postings or job_postings without region)
+            const { data: companiesWithRegioPlatform, error: regioPlatformError } = await this.client
+              .from("job_postings")
+              .select("company_id, regions!inner(regio_platform)")
+              .not("regions.regio_platform", "is", null)
+              .not("regions.regio_platform", "eq", "")
+              .not("company_id", "is", null)
+            
+            if (regioPlatformError) {
+              console.warn("getCompanies: RegioPlatform filter error:", regioPlatformError)
+              regioPlatformFilteredCompanyIds = []
+            } else {
+              // Get companies WITHOUT regio_platform by excluding those with regio_platform
+              const companiesWithRegioPlatformIds = new Set(companiesWithRegioPlatform.map(c => c.company_id))
+              
+              // Get all company IDs, then filter out those with regio_platform
+              const { data: allCompanies, error: allError } = await this.client
+                .from("companies")
+                .select("id")
+              
+              if (allError) {
+                console.warn("getCompanies: Error getting all companies for none regio_platform filter:", allError)
+                regioPlatformFilteredCompanyIds = []
+              } else {
+                // Filter out companies that have regio_platform
+                regioPlatformFilteredCompanyIds = allCompanies
+                  .map(c => c.id)
+                  .filter(id => !companiesWithRegioPlatformIds.has(id))
+                console.log("getCompanies: Found", regioPlatformFilteredCompanyIds.length, "companies without regio_platform")
+              }
+            }
+          } else {
+            // Get company IDs that have job_postings with specific regio_platform
+            const { data: companiesWithRegioPlatform, error: regioPlatformError } = await this.client
+              .from("job_postings")
+              .select("company_id, regions!inner(regio_platform)")
+              .eq("regions.regio_platform", regioPlatformFilter)
+              .not("company_id", "is", null)
+            
+            if (regioPlatformError) {
+              console.warn("getCompanies: RegioPlatform filter error:", regioPlatformError)
+              regioPlatformFilteredCompanyIds = []
+            } else {
+              regioPlatformFilteredCompanyIds = [...new Set(companiesWithRegioPlatform.map(c => c.company_id))]
+              console.log("getCompanies: Found", regioPlatformFilteredCompanyIds.length, "companies with regio_platform:", regioPlatformFilter)
+            }
+          }
+          
+          // Apply the regio_platform filter using IN clause
+          if (regioPlatformFilteredCompanyIds !== null) {
+            if (regioPlatformFilteredCompanyIds.length > 0) {
+              query = query.in('id', regioPlatformFilteredCompanyIds)
+              console.log("getCompanies: Applying regio_platform filter for", regioPlatformFilteredCompanyIds.length, "companies")
+            } else {
+              // No matching companies found, return empty result
+              console.log("getCompanies: No companies match regio_platform filter, returning empty result")
+              return { data: [], count: 0, totalPages: 0 }
+            }
+          }
+        } catch (error) {
+          console.error("getCompanies: Error applying regio_platform filter:", error)
+          // Continue without regio_platform filter rather than failing completely
         }
       }
 
@@ -1062,6 +1154,7 @@ export class SupabaseService {
       start?: string[]
       statusCampagne?: string[]
       statusBedrijf?: string[]
+      qualificationStatus?: string
     }
   ) {
     // Apply search filter with proper text search
@@ -1121,6 +1214,33 @@ export class SupabaseService {
       query = query.in('company_status_field', filters.statusCampagne)
     }
 
+    // Apply qualification status filter based on selected tab
+    // After migration, only use the qualification_status field directly
+    if (filters.qualificationStatus) {
+      switch (filters.qualificationStatus) {
+        case 'in_campaign':
+          // Contacts with qualification_status = 'in_campaign'
+          query = query.eq('qualification_status', 'in_campaign')
+          break
+        case 'qualified':
+          // Contacts with qualification_status = 'qualified'
+          query = query.eq('qualification_status', 'qualified')
+          break
+        case 'disqualified':
+          // Contacts with qualification_status = 'disqualified'
+          query = query.eq('qualification_status', 'disqualified')
+          break
+        case 'review':
+          // Contacts with qualification_status = 'review'
+          query = query.eq('qualification_status', 'review')
+          break
+        case 'pending':
+          // Contacts with qualification_status = 'pending'
+          query = query.eq('qualification_status', 'pending')
+          break
+      }
+    }
+
     return query
   }
 
@@ -1137,6 +1257,7 @@ export class SupabaseService {
       start?: string[]
       statusCampagne?: string[]
       statusBedrijf?: string[]
+      qualificationStatus?: string
     } = {}
   ) {
     try {
@@ -1169,7 +1290,7 @@ export class SupabaseService {
       let query = this.client
         .from("contacts_optimized")
         .select("*")
-        .order("last_touch", { ascending: false, nullsLast: true })
+        .order("last_touch", { ascending: false, nullsFirst: false })
         .range(offset, offset + limit - 1)
 
       // Apply all filters to data query
@@ -1215,20 +1336,30 @@ export class SupabaseService {
         throw new Error(`Count error: ${countError.message}`)
       }
 
-      // Get campaign statistics server-side
-      const { data: campaignStats, error: campaignError } = await this.client
+      // Get campaign statistics using proper aggregation
+      const { data: withCampaignData, error: withCampaignError } = await this.client
         .from("contacts")
-        .select("campaign_name")
-        .or('campaign_name.is.null,campaign_name.eq.')
+        .select("*", { count: 'exact', head: true })
+        .not('campaign_id', 'is', null)
 
-      if (campaignError) {
-        console.error("Error getting campaign stats:", campaignError)
-        throw new Error(`Campaign stats error: ${campaignError.message}`)
+      if (withCampaignError) {
+        console.error("Error getting with campaign stats:", withCampaignError)
+        throw new Error(`With campaign stats error: ${withCampaignError.message}`)
       }
 
-      // Calculate statistics server-side
-      const contactsWithoutCampaign = campaignStats?.length || 0
-      const contactsWithCampaign = (totalCount || 0) - contactsWithoutCampaign
+      const { data: withoutCampaignData, error: withoutCampaignError } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+        .is('campaign_id', null)
+
+      if (withoutCampaignError) {
+        console.error("Error getting without campaign stats:", withoutCampaignError)
+        throw new Error(`Without campaign stats error: ${withoutCampaignError.message}`)
+      }
+
+      // Calculate statistics from counts
+      const contactsWithCampaign = withCampaignData || 0
+      const contactsWithoutCampaign = withoutCampaignData || 0
 
       // Get regions for unique regions list
       let regions: any[] = [];
@@ -1266,199 +1397,55 @@ export class SupabaseService {
   // Get all contacts with company info (legacy method - kept for backward compatibility)
   async getContacts() {
     try {
-      console.log("Starting getContacts - fetching ALL contacts using pagination...")
+      console.log("Starting getContacts - fetching contacts with required columns...")
       
-      // Test eerst de count
-      const { count: totalCount, error: countError } = await this.client
+      // Get contacts with only the required columns
+      const { data: contacts, error } = await this.client
         .from("contacts")
-        .select("*", { count: 'exact', head: true })
+        .select(`
+          first_name,
+          last_name,
+          title,
+          email,
+          email_status,
+          qualification_status,
+          linkedin_url,
+          created_at,
+          campaign_name,
+          company_status,
+          status,
+          companies:company_id(
+            name,
+            category_size
+          )
+        `)
+        .order("created_at", { ascending: false })
       
-      if (countError) {
-        console.error("Error counting contacts:", countError)
-        throw new Error(`Count error: ${countError.message}`)
+      if (error) {
+        console.error("Error fetching contacts:", error)
+        throw new Error(`Failed to fetch contacts: ${error.message}`)
       }
       
-      console.log(`Total contacts in database: ${totalCount}`)
+      console.log(`Successfully fetched ${contacts?.length || 0} contacts`)
       
-      // Als er geen contacten zijn, return early
-      if (!totalCount || totalCount === 0) {
-        console.log("No contacts found in database")
-        return []
-      }
-
-      // Gebruik paginatie om alle contacten op te halen
-      const allContacts: any[] = []
-      const pageSize = 1000 // PostgREST default limit
-      let currentPage = 0
-      
-      while (true) {
-        const startIndex = currentPage * pageSize
-        const endIndex = startIndex + pageSize - 1
-        
-        console.log(`Fetching contacts ${startIndex}-${endIndex} (page ${currentPage + 1})...`)
-        
-        const { data, error } = await this.client
-          .from("contacts")
-          .select("*, companies(id, name, website, size_min, size_max, location, status, category_size, enrichment_status, start, \"Klant Status company field\")")
-          .order("last_touch", { ascending: false })
-          .range(startIndex, endIndex)
-        
-        if (error) {
-          console.error(`Error fetching contacts page ${currentPage + 1}:`, error)
-          throw new Error(`Database error on page ${currentPage + 1}: ${error.message}`)
-        }
-
-        if (!data || data.length === 0) {
-          console.log(`No more contacts found at page ${currentPage + 1}`)
-          break
-        }
-
-        console.log(`Retrieved ${data.length} contacts from page ${currentPage + 1}`)
-        allContacts.push(...data)
-        
-        // Als we minder dan pageSize records krijgen, zijn we klaar
-        if (data.length < pageSize) {
-          console.log(`Last page reached (${data.length} < ${pageSize})`)
-          break
-        }
-        
-        currentPage++
-        
-        // Safety check om infinite loops te voorkomen
-        if (currentPage > 50) {
-          console.warn("Safety break: stopping after 50 pages")
-          break
-        }
-      }
-
-      console.log(`Successfully fetched all ${allContacts.length} contacts from ${currentPage + 1} pages`)
-
-      const data = allContacts
-      
-      console.log(`Fetched ${data?.length || 0} contacts from database (expected: ${totalCount})`)
-
-      // Haal alle regio's en bronnen op voor mapping
-      let regions: any[] = [];
-      let jobSources: any[] = [];
-      
-      try {
-        const { data: regionsData, error: regionsError } = await this.client.from("regions").select("id, plaats, regio_platform");
-        if (regionsError) {
-          console.error("Error fetching regions:", regionsError.message, regionsError)
-        } else {
-          regions = regionsData || [];
-          console.log(`Fetched ${regions.length} regions`)
-        }
-      } catch (error) {
-        console.error("Failed to fetch regions:", error instanceof Error ? error.message : String(error))
-      }
-
-      try {
-        const { data: sourcesData, error: sourcesError } = await this.client.from("job_sources").select("id, name");
-        if (sourcesError) {
-          console.error("Error fetching job sources:", sourcesError.message, sourcesError)
-        } else {
-          jobSources = sourcesData || [];
-          console.log(`Fetched ${jobSources.length} job sources`)
-        }
-      } catch (error) {
-        console.error("Failed to fetch job sources:", error instanceof Error ? error.message : String(error))
-      }
-
-      // Haal alle job_postings op (alleen meest recente per company_id)
-      const companyIds = Array.from(new Set((data || []).map((c: any) => c.companies?.id).filter(Boolean)));
-      const recentPostings: Record<string, any> = {};
-      
-      if (companyIds.length > 0) {
-        console.log(`Fetching job postings for ${companyIds.length} companies...`)
-        
-        // Split company IDs in chunks van 500 om PostgreSQL limiet te vermijden (kleiner chunk voor meer stabiliteit)
-        const chunkSize = 500;
-        const chunks = [];
-        for (let i = 0; i < companyIds.length; i += chunkSize) {
-          chunks.push(companyIds.slice(i, i + chunkSize));
-        }
-        
-        console.log(`Processing ${chunks.length} chunks of job postings...`)
-        
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i];
-          try {
-            console.log(`Processing chunk ${i + 1}/${chunks.length} with ${chunk.length} company IDs...`)
-            
-            const { data: postings, error: postingsError } = await this.client
-              .from("job_postings")
-              .select("id, company_id, region_id, source_id, created_at")
-              .in("company_id", chunk)
-              .order("created_at", { ascending: false });
-            
-            if (postingsError) {
-              console.error(`Error fetching job postings chunk ${i + 1}:`, postingsError.message, postingsError)
-              continue; // Skip dit chunk en ga door met de volgende
-            }
-
-            console.log(`Chunk ${i + 1} returned ${postings?.length || 0} job postings`)
-
-            // Per company_id: pak de eerste (meest recente)
-            for (const posting of postings || []) {
-              if (!recentPostings[posting.company_id]) {
-                recentPostings[posting.company_id] = posting;
-              }
-            }
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            console.error(`Error processing job postings chunk ${i + 1}:`, errorMessage, error)
-            continue; // Skip dit chunk en ga door
-          }
-        }
-        
-        console.log(`Successfully fetched postings for ${Object.keys(recentPostings).length} companies`)
-      }
-
-      // Transformeer elk contact zodat company.status, company_source_name en company_region beschikbaar zijn
-      console.log(`Transforming ${data?.length || 0} contacts with mapping data...`)
-      
-      const result = (data || []).map((contact: any) => {
-        try {
-          const company_status = contact.companies ? contact.companies.status || null : null;
-          let company_region = null;
-          let company_source_name = null;
-          const companyId = contact.companies?.id;
-          
-          if (companyId && recentPostings[companyId]) {
-            const posting = recentPostings[companyId];
-            // Regio
-            if (posting.region_id && Array.isArray(regions)) {
-              const reg = regions.find((r: any) => r.id === posting.region_id);
-              company_region = reg ? reg.regio_platform : null;
-            }
-            // Bron
-            if (posting.source_id && Array.isArray(jobSources)) {
-              const src = jobSources.find((s: any) => s.id === posting.source_id);
-              company_source_name = src ? src.name : null;
-            }
-          }
-          
-          return {
-            ...contact,
-            company_status,
-            company_source_name,
-            company_region,
-          }
-        } catch (error) {
-          console.error("Error transforming contact:", contact.id, error)
-          // Return contact zonder extra velden als transformatie faalt
-          return {
-            ...contact,
-            company_status: contact.companies?.status || null,
-            company_source_name: null,
-            company_region: null,
-          }
-        }
-      })
-
-      console.log(`Successfully transformed ${result.length} contacts`)
-      return result
+      return (contacts || []).map((contact: any) => ({
+        id: contact.id,
+        first_name: contact.first_name,
+        last_name: contact.last_name,
+        title: contact.title,
+        email: contact.email,
+        email_status: contact.email_status,
+        companies_name: contact.companies?.name || null,
+        companies_size: contact.companies?.category_size || null,
+        companies_status: contact.companies?.status || null,
+        companies_start: contact.companies?.start || null,
+        qualification_status: contact.qualification_status,
+        linkedin_url: contact.linkedin_url,
+        created_at: contact.created_at,
+        campaign_name: contact.campaign_name,
+        company_status: contact.company_status,
+        status: contact.status
+      }))
     } catch (error) {
       console.error("Error in getContacts:", error)
       
@@ -1468,6 +1455,621 @@ export class SupabaseService {
       } else {
         throw new Error(`Failed to fetch contacts: ${String(error)}`)
       }
+    }
+  }
+
+  async getContactsWithFilters(
+    page: number = 1,
+    limit: number = 15,
+    filters: {
+      search?: string
+      inCampaign?: string
+      hasEmail?: string
+      companyStatus?: string
+      companyStart?: string
+      companySize?: string
+      categoryStatus?: string
+      status?: string
+    } = {}
+  ) {
+    try {
+      console.log("Starting getContactsWithFilters with filters:", filters)
+      
+      // If we have a search term that might include company name, do a more complex query
+      if (filters.search && filters.search.trim()) {
+        const searchTerm = filters.search.trim()
+        
+        // First, find company IDs that match the search term
+        const { data: matchingCompanies } = await this.client
+          .from("companies")
+          .select("id")
+          .ilike("name", `%${searchTerm}%`)
+        
+        const companyIds = matchingCompanies?.map(c => c.id) || []
+        
+        // Build the main query
+        let query = this.client
+          .from("contacts")
+          .select(`
+            id,
+            first_name,
+            last_name,
+            title,
+            email,
+            email_status,
+            qualification_status,
+            linkedin_url,
+            created_at,
+            campaign_name,
+            campaign_id,
+            company_status,
+            status,
+            companies:company_id(
+              name,
+              category_size,
+              status,
+              start
+            )
+          `, { count: 'exact' })
+
+        // Apply search filter with company IDs
+        // Enhanced search: support full name search (first_name + last_name)
+        let searchConditions = [
+          `first_name.ilike.%${searchTerm}%`,
+          `last_name.ilike.%${searchTerm}%`, 
+          `email.ilike.%${searchTerm}%`
+        ]
+        
+        // If search term contains a space, also search for "first_name last_name" pattern
+        if (searchTerm.includes(' ')) {
+          const nameParts = searchTerm.split(' ').filter(part => part.trim())
+          if (nameParts.length >= 2) {
+            const [firstName, ...lastNameParts] = nameParts
+            const lastName = lastNameParts.join(' ')
+            // Add search for first name matching first part AND last name matching remaining parts
+            searchConditions.push(`and(first_name.ilike.%${firstName}%,last_name.ilike.%${lastName}%)`)
+          }
+        }
+        
+        if (companyIds.length > 0) {
+          searchConditions.push(`company_id.in.(${companyIds.join(',')})`)
+        }
+        
+        query = query.or(searchConditions.join(','))
+        
+        // Apply other filters
+        if (filters.inCampaign === 'with') {
+          query = query.not('campaign_id', 'is', null)
+        } else if (filters.inCampaign === 'without') {
+          query = query.is('campaign_id', null)
+        }
+
+        if (filters.hasEmail === 'with') {
+          query = query.not('email', 'is', null).not('email', 'eq', '')
+        } else if (filters.hasEmail === 'without') {
+          query = query.or('email.is.null,email.eq.')
+        }
+
+        // Handle company-based filters - always use direct approach to avoid 414 errors
+        if (filters.companyStatus || filters.companyStart || filters.companySize) {
+          console.log('Company filters detected, using direct filtering approach')
+          return await this.handleDirectCompanyFiltering(filters, page, limit)
+        }
+
+        if (filters.categoryStatus) {
+          query = query.eq('qualification_status', filters.categoryStatus)
+        }
+
+        if (filters.status) {
+          query = query.eq('status', filters.status)
+        }
+
+        // Add pagination and ordering
+        const offset = (page - 1) * limit
+        query = query
+          .order("created_at", { ascending: false })
+          .range(offset, offset + limit - 1)
+
+        const { data: contacts, count, error } = await query
+        
+        if (error) {
+          console.error("Error fetching contacts with search:", error)
+          throw new Error(`Failed to fetch contacts: ${error.message}`)
+        }
+        
+        console.log(`Successfully fetched ${contacts?.length || 0} contacts with search`)
+        if (filters.companyStart || filters.companyStatus) {
+          console.log('Sample contact data:', contacts?.[0])
+        }
+        
+        const transformedContacts = (contacts || []).map((contact: any) => ({
+          id: contact.id,
+          first_name: contact.first_name,
+          last_name: contact.last_name,
+          title: contact.title,
+          email: contact.email,
+          email_status: contact.email_status,
+          companies_name: contact.companies?.name || null,
+          companies_size: contact.companies?.category_size || null,
+          companies_status: contact.companies?.status || null,
+          companies_start: contact.companies?.start || null,
+          qualification_status: contact.qualification_status,
+          linkedin_url: contact.linkedin_url,
+          created_at: contact.created_at,
+          campaign_name: contact.campaign_name,
+          company_status: contact.company_status,
+          status: contact.status,
+          in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+        }))
+
+        return {
+          data: transformedContacts,
+          count: count || 0,
+          totalPages: Math.ceil((count || 0) / limit)
+        }
+      } else {
+        // No search term, use simpler query
+        let query = this.client
+          .from("contacts")
+          .select(`
+            id,
+            first_name,
+            last_name,
+            title,
+            email,
+            email_status,
+            qualification_status,
+            linkedin_url,
+            created_at,
+            campaign_name,
+            campaign_id,
+            company_status,
+            status,
+            companies:company_id(
+              name,
+              category_size,
+              status,
+              start
+            )
+          `, { count: 'exact' })
+
+        // Apply filters
+        if (filters.inCampaign === 'with') {
+          query = query.not('campaign_id', 'is', null)
+        } else if (filters.inCampaign === 'without') {
+          query = query.is('campaign_id', null)
+        }
+
+        if (filters.hasEmail === 'with') {
+          query = query.not('email', 'is', null).not('email', 'eq', '')
+        } else if (filters.hasEmail === 'without') {
+          query = query.or('email.is.null,email.eq.')
+        }
+
+        // Handle company-based filters - always use direct approach to avoid 414 errors
+        if (filters.companyStatus || filters.companyStart || filters.companySize) {
+          console.log('Company filters detected, using direct filtering approach')
+          return await this.handleDirectCompanyFiltering(filters, page, limit)
+        }
+
+        if (filters.categoryStatus) {
+          query = query.eq('qualification_status', filters.categoryStatus)
+        }
+
+        if (filters.status) {
+          query = query.eq('status', filters.status)
+        }
+
+        // Add pagination and ordering
+        const offset = (page - 1) * limit
+        query = query
+          .order("created_at", { ascending: false })
+          .range(offset, offset + limit - 1)
+
+        const { data: contacts, count, error } = await query
+        
+        if (error) {
+          console.error("Error fetching contacts with filters:", error)
+          throw new Error(`Failed to fetch contacts: ${error.message}`)
+        }
+        
+        console.log(`Successfully fetched ${contacts?.length || 0} contacts with filters`)
+        if (filters.companyStart || filters.companyStatus) {
+          console.log('Sample contact data:', contacts?.[0])
+        }
+        
+        const transformedContacts = (contacts || []).map((contact: any) => ({
+          id: contact.id,
+          first_name: contact.first_name,
+          last_name: contact.last_name,
+          title: contact.title,
+          email: contact.email,
+          email_status: contact.email_status,
+          companies_name: contact.companies?.name || null,
+          companies_size: contact.companies?.category_size || null,
+          companies_status: contact.companies?.status || null,
+          companies_start: contact.companies?.start || null,
+          qualification_status: contact.qualification_status,
+          linkedin_url: contact.linkedin_url,
+          created_at: contact.created_at,
+          campaign_name: contact.campaign_name,
+          company_status: contact.company_status,
+          status: contact.status,
+          in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+        }))
+
+        return {
+          data: transformedContacts,
+          count: count || 0,
+          totalPages: Math.ceil((count || 0) / limit)
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error in getContactsWithFilters:", error)
+      
+      if (error instanceof Error) {
+        throw new Error(`Failed to fetch contacts with filters: ${error.message}`)
+      } else {
+        throw new Error(`Failed to fetch contacts with filters: ${String(error)}`)
+      }
+    }
+  }
+
+  // Helper method to handle large company ID lists using chunking
+  private async handleLargeCompanyFilter(
+    companyIds: string[], 
+    baseQuery: any,
+    page: number,
+    limit: number,
+    filters: any
+  ) {
+    console.log(`Processing ${companyIds.length} company IDs in chunks...`)
+    
+    // For very large result sets, we'll use a different approach:
+    // Get all contacts for the first chunk and estimate total count
+    const chunkSize = 500
+    const offset = (page - 1) * limit
+    
+    // We need to get contacts from multiple chunks to handle pagination
+    // Calculate which chunk contains our desired offset
+    let allContacts: any[] = []
+    let processedCount = 0
+    let totalCount = 0
+    
+    for (let i = 0; i < companyIds.length; i += chunkSize) {
+      const chunk = companyIds.slice(i, i + chunkSize)
+      
+      // Query this chunk
+      const chunkQuery = this.client
+        .from("contacts")
+        .select(`
+          id,
+          first_name,
+          last_name,
+          title,
+          email,
+          email_status,
+          qualification_status,
+          linkedin_url,
+          created_at,
+          campaign_name,
+          campaign_id,
+          company_status,
+          status,
+          companies:company_id(
+            name,
+            category_size,
+            status,
+            start
+          )
+        `, { count: 'exact' })
+        .in('company_id', chunk)
+      
+      // Apply other filters
+      if (filters.inCampaign === 'with') {
+        chunkQuery.not('campaign_id', 'is', null)
+      } else if (filters.inCampaign === 'without') {
+        chunkQuery.is('campaign_id', null)
+      }
+
+      if (filters.hasEmail === 'with') {
+        chunkQuery.not('email', 'is', null).not('email', 'eq', '')
+      } else if (filters.hasEmail === 'without') {
+        chunkQuery.or('email.is.null,email.eq.')
+      }
+
+      if (filters.categoryStatus) {
+        chunkQuery.eq('qualification_status', filters.categoryStatus)
+      }
+
+      if (filters.status) {
+        chunkQuery.eq('status', filters.status)
+      }
+      
+      const { data: chunkContacts, count: chunkCount } = await chunkQuery.order("created_at", { ascending: false })
+      
+      if (chunkContacts) {
+        allContacts.push(...chunkContacts)
+        totalCount += chunkCount || 0
+      }
+      
+      processedCount += chunk.length
+      console.log(`Processed chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(companyIds.length/chunkSize)}: ${chunkContacts?.length || 0} contacts`)
+      
+      // Early exit if we have enough data for this page
+      if (allContacts.length >= offset + limit) {
+        break
+      }
+    }
+    
+    // Apply pagination to the combined results
+    const paginatedContacts = allContacts.slice(offset, offset + limit)
+    
+    // Transform the contacts
+    const transformedContacts = paginatedContacts.map((contact: any) => ({
+      id: contact.id,
+      first_name: contact.first_name,
+      last_name: contact.last_name,
+      title: contact.title,
+      email: contact.email,
+      email_status: contact.email_status,
+      companies_name: contact.companies?.name || null,
+      companies_size: contact.companies?.category_size || null,
+      companies_status: contact.companies?.status || null,
+      companies_start: contact.companies?.start || null,
+      qualification_status: contact.qualification_status,
+      linkedin_url: contact.linkedin_url,
+      created_at: contact.created_at,
+      campaign_name: contact.campaign_name,
+      company_status: contact.company_status,
+      status: contact.status,
+      in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+    }))
+
+    console.log(`Chunked processing complete: ${transformedContacts.length} contacts returned (est. total: ${totalCount})`)
+
+    return {
+      data: transformedContacts,
+      count: Math.min(totalCount, allContacts.length), // Use actual count we retrieved
+      totalPages: Math.ceil(totalCount / limit)
+    }
+  }
+
+  // Helper method to handle company-based filtering using chunked multi-query approach
+  private async handleDirectCompanyFiltering(
+    filters: any,
+    page: number,
+    limit: number
+  ) {
+    console.log('Using chunked multi-query company filtering approach to bypass 414 errors...')
+    
+    const offset = (page - 1) * limit
+    
+    // Step 1: Find companies that match our criteria in small batches
+    let companyQuery = this.client.from('companies').select('id')
+    
+    if (filters.companyStatus) {
+      console.log(`Applying companyStatus filter: ${filters.companyStatus}`)
+      if (filters.companyStatus === 'null') {
+        companyQuery = companyQuery.is('status', null)
+      } else if (filters.companyStatus === 'Prospect') {
+        companyQuery = companyQuery.eq('status', 'Prospect')
+      } else {
+        // Handle case-insensitive matching for company status
+        let statusValue = filters.companyStatus
+        // Map lowercase to proper case based on actual database values
+        // Based on database sample: ['Prospect', 'Disqualified', 'Benaderen', 'Niet meer benaderen']
+        const statusMap = {
+          'benaderen': 'Benaderen',
+          'prospect': 'Prospect', 
+          'disqualified': 'Disqualified',
+          'niet meer benaderen': 'Niet meer benaderen'
+        } as const
+        statusValue = statusMap[statusValue.toLowerCase()] || statusValue
+        console.log(`Mapped status filter from "${filters.companyStatus}" to "${statusValue}"`)
+        companyQuery = companyQuery.eq('status', statusValue)
+      }
+    }
+    
+    if (filters.companyStart) {
+      console.log(`Applying companyStart filter: ${filters.companyStart}`)
+      if (filters.companyStart === 'null') {
+        companyQuery = companyQuery.is('start', null)
+      } else if (filters.companyStart === 'true') {
+        companyQuery = companyQuery.eq('start', 'Ja')
+      } else if (filters.companyStart === 'false') {
+        companyQuery = companyQuery.eq('start', 'Nee')
+      } else if (filters.companyStart === 'hold') {
+        companyQuery = companyQuery.eq('start', 'Hold')
+      }
+    }
+    
+    if (filters.companySize) {
+      console.log(`Applying companySize filter: ${filters.companySize}`)
+      if (filters.companySize === 'null') {
+        companyQuery = companyQuery.is('category_size', null)
+      } else {
+        // Handle case-insensitive matching for company size
+        let sizeValue = filters.companySize
+        // Map common size values - we'll update this based on actual database values
+        const sizeMap = {
+          'klein': 'Klein',
+          'middel': 'Middel', 
+          'groot': 'Groot',
+          'micro': 'Micro'
+        } as const
+        sizeValue = sizeMap[sizeValue.toLowerCase() as keyof typeof sizeMap] || sizeValue
+        console.log(`Mapped size filter from "${filters.companySize}" to "${sizeValue}"`)
+        companyQuery = companyQuery.eq('category_size', sizeValue)
+      }
+    }
+    
+    // Get actual companies to determine count (avoid query builder reuse issues)
+    console.log('DEBUG: Attempting to fetch actual company data to verify and count...')
+    const { data: debugCompanies, error: debugError } = await companyQuery
+      .select('id, status')
+      .limit(1000)  // Get up to 1000 companies to count
+    
+    if (debugError) {
+      console.error('Error fetching companies:', debugError)
+      console.error('Error details:', JSON.stringify(debugError, null, 2))
+      throw debugError
+    }
+    
+    const totalCompanyCount = debugCompanies?.length || 0
+    console.log(`Found ${totalCompanyCount} companies matching filters`)
+    
+    if (debugCompanies && debugCompanies.length > 0) {
+      console.log('DEBUG: Sample companies found:', debugCompanies.slice(0, 5))
+    } else {
+      console.log('DEBUG: No companies returned from query')
+    }
+    
+    if (!totalCompanyCount || totalCompanyCount === 0) {
+      console.log('No companies found with the specified filters. Let me check what statuses exist...')
+      
+      // Debug: Get a sample of actual company statuses and sizes
+      const { data: sampleCompanies, error: sampleError } = await this.client
+        .from('companies')
+        .select('id, status, category_size, size_min, size_max')
+        .not('status', 'is', null)
+        .limit(10)
+      
+      if (!sampleError && sampleCompanies) {
+        const uniqueStatuses = [...new Set(sampleCompanies.map(c => c.status))]
+        const uniqueSizes = [...new Set(sampleCompanies.map(c => c.category_size).filter(Boolean))]
+        console.log('Sample company statuses in database:', uniqueStatuses)
+        console.log('Sample company sizes in database:', uniqueSizes)
+      }
+      
+      return {
+        data: [],
+        count: 0,
+        totalPages: 0
+      }
+    }
+    
+    // Step 2: Process companies in chunks to find contacts
+    const chunkSize = 50 // Small chunk size to avoid 414 errors
+    let allContacts: any[] = []
+    let processedContacts = 0
+    let totalContactCount = 0
+    
+    // Calculate how many chunks we need to process to get enough contacts for this page
+    const targetContactsNeeded = offset + limit
+    
+    // Use the companies we already fetched instead of making new queries
+    const allCompanyIds = debugCompanies.map(c => c.id)
+    
+    for (let batchStart = 0; batchStart < allCompanyIds.length; batchStart += chunkSize) {
+      // Get a batch of company IDs from our already-fetched data
+      const companyIds = allCompanyIds.slice(batchStart, batchStart + chunkSize)
+      
+      if (!companyIds || companyIds.length === 0) break
+      
+      console.log(`Processing company batch ${Math.floor(batchStart/chunkSize) + 1}: ${companyIds.length} companies`)
+      
+      // Query contacts for this batch of companies
+      let contactQuery = this.client
+        .from("contacts")
+        .select(`
+          id,
+          first_name,
+          last_name,
+          title,
+          email,
+          email_status,
+          qualification_status,
+          linkedin_url,
+          created_at,
+          campaign_name,
+          campaign_id,
+          company_status,
+          status,
+          companies:company_id(
+            name,
+            category_size,
+            status,
+            start
+          )
+        `)
+        .in('company_id', companyIds)
+      
+      // Apply non-company filters
+      if (filters.inCampaign === 'with') {
+        contactQuery = contactQuery.not('campaign_id', 'is', null)
+      } else if (filters.inCampaign === 'without') {
+        contactQuery = contactQuery.is('campaign_id', null)
+      }
+
+      if (filters.hasEmail === 'with') {
+        contactQuery = contactQuery.not('email', 'is', null).not('email', 'eq', '')
+      } else if (filters.hasEmail === 'without') {
+        contactQuery = contactQuery.or('email.is.null,email.eq.')
+      }
+
+      if (filters.categoryStatus) {
+        contactQuery = contactQuery.eq('qualification_status', filters.categoryStatus)
+      }
+
+      if (filters.status) {
+        contactQuery = contactQuery.eq('status', filters.status)
+      }
+
+      const { data: batchContacts, error } = await contactQuery
+        .order("created_at", { ascending: false })
+      
+      if (error) {
+        console.error('Error with batch contact query:', error)
+        throw error
+      }
+      
+      if (batchContacts && batchContacts.length > 0) {
+        allContacts.push(...batchContacts)
+        console.log(`Found ${batchContacts.length} contacts in this batch, total so far: ${allContacts.length}`)
+      }
+      
+      // If we have enough contacts for pagination, we can break early
+      if (allContacts.length >= targetContactsNeeded) {
+        console.log(`Have enough contacts (${allContacts.length}) for pagination, stopping early`)
+        break
+      }
+    }
+    
+    // Step 3: Sort all contacts and apply pagination
+    allContacts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    
+    // Apply pagination to the sorted results
+    const paginatedContacts = allContacts.slice(offset, offset + limit)
+    
+    console.log(`Chunked filtering complete: returning ${paginatedContacts.length} contacts (${allContacts.length} total found)`)
+
+    // Transform the contacts
+    const transformedContacts = (paginatedContacts || []).map((contact: any) => ({
+      id: contact.id,
+      first_name: contact.first_name,
+      last_name: contact.last_name,
+      title: contact.title,
+      email: contact.email,
+      email_status: contact.email_status,
+      companies_name: contact.companies?.name || null,
+      companies_size: contact.companies?.category_size || null,
+      companies_status: contact.companies?.status || null,
+      companies_start: contact.companies?.start || null,
+      qualification_status: contact.qualification_status,
+      linkedin_url: contact.linkedin_url,
+      created_at: contact.created_at,
+      campaign_name: contact.campaign_name,
+      company_status: contact.company_status,
+      status: contact.status,
+      in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+    }))
+
+    return {
+      data: transformedContacts,
+      count: allContacts.length,
+      totalPages: Math.ceil(allContacts.length / limit)
     }
   }
 
@@ -1518,15 +2120,219 @@ export class SupabaseService {
     }
   }
 
+  // Get regions that have active central places 
+  async getActiveRegions() {
+    try {
+      // First get all active platforms to know which platforms are active
+      const { data: activePlatforms, error: platformsError } = await this.client
+        .from("platforms")
+        .select("regio_platform")
+        .eq("is_active", true)
+
+      if (platformsError) throw platformsError
+
+      const activePlatformsList = activePlatforms?.map(p => p.regio_platform) || []
+      
+      if (activePlatformsList.length === 0) {
+        return []
+      }
+
+      // Get cities that belong to active platforms
+      const { data, error } = await this.client
+        .from("cities")
+        .select("*")
+        .in("regio_platform", activePlatformsList)
+        .order("plaats", { ascending: true })
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error("Error fetching active regions:", error)
+      return []
+    }
+  }
+
+  // Get all unique regio_platform values for hoofddomein filter
+  // Uses materialized view to avoid 1000 row query limit issue
+  async getUniqueRegioPlatforms() {
+    try {
+      const { data, error } = await this.client
+        .from("unique_regio_platforms")
+        .select("regio_platform")
+      
+      if (error) throw error
+      
+      // Data is already unique and sorted from the materialized view
+      return (data || []).map((row: any) => row.regio_platform).filter(
+        (platform): platform is string => typeof platform === "string" && platform.trim() !== ""
+      )
+    } catch (error) {
+      console.error("Error fetching unique regio platforms:", error)
+      return []
+    }
+  }
+
+  // Get company counts by qualification status for tab badges
+  async getCompanyCountsByQualificationStatus(filters?: {
+    search?: string
+    is_customer?: boolean
+    source?: string
+    websiteFilter?: 'all' | 'with' | 'without'
+    categorySize?: 'all' | 'Klein' | 'Middel' | 'Groot' | 'Onbekend'
+    apolloEnriched?: 'all' | 'enriched' | 'not_enriched'
+    hasContacts?: 'all' | 'with_contacts' | 'no_contacts'
+    regioPlatformFilter?: string
+  }) {
+    try {
+      const counts = {
+        pending: 0,
+        qualified: 0,
+        review: 0,
+        disqualified: 0,
+        enriched: 0
+      }
+
+      // Get counts for each status in parallel
+      const statusQueries = ['pending', 'qualified', 'review', 'disqualified', 'enriched'].map(async (status) => {
+        const result = await this.getCompanies({
+          ...filters,
+          qualification_status: status as any,
+          page: 1,
+          limit: 1 // We only need the count, not the data
+        })
+        return { status, count: result.count || 0 }
+      })
+
+      const results = await Promise.all(statusQueries)
+      
+      results.forEach(({ status, count }) => {
+        counts[status as keyof typeof counts] = count
+      })
+
+      return counts
+    } catch (error) {
+      console.error("Error fetching company counts by qualification status:", error)
+      return {
+        pending: 0,
+        qualified: 0,
+        review: 0,
+        disqualified: 0,
+        enriched: 0
+      }
+    }
+  }
+
   // Haal alle bronnen op
 
 
-  // Haal regio's op met het aantal gekoppelde vacatures (uit de view)
+  // Haal cities op met het aantal gekoppelde vacatures (uit de view of direct van cities)
   async getRegionsWithJobPostingsCount() {
     try {
-      const { data, error } = await this.client.from("regions_with_job_postings_count").select("*").order("plaats", { ascending: true })
-      if (error) throw error
-      return data || []
+      // First, check if cities table has regio_platform column directly
+      let { data, error } = await this.client
+        .from("cities")
+        .select("*")
+        .limit(1)
+        
+      if (error) {
+        console.error("Error testing cities table:", error)
+        return []
+      }
+      
+      // Check if the first record has regio_platform column
+      const hasRegioPlatformColumn = data && data.length > 0 && 'regio_platform' in data[0]
+      
+      if (hasRegioPlatformColumn) {
+        // Query cities directly if it has regio_platform column - fetch all data in batches if needed
+        let allCitiesData: any[] = []
+        let page = 0
+        const pageSize = 1000
+        let hasMore = true
+        
+        while (hasMore) {
+          const { data: citiesData, error: citiesError } = await this.client
+            .from("cities")
+            .select("*")
+            .range(page * pageSize, (page + 1) * pageSize - 1)
+            .order("plaats", { ascending: true })
+          
+          if (citiesError) throw citiesError
+          
+          if (citiesData && citiesData.length > 0) {
+            allCitiesData.push(...citiesData)
+            hasMore = citiesData.length === pageSize
+            page++
+          } else {
+            hasMore = false
+          }
+        }
+        
+        return allCitiesData
+      } else {
+        // Query cities with join to platforms to get regio_platform
+        const { data: citiesData, error: citiesError } = await this.client
+          .from("cities")
+          .select(`
+            id,
+            plaats,
+            postcode,
+            created_at,
+            platform_id,
+            platforms(regio_platform)
+          `)
+          .limit(2000) // Set high limit to ensure we get all cities
+          .order("plaats", { ascending: true })
+        
+        if (citiesError) {
+          console.error("Error with platforms join:", citiesError)
+          // Fallback: get cities without join and add default regio_platform
+          const { data: fallbackData, error: fallbackError } = await this.client
+            .from("cities")
+            .select("*")
+            .limit(2000) // Set high limit to ensure we get all cities
+            .order("plaats", { ascending: true })
+          
+          if (fallbackError) throw fallbackError
+          
+          return (fallbackData || []).map((city: any) => ({
+            ...city,
+            regio_platform: city.regio_platform || 'Unknown'
+          }))
+        }
+        
+        // Get job postings counts for each city
+        const { data: jobCounts, error: jobError } = await this.client
+          .from("job_postings")
+          .select("region_id")
+          .not("region_id", "is", null)
+        
+        if (jobError) {
+          console.warn("Could not fetch job postings counts:", jobError)
+        }
+        
+        // Create a count map
+        const countMap = new Map<string, number>()
+        if (jobCounts) {
+          jobCounts.forEach(posting => {
+            const regionId = posting.region_id
+            if (regionId) {
+              countMap.set(regionId, (countMap.get(regionId) || 0) + 1)
+            }
+          })
+        }
+        
+        // Transform the data to match the expected format
+        const transformedData = (citiesData || []).map((city: any) => ({
+          id: city.id,
+          plaats: city.plaats,
+          postcode: city.postcode,
+          created_at: city.created_at,
+          regio_platform: city.platforms?.regio_platform || 'Unknown',
+          job_postings_count: countMap.get(city.id) || 0
+        }))
+        
+        return transformedData
+      }
     } catch (error) {
       console.error("Error fetching regions with job postings count:", error)
       return []
@@ -1623,25 +2429,57 @@ export class SupabaseService {
   async getContactStatsOptimized() {
     try {
       console.log("Getting contact statistics from materialized view...")
-      
-      const { data, error } = await this.client
-        .from("contacts_stats")
+
+      // Try to get stats from materialized view first
+      const { data: statsData, error: statsError } = await this.client
+        .from("contact_stats_mv")
         .select("*")
+        .eq("stat_type", "total")
         .single()
-      
-      if (error) {
-        console.error("Error fetching contact stats:", error)
+
+      if (statsError) {
+        console.error("Error getting stats from materialized view:", statsError)
         // Fallback to manual calculation if materialized view fails
-        return await this.getContactStats()
+        return await this.getContactStatsManual()
       }
-      
+
+      if (!statsData) {
+        console.log("No stats data found, falling back to manual calculation")
+        return await this.getContactStatsManual()
+      }
+
+      console.log("Successfully retrieved stats from materialized view:", statsData)
+
+      // Get regions for unique regions list
+      let regions: any[] = [];
+      try {
+        const { data: regionsData, error: regionsError } = await this.client.from("regions").select("id, plaats, regio_platform");
+        if (regionsError) {
+          console.error("Error fetching regions:", regionsError.message, regionsError)
+        } else {
+          regions = regionsData || [];
+          console.log(`Fetched ${regions.length} regions for mapping`)
+        }
+      } catch (error) {
+        console.error("Failed to fetch regions:", error instanceof Error ? error.message : String(error))
+      }
+
+      // Extract unique region platforms
+      const uniqueRegions = Array.from(new Set(
+        regions
+          .map((r: any) => r.regio_platform)
+          .filter((r: string): r is string => typeof r === "string" && r.trim() !== "")
+      ))
+
       return {
-        totalContacts: data?.total_contacts || 0,
-        contactsWithCampaign: data?.contacts_with_campaign || 0,
-        contactsWithoutCampaign: data?.contacts_without_campaign || 0,
-        uniqueRegions: data?.unique_regions || 0,
-        uniqueSizes: data?.unique_sizes || 0,
-        uniqueStatuses: data?.unique_statuses || 0
+        totalContacts: statsData.total_contacts || 0,
+        contactsWithCampaign: statsData.contacts_with_campaign || 0,
+        contactsWithoutCampaign: (statsData.total_contacts || 0) - (statsData.contacts_with_campaign || 0),
+        qualifiedContacts: statsData.qualified_contacts || 0,
+        reviewContacts: statsData.review_contacts || 0,
+        disqualifiedContacts: statsData.disqualified_contacts || 0,
+        pendingContacts: statsData.pending_contacts || 0,
+        uniqueRegions
       }
     } catch (error) {
       console.error("Error in getContactStatsOptimized:", error)
@@ -1650,9 +2488,97 @@ export class SupabaseService {
         totalContacts: 0,
         contactsWithCampaign: 0,
         contactsWithoutCampaign: 0,
-        uniqueRegions: 0,
-        uniqueSizes: 0,
-        uniqueStatuses: 0
+        qualifiedContacts: 0,
+        reviewContacts: 0,
+        disqualifiedContacts: 0,
+        pendingContacts: 0,
+        uniqueRegions: []
+      }
+    }
+  }
+
+  async getContactStatsManual() {
+    try {
+      console.log("Calculating contact statistics manually...")
+
+      // Get total contacts count
+      const { count: totalContacts, error: totalError } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+
+      if (totalError) {
+        console.error("Error getting total contacts:", totalError)
+        throw totalError
+      }
+
+      // Get counts for each qualification status
+      const { count: inCampaignCount } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+        .or('qualification_status.eq.in_campaign,and(qualification_status.is.null,campaign_id.not.is.null,campaign_id.neq.)')
+
+      const { count: qualifiedCount } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+        .or('qualification_status.eq.qualified,and(qualification_status.is.null,status.eq.Qualified)')
+
+      const { count: reviewCount } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+        .or('qualification_status.eq.review,and(qualification_status.is.null,status.eq.Review),and(qualification_status.is.null,status.eq.review)')
+
+      const { count: disqualifiedCount } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+        .or('qualification_status.eq.disqualified,and(qualification_status.is.null,status.eq.Disqualified)')
+
+      const { count: pendingCount } = await this.client
+        .from("contacts")
+        .select("*", { count: 'exact', head: true })
+        .or('qualification_status.eq.pending,and(qualification_status.is.null,status.is.null,campaign_id.is.null),and(qualification_status.is.null,status.eq.pending,campaign_id.is.null),and(qualification_status.is.null,status.eq.Prospect,campaign_id.is.null),and(qualification_status.is.null,status.is.null,campaign_id.eq.),and(qualification_status.is.null,status.eq.pending,campaign_id.eq.),and(qualification_status.is.null,status.eq.Prospect,campaign_id.eq.)')
+
+      // Get regions
+      let regions: any[] = [];
+      try {
+        const { data: regionsData } = await this.client.from("regions").select("id, plaats, regio_platform");
+        regions = regionsData || [];
+      } catch (regionError) {
+        console.error("Failed to fetch regions:", regionError)
+      }
+
+      // Extract unique region platforms
+      const uniqueRegions = Array.from(new Set(
+        regions
+          .map((r: any) => r.regio_platform)
+          .filter((r: string): r is string => typeof r === "string" && r.trim() !== "")
+      ))
+
+      const stats = {
+        totalContacts: totalContacts || 0,
+        contactsWithCampaign: inCampaignCount || 0,
+        contactsWithoutCampaign: (totalContacts || 0) - (inCampaignCount || 0),
+        qualifiedContacts: qualifiedCount || 0,
+        reviewContacts: reviewCount || 0,
+        disqualifiedContacts: disqualifiedCount || 0,
+        pendingContacts: pendingCount || 0,
+        uniqueRegions
+      }
+
+      console.log("Manual stats calculation result:", stats)
+      return stats
+
+    } catch (error) {
+      console.error("Error in getContactStatsManual:", error)
+      // Return default values instead of throwing
+      return {
+        totalContacts: 0,
+        contactsWithCampaign: 0,
+        contactsWithoutCampaign: 0,
+        qualifiedContacts: 0,
+        reviewContacts: 0,
+        disqualifiedContacts: 0,
+        pendingContacts: 0,
+        uniqueRegions: []
       }
     }
   }
@@ -1671,6 +2597,7 @@ export class SupabaseService {
       start?: string[]
       statusCampagne?: string[]
       statusBedrijf?: string[]
+      qualificationStatus?: string
     } = {}
   ) {
     try {
@@ -1739,6 +2666,247 @@ export class SupabaseService {
         bedrijfStatuses: [],
         campagneStatuses: []
       }
+    }
+  }
+
+  // Get all available platforms from the platforms table  
+  async getPlatforms() {
+    try {
+      console.log("Loading ALL platforms from platforms table (active & inactive)...")
+      
+      // Get ALL platforms with pagination - no filtering by is_active
+      let allPlatformsData: any[] = []
+      let page = 0
+      const pageSize = 1000
+      let hasMore = true
+      let hasError = false
+      
+      while (hasMore && !hasError) {
+        console.log(`Fetching platforms page ${page + 1}...`)
+        const { data: platformsData, error: platformsError } = await this.serviceClient
+          .from("platforms")
+          .select("regio_platform")
+          .not("regio_platform", "is", null)
+          .range(page * pageSize, (page + 1) * pageSize - 1)
+          .order("regio_platform", { ascending: true })
+        
+        if (platformsError) {
+          console.log("❌ Error fetching platforms page", page + 1, ":", platformsError?.message)
+          hasError = true
+          break
+        }
+        
+        if (platformsData && platformsData.length > 0) {
+          console.log(`📦 Page ${page + 1}: Found ${platformsData.length} platforms`)
+          allPlatformsData.push(...platformsData)
+          hasMore = platformsData.length === pageSize
+          page++
+        } else {
+          console.log(`📋 Page ${page + 1}: No more platforms found, stopping pagination`)
+          hasMore = false
+        }
+      }
+      
+      // Always try to return platform data if we have any, even if there was an error on later pages
+      if (allPlatformsData.length > 0) {
+        const platforms = allPlatformsData.map((item: any) => item.regio_platform)
+        console.log(`✅ SUCCESS: Found ${platforms.length} total platforms from platforms table`)
+        console.log("First 10 platforms:", platforms.slice(0, 10))
+        console.log("Last 10 platforms:", platforms.slice(-10))
+        
+        // Check for platforms with different letters
+        const rPlatforms = platforms.filter(p => p.startsWith('R'))
+        const tPlatforms = platforms.filter(p => p.startsWith('T'))
+        const wPlatforms = platforms.filter(p => p.startsWith('W'))
+        
+        console.log(`🔤 R platforms: ${rPlatforms.length}`, rPlatforms)
+        console.log(`🔤 T platforms: ${tPlatforms.length}`, tPlatforms)
+        console.log(`🔤 W platforms: ${wPlatforms.length}`, wPlatforms)
+        
+        return platforms
+      }
+      
+      console.log("⚠️ No platforms found in platforms table, falling back to cities table")
+      
+      // Fallback to unique platforms from cities table if platforms table fails
+      console.log("Falling back to unique platforms from cities table...")
+      const { data: citiesData, error: citiesError } = await this.serviceClient
+        .from("cities")
+        .select("regio_platform")
+        .not("regio_platform", "is", null)
+        .not("regio_platform", "eq", "")
+      
+      if (citiesError) throw citiesError
+      
+      const uniquePlatforms = Array.from(new Set((citiesData || []).map((item: any) => item.regio_platform)))
+      console.log(`Fallback: Found ${uniquePlatforms.length} unique platforms from cities`)
+      
+      return uniquePlatforms.sort()
+      
+    } catch (error) {
+      console.error("Error fetching platforms:", error)
+      return []
+    }
+  }
+
+  // Create a new platform in the platforms table
+  async createPlatform(platformData: {
+    regio_platform: string
+    central_place: string
+    central_postcode: string
+    is_active?: boolean
+  }) {
+    try {
+      console.log("Creating new platform:", platformData.regio_platform)
+      
+      const { data, error } = await this.serviceClient
+        .from("platforms")
+        .insert([{
+          regio_platform: platformData.regio_platform,
+          central_place: platformData.central_place,
+          central_postcode: platformData.central_postcode,
+          is_active: platformData.is_active ?? false
+        }])
+        .select()
+        .single()
+      
+      if (error) {
+        console.error("Error creating platform:", error)
+        throw error
+      }
+      
+      console.log("✅ Platform created successfully:", data)
+      return data
+    } catch (error) {
+      console.error("Failed to create platform:", error)
+      throw error
+    }
+  }
+
+  // Get platform statistics (total, active, inactive counts)
+  async getPlatformStats() {
+    try {
+      console.log("Getting platform statistics from platforms table...")
+      
+      const { data, error } = await this.serviceClient
+        .from("platforms")
+        .select("is_active")
+        .not("regio_platform", "is", null)
+        .not("regio_platform", "eq", "")
+      
+      if (error) {
+        console.error("Error fetching platform stats:", error)
+        throw error
+      }
+      
+      const total = data.length
+      const active = data.filter(platform => platform.is_active === true).length
+      const inactive = total - active
+      
+      console.log(`📊 Platform stats: Total: ${total}, Active: ${active}, Inactive: ${inactive}`)
+      
+      return {
+        total,
+        active, 
+        inactive
+      }
+    } catch (error) {
+      console.error("Failed to get platform stats:", error)
+      throw error
+    }
+  }
+
+  // Get platform by name
+  async getPlatformByName(name: string) {
+    try {
+      console.log("Getting platform by name:", name)
+      
+      const { data, error } = await this.serviceClient
+        .from("platforms")
+        .select("*")
+        .eq("regio_platform", name)
+        .single()
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows found
+          console.log("Platform not found:", name)
+          return null
+        }
+        console.error("Error fetching platform by name:", error)
+        throw error
+      }
+      
+      console.log("✅ Platform found:", data.id)
+      return data
+    } catch (error) {
+      console.error("Failed to get platform by name:", error)
+      throw error
+    }
+  }
+
+  // Create a new region in the cities table
+  async createRegion(regionData: {
+    plaats: string
+    postcode: string
+    regio_platform: string
+    platform_id?: string
+    central_place?: string
+    central_postcode?: string
+    is_new_platform?: boolean
+  }) {
+    try {
+      // Check for duplicate (plaats + postcode + regio_platform combination)
+      const { data: existing, error: checkError } = await this.client
+        .from("cities")
+        .select("id")
+        .eq("plaats", regionData.plaats)
+        .eq("postcode", regionData.postcode)
+        .eq("regio_platform", regionData.regio_platform)
+        .maybeSingle()
+
+      if (checkError) {
+        console.error("Error checking for duplicates:", checkError)
+        throw new Error("Failed to check for duplicate regions")
+      }
+
+      if (existing) {
+        throw new Error("A region with this plaats, postcode, and platform combination already exists")
+      }
+
+      // Prepare the data for insertion
+      const insertData: any = {
+        plaats: regionData.plaats,
+        postcode: regionData.postcode,
+        regio_platform: regionData.regio_platform,
+        platform_id: regionData.platform_id,
+        is_active: false
+      }
+
+      // Log platform information for new platforms (for future reference/setup)
+      if (regionData.is_new_platform && regionData.central_place && regionData.central_postcode) {
+        console.log(`New platform created: ${regionData.regio_platform}`)
+        console.log(`Central place: ${regionData.central_place}`)
+        console.log(`Central postcode: ${regionData.central_postcode}`)
+        console.log(`This information can be used for setting up job scraping for this platform`)
+      }
+
+      // Insert the new region
+      const { data, error } = await this.client
+        .from("cities")
+        .insert(insertData)
+        .select()
+        .single()
+
+      if (error) {
+        console.error("Error creating region:", error)
+        throw new Error(error.message || "Failed to create region")
+      }
+
+      return data
+    } catch (error) {
+      console.error("Error in createRegion:", error)
+      throw error
     }
   }
 }
