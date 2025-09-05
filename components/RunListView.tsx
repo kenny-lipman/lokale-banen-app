@@ -12,6 +12,7 @@ export interface ApifyRun {
   platform: string
   location: string
   companyCount: number
+  jobCount: number
   displayName: string
   createdAt: string
   processing_status: ProcessingStatusType

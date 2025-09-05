@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils'
 import { ProcessingStatus, ProcessingStatusType } from './ProcessingStatus'
 import { ProcessingNotes } from './ProcessingNotes'
 import { ProcessingNotesModal } from './ProcessingNotesModal'
-import { Calendar, MapPin, Building2, Briefcase } from 'lucide-react'
+import { Calendar, MapPin, Building2, Briefcase, Globe } from 'lucide-react'
 import { ApifyRun } from './RunListView'
 
-// Fixed row height for virtualization (more dense - includes notes area)
-const ROW_HEIGHT = 80
+// Fixed row height for virtualization (includes title, stats, and notes area)
+const ROW_HEIGHT = 90
 
 interface VirtualizedRunListProps {
   runs: ApifyRun[]
@@ -104,25 +104,39 @@ const RunRow = React.memo(({
           className={cn('flex-shrink-0', isUpdatingStatus && 'opacity-50')}
         />
 
-        {/* Run details - single line layout */}
+        {/* Run details - two line layout for better readability */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-gray-900 truncate text-xs max-w-48">
-              {run.title}
-            </h3>
-            <span className="text-xs text-gray-500 flex items-center gap-1 flex-shrink-0">
-              <Building2 size={8} />
-              {run.platform}
-            </span>
-            <span className="text-xs text-gray-500 flex items-center gap-1 flex-shrink-0">
-              <Calendar size={8} />
-              {formatDate(run.createdAt)}
-            </span>
-            {run.processed_at && (
-              <span className="text-xs text-emerald-600 flex-shrink-0">
-                ✓ {formatDate(run.processed_at)}
+          <div className="flex flex-col gap-1">
+            {/* Title and platform */}
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-gray-900 text-sm whitespace-nowrap">
+                {run.title}
+              </h3>
+              <span className="text-xs text-gray-500 flex items-center gap-1 flex-shrink-0">
+                <Globe size={10} />
+                {run.platform}
               </span>
-            )}
+              {run.processed_at && (
+                <span className="text-xs text-emerald-600 flex-shrink-0">
+                  ✓ {formatDate(run.processed_at)}
+                </span>
+              )}
+            </div>
+            {/* Stats row */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500 flex items-center gap-1 flex-shrink-0">
+                <Calendar size={10} />
+                {formatDate(run.createdAt)}
+              </span>
+              <span className="text-xs text-blue-600 flex items-center gap-1 flex-shrink-0 font-medium">
+                <Briefcase size={10} />
+                {run.jobCount} jobs
+              </span>
+              <span className="text-xs text-green-600 flex items-center gap-1 flex-shrink-0 font-medium">
+                <Building2 size={10} />
+                {run.companyCount} companies
+              </span>
+            </div>
           </div>
         </div>
       </div>

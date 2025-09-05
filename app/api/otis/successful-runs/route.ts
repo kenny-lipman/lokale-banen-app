@@ -13,9 +13,10 @@ export async function GET(req: NextRequest) {
     const supabase = createServiceRoleClient()
     
     // Get successful Apify runs with rich data (platform names, city names, job counts)
-    // Filter by specific actor IDs only
-    const allowedActorIds = ['TrtlecxAsNRbKl1na', '7ZuNFntlWSa1LO5uG', 'hMvNSpz3JnHgl5jkh']
+    // Filter by specific actor IDs only - these are the OTIS scraper actor IDs
+    const allowedActorIds = ['RIGGeqD6RqKmlVoQU', 'TrtlecxAsNRbKl1na']
     
+    // First, get the basic apify_runs data without joins to avoid join failures
     let query = supabase
       .from('apify_runs')
       .select(`
@@ -28,13 +29,10 @@ export async function GET(req: NextRequest) {
         processing_notes,
         processed_at,
         processed_by,
-        job_sources:source (
-          name
-        ),
-        regions:region_id (
-          plaats,
-          regio_platform
-        )
+        source,
+        region,
+        platform_id,
+        status
       `)
       .eq('status', 'SUCCEEDED')
       .in('actor_id', allowedActorIds)
@@ -46,8 +44,8 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    // Order and limit
-    query = query.order('created_at', { ascending: false }).limit(50)
+    // Order by created_at descending (most recent first)
+    query = query.order('created_at', { ascending: false })
     
     const { data: apifyRuns, error } = await query
 
@@ -56,112 +54,88 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error('Error fetching successful Apify runs:', error)
-      // Return empty data instead of failing
+      // Return the actual error for debugging
       return NextResponse.json({
         runs: [],
         count: 0,
-        message: 'No scraping runs available'
+        message: 'No scraping runs available',
+        error: error.message,
+        details: error
       })
     }
 
-    // Get company counts for each run
+    // Get company and job posting counts for each run
     const runIds = (apifyRuns || []).map(run => run.id)
-    console.log('Looking for company data for runs:', runIds.slice(0, 5)) // Show first 5 run IDs
+    console.log('Looking for company and job data for runs:', runIds.slice(0, 5)) // Show first 5 run IDs
     
-    const { data: companyData, error: companyCountError } = await supabase
-      .from('job_postings')
-      .select('apify_run_id, company_id')
-      .in('apify_run_id', runIds)
-      .not('company_id', 'is', null)
-      
-    console.log('Supabase query completed. Error:', companyCountError)
-    console.log('Query was for run IDs:', runIds.length, 'runs')
+    // Get all job postings for these runs (including company_id for counting unique companies)
+    console.log('DEBUG: Looking for job postings for', runIds.length, 'runs, including:', runIds.slice(0, 5))
     
-    if (companyCountError) {
-      console.error('Supabase query error details:', companyCountError)
-    }
-    
-    // Count unique companies per run
-    const companyCountMap = new Map()
-    if (companyData && !companyCountError) {
-      console.log('Company data retrieved:', companyData.length, 'records')
-      
-      // Log specific data for the problematic run
-      const targetRunData = companyData.filter(job => job.apify_run_id === 'E7P3IvTrK229btaOc')
-      console.log(`Data for E7P3IvTrK229btaOc:`, targetRunData.length, 'job_postings')
-      
-      // Also check what data we DO have for this run (including NULL company_ids)
-      console.log('Checking ALL job_postings for E7P3IvTrK229btaOc...')
-      const { data: allJobsForRun, error: allJobsError } = await supabase
+    // Use parallel queries to get both job counts and company counts more efficiently
+    const jobPostingQueries = runIds.map(async (runId) => {
+      // For each run, get job postings with companies
+      const { data: jobData, error: jobError } = await supabase
         .from('job_postings')
-        .select('id, apify_run_id, company_id, title')
-        .eq('apify_run_id', 'E7P3IvTrK229btaOc')
-        .limit(10)
-      
-      console.log('Direct query result:', { 
-        data: allJobsForRun?.length || 0, 
-        error: allJobsError 
-      })
-      
-      if (!allJobsError && allJobsForRun) {
-        console.log(`Found ${allJobsForRun.length} total job_postings for E7P3IvTrK229btaOc:`)
-        allJobsForRun.slice(0, 3).forEach(job => {
-          console.log(`- Job ${job.id}: company_id = ${job.company_id}`)
-        })
-      } else if (allJobsError) {
-        console.error('Error fetching all jobs for run:', allJobsError)
-        console.error('Full error object:', JSON.stringify(allJobsError))
-      }
-      
-      // Also test the exact same query we use for company counting
-      console.log('Testing the exact company count query for this run...')
-      const { data: testCompanyData, error: testError } = await supabase
-        .from('job_postings')
-        .select('apify_run_id, company_id')
-        .eq('apify_run_id', 'E7P3IvTrK229btaOc')
-        .not('company_id', 'is', null)
-        .limit(5)
+        .select(`
+          id,
+          apify_run_id,
+          companies!inner(id)
+        `)
+        .eq('apify_run_id', runId)
         
-      console.log('Company count query result:', {
-        found: testCompanyData?.length || 0,
-        error: testError
-      })
-      
-      if (testCompanyData && testCompanyData.length > 0) {
-        console.log('Sample company IDs:', testCompanyData.slice(0, 3).map(d => d.company_id))
+      if (jobError) {
+        console.error(`Error fetching jobs for run ${runId}:`, jobError)
+        return { runId, jobCount: 0, companyIds: [] }
       }
       
-      // Group by run_id and count unique company_ids
-      const companiesByRun = new Map()
-      companyData.forEach(job => {
-        const runId = job.apify_run_id
-        if (!companiesByRun.has(runId)) {
-          companiesByRun.set(runId, new Set())
-        }
-        companiesByRun.get(runId).add(job.company_id)
-      })
+      // Count jobs and unique companies
+      const jobCount = jobData?.length || 0
+      const companyIds = [...new Set(jobData?.map(j => j.companies.id).filter(Boolean))] || []
+      const companyCount = companyIds.length
       
-      // Convert to count map
-      companiesByRun.forEach((companySet, runId) => {
-        const count = companySet.size
-        companyCountMap.set(runId, count)
-        if (runId === 'E7P3IvTrK229btaOc') {
-          console.log(`DEBUG: Run ${runId} has ${companySet.size} unique companies from Set:`, Array.from(companySet).slice(0, 5))
-        }
-      })
-    } else if (companyCountError) {
-      console.error('Error fetching company data:', companyCountError)
-    } else {
-      console.log('No company data returned')
-    }
+      console.log(`Run ${runId}: ${jobCount} jobs, ${companyCount} companies`)
+      return { runId, jobCount, companyCount, companyIds }
+    })
+    
+    const jobPostingsResults = await Promise.all(jobPostingQueries)
+    
+    // Convert results to maps
+    const jobCountMap = new Map()
+    const companyCountMap = new Map()
+    
+    jobPostingsResults.forEach(({ runId, jobCount, companyCount }) => {
+      jobCountMap.set(runId, jobCount)
+      companyCountMap.set(runId, companyCount)
+    })
+    
+    // Legacy approach - keeping for comparison
+    const { data: jobPostingsData, error: jobPostingsError } = await supabase
+      .from('job_postings')
+      .select('apify_run_id, company_id, id')
+      .in('apify_run_id', runIds)
+      
+    // Legacy query results for debugging/comparison
+    console.log('Legacy Supabase query completed. Error:', jobPostingsError)
+    console.log('Legacy query found:', jobPostingsData?.length || 0, 'job postings')
 
     // Transform data for frontend with Option B format: "Financial Controller (Indeed • Wassenaar) • 151 companies • Jul 25"
     const transformedRuns = (apifyRuns || []).map(run => {
       const title = run.title || `Run ${run.id.substring(0, 8)}`
-      const platform = run.job_sources?.name || 'Unknown Platform'
-      const city = run.regions?.plaats || 'Unknown City'
+      // Extract platform and city from the title or use the region field
+      let platform = 'Unknown Platform'
+      let city = run.region || 'Unknown City'
+      
+      // Try to parse platform from title (e.g., "LinkedIn - Amsterdam" or "Indeed - Rotterdam")
+      if (run.title) {
+        const parts = run.title.split(' - ')
+        if (parts.length >= 2) {
+          platform = parts[0].trim()
+          city = parts[1]?.trim() || city
+        }
+      }
       const companyCount = companyCountMap.get(run.id) || 0
-      console.log(`Assigning to run ${run.id} (${title}): ${companyCount} companies`)
+      const jobCount = jobCountMap.get(run.id) || 0
+      console.log(`Assigning to run ${run.id} (${title}): ${companyCount} companies, ${jobCount} job postings`)
       
       // Format date for freshness (Jul 25, or Jul 25 10:12 if same day and time matters)
       const date = new Date(run.created_at)
@@ -179,8 +153,8 @@ export async function GET(req: NextRequest) {
         dateDisplay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       }
       
-      // Create compact display: "Financial Controller (Indeed • Wassenaar) • 151 companies • Jul 25"
-      const displayName = `${title} (${platform} • ${city}) • ${companyCount} companies • ${dateDisplay}`
+      // Create compact display: "Financial Controller (Indeed • Wassenaar) • 25 jobs • 15 companies • Jul 25"
+      const displayName = `${title} (${platform} • ${city}) • ${jobCount} jobs • ${companyCount} companies • ${dateDisplay}`
       
       return {
         id: run.id,
@@ -188,6 +162,7 @@ export async function GET(req: NextRequest) {
         platform: platform,
         location: city,
         companyCount: companyCount,
+        jobCount: jobCount,
         regionPlatform: `${platform} • ${city}`,
         displayName: displayName,
         createdAt: run.created_at,
