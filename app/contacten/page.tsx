@@ -23,6 +23,7 @@ interface Contact {
   title: string | null
   email: string | null
   email_status: string | null
+  source: string | null
   companies_name: string | null
   companies_size: string | null
   companies_status: string | null
@@ -847,6 +848,7 @@ export default function ContactsPage() {
                       <TableHead className="max-w-[150px]">Functie</TableHead>
                       <TableHead className="w-[180px]">Email</TableHead>
                       <TableHead>Email Status</TableHead>
+                      <TableHead>Bron</TableHead>
                       <TableHead>Bedrijf</TableHead>
                       <TableHead>Bedrijfsgrootte</TableHead>
                       <TableHead>Company Status</TableHead>
@@ -859,7 +861,7 @@ export default function ContactsPage() {
                   <TableBody>
                     {contacts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={12} className="text-center py-8">
+                        <TableCell colSpan={13} className="text-center py-8">
                           Geen contacten gevonden
                         </TableCell>
                       </TableRow>
@@ -895,6 +897,7 @@ export default function ContactsPage() {
                           <TableCell className="py-2">
                             {getEmailStatusBadge(contact.email_status)}
                           </TableCell>
+                          <TableCell className="py-2">{contact.source || '-'}</TableCell>
                           <TableCell className="py-2">{contact.companies_name || '-'}</TableCell>
                           <TableCell className="py-2">
                             {getCompanySizeBadge(contact.companies_size)}
