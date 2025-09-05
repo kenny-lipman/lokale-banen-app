@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
+import { useWebhookRateLimit } from '@/hooks/use-webhook-rate-limit'
 import { VirtualizedRunList } from '@/components/VirtualizedRunList'
 import { ViewModeToggle, useViewMode } from '@/components/ViewModeToggle'
 import { StatusFilterPills, StatusStats, useStatusFilter, calculateStatusCounts } from '@/components/StatusFilterPills'
@@ -330,6 +331,7 @@ const EnhancedCampaignFilter = ({
 
 function FullOtisDashboard() {
   const { toast } = useToast()
+  const webhookRateLimit = useWebhookRateLimit()
   
   // State management
   const [scrapingMode, setScrapingMode] = useState<ScrapingMode>('new')
@@ -1208,65 +1210,64 @@ function FullOtisDashboard() {
 
   // Company enrichment function
   const enrichCompany = async (companyId: string) => {
+    // Check rate limit before proceeding
+    if (!webhookRateLimit.canCall(companyId)) {
+      const remainingTime = webhookRateLimit.getRemainingTime(companyId)
+      toast({
+        title: "Rate Limited",
+        description: `Please wait ${remainingTime} seconds before enriching this company again.`,
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Mark as loading to prevent duplicate calls
+    webhookRateLimit.markAsLoading(companyId)
     setIsEnriching(prev => new Set(prev).add(companyId))
     
     try {
-      // Find the company to get its details for the batch enrichment
+      // Find the company to get its details for the webhook call
       const company = loadedCompanies.find(c => c.id === companyId)
       if (!company) {
         throw new Error('Company not found')
       }
 
-      // Create a batch request (the main Apollo API expects batch format)
-      const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      const response = await fetch('/api/apollo/enrich', {
+      // Call the webhook directly like the working implementation
+      const response = await fetch('https://ba.grive-dev.com/webhook/receive-companies-website', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Include cookies for authentication
-        body: JSON.stringify({ 
-          batchId,
-          companies: [{
-            id: company.id,
-            name: company.name,
-            website: company.website,
-            location: company.location,
-            region_id: company.region_id
-          }]
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          company_name: company.name,
+          website: company.website,
+          location: company.location,
+          company_id: company.id,
         })
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to enrich company')
+        throw new Error(`Failed to enrich company: ${response.statusText}`)
       }
 
-      const result = await response.json()
-      
-      if (result.success) {
-        // Update the company enrichment status (mark as processing since webhook will complete it)
-        setLoadedCompanies(prev => 
-          prev.map(company => 
-            company.id === companyId 
-              ? { 
-                  ...company, 
-                  enrichment_status: 'processing',
-                  enrichment_started_at: new Date().toISOString()
-                }
-              : company
-          )
+      // Update the company enrichment status to completed immediately
+      setLoadedCompanies(prev => 
+        prev.map(comp => 
+          comp.id === companyId 
+            ? { 
+                ...comp, 
+                enrichment_status: 'completed',
+                enrichment_started_at: new Date().toISOString(),
+                enrichment_completed_at: new Date().toISOString()
+              }
+            : comp
         )
+      )
 
-        toast({
-          title: "Enrichment Started",
-          description: `Apollo enrichment initiated for ${company.name}. Webhook processing in progress...`,
-        })
-
-        // The webhook will update the company status asynchronously
-        // Optionally poll for completion status or listen for real-time updates
-        
-      } else {
-        throw new Error(result.error)
-      }
+      toast({
+        title: "Enrichment Complete",
+        description: `Successfully enriched ${company.name}`,
+      })
     } catch (error: any) {
       console.error('Error enriching company:', error)
       
@@ -1285,6 +1286,8 @@ function FullOtisDashboard() {
         variant: "destructive"
       })
     } finally {
+      // Clean up loading states
+      webhookRateLimit.markAsComplete(companyId)
       setIsEnriching(prev => {
         const newSet = new Set(prev)
         newSet.delete(companyId)
@@ -3531,6 +3534,7 @@ function FullOtisDashboard() {
         onClose={closeCompanyDetails}
         onQualify={qualifyCompany}
         onEnrich={enrichCompany}
+        isEnrichingExternal={selectedCompanyForDetails ? webhookRateLimit.isLoading(selectedCompanyForDetails) : false}
       />
 
       {/* Campaign Confirmation Modal */}

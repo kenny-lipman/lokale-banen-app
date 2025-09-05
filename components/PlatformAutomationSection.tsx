@@ -15,17 +15,11 @@ interface PlatformAutomationSectionProps {
 }
 
 interface PlatformData {
-  platform: string;
-  centralPlace?: {
-    central_place: string;
-    central_postcode?: string;
-  };
+  regio_platform: string;
+  central_place: string;
+  central_postcode?: string;
   automation_enabled: boolean;
-  regions: {
-    id: string;
-    plaats: string;
-    postcode: string;
-  }[];
+  is_active: boolean;
 }
 
 export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps> = ({
@@ -42,7 +36,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
     error: preferencesError
   } = usePlatformAutomationPreferences()
 
-  // Load platforms grouped by platform
+  // Load platforms directly from platforms table
   useEffect(() => {
     const loadPlatforms = async () => {
       try {
@@ -56,7 +50,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
           throw new Error('Authentication required')
         }
         
-        const response = await fetch('/api/regions/grouped-by-platform', {
+        const response = await fetch('/api/platforms', {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }
@@ -85,7 +79,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
       // Update local state
       setPlatforms(prevPlatforms => 
         prevPlatforms.map(p => 
-          p.platform === platform 
+          p.regio_platform === platform 
             ? { ...p, automation_enabled: enabled }
             : p
         )
@@ -95,16 +89,16 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
       onPreferencesChange?.(preferences)
       
       // Show success toast
-      const platformData = platforms.find(p => p.platform === platform)
-      const centralPlace = platformData?.centralPlace?.central_place || platform
+      const platformData = platforms.find(p => p.regio_platform === platform)
+      const centralPlace = platformData?.central_place || platform
       
       toast.success(`${centralPlace} automation ${enabled ? 'enabled' : 'disabled'}`)
     } catch (error) {
       console.error('Failed to update preference:', error)
       
       // Show error toast
-      const platformData = platforms.find(p => p.platform === platform)
-      const centralPlace = platformData?.centralPlace?.central_place || platform
+      const platformData = platforms.find(p => p.regio_platform === platform)
+      const centralPlace = platformData?.central_place || platform
       
       toast.error(`Failed to update ${centralPlace} automation`)
     }
@@ -201,25 +195,41 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
           <div className="space-y-3" role="list" aria-labelledby="platform-automation-title">
             {platforms.map((platform) => (
               <div 
-                key={platform.platform}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                key={platform.regio_platform}
+                className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                  platform.is_active 
+                    ? 'border-gray-200 hover:bg-gray-50' 
+                    : 'border-gray-200 bg-gray-50 opacity-75'
+                }`}
                 role="listitem"
               >
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   {/* Platform Icon */}
-                  <div className="flex items-center justify-center w-10 h-10 bg-blue-50 rounded-lg flex-shrink-0" aria-hidden="true">
-                    <Target className="h-5 w-5 text-blue-600" />
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0 ${
+                    platform.is_active ? 'bg-blue-50' : 'bg-gray-100'
+                  }`} aria-hidden="true">
+                    <Target className={`h-5 w-5 ${
+                      platform.is_active ? 'text-blue-600' : 'text-gray-400'
+                    }`} />
                   </div>
                   
                   {/* Platform Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-1">
-                      <h3 className="font-semibold text-gray-900 truncate">
-                        {platform.platform}
+                      <h3 className={`font-semibold truncate ${
+                        platform.is_active ? 'text-gray-900' : 'text-gray-500'
+                      }`}>
+                        {platform.regio_platform}
                       </h3>
-                      {platform.centralPlace ? (
+                      {/* Active/Inactive Badge */}
+                      {!platform.is_active && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                          Inactive
+                        </span>
+                      )}
+                      {platform.central_place ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          🎯 {platform.centralPlace.central_place}
+                          🎯 {platform.central_place}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -228,8 +238,8 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                       )}
                     </div>
                     <p className="text-sm text-gray-500">
-                      {platform.regions.length} places • Scraping from {platform.centralPlace?.central_place || 'central place'}
-                      {platform.centralPlace?.central_postcode && ` (${platform.centralPlace.central_postcode})`}
+                      {platform.is_active ? 'Platform configured' : 'Platform inactive'} • Scraping from {platform.central_place || 'central place'}
+                      {platform.central_postcode && ` (${platform.central_postcode})`}
                     </p>
                   </div>
                 </div>
@@ -238,9 +248,9 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                 <div className="flex items-center space-x-2 ml-4">
                   <Switch
                     checked={platform.automation_enabled}
-                    onCheckedChange={(enabled) => handlePlatformToggle(platform.platform, enabled)}
+                    onCheckedChange={(enabled) => handlePlatformToggle(platform.regio_platform, enabled)}
                     disabled={saving}
-                    aria-label={`${platform.automation_enabled ? 'Disable' : 'Enable'} automation for ${platform.platform}`}
+                    aria-label={`${platform.automation_enabled ? 'Disable' : 'Enable'} automation for ${platform.regio_platform}`}
                     className="data-[state=checked]:bg-blue-600 data-[state=unchecked]:bg-gray-200"
                   />
                   

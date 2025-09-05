@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles, AlertCircle } from "lucide-react"
+import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles, AlertCircle, Target } from "lucide-react"
 import { supabaseService } from "@/lib/supabase-service"
 import { useToast } from "@/hooks/use-toast"
 import { Card } from "@/components/ui/card"
@@ -20,6 +20,8 @@ import { EnrichmentProgressModal } from "@/components/enrichment-progress-modal"
 import { CompanySidebar } from "@/components/company-sidebar"
 import { useDebounce } from "@/hooks/use-debounce"
 import { TableSkeleton, LoadingSpinner } from "@/components/ui/loading-states"
+import { CompanyQualificationActions } from "@/components/company-qualification-actions"
+import { CompanyQualificationBulkBar } from "@/components/company-qualification-bulk-bar"
 
 interface Company {
   id: string
@@ -47,6 +49,8 @@ interface Company {
   last_enrichment_batch_id?: string | null; // Last enrichment batch
   company_region?: string | null; // Added for Hoofddomein column
   enrichment_status?: string | null; // Added for Verrijkt column
+  qualification_status?: string | null; // Added for qualification workflow
+  qualification_timestamp?: string | null; // Added for qualification workflow
 }
 
 interface CompaniesTableProps {
@@ -94,7 +98,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     categorySize: categorySizeFilter !== "all" ? categorySizeFilter : undefined,
     apolloEnriched: apolloEnrichedFilter !== "all" ? apolloEnrichedFilter : undefined,
     hasContacts: hasContactsFilter !== "all" ? hasContactsFilter : undefined,
-
+    regioPlatformFilter: regioPlatformFilter !== "all" ? regioPlatformFilter : undefined,
   };
   // Vervang fetchCompanies en gerelateerde state
   const {
@@ -107,20 +111,15 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   const totalCount = companiesResult?.count || 0
   const totalPages = companiesResult?.totalPages || 1
 
-  // Client-side filter for regio_platform using company_region field
-  const filteredCompanies = companies.filter((company) => {
-    if (regioPlatformFilter === "all") return true;
-    if (regioPlatformFilter === "none") return !company.company_region || company.company_region.trim() === "";
-    
-    // Filter by company_region (Hoofddomein)
-    return company.company_region === regioPlatformFilter;
-  });
+  // No client-side filtering needed since it's all handled server-side now
+  const filteredCompanies = companies;
 
-  // Get unique regio_platform values for filter options from actual company data
-  const regioPlatformOptions = Array.from(new Set(companies.map(c => c.company_region)))
-    .filter((platform): platform is string => typeof platform === "string" && platform.trim() !== "")
-    .sort((a, b) => a.localeCompare(b, 'nl'))
-    .map((platform, index) => ({ value: platform, label: platform, key: `${platform}-${index}` }))
+  // State for all available regio_platform options (loaded from server)
+  const [allRegioPlatformOptions, setAllRegioPlatformOptions] = useState<{ value: string; label: string; key: string }[]>([]);
+  
+  // Qualification state
+  const [isQualifying, setIsQualifying] = useState<Set<string>>(new Set())
+  const [qualificationSelectedIds, setQualificationSelectedIds] = useState<string[]>([]);
 
   // Enhanced company selection with Apollo enrichment support
   const {
@@ -176,6 +175,18 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   useEffect(() => {
     // Haal alle mogelijke regio's op bij laden
     supabaseService.getRegions().then(setRegions)
+  }, [])
+
+  useEffect(() => {
+    // Haal alle unieke regio_platform waarden op voor hoofddomein filter
+    supabaseService.getUniqueRegioPlatforms().then((platforms) => {
+      const options = platforms.map((platform, index) => ({
+        value: platform,
+        label: platform,
+        key: `${platform}-${index}`
+      }))
+      setAllRegioPlatformOptions(options)
+    })
   }, [])
 
 
@@ -299,8 +310,144 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     setSelectedCompany(null)
   }
 
-  // Alleen paginering client-side
-  const pagedCompanies = filteredCompanies.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Company qualification functions
+  const qualifyCompany = async (companyId: string, status: 'qualified' | 'disqualified' | 'review') => {
+    setIsQualifying(prev => new Set(prev).add(companyId))
+    
+    try {
+      const response = await fetch('/api/companies/qualify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          companyId,
+          qualification_status: status
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Company qualification API error:', response.status, errorText)
+        throw new Error(`Failed to update company qualification: ${response.status}`)
+      }
+
+      // Update local state immediately for better UX
+      if (companiesResult?.data) {
+        const updatedData = companiesResult.data.map((company: Company) =>
+          company.id === companyId
+            ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
+            : company
+        )
+        // Note: This would need to be properly integrated with the cache/state management
+        // For now, we'll just refetch the data
+        refetch()
+      }
+
+      toast({
+        title: "Company qualification updated",
+        description: `Company ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`,
+      })
+    } catch (error) {
+      console.error('Error qualifying company:', error)
+      toast({
+        title: "Error updating qualification",
+        description: error instanceof Error ? error.message : "Failed to update company qualification",
+        variant: "destructive",
+      })
+    } finally {
+      setIsQualifying(prev => {
+        const next = new Set(prev)
+        next.delete(companyId)
+        return next
+      })
+    }
+  }
+
+  // Bulk qualification function
+  const bulkQualifyCompanies = async (status: 'qualified' | 'disqualified' | 'review') => {
+    if (qualificationSelectedIds.length === 0) return
+
+    const companyIds = qualificationSelectedIds
+    companyIds.forEach(id => setIsQualifying(prev => new Set(prev).add(id)))
+
+    try {
+      const response = await fetch('/api/companies/qualify', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          companyIds,
+          qualification_status: status
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Bulk company qualification API error:', response.status, errorText)
+        throw new Error(`Failed to bulk update company qualifications: ${response.status}`)
+      }
+
+      // Update local state
+      if (companiesResult?.data) {
+        const updatedData = companiesResult.data.map((company: Company) =>
+          companyIds.includes(company.id)
+            ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
+            : company
+        )
+        // Refetch data to ensure consistency
+        refetch()
+      }
+
+      toast({
+        title: "Bulk qualification updated",
+        description: `${companyIds.length} companies ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`,
+      })
+
+      // Clear selection after successful update
+      setQualificationSelectedIds([])
+    } catch (error) {
+      console.error('Error bulk qualifying companies:', error)
+      toast({
+        title: "Error updating qualifications",
+        description: "Failed to update company qualifications",
+        variant: "destructive",
+      })
+    } finally {
+      // Clear all qualifying states
+      companyIds.forEach(id => {
+        setIsQualifying(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      })
+    }
+  }
+
+  // Qualification selection handlers
+  const toggleQualificationSelection = (companyId: string) => {
+    setQualificationSelectedIds(prev =>
+      prev.includes(companyId)
+        ? prev.filter(id => id !== companyId)
+        : [...prev, companyId]
+    )
+  }
+
+  const selectAllForQualification = () => {
+    const allIds = filteredCompanies.map(company => company.id)
+    setQualificationSelectedIds(
+      qualificationSelectedIds.length === allIds.length ? [] : allIds
+    )
+  }
+
+  const clearQualificationSelection = () => {
+    setQualificationSelectedIds([])
+  }
+
+  // No client-side pagination needed since server handles it
+  const pagedCompanies = filteredCompanies;
   // Scroll to top on page change
   useEffect(() => {
     if (tableRef.current) {
@@ -499,7 +646,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               options: [
                 { value: "all", label: "Alle hoofddomeinen" },
                 { value: "none", label: "Geen hoofddomein" },
-                ...regioPlatformOptions
+                ...allRegioPlatformOptions
               ],
               placeholder: "Filter op hoofddomein"
             }
@@ -541,6 +688,14 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         onEnrichClick={handleApolloEnrichment}
         onClearSelection={clearSelection}
       />
+
+      {/* Company Qualification Bulk Bar */}
+      <CompanyQualificationBulkBar
+        selectedCount={qualificationSelectedIds.length}
+        onQualify={bulkQualifyCompanies}
+        onClearSelection={clearQualificationSelection}
+        isQualifying={Array.from(isQualifying).some(id => qualificationSelectedIds.includes(id))}
+      />
       
       {/* Table */}
       <div className="border rounded-lg" ref={tableRef}>
@@ -555,9 +710,23 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                   </div>
                 </div>
               </TableHead>
+              <TableHead>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="checkbox" 
+                    checked={qualificationSelectedIds.length === filteredCompanies.length && filteredCompanies.length > 0} 
+                    onChange={selectAllForQualification} 
+                    aria-label="Selecteer alles voor qualification" 
+                  />
+                  <div className="flex items-center gap-1 text-xs text-green-600" title="Qualification selectie">
+                    <Target className="w-3 h-3" />
+                  </div>
+                </div>
+              </TableHead>
               <TableHead>Bedrijf</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Website</TableHead>
+              <TableHead>Qualification</TableHead>
+              <TableHead className="w-[180px]">Website</TableHead>
               <TableHead>Hoofddomein</TableHead>
               <TableHead>Verrijkt</TableHead>
               <TableHead
@@ -601,9 +770,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
           <TableBody>
             {loading ? (
               <>
-                <TableSkeleton rows={8} columns={9} />
+                <TableSkeleton rows={8} columns={11} />
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-4 text-gray-500">
+                  <TableCell colSpan={11} className="text-center py-4 text-gray-500">
                     <div className="flex items-center justify-center space-x-2">
                       <LoadingSpinner size="sm" />
                       <span>Bedrijven laden... ({totalCount.toLocaleString('nl-NL')} totaal)</span>
@@ -613,7 +782,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               </>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-red-500">
+                <TableCell colSpan={11} className="text-center py-8 text-red-500">
                   <div className="flex flex-col items-center space-y-2">
                     <AlertCircle className="w-8 h-8 text-red-400" />
                     <span>Fout bij het laden van bedrijven</span>
@@ -625,7 +794,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               </TableRow>
             ) : pagedCompanies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={11} className="text-center py-8 text-gray-500">
                   Geen bedrijven gevonden
                 </TableCell>
               </TableRow>
@@ -645,6 +814,15 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                       aria-label={`Selecteer bedrijf ${company.name}`}
                       className={`${company.apollo_enriched_at ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={company.apollo_enriched_at ? 'Dit bedrijf is al verrijkt met Apollo' : `Selecteer bedrijf ${company.name}`}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={qualificationSelectedIds.includes(company.id)}
+                      onChange={() => toggleQualificationSelection(company.id)}
+                      aria-label={`Selecteer bedrijf ${company.name} voor qualification`}
+                      title={`Selecteer bedrijf ${company.name} voor qualification`}
                     />
                   </TableCell>
                   <TableCell>
@@ -708,8 +886,23 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    <CompanyQualificationActions
+                      company={company}
+                      isQualifying={isQualifying.has(company.id)}
+                      onQualify={qualifyCompany}
+                      size="sm"
+                      className="min-w-[200px]"
+                    />
+                  </TableCell>
+                  <TableCell className="max-w-[180px]">
                     {company.website && company.website.trim() !== "" ? (
-                      <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline">
+                      <a 
+                        href={company.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-orange-600 hover:underline block truncate"
+                        title={company.website}
+                      >
                         {company.website}
                       </a>
                     ) : (

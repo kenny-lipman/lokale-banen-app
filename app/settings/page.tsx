@@ -1,6 +1,7 @@
 "use client"
 
 import { PlatformAutomationSection } from "@/components/PlatformAutomationSection"
+import { ActiveRegionsSection } from "@/components/ActiveRegionsSection"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 export default function SettingsPage() {
@@ -15,6 +16,12 @@ export default function SettingsPage() {
 
       <ErrorBoundary>
         <div className="space-y-8">
+          <ActiveRegionsSection 
+            onRegionsChange={(regions) => {
+              console.log('Active regions updated:', regions)
+            }}
+          />
+
           <PlatformAutomationSection 
             onPreferencesChange={(preferences) => {
               console.log('Platform preferences updated:', preferences)

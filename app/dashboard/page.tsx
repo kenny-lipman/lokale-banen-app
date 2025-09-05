@@ -1,17 +1,15 @@
 "use client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Building2, Users } from "lucide-react"
-import { ConnectionTest } from "@/components/connection-test"
 import { useDashboardCache } from "@/hooks/use-dashboard-cache"
 import { DashboardStatsSkeleton, ListSkeleton, LoadingSpinner } from "@/components/ui/loading-states"
 
 export default function DashboardPage() {
   const { data, loading, error, refetch } = useDashboardCache()
   // Fallbacks voor skeleton
-  const stats = data?.stats || { totalJobs: 0, totalCompanies: 0, platformCounts: {}, statusCounts: {} }
+  const stats = data?.stats || { totalJobs: 0, totalCompanies: 0, totalContacts: 0, platformCounts: {}, statusCounts: {} }
   const apifyRuns = data?.apifyRuns || []
-  const contacts = data?.contacts || []
-  const totalContacts = contacts.length
+  const totalContacts = stats.totalContacts || 0
   const platformCounts = stats.platformCounts || {}
   const totalPlatform = Number(Object.values(platformCounts).reduce((a, b) => Number(a) + Number(b), 0))
   const platformData = Object.entries(platformCounts).map(([platform, count]) => ({
@@ -23,7 +21,6 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <ConnectionTest />
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-2">Overzicht van LokaleBanen AI agents en activiteiten</p>
@@ -74,51 +71,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recente Activiteit */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recente Activiteit</CardTitle>
-            <CardDescription>Laatste Otis scraping runs</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {loading ? (
-                <ListSkeleton items={3} />
-              ) : recentRuns.length === 0 ? (
-                <div className="text-gray-500 text-sm">Geen recente runs gevonden</div>
-              ) : (
-                recentRuns.map((run: any, index: number) => (
-                  <div key={run.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-sm">
-                        {run.functie || '-'} - {run.locatie || '-'}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {run.platform || '-'} • {run.created_at ? new Date(run.created_at).toLocaleString("nl-NL") : '-'}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        ["success", "completed", "succeeded", "ready"].includes((run.status || '').toLowerCase())
-                          ? "bg-green-100 text-green-800"
-                          : ["running", "in_progress", "active", "processing"].includes((run.status || '').toLowerCase())
-                          ? "bg-orange-100 text-orange-800"
-                          : ["error", "failed", "fail", "aborted", "cancelled"].includes((run.status || '').toLowerCase())
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-200 text-gray-600"
-                      }`}
-                    >
-                      {run.status || 'Onbekend'}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        {/* Platform Verdeling */}
-        <Card>
+      {/* Platform Verdeling */}
+      <Card className="max-w-2xl">
           <CardHeader>
             <CardTitle>Platform Verdeling</CardTitle>
             <CardDescription>Jobs per platform</CardDescription>
@@ -154,8 +108,7 @@ export default function DashboardPage() {
               )}
             </div>
           </CardContent>
-        </Card>
-      </div>
+      </Card>
     </div>
   )
 }

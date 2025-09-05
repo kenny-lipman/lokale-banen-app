@@ -17,9 +17,23 @@ interface CompanyStatsData {
   statusCounts?: Record<string, number>
 }
 
+interface QualificationCounts {
+  pending: number
+  qualified: number
+  review: number
+  disqualified: number
+  enriched: number
+}
+
 export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
   const [stats, setStats] = useState<CompanyStatsData | null>(null)
-  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
+  const [qualificationCounts, setQualificationCounts] = useState<QualificationCounts>({ 
+    pending: 0, 
+    qualified: 0, 
+    review: 0, 
+    disqualified: 0,
+    enriched: 0 
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -27,13 +41,10 @@ export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
       try {
         const data = await supabaseService.getCompanyStats()
         setStats(data)
-        // Haal status counts op
-        if (supabaseService.getCompanyStatusCounts) {
-          const statusData = await supabaseService.getCompanyStatusCounts()
-          setStatusCounts(statusData)
-        } else if (data.statusCounts) {
-          setStatusCounts(data.statusCounts)
-        }
+        
+        // Haal qualification status counts op
+        const qualificationData = await supabaseService.getCompanyCountsByQualificationStatus()
+        setQualificationCounts(qualificationData)
       } catch (error) {
         console.error("Error fetching company stats:", error)
       } finally {
@@ -79,24 +90,34 @@ export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Status per bedrijf</CardTitle>
+          <CardTitle className="text-sm font-medium">Qualification Status</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-gray-400"></span>
-              <span className="text-sm">Prospect:</span>
-              <span className="font-bold">{statusCounts["Prospect"] || 0}</span>
+              <span className="text-sm">Pending:</span>
+              <span className="font-bold">{qualificationCounts.pending}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
               <span className="text-sm">Qualified:</span>
-              <span className="font-bold">{statusCounts["Qualified"] || 0}</span>
+              <span className="font-bold">{qualificationCounts.qualified}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded-full bg-purple-500"></span>
+              <span className="text-sm">Enriched:</span>
+              <span className="font-bold">{qualificationCounts.enriched}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded-full bg-yellow-500"></span>
+              <span className="text-sm">Review:</span>
+              <span className="font-bold">{qualificationCounts.review}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-red-500"></span>
               <span className="text-sm">Disqualified:</span>
-              <span className="font-bold">{statusCounts["Disqualified"] || 0}</span>
+              <span className="font-bold">{qualificationCounts.disqualified}</span>
             </div>
           </div>
         </CardContent>

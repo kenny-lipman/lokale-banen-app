@@ -107,6 +107,7 @@ interface TableFiltersProps {
   className?: string
   onResetFilters?: () => void
   children?: ReactNode
+  actionButtons?: ReactNode
 }
 
 export function TableFilters({
@@ -119,7 +120,8 @@ export function TableFilters({
   resultText,
   className = "",
   onResetFilters,
-  children
+  children,
+  actionButtons
 }: TableFiltersProps) {
   const hasActiveFilters = filters.some(filter => {
     if (Array.isArray(filter.value)) {
@@ -166,18 +168,21 @@ export function TableFilters({
             )}
           </div>
 
-          {/* Reset Filters Button */}
-          {hasActiveFilters && onResetFilters && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onResetFilters}
-              className="bg-white hover:bg-gray-50 border-gray-200 text-gray-700 hover:text-gray-900 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset filters
-            </Button>
-          )}
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {actionButtons}
+            {hasActiveFilters && onResetFilters && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onResetFilters}
+                className="bg-white hover:bg-gray-50 border-gray-200 text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset filters
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Filters Row */}

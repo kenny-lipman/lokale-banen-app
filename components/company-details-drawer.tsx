@@ -25,14 +25,10 @@ import {
   Sparkles,
   RefreshCw,
   Mail,
-  Phone,
-  Linkedin,
   Calendar,
   BarChart3,
   Target,
-  Crown,
-  HelpCircle,
-  TrendingUp
+  Link
 } from "lucide-react"
 import { useToast } from '@/hooks/use-toast'
 
@@ -61,6 +57,20 @@ interface CompanyContact {
   is_key_contact?: boolean
 }
 
+interface Contact {
+  id: string
+  name: string
+  first_name?: string | null
+  email?: string | null
+  title?: string | null
+  linkedin_url?: string | null
+  phone?: string | null
+  email_status?: string | null
+  campaign_id?: string | null
+  campaign_name?: string | null
+  created_at: string
+}
+
 interface EnrichmentData {
   organization?: {
     name: string
@@ -83,7 +93,7 @@ interface CompanyDetails {
   category_size?: string
   size_min?: number
   size_max?: number
-  qualification_status?: 'pending' | 'qualified' | 'disqualified' | 'review'
+  qualification_status?: 'pending' | 'qualified' | 'disqualified' | 'review' | 'enriched'
   qualification_timestamp?: string
   qualification_notes?: string
   enrichment_status?: 'idle' | 'processing' | 'completed' | 'failed'
@@ -107,6 +117,7 @@ interface CompanyDetailsDrawerProps {
   onClose: () => void
   onQualify?: (companyId: string, status: 'qualified' | 'disqualified' | 'review') => void
   onEnrich?: (companyId: string) => void
+  isEnrichingExternal?: boolean // External enriching state for rate limiting
 }
 
 export function CompanyDetailsDrawer({ 
@@ -114,13 +125,17 @@ export function CompanyDetailsDrawer({
   open, 
   onClose, 
   onQualify, 
-  onEnrich 
+  onEnrich,
+  isEnrichingExternal = false
 }: CompanyDetailsDrawerProps) {
   const [company, setCompany] = useState<CompanyDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isQualifying, setIsQualifying] = useState(false)
   const [isEnriching, setIsEnriching] = useState(false)
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [loadingContacts, setLoadingContacts] = useState(false)
+  const [contactsError, setContactsError] = useState<string | null>(null)
   const { toast } = useToast()
   
   // Enhanced toast system
@@ -188,6 +203,13 @@ export function CompanyDetailsDrawer({
     }
   }, [open, companyId])
 
+  // Separate useEffect to fetch contacts when company data is loaded and is enriched
+  useEffect(() => {
+    if (company && company.qualification_status === 'enriched') {
+      fetchContacts()
+    }
+  }, [company?.qualification_status, companyId])
+
   const fetchCompanyDetails = async () => {
     if (!companyId) return
 
@@ -216,6 +238,31 @@ export function CompanyDetailsDrawer({
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchContacts = async () => {
+    if (!companyId || !company || company.qualification_status !== 'enriched') return
+
+    setLoadingContacts(true)
+    setContactsError(null)
+
+    try {
+      const response = await fetch(`/api/companies/${companyId}/contacts`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch contacts: ${response.statusText}`)
+      }
+      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load contacts')
+      }
+      setContacts(result.data.contacts || [])
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setContactsError(errorMessage)
+      console.error('Error fetching contacts:', err)
+    } finally {
+      setLoadingContacts(false)
     }
   }
 
@@ -329,22 +376,6 @@ export function CompanyDetailsDrawer({
     }
   }
 
-  const getEmailStatusIcon = (status: string | null | undefined) => {
-    if (!status) {
-      return <Clock className="w-3 h-3 text-gray-500" />
-    }
-    
-    switch (status.toLowerCase()) {
-      case 'verified':
-        return <CheckCircle className="w-3 h-3 text-green-500" />
-      case 'pending':
-        return <Clock className="w-3 h-3 text-yellow-500" />
-      case 'failed':
-        return <AlertCircle className="w-3 h-3 text-red-500" />
-      default:
-        return <Clock className="w-3 h-3 text-gray-500" />
-    }
-  }
 
   if (!open) return null
 
@@ -430,7 +461,7 @@ export function CompanyDetailsDrawer({
                   
                   <EnrichmentButton
                     status={company.enrichment_status || 'idle'}
-                    isLoading={isEnriching || pollingState.isPolling}
+                    isLoading={isEnriching || pollingState.isPolling || isEnrichingExternal}
                     contactsCount={company.apollo_contacts_count}
                     lastEnrichedAt={company.apollo_enriched_at}
                     onClick={handleEnrich}
@@ -491,10 +522,9 @@ export function CompanyDetailsDrawer({
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="jobs">Job Postings ({company.job_postings?.length || 0})</TabsTrigger>
-                <TabsTrigger value="contacts">Contacts ({company.contacts?.length || 0})</TabsTrigger>
                 <TabsTrigger value="enrichment">Enrichment Data</TabsTrigger>
               </TabsList>
 
@@ -594,6 +624,115 @@ export function CompanyDetailsDrawer({
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Contacts Section - Only show for enriched companies in Overview tab */}
+                {company.qualification_status === 'enriched' && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Users className="w-5 h-5 text-purple-600" />
+                        <span>Apollo Contacts ({contacts.length})</span>
+                        {loadingContacts && (
+                          <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-purple-50">
+                              <TableHead>Name</TableHead>
+                              <TableHead>Job Title</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>LinkedIn</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {loadingContacts ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8">
+                                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
+                                  <p className="text-gray-500">Loading contacts...</p>
+                                </TableCell>
+                              </TableRow>
+                            ) : contactsError ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-red-500">
+                                  <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                                  <p>Error: {contactsError}</p>
+                                </TableCell>
+                              </TableRow>
+                            ) : contacts.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-gray-400">
+                                  <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                  <p>No contacts found</p>
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              contacts.map((contact) => (
+                                <TableRow key={contact.id} className="hover:bg-purple-50">
+                                  <TableCell className="font-medium">
+                                    {contact.first_name || contact.name || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-sm text-gray-600">
+                                    {contact.title || '-'}
+                                  </TableCell>
+                                  <TableCell>
+                                    {contact.email ? (
+                                      <a 
+                                        href={`mailto:${contact.email}`} 
+                                        className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                                      >
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-sm">{contact.email}</span>
+                                      </a>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {contact.email_status ? (
+                                      <Badge 
+                                        className={
+                                          contact.email_status === 'verified' 
+                                            ? 'bg-green-100 text-green-800 border-green-200'
+                                            : contact.email_status === 'bounced'
+                                            ? 'bg-red-100 text-red-800 border-red-200'
+                                            : 'bg-gray-100 text-gray-800 border-gray-200'
+                                        }
+                                      >
+                                        {contact.email_status}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {contact.linkedin_url ? (
+                                      <a
+                                        href={contact.linkedin_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800"
+                                      >
+                                        <Link className="w-4 h-4" />
+                                      </a>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               {/* Job Postings Tab */}
@@ -658,92 +797,6 @@ export function CompanyDetailsDrawer({
                       <div className="text-center py-8 text-gray-500">
                         <Briefcase className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                         <p>No job postings found</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Contacts Tab */}
-              <TabsContent value="contacts">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Contacts</CardTitle>
-                    <CardDescription>
-                      Contacts found through Apollo enrichment
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {company.contacts && company.contacts.length > 0 ? (
-                      <div className="space-y-3">
-                        {company.contacts.map((contact) => (
-                          <div 
-                            key={contact.id} 
-                            className={`border rounded-lg p-4 ${
-                              contact.is_key_contact ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                {contact.is_key_contact && <Crown className="w-4 h-4 text-yellow-600" />}
-                                <div>
-                                  <div className="font-medium">{contact.name}</div>
-                                  <div className="text-sm text-gray-600">{contact.title}</div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {contact.is_key_contact && (
-                                  <Badge className="bg-yellow-100 text-yellow-800">Key Contact</Badge>
-                                )}
-                                {getEmailStatusIcon(contact.email_status)}
-                              </div>
-                            </div>
-                            
-                            <div className="mt-3 space-y-2">
-                              {contact.email && (
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <Mail className="w-3 h-3 text-gray-500" />
-                                  <span className="text-gray-700">{contact.email}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {contact.email_status}
-                                  </Badge>
-                                </div>
-                              )}
-                              
-                              {contact.phone && (
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <Phone className="w-3 h-3 text-gray-500" />
-                                  <span className="text-gray-700">{contact.phone}</span>
-                                </div>
-                              )}
-                              
-                              {contact.linkedin_url && (
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <Linkedin className="w-3 h-3 text-gray-500" />
-                                  <a 
-                                    href={contact.linkedin_url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 hover:underline"
-                                  >
-                                    LinkedIn Profile
-                                  </a>
-                                </div>
-                              )}
-                              
-                              <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                <Calendar className="w-3 h-3" />
-                                <span>Added: {formatDate(contact.created_at)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <Target className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                        <p>No contacts found</p>
-                        <p className="text-sm">Use the "Enrich" button to find contacts for this company</p>
                       </div>
                     )}
                   </CardContent>
@@ -830,6 +883,7 @@ export function CompanyDetailsDrawer({
                 </Card>
               </TabsContent>
             </Tabs>
+
           </div>
         )}
       </SheetContent>

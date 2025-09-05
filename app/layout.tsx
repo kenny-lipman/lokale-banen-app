@@ -12,7 +12,15 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "LokaleBanen Dashboard",
   description: "Internal dashboard for LokaleBanen AI agents",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.svg', type: 'image/svg+xml' }
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico'
+  }
 }
 
 export default function RootLayout({

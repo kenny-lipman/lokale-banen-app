@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star, CheckCircle, Clock, XCircle, AlertCircle, Archive, Crown, RefreshCw } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star, CheckCircle, Clock, XCircle, AlertCircle, Archive, Crown, RefreshCw, Check, X, Pencil } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useJobPostingsCache } from "@/hooks/use-job-postings-cache"
 import { TableFilters, TablePagination } from "@/components/ui/table-filters"
@@ -49,7 +49,8 @@ interface JobPosting {
   source_id: string
   region?: string;
   source_name?: string;
-  regio_platform?: string; // Add regio_platform field
+  regio_platform?: string;
+  platform_id?: string;
 }
 
 interface JobPostingsTableProps {
@@ -61,12 +62,10 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [regionFilter, setRegionFilter] = useState("all");
-  const [regioPlatformFilter, setRegioPlatformFilter] = useState("all"); // Add regio_platform filter
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [regions, setRegions] = useState<{ id: string, plaats: string, regio_platform: string }[]>([]);
   const [jobSourceList, setJobSourceList] = useState<{id: string, name: string}[]>([]);
+  const [allPlatforms, setAllPlatforms] = useState<{id: string, regio_platform: string}[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -74,6 +73,10 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
   const [jobSourceMap, setJobSourceMap] = useState<{ [id: string]: string }>({})
   const [error, setError] = useState<any>(null)
   const [initializationError, setInitializationError] = useState<any>(null)
+  const [editingJobId, setEditingJobId] = useState<string | null>(null)
+  const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null)
+  const [savingJobId, setSavingJobId] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Debounce search term for better performance
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
@@ -92,9 +95,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           limit: itemsPerPage,
           search: debouncedSearchTerm,
           status: statusFilter === "all" ? undefined : statusFilter,
-          region_id: regionFilter !== "all" && regionFilter !== "none" ? regions.find(r => r.plaats === regionFilter)?.id : regionFilter === "none" ? null : undefined,
           source_id: sourceFilter !== "all" ? sourceFilter : undefined,
-          regio_platform: regioPlatformFilter !== "all" ? regioPlatformFilter : undefined,
         }
   )
 
@@ -113,14 +114,18 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           setJobSourceMap(map)
         }
         
-        // Fetch company sources and regions
-        const [companySources, regionsData] = await Promise.all([
+        // Fetch company sources and platforms
+        const [companySources, platformsData] = await Promise.all([
           service.getCompanySources(),
-          service.getRegions()
+          fetch('/api/platforms', {
+            headers: {
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            }
+          }).then(res => res.json())
         ])
         
         setJobSourceList(companySources)
-        setRegions(regionsData)
+        setAllPlatforms(platformsData.platforms || [])
       } catch (error) {
         console.error("Error fetching initial data:", error)
         setInitializationError(error)
@@ -139,7 +144,26 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
     setTotalPages(jobPostingsResult?.totalPages || 1)
   }, [jobPostingsResult, loadingFromHook, errorFromHook])
 
-  // Client-side filter op bron/platform en regio_platform als fallback
+  // Create refresh handler
+  const handleRefresh = async () => {
+    if (refetch && !data) {
+      setIsRefreshing(true)
+      try {
+        await refetch()
+      } finally {
+        setIsRefreshing(false)
+      }
+    }
+  }
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }, [debouncedSearchTerm, statusFilter, sourceFilter])
+
+  // Only client-side filter op bron/platform as fallback (regio_platform is handled server-side)
   const filteredJobPostings = jobPostings.filter((job) => {
     // Filter op source/platform
     if (sourceFilter !== "all") {
@@ -148,14 +172,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
       if (sourceName !== selectedSourceName) return false;
     }
 
-    // Filter op regio_platform
-    if (regioPlatformFilter !== "all") {
-      if (regioPlatformFilter === "none") {
-        if (job.regio_platform && job.regio_platform.trim() !== "") return false;
-      } else {
-        if (job.regio_platform !== regioPlatformFilter) return false;
-      }
-    }
+    // Note: regio_platform filtering is now handled server-side through the API
 
     return true;
   });
@@ -178,6 +195,55 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
       onCompanyClick(companyData)
     } catch (error) {
       console.error("Error fetching company details:", error)
+    }
+  }
+
+  const handleEditPlatform = (jobId: string, currentPlatformId: string | undefined) => {
+    setEditingJobId(jobId)
+    setSelectedPlatformId(currentPlatformId || null)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingJobId(null)
+    setSelectedPlatformId(null)
+  }
+
+  const handleSavePlatform = async (jobId: string) => {
+    setSavingJobId(jobId)
+    
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      const response = await fetch(`/api/job-postings/${jobId}/platform`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ platform_id: selectedPlatformId })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update platform')
+      }
+
+      const result = await response.json()
+      
+      // Update the local state with the new platform info
+      setJobPostings(prev => prev.map(job => 
+        job.id === jobId 
+          ? { ...job, platform_id: selectedPlatformId, regio_platform: result.data.regio_platform }
+          : job
+      ))
+      
+      setEditingJobId(null)
+      setSelectedPlatformId(null)
+    } catch (error) {
+      console.error("Error updating platform:", error)
+      alert('Fout bij het bijwerken van het platform. Probeer het opnieuw.')
+    } finally {
+      setSavingJobId(null)
     }
   }
 
@@ -257,10 +323,6 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
     )
   }
 
-  // Get unique regio_platform values for filter options
-  const regioPlatformOptions = Array.from(new Set(regions.map(r => r.regio_platform)))
-    .filter((platform): platform is string => typeof platform === "string" && platform.trim() !== "")
-    .sort((a, b) => a.localeCompare(b, 'nl'))
 
   return (
     <div className="space-y-4">
@@ -273,39 +335,11 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
         resultText="vacatures"
         onResetFilters={() => {
           setSearchTerm("")
-          setRegionFilter("all")
-          setRegioPlatformFilter("all")
           setSourceFilter("all")
           setStatusFilter("all")
           setCurrentPage(1)
         }}
         filters={[
-          {
-            id: "region",
-            label: "Regio",
-            value: regionFilter,
-            onValueChange: setRegionFilter,
-            options: [
-              { value: "all", label: "Alle regio's" },
-              { value: "none", label: "Geen regio" },
-              ...Array.from(new Set(regions.map(r => r.plaats)))
-                .sort((a, b) => a.localeCompare(b, 'nl'))
-                .map(plaats => ({ value: plaats, label: plaats }))
-            ],
-            placeholder: "Filter op regio"
-          },
-          {
-            id: "regio_platform",
-            label: "Regio Platform",
-            value: regioPlatformFilter,
-            onValueChange: setRegioPlatformFilter,
-            options: [
-              { value: "all", label: "Alle regio platforms" },
-              { value: "none", label: "Geen regio platform" },
-              ...regioPlatformOptions.map(platform => ({ value: platform, label: platform }))
-            ],
-            placeholder: "Filter op regio platform"
-          },
           {
             id: "source",
             label: "Bron",
@@ -332,7 +366,40 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
             placeholder: "Filter op status"
           }
         ]}
+        actionButtons={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing || loading || !!data}
+            className="bg-white hover:bg-gray-50 border-gray-200"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Vernieuwen
+          </Button>
+        }
       />
+
+      {/* Error message */}
+      {error && !initializationError && (
+        <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="w-5 h-5" />
+            <span className="font-medium">Fout bij het laden van vacatures</span>
+          </div>
+          <p className="mt-1 text-sm text-red-600">
+            {error?.message || 'Er is een fout opgetreden bij het ophalen van de vacaturegegevens.'}
+          </p>
+          <Button 
+            onClick={() => handleRefresh()}
+            size="sm"
+            className="mt-3 bg-red-600 hover:bg-red-700"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Opnieuw proberen
+          </Button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="border rounded-lg">
@@ -342,8 +409,6 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
               <TableHead>Vacature</TableHead>
               <TableHead>Bedrijf</TableHead>
               <TableHead>Locatie</TableHead>
-              <TableHead>Regio</TableHead>
-              <TableHead>Regio Platform</TableHead>
               <TableHead>Salaris</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
@@ -353,10 +418,10 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton rows={5} columns={11} />
+              <TableSkeleton rows={5} columns={10} />
             ) : filteredJobPostings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                   Geen vacatures gevonden
                 </TableCell>
               </TableRow>
@@ -408,12 +473,16 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                             Klant
                           </Badge>
                         )}
-                        {job.company_rating && (
-                          <div className="flex items-center text-xs text-gray-500 mt-1">
-                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 mr-1" />
-                            {job.company_rating}
-                          </div>
-                        )}
+                        <div className="text-xs text-gray-500 mt-1">
+                          {job.company_rating && job.company_rating > 0 ? (
+                            <div className="flex items-center">
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 mr-1" />
+                              {job.company_rating}
+                            </div>
+                          ) : (
+                            <span>Geen rating bekend</span>
+                          )}
+                        </div>
                         {/* Verwijder de bron-badge hier */}
                       </div>
                     </div>
@@ -426,8 +495,6 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{job.region || "Onbekend"}</TableCell>
-                  <TableCell>{job.regio_platform || "Onbekend"}</TableCell>
                   <TableCell>
                     {job.salary && <span>{job.salary}</span>}
                   </TableCell>

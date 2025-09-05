@@ -1,1090 +1,971 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
-import { supabaseService } from "@/lib/supabase-service"
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { useContactsPaginated, useContactStats } from "@/hooks/use-contacts-paginated"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles } from "lucide-react"
+import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
 import { useDebounce } from "@/hooks/use-debounce"
-import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle, XCircle, AlertCircle, Building2, Users, Crown, Target } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { TableFilters, TablePagination } from "@/components/ui/table-filters";
+import { useToast } from "@/hooks/use-toast"
+import { MultiSelect } from "@/components/ui/multi-select"
+import { useRecommendedPlatform } from "@/hooks/use-recommended-platform"
 
 interface Contact {
   id: string
-  company_id: string | null
   first_name: string | null
   last_name: string | null
-  name: string | null
   title: string | null
   email: string | null
   email_status: string | null
+  companies_name: string | null
+  companies_size: string | null
+  companies_status: string | null
+  companies_start: string | null
+  qualification_status: string | null
   linkedin_url: string | null
-  source: string | null
-  found_at: string | null
-  last_touch: string | null
   created_at: string | null
-  campaign_id: string | null
   campaign_name: string | null
-  phone: string | null
-  instantly_id: string | null
-  apollo_id: string | null
-  status: string | null
   company_status: string | null
-  // Company data from optimized view
-  company_name: string | null
-  company_location: string | null
-  size_min: number | null
-  size_max: number | null
-  category_size: string | null
-  company_status_field: string | null
-  klant_status: string | null
-  start: string | null
-  website: string | null
-  company_phone: string | null
-  company_linkedin: string | null
-  company_region: string | null
-  source_name: string | null
-  enrichment_status: string | null
-  // Additional fields from job_postings mapping
-  region_id: string | null
-  source_id: string | null
+  status: string | null
+  in_campaign?: boolean
+  company_id: string
+}
+
+interface Campaign {
+  id: string
+  name: string
+  status: string
+}
+
+// Campaign status mapping from OTIS enhanced page
+const CAMPAIGN_STATUS_MAP = {
+  '0': { label: 'Draft', color: 'bg-gray-100 text-gray-800', icon: '📝' },
+  '1': { label: 'Active', color: 'bg-green-100 text-green-800', icon: '✅' },
+  '2': { label: 'Paused', color: 'bg-yellow-100 text-yellow-800', icon: '⏸️' },
+  '3': { label: 'Completed', color: 'bg-blue-100 text-blue-800', icon: '🏁' },
+  '4': { label: 'Running Subsequences', color: 'bg-purple-100 text-purple-800', icon: '🔄' },
+  '-99': { label: 'Account Suspended', color: 'bg-red-100 text-red-800', icon: '🚫' },
+  '-1': { label: 'Accounts Unhealthy', color: 'bg-orange-100 text-orange-800', icon: '⚠️' },
+  '-2': { label: 'Bounce Protect', color: 'bg-red-100 text-red-800', icon: '🛡️' }
+}
+
+const getEmailStatusBadge = (status: string | null) => {
+  switch (status?.toLowerCase()) {
+    case 'valid':
+    case 'verified':
+      return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">✅ Valid</Badge>
+    case 'invalid':
+    case 'bounced':
+      return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">❌ Invalid</Badge>
+    case 'risky':
+    case 'catch_all':
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">⚠️ Risky</Badge>
+    case 'unknown':
+    case 'accept_all':
+      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">❓</Badge>
+    case 'disposable':
+      return <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">🗑️ Disposable</Badge>
+    default:
+      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">❓</Badge>
+  }
+}
+
+const getQualificationStatusBadge = (status: string | null) => {
+  switch (status) {
+    case 'in_campaign':
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">🎯 In Campaign</Badge>
+    case 'qualified':
+      return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">✅ Qualified</Badge>
+    case 'disqualified':
+      return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">❌ Disqualified</Badge>
+    case 'review':
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs animate-pulse">⭕ Review</Badge>
+    case 'pending':
+    default:
+      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">⏳ Pending</Badge>
+  }
+}
+
+const getCompanySizeBadge = (size: string | null) => {
+  switch (size?.toLowerCase()) {
+    case 'groot':
+      return (
+        <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs font-semibold">
+          <Building2 className="w-3 h-3 mr-1" />
+          Groot
+        </Badge>
+      )
+    case 'middel':
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs font-semibold">
+          <Building2 className="w-3 h-3 mr-1" />
+          Middel
+        </Badge>
+      )
+    case 'klein':
+      return (
+        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs font-semibold">
+          <Building2 className="w-3 h-3 mr-1" />
+          Klein
+        </Badge>
+      )
+    default:
+      return size ? (
+        <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">
+          {size}
+        </Badge>
+      ) : (
+        <span className="text-gray-400">-</span>
+      )
+  }
 }
 
 export default function ContactsPage() {
-  console.log('ContactsPage: Component rendering...')
+  const [searchQuery, setSearchQuery] = useState<string>("")
+  const [inCampaignFilter, setInCampaignFilter] = useState<string>("all")
+  const [hasEmailFilter, setHasEmailFilter] = useState<string>("all")
+  const [companyStatusFilter, setCompanyStatusFilter] = useState<string[]>([])
+  const [companyStartFilter, setCompanyStartFilter] = useState<string[]>([])
+  const [companySizeFilter, setCompanySizeFilter] = useState<string[]>([])
+  const [categoryStatusFilter, setCategoryStatusFilter] = useState<string[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(15)
   
-  const [selected, setSelected] = useState<string[]>([])
+  // Selection state
+  const [selectedContacts, setSelectedContacts] = useState<Set<number>>(new Set())
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
-  const [selectionScope, setSelectionScope] = useState<'page' | 'all'>('page')
-  const [hoofddomeinFilter, setHoofddomeinFilter] = useState<string[]>([])
-  const [sizeFilter, setSizeFilter] = useState<string[]>([])
-  const [instantlyCampaigns, setInstantlyCampaigns] = useState<{ id: string, name: string }[]>([]);
-  const [campaignFilter, setCampaignFilter] = useState<string[]>(['all']);
-  const [regions, setRegions] = useState<{ id: string, plaats: string, regio_platform: string }[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
-  const [startFilter, setStartFilter] = useState<string[]>([]);
-  const [statusCampagneFilter, setStatusCampagneFilter] = useState<string[]>([]);
-  const [statusBedrijfFilter, setStatusBedrijfFilter] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [sources, setSources] = useState<{ id: string, name: string }[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
-  const [addingToCampaign, setAddingToCampaign] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-
-  // State for all available filter options (independent of current filters)
-  const [allAvailableSizes, setAllAvailableSizes] = useState<string[]>([]);
-  const [allAvailableBedrijfStatuses, setAllAvailableBedrijfStatuses] = useState<string[]>([]);
-  const [allAvailableCampagneStatuses, setAllAvailableCampagneStatuses] = useState<string[]>([]);
+  
+  // Modal states
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false)
+  const [isQualificationModalOpen, setIsQualificationModalOpen] = useState(false)
+  const [selectedQualificationStatus, setSelectedQualificationStatus] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const { toast } = useToast()
 
   // Debounced search query for better performance
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
-  // Reset page to 1 when filters change (additional safety measure)
+  // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [
-    JSON.stringify(hoofddomeinFilter),
-    JSON.stringify(sizeFilter), 
-    JSON.stringify(campaignFilter),
-    JSON.stringify(statusFilter),
-    JSON.stringify(sourceFilter),
-    JSON.stringify(startFilter),
-    JSON.stringify(statusCampagneFilter),
-    JSON.stringify(statusBedrijfFilter),
-    debouncedSearchQuery
+    debouncedSearchQuery,
+    inCampaignFilter,
+    hasEmailFilter,
+    companyStatusFilter,
+    companyStartFilter,
+    companySizeFilter,
+    categoryStatusFilter
   ])
 
-  // Build filters object for server-side pagination
+  // Build filters object for API call
   const filters = {
-    search: debouncedSearchQuery,
-    hoofddomein: hoofddomeinFilter,
-    size: sizeFilter,
-    campaign: campaignFilter.length > 0 ? campaignFilter[0] as 'all' | 'with' | 'without' : 'all',
-    status: statusFilter,
-    source: sourceFilter,
-    start: startFilter,
-    statusCampagne: statusCampagneFilter,
-    statusBedrijf: statusBedrijfFilter,
+    search: debouncedSearchQuery || undefined,
+    inCampaign: inCampaignFilter === "all" ? undefined : inCampaignFilter,
+    hasEmail: hasEmailFilter === "all" ? undefined : hasEmailFilter,
+    companyStatus: companyStatusFilter.length > 0 ? companyStatusFilter.join(',') : undefined,
+    companyStart: companyStartFilter.length > 0 ? companyStartFilter.join(',') : undefined,
+    companySize: companySizeFilter.length > 0 ? companySizeFilter.join(',') : undefined,
+    categoryStatus: categoryStatusFilter.length > 0 ? categoryStatusFilter.join(',') : undefined
   }
 
-  const { data: contacts, loading, error, count, totalPages: serverTotalPages, currentPage: actualPage, refetch } = useContactsPaginated(
+  const { data: contacts, loading, error, count, totalPages } = useContactsPaginated(
     currentPage, 
     itemsPerPage, 
-    filters,
-    (newPage) => setCurrentPage(newPage)
+    filters
   )
 
-  // Use optimized contact statistics hook
-  const { stats: contactStats, loading: statsLoading } = useContactStats()
+  // Platform recommendation logic (only when modal is open)
+  const selectedContactsData = useMemo(() => {
+    if (!isCampaignModalOpen || !contacts) return [];
+    const indices = Array.from(selectedContacts).sort();
+    return indices.map(index => contacts[index]).filter(Boolean)
+  }, [Array.from(selectedContacts).sort().join(','), contacts, isCampaignModalOpen])
 
-  // Handler functions for multiple select filters
-  const handleHoofddomeinFilterChange = (value: string) => {
-    setHoofddomeinFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
+  const { aggregatedRecommendation: platformRecommendation, loading: recommendationLoading } = useRecommendedPlatform(
+    selectedContactsData
+  )
 
-  const handleSizeFilterChange = (value: string) => {
-    setSizeFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  const handleSourceFilterChange = (value: string) => {
-    setSourceFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  const handleStartFilterChange = (value: string) => {
-    setStartFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  const handleStatusBedrijfFilterChange = (value: string) => {
-    setStatusBedrijfFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  const handleStatusCampagneFilterChange = (value: string) => {
-    setStatusCampagneFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  const handleCampaignFilterChange = (value: string) => {
-    setCampaignFilter(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  // Helper functions for consistent badge styling
-  const getCompanySizeBadge = (size: string | null | undefined) => {
-    if (!size) {
-      return (
-        <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
-          <AlertCircle className="w-3 h-3 mr-1" />
-          -
-        </Badge>
-      )
-    }
-    
-    switch (size) {
-      case "Groot":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
-            <Building2 className="w-3 h-3 mr-1" />
-            Groot
-          </Badge>
-        )
-      case "Middel":
-        return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
-            <Users className="w-3 h-3 mr-1" />
-            Middel
-          </Badge>
-        )
-      case "Klein":
-        return (
-          <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Klein
-          </Badge>
-        )
-      default:
-        return (
-          <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            {size}
-          </Badge>
-        )
-    }
-  }
-
-  const getStatusBadge = (status: string | null | undefined, isCompanyStatus = false) => {
-    if (!status) {
-      return (
-        <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
-          <AlertCircle className="w-3 h-3 mr-1" />
-          {isCompanyStatus ? "Prospect" : "-"}
-        </Badge>
-      )
-    }
-
-    switch (status.toLowerCase()) {
-      case "qualified":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Qualified
-          </Badge>
-        )
-      case "disqualified":
-        return (
-          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-2 py-1">
-            <XCircle className="w-3 h-3 mr-1" />
-            Disqualified
-          </Badge>
-        )
-      case "prospect":
-        return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
-            <Target className="w-3 h-3 mr-1" />
-            Prospect
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            {status}
-          </Badge>
-        )
-    }
-  }
-
-  const getEmailStatusBadge = (emailStatus: string | null | undefined) => {
-    if (!emailStatus) {
-      return (
-        <Badge variant="outline" className="text-gray-500 text-xs px-2 py-1 border-gray-300">
-          <AlertCircle className="w-3 h-3 mr-1" />
-          Onbekend
-        </Badge>
-      )
-    }
-
-    switch (emailStatus.toLowerCase()) {
-      case "valid":
-      case "verified":
-      case "confirmed":
-        return (
-          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs px-2 py-1 font-medium">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Geldig
-          </Badge>
-        )
-      case "invalid":
-      case "bounced":
-      case "hard_bounce":
-      case "soft_bounce":
-        return (
-          <Badge className="bg-red-50 text-red-700 border-red-200 text-xs px-2 py-1 font-medium">
-            <XCircle className="w-3 h-3 mr-1" />
-            Ongeldig
-          </Badge>
-        )
-      case "pending":
-      case "checking":
-      case "verifying":
-        return (
-          <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs px-2 py-1 font-medium">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            In behandeling
-          </Badge>
-        )
-      case "unknown":
-      case "unverified":
-        return (
-          <Badge className="bg-slate-50 text-slate-600 border-slate-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Onbekend
-          </Badge>
-        )
-      case "disposable":
-      case "temp":
-        return (
-          <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-xs px-2 py-1 font-medium">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Tijdelijk
-          </Badge>
-        )
-      case "role":
-      case "generic":
-        return (
-          <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-1 font-medium">
-            <Users className="w-3 h-3 mr-1" />
-            Generiek
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-gray-50 text-gray-600 border-gray-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            {emailStatus}
-          </Badge>
-        )
-    }
-  }
-
-  const getEnrichmentStatusBadge = (enrichmentStatus: string | null | undefined) => {
-    if (!enrichmentStatus) {
-      return (
-        <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
-          <AlertCircle className="w-3 h-3 mr-1" />
-          -
-        </Badge>
-      )
-    }
-
-    switch (enrichmentStatus.toLowerCase()) {
-      case "completed":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Completed
-          </Badge>
-        )
-      case "processing":
-        return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Processing
-          </Badge>
-        )
-      case "failed":
-        return (
-          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-2 py-1">
-            <XCircle className="w-3 h-3 mr-1" />
-            Failed
-          </Badge>
-        )
-      case "pending":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Pending
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            {enrichmentStatus}
-          </Badge>
-        )
-    }
-  }
-  // Haal Instantly campagnes op via eigen API route
+  // Load campaigns on component mount
   useEffect(() => {
-    async function fetchInstantlyCampaigns() {
+    const loadCampaigns = async () => {
       try {
-        const res = await fetch("/api/instantly-campaigns");
-        if (res.ok) {
-          const data = await res.json();
-          setInstantlyCampaigns(data.campaigns || []);
+        const response = await fetch('/api/instantly-campaigns')
+        const data = await response.json()
+        if (data.campaigns) {
+          // Filter campaigns to only show status 1, 2, 3, 4 as requested
+          const activeCampaigns = data.campaigns.filter((campaign: Campaign) => 
+            ['1', '2', '3', '4'].includes(String(campaign.status))
+          )
+          // Sort campaigns A-Z by name
+          activeCampaigns.sort((a: Campaign, b: Campaign) => a.name.localeCompare(b.name))
+          setCampaigns(activeCampaigns)
         }
-      } catch (e) {
-        // Foutafhandeling
+      } catch (error) {
+        console.error('Error loading campaigns:', error)
+        toast({
+          title: "Error",
+          description: "Could not load campaigns",
+          variant: "destructive"
+        })
       }
     }
-    fetchInstantlyCampaigns();
-  }, []);
+    loadCampaigns()
+  }, [toast])
 
-  // Haal regio's en bronnen op uit Supabase
-  useEffect(() => {
-    supabaseService.getRegions().then((data) => {
-      setRegions(data || [])
-    })
-    supabaseService.getCompanySources().then((data) => {
-      setSources(data || [])
-    })
-    // Fetch all available filter options
-    supabaseService.getContactFilterOptions().then((data) => {
-      setAllAvailableSizes(data.sizes || [])
-      setAllAvailableBedrijfStatuses(data.bedrijfStatuses || [])
-      setAllAvailableCampagneStatuses(data.campagneStatuses || [])
-    })
-  }, [])
-
-  const toggleSelect = (id: string) => {
-    // Vind het contact
-    const contact = uniqueContacts.find((c: Contact) => c.id === id);
-    // Alleen selecteren als het contact GEEN campagne heeft
-    if (contact && (!contact.campaign_name || contact.campaign_name.trim() === '' || contact.campaign_name === null)) {
-      setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
-    }
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    setSelectedContacts(new Set()) // Clear selections when changing page
   }
-  const selectPage = () => {
-    // Selecteer alleen contacten op de huidige pagina zonder campagne
-    const pageIds = getPageAvailableContacts().map((c: Contact) => c.id);
-    
-    const allPageSelected = pageIds.every((id: string) => selected.includes(id));
-    if (allPageSelected) {
-      // Deselecteer alle contacten op deze pagina
-      setSelected(prev => prev.filter((id: string) => !pageIds.includes(id)));
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(contacts.map((_, index) => index))
+      setSelectedContacts(allIds)
     } else {
-      // Selecteer alle contacten op deze pagina
-      setSelected(prev => [...new Set([...prev, ...pageIds])]);
+      setSelectedContacts(new Set())
     }
   }
 
-  const selectAll = () => {
-    // Selecteer alle contacten zonder campagne (alle pagina's)
-    const allIds = getAvailableContacts().map((c: Contact) => c.id);
-    
-    const allSelected = allIds.every((id: string) => selected.includes(id));
-    if (allSelected) {
-      setSelected([]);
+
+  const handleSelectContact = (index: number) => {
+    const newSelected = new Set(selectedContacts)
+    if (newSelected.has(index)) {
+      newSelected.delete(index)
     } else {
-      setSelected(allIds);
+      newSelected.add(index)
     }
+    setSelectedContacts(newSelected)
   }
 
-  const { toast } = useToast();
+  const getSelectedContactsData = () => {
+    return Array.from(selectedContacts).map(index => contacts[index]).filter(Boolean)
+  }
 
-  // Helper function to get available contacts for selection
-  const getAvailableContacts = () => {
-    return uniqueContacts.filter((c: Contact) => !c.campaign_name || c.campaign_name.trim() === '' || c.campaign_name === null);
-  };
+  const resetAllFilters = () => {
+    setSearchQuery("")
+    setInCampaignFilter("all")
+    setHasEmailFilter("all")
+    setCompanyStatusFilter([])
+    setCompanyStartFilter([])
+    setCompanySizeFilter([])
+    setCategoryStatusFilter([])
+    setCurrentPage(1)
+  }
 
-  const getPageAvailableContacts = () => {
-    return uniqueContacts.filter((c: Contact) => !c.campaign_name || c.campaign_name.trim() === '' || c.campaign_name === null);
-  };
+  // Count active filters
+  const getActiveFilterCount = () => {
+    let count = 0
+    if (searchQuery) count++
+    if (inCampaignFilter !== "all") count++
+    if (hasEmailFilter !== "all") count++
+    if (companyStatusFilter.length > 0) count++
+    if (companyStartFilter.length > 0) count++
+    if (companySizeFilter.length > 0) count++
+    if (categoryStatusFilter.length > 0) count++
+    return count
+  }
+
+  const activeFilterCount = getActiveFilterCount()
 
   const handleAddToCampaign = async () => {
-    if (!selectedCampaign || selected.length === 0) return;
-    
-    // Controleer eerst of alle geselecteerde contacten een email hebben
-    const selectedContactsData = uniqueContacts.filter((c: Contact) => selected.includes(c.id));
-    const contactsWithoutEmail = selectedContactsData.filter((c: Contact) => !c.email || c.email.trim() === '');
-    
-    if (contactsWithoutEmail.length > 0) {
+    if (!selectedCampaign || selectedContacts.size === 0) {
       toast({
-        title: "⚠️ Contacten zonder email",
-        description: `${contactsWithoutEmail.length} van de ${selected.length} geselecteerde contacten hebben geen email adres. Deze kunnen niet worden toegevoegd aan een campagne.`,
-        variant: "destructive",
-      });
-      return;
+        title: "Error",
+        description: "Please select contacts and a campaign",
+        variant: "destructive"
+      })
+      return
     }
-    
-    // Haal de naam van de geselecteerde campagne op
-    const campaignObj = instantlyCampaigns.find((c: { id: string, name: string }) => c.id === selectedCampaign);
-    const campaignName = campaignObj ? campaignObj.name : "";
-    
-    setAddingToCampaign(true);
-    
-    // Dedupliceer de selected array voor extra zekerheid
-    const uniqueContactIds = [...new Set(selected)];
-    console.log(`Frontend: Originele selectie: ${selected.length}, na deduplicatie: ${uniqueContactIds.length}`);
-    
-    // Toon loading toast
-    toast({
-      title: "Bezig met toevoegen...",
-      description: `${uniqueContactIds.length} contacten worden toegevoegd aan "${campaignName}". Dit kan even duren.`,
-    });
-    
+
+    setIsLoading(true)
     try {
+      const selectedContactsData = getSelectedContactsData()
+      const contactIds = selectedContactsData.map(contact => contact.id)
       
-      const res = await fetch("/api/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactIds: uniqueContactIds, campaignId: selectedCampaign, campaignName }),
-      });
+      console.log('Selected contact IDs:', contactIds)
       
-      const data = await res.json();
-      
-      if (res.ok) {
-        const successCount = data.results?.filter((r: any) => r.status === "success").length || 0;
-        const errorCount = data.results?.filter((r: any) => r.status === "error").length || 0;
-        
-        if (successCount > 0 && errorCount === 0) {
-          toast({
-            title: "Volledig succesvol! ✅",
-            description: `Alle ${successCount} contacten zijn succesvol toegevoegd aan "${campaignName}".`,
-          });
-        } else if (successCount > 0 && errorCount > 0) {
-          toast({
-            title: "Gedeeltelijk succesvol ⚠️",
-            description: `${successCount} contacten toegevoegd, ${errorCount} mislukt. Bekijk de details voor meer informatie.`,
-            variant: "destructive",
-          });
-          
-          // Toon details van fouten
-          const errors = data.results?.filter((r: any) => r.status === "error") || [];
-          if (errors.length > 0) {
-            console.log("Fouten bij toevoegen contacten:", errors);
-            // Toon eerste paar fouten als extra toast
-            const firstErrors = errors.slice(0, 3);
-            toast({
-              title: "Details van fouten:",
-              description: firstErrors.map((err: any) => `• ${err.contactName || 'Contact'}: ${err.error}`).join('\n'),
-              variant: "destructive",
-            });
-          }
-        } else {
-          toast({
-            title: "Alle contacten mislukt ❌",
-            description: data.error || "Alle contacten konden niet worden toegevoegd.",
-            variant: "destructive",
-          });
-        }
-        
-        // Refresh contactenlijst
-        await refetch();
-        setSelected([]);
-      } else {
-        toast({
-          title: "Fout bij toevoegen",
-          description: data.error || "Er is een onbekende fout opgetreden bij het toevoegen van contacten.",
-          variant: "destructive",
-        });
-      }
-    } catch (e) {
-      toast({
-        title: "Netwerkfout",
-        description: `Er is een netwerkfout opgetreden: ${e?.toString() || "Onbekende fout"}`,
-        variant: "destructive",
-      });
-    } finally {
-      setAddingToCampaign(false);
-    }
-  };
+      const response = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contactIds,
+          campaignId: selectedCampaign,
+          campaignName: campaigns.find(c => c.id === selectedCampaign)?.name || ''
+        })
+      })
 
-  const handleBulkStatusUpdate = async () => {
-    if (!selectedStatus || selected.length === 0) return;
-    
-    setUpdatingStatus(true);
-    
-    toast({
-      title: "Bezig met bijwerken...",
-      description: `${selected.length} contacten worden bijgewerkt naar status "${selectedStatus}".`,
-    });
-    
+      const result = await response.json()
+      
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      toast({
+        title: "Success",
+        description: result.message || `Successfully added ${selectedContacts.size} contacts to campaign`,
+      })
+      
+      setSelectedContacts(new Set())
+      setIsCampaignModalOpen(false)
+      setSelectedCampaign("")
+      
+      // Refresh the contacts data
+      window.location.reload()
+      
+    } catch (error) {
+      console.error('Error adding contacts to campaign:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add contacts to campaign",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUpdateQualificationStatus = async () => {
+    if (!selectedQualificationStatus || selectedContacts.size === 0) {
+      toast({
+        title: "Error", 
+        description: "Please select contacts and a qualification status",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsLoading(true)
     try {
-      const res = await fetch("/api/contacts/status", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          contactIds: selected, 
-          status: selectedStatus 
-        }),
-      });
+      const selectedContactsData = getSelectedContactsData()
       
-      const data = await res.json();
+      // We'll need to implement this API endpoint
+      const response = await fetch('/api/contacts/qualification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contacts: selectedContactsData,
+          qualification_status: selectedQualificationStatus
+        })
+      })
+
+      const result = await response.json()
       
-      if (res.ok) {
-        toast({
-          title: "Status bijgewerkt! ✅",
-          description: `Status van ${selected.length} contacten succesvol bijgewerkt naar "${selectedStatus}".`,
-        });
-        
-        // Refresh contactenlijst
-        await refetch();
-        setSelected([]);
-        setSelectedStatus("");
-      } else {
-        toast({
-          title: "Fout bij bijwerken",
-          description: data.error || "Er is een fout opgetreden bij het bijwerken van de status.",
-          variant: "destructive",
-        });
+      if (result.error) {
+        throw new Error(result.error)
       }
-    } catch (e) {
+
       toast({
-        title: "Netwerkfout",
-        description: `Er is een netwerkfout opgetreden: ${e?.toString() || "Onbekende fout"}`,
-        variant: "destructive",
-      });
+        title: "Success",
+        description: `Successfully updated ${selectedContacts.size} contacts`,
+      })
+      
+      setSelectedContacts(new Set())
+      setIsQualificationModalOpen(false)
+      setSelectedQualificationStatus("")
+      
+      // Refresh the contacts data
+      window.location.reload()
+      
+    } catch (error) {
+      console.error('Error updating qualification status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update qualification status",
+        variant: "destructive"
+      })
     } finally {
-      setUpdatingStatus(false);
+      setIsLoading(false)
     }
-  };
+  }
 
-  // Use server-side paginated data directly (no client-side filtering needed)
-  const uniqueContacts = contacts || []
-
-  // Optimized computed values with useMemo
-  const sizes = useMemo(() => Array.from(new Set(uniqueContacts
-    .map((c: Contact) => c.category_size)
-    .filter((s: string | null | undefined): s is string => typeof s === "string" && s.trim() !== ""))), [uniqueContacts]);
-
-  // Extract unique status values for bedrijf and campagne
-  const bedrijfStatuses = useMemo(() => Array.from(new Set(uniqueContacts
-    .map((c: Contact) => c.klant_status)
-    .filter((s: string | null | undefined): s is string => typeof s === "string" && s.trim() !== ""))), [uniqueContacts]);
-
-  const campagneStatuses = useMemo(() => Array.from(new Set(uniqueContacts
-    .map((c: Contact) => c.company_status_field)
-    .filter((s: string | null | undefined): s is string => typeof s === "string" && s.trim() !== ""))), [uniqueContacts]);
-
-  // Final bulletproof filter for rendering
-  const filteredHoofddomeinen = useMemo(() => Array.from(new Set(regions.map((r: { id: string, plaats: string, regio_platform: string }) => r.regio_platform).filter((r: string): r is string => typeof r === "string" && r.trim() !== ""))), [regions]);
-  const filteredSizes = useMemo(() => (allAvailableSizes as string[]).filter((s: string) => typeof s === "string" && s.trim() !== ""), [allAvailableSizes]);
-  const filteredSources = useMemo(() => sources.map(s => s.name).filter((s: string) => typeof s === "string" && s.trim() !== ""), [sources]);
-  const filteredBedrijfStatuses = useMemo(() => (allAvailableBedrijfStatuses as string[]).filter((s: string) => typeof s === "string" && s.trim() !== ""), [allAvailableBedrijfStatuses]);
-  const filteredCampagneStatuses = useMemo(() => (allAvailableCampagneStatuses as string[]).filter((s: string) => typeof s === "string" && s.trim() !== ""), [allAvailableCampagneStatuses]);
-
-  // Use server-side pagination data
-  const totalRows = count || 0;
-  const totalPages = serverTotalPages || 1;
-  const pagedContacts = uniqueContacts;
+  if (error) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-red-600">Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Failed to load contacts: {error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Contacten</h1>
-        <p className="text-gray-600 mt-2">Overzicht van alle contacten in de database</p>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Contactenoverzicht</h1>
+          <p className="text-gray-600">
+            {count} contacten gevonden
+            {selectedContacts.size > 0 && ` • ${selectedContacts.size} geselecteerd`}
+          </p>
+        </div>
+        
+        <div className="flex gap-2 items-center">
+          <Dialog open={isCampaignModalOpen} onOpenChange={setIsCampaignModalOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="default" 
+                disabled={selectedContacts.size === 0}
+                className={selectedContacts.size === 0 ? "opacity-50 cursor-not-allowed" : ""}
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Naar campagne {selectedContacts.size > 0 ? `(${selectedContacts.size})` : ""}
+              </Button>
+            </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Contacten toevoegen aan campagne</DialogTitle>
+                  <DialogDescription>
+                    Voeg {selectedContacts.size} geselecteerde contacten toe aan een Instantly campagne.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {/* Platform Recommendation */}
+                  {selectedContacts.size > 0 && (
+                    <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-full shadow-sm">
+                          <Sparkles className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-gray-700">Aanbevolen platform</span>
+                            <MapPin className="w-4 h-4 text-purple-400" />
+                          </div>
+                          {recommendationLoading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                              <span className="text-sm text-gray-500">Analyseren...</span>
+                            </div>
+                          ) : platformRecommendation ? (
+                            <>
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg font-bold text-purple-800">
+                                  {platformRecommendation.platform}
+                                </span>
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-sm font-medium ${
+                                    platformRecommendation.confidence >= 80 
+                                      ? 'bg-green-50 text-green-700 border-green-300' 
+                                      : platformRecommendation.confidence >= 50
+                                      ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
+                                      : 'bg-orange-50 text-orange-700 border-orange-300'
+                                  }`}
+                                >
+                                  {platformRecommendation.confidence}% match
+                                </Badge>
+                                {platformRecommendation.platformData?.distance_km && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {platformRecommendation.platformData.distance_km} km
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {platformRecommendation.contacts} van {selectedContacts.size} contacten passen bij dit platform
+                              </p>
+                              {platformRecommendation.platformData?.central_place && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Centrale locatie: {platformRecommendation.platformData.central_place}
+                                  {platformRecommendation.matchMethod === 'postcode_fallback' && ' (via postcode)'}
+                                  {platformRecommendation.matchMethod === 'geocoding' && ' (via GPS-locatie)'}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-500">Geen platform aanbeveling beschikbaar</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecteer campagne..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {campaigns.map((campaign) => {
+                        const status = CAMPAIGN_STATUS_MAP[campaign.status as keyof typeof CAMPAIGN_STATUS_MAP]
+                        return (
+                          <SelectItem key={campaign.id} value={campaign.id} className="py-3">
+                            <div className="flex flex-col items-start w-full">
+                              <span className="truncate w-full font-medium">{campaign.name}</span>
+                              {status && (
+                                <Badge className={`${status.color} text-xs mt-1`}>
+                                  {status.icon} {status.label}
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsCampaignModalOpen(false)}>
+                      Annuleren
+                    </Button>
+                    <Button onClick={handleAddToCampaign} disabled={isLoading}>
+                      {isLoading ? "Bezig..." : "Toevoegen"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+          <Dialog open={isQualificationModalOpen} onOpenChange={setIsQualificationModalOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                disabled={selectedContacts.size === 0}
+                className={selectedContacts.size === 0 ? "opacity-50 cursor-not-allowed" : ""}
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Status wijzigen
+              </Button>
+            </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Kwalificatiestatus wijzigen</DialogTitle>
+                  <DialogDescription>
+                    Wijzig de kwalificatiestatus van {selectedContacts.size} geselecteerde contacten.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Select value={selectedQualificationStatus} onValueChange={setSelectedQualificationStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecteer status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="qualified">Qualified</SelectItem>
+                      <SelectItem value="disqualified">Disqualified</SelectItem>
+                      <SelectItem value="review">Review</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsQualificationModalOpen(false)}>
+                      Annuleren
+                    </Button>
+                    <Button onClick={handleUpdateQualificationStatus} disabled={isLoading}>
+                      {isLoading ? "Bezig..." : "Wijzigen"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+        </div>
       </div>
-      {/* Statistieken cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Contacten zonder campagne</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {contactStats ? contactStats.contactsWithoutCampaign : (statsLoading ? '...' : '0')}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Contacten met campagne</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {contactStats ? contactStats.contactsWithCampaign : (statsLoading ? '...' : '0')}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      {/* Filters en bulk-actie gegroepeerd */}
-      <TableFilters
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Zoek contacten op naam, email of bedrijf..."
-        totalCount={totalRows}
-        resultText="contacten"
-        onResetFilters={() => {
-          setHoofddomeinFilter([])
-          setSizeFilter([]) 
-          setCampaignFilter(['all'])
-          setStatusFilter([])
-          setSourceFilter([])
-          setStatusCampagneFilter([])
-          setStatusBedrijfFilter([])
-          setStartFilter([])
-          setSearchQuery("")
-          setCurrentPage(1)
-        }}
-        filters={[
-          {
-            id: "hoofddomein",
-            label: "Regio",
-            value: hoofddomeinFilter,
-            onValueChange: handleHoofddomeinFilterChange,
-            options: [
-              { value: "none", label: "Geen regio" },
-              ...filteredHoofddomeinen.map(r => ({ value: r, label: r }))
-            ],
-            placeholder: "Filter op regio",
-            multiple: true
-          },
-          {
-            id: "size",
-            label: "Bedrijfsgrootte", 
-            value: sizeFilter,
-            onValueChange: handleSizeFilterChange,
-            options: [
-              ...filteredSizes.map(s => ({ value: s, label: s }))
-            ],
-            placeholder: "Filter op grootte",
-            multiple: true
-          },
-          {
-            id: "campaign",
-            label: "Campagne",
-            value: campaignFilter,
-            onValueChange: handleCampaignFilterChange,
-            options: [
-              { value: "all", label: "Alle contacten" },
-              { value: "without", label: "Zonder campagne" },
-              { value: "with", label: "Met campagne" }
-            ],
-            placeholder: "Filter op campagne",
-            multiple: true
-          },
-          {
-            id: "status",
-            label: "Status",
-            value: statusFilter,
-            onValueChange: handleStatusFilterChange,
-            options: [
-              { value: "Prospect", label: "Prospect" },
-              { value: "Qualified", label: "Qualified" },
-              { value: "Disqualified", label: "Disqualified" }
-            ],
-            placeholder: "Filter op status",
-            multiple: true
-          },
-          {
-            id: "source",
-            label: "Bron",
-            value: sourceFilter,
-            onValueChange: handleSourceFilterChange,
-            options: [
-              ...sources.map(source => ({ value: source.name, label: source.name }))
-            ],
-            placeholder: "Filter op bron",
-            multiple: true
-          },
-          {
-            id: "start",
-            label: "Start",
-            value: startFilter,
-            onValueChange: handleStartFilterChange,
-            options: [
-              { value: "Ja", label: "Ja" },
-              { value: "Nee", label: "Nee" },
-              { value: "On Hold", label: "On Hold" },
-              { value: "Onbekend", label: "Onbekend" }
-            ],
-            placeholder: "Filter op start",
-            multiple: true
-          },
-          {
-            id: "statusBedrijf",
-            label: "Status Bedrijf",
-            value: statusBedrijfFilter,
-            onValueChange: handleStatusBedrijfFilterChange,
-            options: [
-              ...filteredBedrijfStatuses.map(s => ({ value: s, label: s }))
-            ],
-            placeholder: "Filter op status PH campagne",
-            multiple: true
-          },
-          {
-            id: "statusCampagne",
-            label: "Status Campagne",
-            value: statusCampagneFilter,
-            onValueChange: handleStatusCampagneFilterChange,
-            options: [
-              ...filteredCampagneStatuses.map(s => ({ value: s, label: s }))
-            ],
-            placeholder: "Filter op PH status bedrijf",
-            multiple: true
-          }
-        ]}
-        bulkActions={
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className="font-medium">Geselecteerd:</span>
-              <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-                <Users className="w-3 h-3 mr-1" />
-                {selected.length} contacten
-              </Badge>
-              {selected.length > 0 && (
-                <span className="text-xs text-gray-500">
-                  ({pagedContacts.filter((c: Contact) => selected.includes(c.id)).length} op deze pagina)
+
+      {/* Active Filters Display */}
+      {activeFilterCount > 0 && (
+        <Card className="bg-orange-50 border-orange-200">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-orange-900">
+                  Actieve filters ({activeFilterCount}):
                 </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Selecteer campagne" />
-                </SelectTrigger>
-                <SelectContent>
-                  {instantlyCampaigns.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"
-                disabled={selected.length === 0 || !selectedCampaign || addingToCampaign}
-                onClick={handleAddToCampaign}
-                title={
-                  addingToCampaign 
-                    ? 'Bezig met toevoegen aan campagne...' 
-                    : selected.length === 0 
-                    ? 'Selecteer eerst contacten zonder campagne' 
-                    : !selectedCampaign 
-                    ? 'Selecteer een campagne' 
-                    : 'Voeg toe aan campagne'
-                }
-              >
-                {addingToCampaign ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Bezig...
-                  </>
-                ) : (
-                  'Voeg toe aan campagne'
+                {searchQuery && (
+                  <Badge variant="secondary" className="gap-1">
+                    Zoekterm: "{searchQuery}"
+                    <X 
+                      className="h-3 w-3 cursor-pointer ml-1" 
+                      onClick={() => setSearchQuery("")}
+                    />
+                  </Badge>
                 )}
+                {inCampaignFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    Campagne: {inCampaignFilter === "with" ? "Met" : "Zonder"}
+                    <X 
+                      className="h-3 w-3 cursor-pointer ml-1" 
+                      onClick={() => setInCampaignFilter("all")}
+                    />
+                  </Badge>
+                )}
+                {hasEmailFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    Email: {hasEmailFilter === "with" ? "Met" : "Zonder"}
+                    <X 
+                      className="h-3 w-3 cursor-pointer ml-1" 
+                      onClick={() => setHasEmailFilter("all")}
+                    />
+                  </Badge>
+                )}
+                {companyStatusFilter.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    Company Status: {companyStatusFilter.length} geselecteerd
+                    <X 
+                      className="h-3 w-3 cursor-pointer ml-1" 
+                      onClick={() => setCompanyStatusFilter([])}
+                    />
+                  </Badge>
+                )}
+                {companyStartFilter.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    Company Start: {companyStartFilter.length} geselecteerd
+                    <X 
+                      className="h-3 w-3 cursor-pointer ml-1" 
+                      onClick={() => setCompanyStartFilter([])}
+                    />
+                  </Badge>
+                )}
+                {companySizeFilter.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    Bedrijfsgrootte: {companySizeFilter.length} geselecteerd
+                    <X 
+                      className="h-3 w-3 cursor-pointer ml-1" 
+                      onClick={() => setCompanySizeFilter([])}
+                    />
+                  </Badge>
+                )}
+                {categoryStatusFilter.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    Kwalificatiestatus: {categoryStatusFilter.length} geselecteerd
+                    <X 
+                      className="h-3 w-3 cursor-pointer ml-1" 
+                      onClick={() => setCategoryStatusFilter([])}
+                    />
+                  </Badge>
+                )}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={resetAllFilters}
+                className="text-orange-700 hover:text-orange-900"
+              >
+                Alles wissen
               </Button>
             </div>
-            <div className="flex items-center gap-2">
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Status wijzigen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Prospect">Prospect</SelectItem>
-                  <SelectItem value="Qualified">Qualified</SelectItem>
-                  <SelectItem value="Disqualified">Disqualified</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold"
-                disabled={selected.length === 0 || !selectedStatus || updatingStatus}
-                onClick={handleBulkStatusUpdate}
-                title={
-                  updatingStatus 
-                    ? 'Bezig met bijwerken van status...' 
-                    : selected.length === 0 
-                    ? 'Selecteer eerst contacten' 
-                    : !selectedStatus 
-                    ? 'Selecteer een status' 
-                    : 'Wijzig status'
-                }
-              >
-                {updatingStatus ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Bezig...
-                  </>
-                ) : (
-                  'Wijzig Status'
-                )}
-              </Button>
-            </div>
-          </div>
-        }
-      />
-      <Card className="border rounded-lg">
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Search and Filters */}
+      <Card>
         <CardHeader>
-          <CardTitle>Contactenoverzicht</CardTitle>
-          <CardDescription>Alle contacten in de database</CardDescription>
+          <CardTitle className="text-lg">Zoeken en Filteren</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={getPageAvailableContacts().length > 0 && getPageAvailableContacts()
-                          .every((c: Contact) => selected.includes(c.id))}
-                        onChange={selectPage}
-                        aria-label="Selecteer pagina"
-                        className="cursor-pointer"
-                      />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="ml-1 h-4 w-4 p-0 hover:bg-gray-100"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                          >
-                            <ChevronDown className="h-3 w-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="p-2">
-                          <div className="space-y-2">
-                            <div className="text-sm font-medium">Selectie opties:</div>
-                            <div className="space-y-1">
-                              <button
-                                onClick={selectPage}
-                                className="block w-full text-left text-xs px-2 py-1 rounded hover:bg-gray-100"
-                              >
-                                Selecteer pagina ({getPageAvailableContacts().length} contacten)
-                              </button>
-                              <button
-                                onClick={selectAll}
-                                className="block w-full text-left text-xs px-2 py-1 rounded hover:bg-gray-100"
-                              >
-                                Selecteer alles ({getAvailableContacts().length} contacten)
-                              </button>
-                            </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-24">Hoofddomein</TableHead>
-                  <TableHead className="w-32">Naam</TableHead>
-                  <TableHead className="w-28">Functie</TableHead>
-                  <TableHead className="w-40">Email</TableHead>
-                  <TableHead className="w-24">Email Status</TableHead>
-                  <TableHead className="w-36">Bedrijf</TableHead>
-                  <TableHead className="w-20">Verrijkt</TableHead>
-                  <TableHead className="w-20">Grootte</TableHead>
-                  <TableHead className="w-32">Campagne</TableHead>
-                  <TableHead className="w-24">Laatste contact</TableHead>
-                  <TableHead className="w-24">Status</TableHead>
-                  <TableHead className="w-20">Bron</TableHead>
-                  <TableHead className="w-28">Status campagne</TableHead>
-                  <TableHead className="w-20">Start</TableHead>
-                  <TableHead className="w-24">Status Bedrijf PH</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                            {loading ? (
-              <TableRow>
-                <TableCell colSpan={17} className="text-center py-8 text-gray-500">
-                  <div className="space-y-2">
-                    {Array.from({ length: 6 }).map((_, idx) => (
-                      <div key={idx} className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
-                    ))}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : pagedContacts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={17} className="text-center py-8 text-gray-500">
-                  Geen contacten gevonden.
-                </TableCell>
-              </TableRow>
-                ) : (
-                  pagedContacts.map((c: Contact, index: number) => (
-                    <TableRow key={`${c.id}-${index}`} className={selected.includes(c.id) ? "bg-orange-50" : undefined}>
-                      <TableCell>
-                        {Boolean(c.campaign_name && c.campaign_name.trim() !== '' && c.campaign_name !== null) ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span>
-                                <input
-                                  type="checkbox"
-                                  checked={selected.includes(c.id)}
-                                  onChange={() => toggleSelect(c.id)}
-                                  disabled
-                                  aria-label={`Selecteer contact ${c.first_name || c.name || c.email || c.id}`}
-                                  style={{ cursor: "not-allowed" }}
-                                />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">
-                              Al toegevoegd aan campagne
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <input
-                            type="checkbox"
-                            checked={selected.includes(c.id)}
-                            onChange={() => toggleSelect(c.id)}
-                            aria-label={`Selecteer contact ${c.first_name || c.name || c.email || c.id}`}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell>{c.company_region || '-'}</TableCell>
-                      <TableCell>{c.first_name || c.name || '-'}</TableCell>
-                      <TableCell>{c.title || '-'}</TableCell>
-                      <TableCell>
-                        {c.email ? (
-                          c.email
-                        ) : (
-                          <span className="text-red-500 text-sm italic">Geen email</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {getEmailStatusBadge(c.email_status)}
-                      </TableCell>
-                      <TableCell>{c.company_name || '-'}</TableCell>
-                      <TableCell>
-                        {getEnrichmentStatusBadge(c.enrichment_status)}
-                      </TableCell>
-                      <TableCell>
-                        {c.category_size ? (
-                          <Badge 
-                            variant="outline" 
-                            className={
-                              c.category_size === "Groot"
-                                ? "text-amber-800 bg-amber-100 border-amber-200 text-xs"
-                                : c.category_size === "Middel"
-                                ? "text-blue-800 bg-blue-100 border-blue-200 text-xs"
-                                : c.category_size === "Klein"
-                                ? "text-yellow-800 bg-yellow-100 border-yellow-200 text-xs"
-                                : "text-xs"
-                            }
-                          >
-                            {c.category_size}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-gray-400">
-                            Onbekend
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{c.campaign_name || '-'}</TableCell>
-                      <TableCell>
-                        {c.last_touch ? 
-                          new Date(c.last_touch).toLocaleDateString("nl-NL") : 
-                          (c.found_at ? new Date(c.found_at).toLocaleDateString("nl-NL") : '-')
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(c.company_status, true)}
-                      </TableCell>
-                      <TableCell>{c.source_name || c.source || '-'}</TableCell>
-                      <TableCell>
-                        {getStatusBadge(c.company_status_field, true)}
-                      </TableCell>
-                      <TableCell>{c.start || '-'}</TableCell>
-                      <TableCell>
-                        {getStatusBadge(c.klant_status, true)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            {/* Search */}
+            <div className="lg:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Zoek op voornaam, achternaam, bedrijf of email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* In Campaign Filter */}
+            <Select value={inCampaignFilter} onValueChange={setInCampaignFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="In campagne" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Campagne</SelectItem>
+                <SelectItem value="with">Met campagne</SelectItem>
+                <SelectItem value="without">Zonder campagne</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Has Email Filter */}
+            <Select value={hasEmailFilter} onValueChange={setHasEmailFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Email status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Email</SelectItem>
+                <SelectItem value="with">Met email</SelectItem>
+                <SelectItem value="without">Zonder email</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Company Status Filter */}
+            <MultiSelect
+              options={[
+                { value: "Benaderen", label: "Benaderen" },
+                { value: "Prospect", label: "Prospect" },
+                { value: "Disqualified", label: "Disqualified" },
+                { value: "Niet meer benaderen", label: "Niet meer benaderen" },
+                { value: "null", label: "Leeg" }
+              ]}
+              selected={companyStatusFilter}
+              onChange={setCompanyStatusFilter}
+              placeholder="Company Status"
+            />
+
+            {/* Company Start Filter */}
+            <MultiSelect
+              options={[
+                { value: "true", label: "Ja" },
+                { value: "false", label: "Nee" },
+                { value: "hold", label: "Hold" },
+                { value: "null", label: "Leeg" }
+              ]}
+              selected={companyStartFilter}
+              onChange={setCompanyStartFilter}
+              placeholder="Company Start"
+            />
+
+            {/* Company Size (Bedrijfsgrootte) Filter */}
+            <MultiSelect
+              options={[
+                { value: "Klein", label: "Klein" },
+                { value: "Middel", label: "Middel" },
+                { value: "Groot", label: "Groot" },
+                { value: "null", label: "Leeg" }
+              ]}
+              selected={companySizeFilter}
+              onChange={setCompanySizeFilter}
+              placeholder="Bedrijfsgrootte"
+            />
+
+            {/* Category Status Filter */}
+            <MultiSelect
+              options={[
+                { value: "pending", label: "Pending" },
+                { value: "qualified", label: "Qualified" },
+                { value: "disqualified", label: "Disqualified" },
+                { value: "review", label: "Review" },
+                { value: "in_campaign", label: "In Campaign" }
+              ]}
+              selected={categoryStatusFilter}
+              onChange={setCategoryStatusFilter}
+              placeholder="Kwalificatiestatus"
+            />
+
+            {/* Reset Filters Button */}
+            <Button 
+              variant="outline" 
+              onClick={resetAllFilters}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset Filters
+            </Button>
           </div>
-          {/* Pagination Controls */}
-          <TablePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalCount={totalRows}
-            itemsPerPage={itemsPerPage}
-            onPageChange={(newPage: number) => {
-              setCurrentPage(newPage)
-            }}
-            onItemsPerPageChange={(newItemsPerPage: number) => {
-              setItemsPerPage(newItemsPerPage)
-              setCurrentPage(1)
-            }}
-            className="mt-4"
-          />
+        </CardContent>
+      </Card>
+
+      {/* Contacts Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Contacten</CardTitle>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Rijen per pagina:</span>
+                <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                  setItemsPerPage(value === 'all' ? count || 1000 : parseInt(value))
+                  setCurrentPage(1)
+                }}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="500">500</SelectItem>
+                    <SelectItem value="all">Alle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <span className="text-sm text-gray-600">
+                Pagina {currentPage} van {totalPages}
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">
+              <p>Laden...</p>
+            </div>
+          ) : (
+            <>
+              {/* Selection Toolbar - only shown when contacts are selected */}
+              {selectedContacts.size > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-blue-600" />
+                      <span className="font-medium text-blue-900">
+                        {selectedContacts.size} contact{selectedContacts.size === 1 ? '' : 'en'} geselecteerd
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedContacts(new Set())}
+                      className="bg-white hover:bg-gray-50 border-blue-300 text-blue-700 hover:text-blue-800"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Deselecteer alle
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedContacts.size === contacts.length && contacts.length > 0}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all contacts"
+                        />
+                      </TableHead>
+                      <TableHead>Naam</TableHead>
+                      <TableHead>Kwalificatiestatus</TableHead>
+                      <TableHead className="max-w-[150px]">Functie</TableHead>
+                      <TableHead className="w-[180px]">Email</TableHead>
+                      <TableHead>Email Status</TableHead>
+                      <TableHead>Bedrijf</TableHead>
+                      <TableHead>Bedrijfsgrootte</TableHead>
+                      <TableHead>Company Status</TableHead>
+                      <TableHead>Company Start</TableHead>
+                      <TableHead>LinkedIn</TableHead>
+                      <TableHead>Campagne</TableHead>
+                      <TableHead>Aangemaakt</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contacts.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={12} className="text-center py-8">
+                          Geen contacten gevonden
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      contacts.map((contact, index) => (
+                        <TableRow key={index} className={`h-12 ${selectedContacts.has(index) ? 'bg-blue-50' : ''}`}>
+                          <TableCell className="py-2">
+                            <Checkbox
+                              checked={selectedContacts.has(index)}
+                              onCheckedChange={() => handleSelectContact(index)}
+                              aria-label={`Select contact ${contact.first_name} ${contact.last_name}`}
+                            />
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {contact.first_name || contact.last_name 
+                              ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
+                              : '-'
+                            }
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {getQualificationStatusBadge(contact.qualification_status)}
+                          </TableCell>
+                          <TableCell className="py-2 max-w-[150px]">
+                            <div className="truncate" title={contact.title || '-'}>
+                              {contact.title || '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2 w-[180px]">
+                            <div className="truncate" title={contact.email || '-'}>
+                              {contact.email || '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {getEmailStatusBadge(contact.email_status)}
+                          </TableCell>
+                          <TableCell className="py-2">{contact.companies_name || '-'}</TableCell>
+                          <TableCell className="py-2">
+                            {getCompanySizeBadge(contact.companies_size)}
+                          </TableCell>
+                          <TableCell className="py-2">{contact.companies_status || '-'}</TableCell>
+                          <TableCell className="py-2">
+                            {contact.companies_start || '-'}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {contact.linkedin_url ? (
+                              <a 
+                                href={contact.linkedin_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                LinkedIn
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2">{contact.campaign_name || '-'}</TableCell>
+                          <TableCell className="py-2">
+                            {contact.created_at 
+                              ? new Date(contact.created_at).toLocaleDateString('nl-NL')
+                              : '-'
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center mt-4">
+                  <div className="text-sm text-gray-600">
+                    Toont {((currentPage - 1) * itemsPerPage) + 1} tot {Math.min(currentPage * itemsPerPage, count)} van {count} contacten
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Vorige
+                    </Button>
+                    <span className="text-sm">
+                      Pagina {currentPage} van {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Volgende
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
   )
-} 
+}
