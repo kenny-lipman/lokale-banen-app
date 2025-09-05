@@ -1,24 +1,107 @@
-import { NextResponse } from "next/server"
-import { supabaseService } from "@/lib/supabase-service"
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/supabase'
+import { supabaseService } from '@/lib/supabase-service'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    // Get the current user from the request
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Missing or invalid authorization header' },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.substring(7)
+    
+    // Create an authenticated client using the user's token
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
+
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    })
+
+    // Verify the user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid token' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const stats = searchParams.get('stats')
     
     if (stats === 'true') {
-      // Return platform statistics
-      const platformStats = await supabaseService.getPlatformStats()
-      return NextResponse.json({ success: true, data: platformStats })
+      // Return platform statistics with correct structure
+      const { data: platforms, error } = await supabase
+        .from('platforms')
+        .select('is_active')
+
+      if (error) {
+        throw error
+      }
+
+      const total = platforms?.length || 0
+      const active = platforms?.filter(p => p.is_active).length || 0
+      const inactive = total - active
+
+      return NextResponse.json({ 
+        success: true, 
+        data: {
+          total,
+          active,
+          inactive
+        }
+      })
     } else {
-      // Return platform list
-      const platforms = await supabaseService.getPlatforms()
-      return NextResponse.json({ success: true, data: platforms })
+      // Return all platforms with automation and active status
+      const { data: platforms, error } = await supabase
+        .from('platforms')
+        .select('id, regio_platform, central_place, central_postcode, automation_enabled, is_active')
+        .order('regio_platform', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching platforms:', error)
+        throw error
+      }
+
+      const platformsData = platforms || []
+      const enabledCount = platformsData.filter(p => p.automation_enabled).length
+
+      // Debug logging
+      console.log(`[DEBUG] Platforms API: ${enabledCount} of ${platformsData.length} platforms enabled`)
+
+      return NextResponse.json({
+        platforms: platformsData,
+        totalCount: platformsData.length,
+        enabledCount: enabledCount
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate' // Disable cache during debugging
+        }
+      })
     }
   } catch (error) {
     console.error("Error fetching platforms:", error)
     return NextResponse.json(
-      { success: false, error: "Failed to fetch platforms" },
+      { error: "Failed to fetch platforms" },
       { status: 500 }
     )
   }

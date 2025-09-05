@@ -90,17 +90,7 @@ const processDailyScrapeTriggers = async (platforms: DailyScrapePlatform[]): Pro
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is a legitimate CRON request
-    const cronSecret = request.nextUrl.searchParams.get('secret')
-    const expectedSecret = process.env.CRON_SECRET
-
-    if (!expectedSecret || cronSecret !== expectedSecret) {
-      console.error('❌ Invalid CRON secret provided')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    // No authentication required for cron job
 
     const supabase = createServiceRoleClient()
     const startTime = Date.now()

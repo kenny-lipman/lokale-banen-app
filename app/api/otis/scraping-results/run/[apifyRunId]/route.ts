@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase'
 
 export async function GET(
   req: NextRequest,
@@ -15,7 +15,7 @@ export async function GET(
   }
 
   try {
-    const supabase = createClient()
+    const supabase = createServiceRoleClient()
     console.log(`Fetching complete data for apify_run_id: ${apifyRunId}`)
 
     // Get all job postings for this apify run with complete company data
@@ -82,8 +82,11 @@ export async function GET(
     const jobCounts = new Map()
     const jobDetails = new Map()
     
-    // Get contact counts for all companies
-    const companyIds = jobPostings?.map(job => job.companies?.id).filter(Boolean) || []
+    // Get contact counts for all companies - limit to prevent fetch errors
+    const allCompanyIds = jobPostings?.map(job => job.companies?.id).filter(Boolean) || []
+    const companyIds = allCompanyIds.slice(0, 100) // Limit to 100 companies to prevent fetch errors
+    console.log(`Getting contact counts for ${companyIds.length} companies (limited from ${allCompanyIds.length})`)
+    
     const { data: contactCounts, error: contactError } = await supabase
       .from('contacts')
       .select('company_id')

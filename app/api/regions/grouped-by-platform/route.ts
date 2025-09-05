@@ -10,6 +10,7 @@ interface GroupedRegionsResponse {
       central_postcode?: string;
     };
     automation_enabled: boolean;
+    is_active: boolean;
     regions: {
       id: string;
       plaats: string;
@@ -60,14 +61,29 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Query to get regions grouped by platform with central places
+    // Fetch platforms data first - this should be our authoritative list of platforms
+    // Now including automation_enabled and is_active from platforms table
+    const { data: centralPlaces, error: centralPlacesError } = await supabase
+      .from('platforms')
+      .select('regio_platform, central_place, central_postcode, automation_enabled, is_active')
+
+    if (centralPlacesError) {
+      console.error('Error fetching central places:', centralPlacesError)
+      return NextResponse.json(
+        { error: 'Failed to fetch central places' },
+        { status: 500 }
+      )
+    }
+
+    // Query to get cities grouped by platform
     const { data: regions, error } = await supabase
-      .from('regions')
+      .from('cities')
       .select(`
         id,
         plaats,
         postcode,
-        regio_platform
+        regio_platform,
+        platform_id
       `)
       .not('regio_platform', 'is', null)
       .order('regio_platform', { ascending: true })
@@ -81,53 +97,41 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch central places data using the authenticated client
-    const { data: centralPlaces, error: centralPlacesError } = await supabase
-      .from('regio_platform_central_places')
-      .select('regio_platform, central_place, central_postcode')
-      .eq('is_active', true)
-
-    if (centralPlacesError) {
-      console.error('Error fetching central places:', centralPlacesError)
-      // Continue without central places data rather than failing completely
-    }
-
-    // Fetch user's platform automation preferences
-    const { data: platformPreferences, error: preferencesError } = await supabase
-      .from('user_platform_automation_preferences')
-      .select('regio_platform, automation_enabled')
-      .eq('user_id', user.id)
-
-    if (preferencesError) {
-      console.error('Error fetching platform preferences:', preferencesError)
-      // Continue without preferences data rather than failing completely
-    }
-
     // Create lookup maps
-    const centralPlacesMap = new Map<string, { central_place: string; central_postcode?: string }>()
+    const centralPlacesMap = new Map<string, { 
+      central_place: string; 
+      central_postcode?: string;
+      automation_enabled: boolean;
+      is_active: boolean;
+    }>()
+    
     centralPlaces?.forEach(cp => {
       centralPlacesMap.set(cp.regio_platform, {
         central_place: cp.central_place,
-        central_postcode: cp.central_postcode
+        central_postcode: cp.central_postcode,
+        automation_enabled: cp.automation_enabled ?? false,
+        is_active: cp.is_active ?? false
       })
     })
 
-    const preferencesMap = new Map<string, boolean>()
-    platformPreferences?.forEach(pref => {
-      preferencesMap.set(pref.regio_platform, pref.automation_enabled)
-    })
-
-    // Group regions by platform
+    // First, create platform groups for ALL platforms (including those without cities)
     const platformGroups = new Map<string, Array<{
       id: string;
       plaats: string;
       postcode: string;
     }>>()
+
+    // Initialize with ALL active platforms from central places
+    centralPlaces?.forEach(cp => {
+      platformGroups.set(cp.regio_platform, [])
+    })
     
+    // Then add regions to their respective platforms
     regions?.forEach(region => {
       const platform = region.regio_platform || 'Unknown'
       
       if (!platformGroups.has(platform)) {
+        // This platform exists in cities but not in platforms table - add it anyway
         platformGroups.set(platform, [])
       }
       
@@ -138,19 +142,35 @@ export async function GET(request: NextRequest) {
       })
     })
 
-    // Convert to response format
+    // Convert to response format - sort by platform name
     const response: GroupedRegionsResponse = {
-      platforms: Array.from(platformGroups.entries()).map(([platform, regions]) => ({
-        platform,
-        centralPlace: centralPlacesMap.get(platform),
-        automation_enabled: preferencesMap.get(platform) ?? false,
-        regions
-      }))
+      platforms: Array.from(platformGroups.entries())
+        .sort(([a], [b]) => a.localeCompare(b, 'nl'))
+        .map(([platform, regions]) => {
+          const platformData = centralPlacesMap.get(platform)
+          return {
+            platform,
+            centralPlace: platformData ? {
+              central_place: platformData.central_place,
+              central_postcode: platformData.central_postcode
+            } : undefined,
+            automation_enabled: platformData?.automation_enabled ?? false,
+            is_active: platformData?.is_active ?? false,
+            regions
+          }
+        })
     }
+
+    // Add debug logging
+    const totalPlatforms = response.platforms.length
+    const enabledPlatforms = response.platforms.filter(p => p.automation_enabled).length
+    console.log(`[DEBUG] Grouped platforms API: ${enabledPlatforms} of ${totalPlatforms} platforms enabled`)
+    console.log(`[DEBUG] Total platforms from DB: ${centralPlaces?.length || 0}`)
+    console.log(`[DEBUG] Enabled platforms from DB: ${centralPlaces?.filter(cp => cp.automation_enabled).length || 0}`)
 
     return NextResponse.json(response, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' // 5 minutes cache
+        'Cache-Control': 'no-cache, no-store, must-revalidate' // Disable cache during debugging
       }
     })
 

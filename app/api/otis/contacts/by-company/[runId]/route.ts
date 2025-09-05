@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase'
 import { cacheService } from '@/lib/cache-service'
 
 export async function GET(
@@ -10,7 +10,7 @@ export async function GET(
   const { searchParams } = new URL(req.url)
   
   // Enhanced query parameters for filtering and pagination
-  const qualificationFilter = searchParams.get('qualification') // 'all', 'qualified', 'disqualified', 'review', 'pending'
+  const qualificationFilter = searchParams.get('qualification') // 'all', 'qualified', 'disqualified', 'review', 'pending', 'in_campaign'
   const verificationFilter = searchParams.get('verification') // 'all', 'verified', 'pending', 'failed'
   const contactTypeFilter = searchParams.get('contactType') // 'all', 'key', 'standard'
   const campaignStatusFilter = searchParams.get('campaignStatus') // 'all', 'in_campaign', 'not_in_campaign'
@@ -37,7 +37,7 @@ export async function GET(
   }
 
   try {
-    const supabase = createClient()
+    const supabase = createServiceRoleClient()
     console.log(`Fetching contacts by company for apify_run_id: ${runId} with limit: ${limit}, offset: ${offset}`)
 
     // Check cache for frequently accessed data (cache for 2 minutes)
@@ -58,7 +58,8 @@ export async function GET(
       console.log('Bypassing cache for fresh data')
     }
 
-    // First, get all companies from this run with their qualifications and region info
+    // First, get all companies from this run with their qualifications
+    // Note: removed regions relationship as it no longer exists in the schema
     const { data: runCompanies, error: companiesError } = await supabase
       .from('job_postings')
       .select(`
@@ -76,11 +77,8 @@ export async function GET(
           apollo_enriched_at,
           created_at
         ),
-        regions(
-          id,
-          plaats,
-          regio_platform
-        )
+        platform_id,
+        location
       `)
       .eq('apify_run_id', runId)
       .not('companies.id', 'is', null)
@@ -106,8 +104,8 @@ export async function GET(
         if (!companiesMap.has(companyId)) {
           companiesMap.set(companyId, {
             ...item.companies,
-            region_plaats: item.regions?.plaats || null,
-            region_platform: item.regions?.regio_platform || null
+            job_location: item.location || null,
+            platform_id: item.platform_id || null
           })
         }
       }
@@ -154,6 +152,10 @@ export async function GET(
       return NextResponse.json(emptyResponse)
     }
 
+    // Limit company IDs to prevent fetch errors  
+    const limitedCompanyIds = companyIds.slice(0, 100)
+    console.log(`Building contacts query with ${limitedCompanyIds.length} company IDs (limited from ${companyIds.length})`)
+    
     // Build optimized contacts query with better performance
     let contactsQuery = supabase
       .from('contacts')
@@ -177,7 +179,7 @@ export async function GET(
         is_key_contact,
         contact_priority
       `)
-      .in('company_id', companyIds)
+      .in('company_id', limitedCompanyIds)
       .order('created_at', { ascending: false })
       .order('name', { ascending: true })
 
@@ -219,6 +221,9 @@ export async function GET(
         case 'pending':
           contactsQuery = contactsQuery.in('qualification_status', ['pending', null])
           break
+        case 'in_campaign':
+          contactsQuery = contactsQuery.eq('qualification_status', 'in_campaign')
+          break
       }
     }
 
@@ -239,11 +244,15 @@ export async function GET(
       contactsQuery = contactsQuery.eq('campaign_id', campaignIdFilter)
     }
 
-    // Get total count for pagination (without limit/offset)
+    // Test if too many company IDs is the issue - use same limited set
+    console.log('Starting simplified count query for companyIds:', companyIds.length)
+    console.log('First few company IDs:', companyIds.slice(0, 5))
+    console.log('Testing with limited companyIds:', limitedCompanyIds.length)
+    
     const { count: totalCount, error: countError } = await supabase
       .from('contacts')
       .select('*', { count: 'exact', head: true })
-      .in('company_id', companyIds)
+      .in('company_id', limitedCompanyIds)
 
     if (countError) {
       console.error('Error getting total count:', countError)
@@ -348,6 +357,7 @@ export async function GET(
     const reviewContacts = allContacts.filter(c => c.qualificationStatus === 'review').length
     const pendingContacts = allContacts.filter(c => c.qualificationStatus === 'pending').length
     const disqualifiedContacts = allContacts.filter(c => c.qualificationStatus === 'disqualified').length
+    const inCampaignContacts = allContacts.filter(c => c.qualificationStatus === 'in_campaign').length
 
     // Calculate campaign statistics
     const contactsInCampaigns = allContacts.filter(c => c.campaign_id).length
@@ -414,7 +424,8 @@ export async function GET(
           qualified: qualifiedContacts,
           review: reviewContacts,
           pending: pendingContacts,
-          disqualified: disqualifiedContacts
+          disqualified: disqualifiedContacts,
+          in_campaign: inCampaignContacts
         },
         campaign_statistics: {
           total_contacts_in_campaigns: contactsInCampaigns,

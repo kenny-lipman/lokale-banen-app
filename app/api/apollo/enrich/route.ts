@@ -45,11 +45,11 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient()
 
-    // Verify all companies exist in database
+    // Verify all companies exist in database and check qualification status
     const companyIds = companies.map(c => c.id)
     const { data: existingCompanies, error: companyCheckError } = await supabase
       .from('companies')
-      .select('id')
+      .select('id, qualification_status')
       .in('id', companyIds)
 
     if (companyCheckError) {
@@ -63,6 +63,22 @@ export async function POST(req: NextRequest) {
     if (existingCompanies.length !== companies.length) {
       return NextResponse.json(
         { error: "Some companies not found in database" },
+        { status: 400 }
+      )
+    }
+
+    // Validate that all companies are qualified for Apollo enrichment
+    const nonQualifiedCompanies = existingCompanies.filter(c => c.qualification_status !== 'qualified')
+    if (nonQualifiedCompanies.length > 0) {
+      console.warn('Apollo enrichment attempted on non-qualified companies:', nonQualifiedCompanies.map(c => c.id))
+      return NextResponse.json(
+        { 
+          error: `Apollo enrichment is only allowed for qualified companies. Found ${nonQualifiedCompanies.length} non-qualified companies.`,
+          details: {
+            nonQualifiedCompanyIds: nonQualifiedCompanies.map(c => c.id),
+            restriction: "Only companies with qualification_status='qualified' can be enriched with Apollo"
+          }
+        },
         { status: 400 }
       )
     }
@@ -181,6 +197,15 @@ export async function POST(req: NextRequest) {
             })
             .eq('batch_id', batchData.id)
             .eq('company_id', company.id)
+
+          // Update company qualification status to 'enriched'
+          await supabase
+            .from('companies')
+            .update({ 
+              qualification_status: 'enriched',
+              apollo_enriched_at: new Date().toISOString()
+            })
+            .eq('id', company.id)
 
           return {
             companyId: company.id,

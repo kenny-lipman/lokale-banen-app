@@ -76,7 +76,30 @@ async function handleCreateSession(data: any, supabase: any) {
 async function handleStartScraping(data: any, supabase: any) {
   const { location, jobTitle, platform, selectedRegioPlatforms, webhookUrl } = data
   
-  if (!location) {
+  let finalLocation = location
+  
+  // If location is not provided but we have selectedRegioPlatforms, try to resolve location from central places
+  if (!finalLocation && selectedRegioPlatforms && selectedRegioPlatforms.length > 0) {
+    try {
+      // Query central places for the selected regio platforms
+      const { data: centralPlaces, error: centralPlacesError } = await supabase
+        .from('regio_platform_central_places')
+        .select('regio_platform, central_place')
+        .in('regio_platform', selectedRegioPlatforms)
+        .eq('is_active', true)
+        .limit(1)
+        .single()
+      
+      if (!centralPlacesError && centralPlaces) {
+        finalLocation = centralPlaces.central_place
+        console.log(`Resolved location from central places: ${selectedRegioPlatforms[0]} -> ${finalLocation}`)
+      }
+    } catch (error) {
+      console.log('Could not resolve location from central places:', error)
+    }
+  }
+  
+  if (!finalLocation) {
     throw new Error('Location is required')
   }
   
@@ -84,7 +107,7 @@ async function handleStartScraping(data: any, supabase: any) {
     // Create a simple job ID for tracking
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
-    console.log('Starting scraping job:', jobId, 'for:', jobTitle, 'in:', location)
+    console.log('Starting scraping job:', jobId, 'for:', jobTitle, 'in:', finalLocation)
 
     // Use the webhook URL from the database or fallback to default
     const finalWebhookUrl = webhookUrl || "https://ba.grive-dev.com/webhook/ddb2acdd-5cb7-4a4a-b0e7-30bc4abc7015"
@@ -94,8 +117,8 @@ async function handleStartScraping(data: any, supabase: any) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        locatie: location,
-        plaats: location,
+        locatie: selectedRegioPlatforms && selectedRegioPlatforms.length > 0 ? selectedRegioPlatforms[0] : finalLocation,
+        plaats: finalLocation,
         functie: jobTitle || '', // Make job title optional
         platform: platform,
         session_id: jobId, // Use jobId as session_id for tracking

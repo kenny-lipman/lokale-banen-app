@@ -24,11 +24,19 @@ export async function POST(request: NextRequest) {
     }
     
     // Validate qualification status
-    const validStatuses = ['pending', 'qualified', 'disqualified', 'review']
+    const validStatuses = ['pending', 'qualified', 'disqualified', 'review', 'in_campaign']
     if (!validStatuses.includes(qualification_status)) {
       return NextResponse.json({
         success: false,
         error: `Invalid qualification status. Must be one of: ${validStatuses.join(', ')}`
+      }, { status: 400 })
+    }
+
+    // Prevent manual setting to 'in_campaign' status - this should only be set automatically via triggers
+    if (qualification_status === 'in_campaign') {
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot manually set status to "in_campaign". This status is automatically managed when contacts are added to campaigns.'
       }, { status: 400 })
     }
     

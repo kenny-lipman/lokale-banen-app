@@ -1,16 +1,44 @@
 import { NextResponse } from "next/server"
 import { supabaseService } from "@/lib/supabase-service"
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    console.log("API: Starting to fetch contacts...")
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '15')
+    const search = searchParams.get('search') || ''
+    const inCampaign = searchParams.get('inCampaign') || ''
+    const hasEmail = searchParams.get('hasEmail') || ''
+    const companyStatus = searchParams.get('companyStatus') || ''
+    const companyStart = searchParams.get('companyStart') || ''
+    const companySize = searchParams.get('companySize') || ''
+    const categoryStatus = searchParams.get('categoryStatus') || ''
+    const status = searchParams.get('status') || ''
+
+    console.log("API: Starting to fetch contacts with filters:", { 
+      page, limit, search, inCampaign, hasEmail, companyStatus, companyStart, companySize, categoryStatus, status 
+    })
     
-    // Eerst een count query om te zien hoeveel contacten er zijn
-    const { count } = await supabaseService.client.from("contacts").select("*", { count: 'exact', head: true })
-    console.log("API: Total contacts in database:", count)
+    const filters = {
+      search: search || undefined,
+      inCampaign: inCampaign || undefined,
+      hasEmail: hasEmail || undefined,
+      companyStatus: companyStatus || undefined,
+      companyStart: companyStart || undefined,
+      companySize: companySize || undefined,
+      categoryStatus: categoryStatus || undefined,
+      status: status || undefined
+    }
+
+    // Remove empty filters
+    Object.keys(filters).forEach(key => {
+      if (!filters[key as keyof typeof filters]) {
+        delete filters[key as keyof typeof filters]
+      }
+    })
     
-    const data = await supabaseService.getContacts()
-    console.log("API: Successfully fetched contacts:", data?.length || 0, "contacts")
+    const data = await supabaseService.getContactsWithFilters(page, limit, filters)
+    console.log("API: Successfully fetched contacts:", data?.data?.length || 0, "contacts")
     return NextResponse.json(data)
   } catch (e) {
     console.error("API: Error fetching contacts:", e)
@@ -86,11 +114,78 @@ export async function POST(req: Request) {
       const uniqueContactIds = [...new Set(contactIds)]
       console.log(`Original contactIds: ${contactIds.length}, after deduplication: ${uniqueContactIds.length}`)
       
-      // Get all contacts from Supabase
-      const contacts = await supabaseService.getContacts()
-      const selectedContacts = contacts.filter(c => uniqueContactIds.includes(c.id))
+      // Get all contacts from Supabase with company details
+      const { data: selectedContacts, error: contactsError } = await supabaseService.client
+        .from('contacts')
+        .select(`
+          id,
+          name,
+          first_name,
+          last_name,
+          email,
+          title,
+          phone,
+          linkedin_url,
+          company_id,
+          campaign_id,
+          campaign_name,
+          companies(
+            id,
+            name,
+            website,
+            category_size
+          )
+        `)
+        .in('id', uniqueContactIds)
+      
+      if (contactsError) {
+        console.error('Error fetching contacts:', contactsError)
+        return NextResponse.json(
+          { error: 'Failed to fetch contacts from database' },
+          { status: 500 }
+        )
+      }
+      
+      if (!selectedContacts || selectedContacts.length === 0) {
+        return NextResponse.json(
+          { error: 'No contacts found with provided IDs' },
+          { status: 404 }
+        )
+      }
       
       console.log(`Found contacts: ${selectedContacts.length} of ${uniqueContactIds.length} requested IDs`)
+      
+      // Get regio_platform from companies table if we have company_ids
+      const companyIds = selectedContacts
+        .filter(c => c.company_id)
+        .map(c => c.company_id)
+        .filter((id, index, self) => self.indexOf(id) === index) // unique company IDs
+      
+      let regioPlatformMap = {}
+      if (companyIds.length > 0) {
+        const { data: companiesWithRegions, error: regionsError } = await supabaseService.client
+          .from('companies')
+          .select(`
+            id,
+            regions(
+              regio_platform
+            )
+          `)
+          .in('id', companyIds)
+        
+        if (regionsError) {
+          console.error('Error fetching regions:', regionsError)
+        } else if (companiesWithRegions) {
+          regioPlatformMap = Object.fromEntries(
+            companiesWithRegions.map(company => [
+              company.id,
+              company.regions?.regio_platform || null
+            ])
+          )
+          console.log('Regio platform mapping:', regioPlatformMap)
+        }
+      }
+      
       const results = []
       const processedContactIds = new Set() // Track processed contacts to prevent duplicates
       
@@ -123,31 +218,55 @@ export async function POST(req: Request) {
           continue
         }
 
-        // Build body for Instantly
+        // Check if contact is already in a campaign
+        if (contact.campaign_id) {
+          results.push({
+            contactId: contact.id,
+            contactName: contact.name || contact.email,
+            error: `Contact is already in campaign: ${contact.campaign_name || contact.campaign_id}`,
+            status: 'skipped'
+          })
+          continue
+        }
+        
+        // Get regio_platform for this contact's company
+        const regioPlatform = contact.company_id ? regioPlatformMap[contact.company_id] : null
+        
+        console.log(`Company data for contact ${contact.email}:`, {
+          companyId: contact.company_id,
+          companyName: contact.companies?.name,
+          companyWebsite: contact.companies?.website,
+          companyCategorySize: contact.companies?.category_size,
+          regioPlatform: regioPlatform
+        })
+        
+        // Build body for Instantly (matching /api/otis/contacts/add-to-campaign structure)
         const body = {
-          campaign: campaignId,
           email: contact.email.trim(),
-          personalization: "", // Fill in if desired
+          personalization: "",
           website: contact.companies?.website || "",
           first_name: contact.first_name || contact.name?.split(" ").slice(0, -1).join(" ") || contact.name || "",
           last_name: contact.last_name || contact.name?.split(" ").slice(-1)[0] || "",
           phone: contact.phone || "",
           company_name: contact.companies?.name || "",
+          campaign: campaignId, // Only campaign, no list_id
           custom_variables: {
             linkedIn: contact.linkedin_url || "",
-            jobTitle: contact.title || ""
+            jobTitle: contact.title || "",
+            regio_platform: regioPlatform,
+            company_size: contact.companies?.category_size || null
           },
           lt_interest_status: 1,
-          pl_value_lead: "High",
-          list_id: "560405f8-7aad-49c0-87ad-d9f023f734c9", // <-- Accessible list
-          assigned_to: "f191f0de-3753-4ce6-ace1-c1ed1b8a903e", // Fill in if desired
+          assigned_to: "f191f0de-3753-4ce6-ace1-c1ed1b8a903e",
           skip_if_in_workspace: true,
           skip_if_in_campaign: true,
           skip_if_in_list: true,
-          blocklist_id: "0197f015-b9b3-73e0-bfb1-0436a519afbb",
           verify_leads_for_lead_finder: false,
           verify_leads_on_import: false
         }
+        
+        console.log(`Creating lead for contact: ${contact.email}`)
+        console.log('Lead creation payload:', JSON.stringify(body, null, 2))
         
         // POST to Instantly
         let instantlyId = null
@@ -162,12 +281,47 @@ export async function POST(req: Request) {
             body: JSON.stringify(body),
           })
           instantlyResponse = await res.json()
+          
+          console.log(`Instantly API response for ${contact.email}:`, {
+            status: res.status,
+            statusText: res.statusText,
+            data: instantlyResponse
+          })
+          
           if (res.ok && instantlyResponse.id) {
             instantlyId = instantlyResponse.id
-            // Update contact in Supabase
-            await supabaseService.updateContactCampaignInfo(contact.id, instantlyId, campaignName || "")
-            results.push({ contactId: contact.id, instantlyId, status: "success", contactName: contact.name || contact.email })
+            console.log(`Successfully created lead: ${instantlyId} for contact: ${contact.email}`)
+            
+            // Update contact in Supabase with lead info and campaign assignment
+            const { error: updateError } = await supabaseService.client
+              .from('contacts')
+              .update({
+                instantly_id: instantlyId,
+                campaign_id: campaignId,
+                campaign_name: campaignName || "",
+                last_touch: new Date().toISOString()
+              })
+              .eq('id', contact.id)
+            
+            if (updateError) {
+              console.error('Error updating contact in database:', updateError)
+              results.push({
+                contactId: contact.id,
+                contactName: contact.name || contact.email,
+                error: 'Created lead but failed to update database',
+                status: 'partial_success',
+                instantlyId
+              })
+            } else {
+              results.push({ 
+                contactId: contact.id, 
+                instantlyId, 
+                status: "success", 
+                contactName: contact.name || contact.email 
+              })
+            }
           } else {
+            console.error(`Failed to create lead for ${contact.email}:`, instantlyResponse)
             results.push({ 
               contactId: contact.id, 
               error: instantlyResponse?.message || instantlyResponse?.error || "Unknown error from Instantly API", 
