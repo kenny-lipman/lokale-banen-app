@@ -42,8 +42,23 @@ export function useCompaniesCache(params: {
     } catch (e) {
       if (thisFetch === fetchRef.current) {
         console.error("use-companies-cache: Error fetching companies:", e)
-        console.error("use-companies-cache: Error type:", typeof e, JSON.stringify(e))
-        console.error("use-companies-cache: Params used:", params)
+        
+        // Better error logging to handle different error types
+        if (e instanceof Error) {
+          console.error("use-companies-cache: Error message:", e.message)
+          console.error("use-companies-cache: Error stack:", e.stack)
+        } else if (e && typeof e === 'object') {
+          console.error("use-companies-cache: Error details:", Object.keys(e).length > 0 ? e : 'Empty error object')
+          try {
+            console.error("use-companies-cache: Error JSON:", JSON.stringify(e, null, 2))
+          } catch (jsonError) {
+            console.error("use-companies-cache: Error cannot be stringified:", e)
+          }
+        } else {
+          console.error("use-companies-cache: Error value:", e, typeof e)
+        }
+        
+        console.error("use-companies-cache: Params used:", JSON.stringify(params, null, 2))
         setError(e)
         setLoading(false)
       }

@@ -87,12 +87,12 @@ export class SupabaseService {
       search?: string
       status?: string
       review_status?: string
-      region_id?: string
+      platform_id?: string
       source_id?: string
       regio_platform?: string // Add regio_platform filter
     } = {},
   ) {
-    const { page = 1, limit = 10, search = "", status, review_status, region_id, source_id, regio_platform } = options
+    const { page = 1, limit = 10, search = "", status, review_status, platform_id, source_id, regio_platform } = options
 
     try {
       let query = this.client.from("job_postings").select(
@@ -106,22 +106,22 @@ export class SupabaseService {
           created_at,
           company_id,
           source_id,
-          region_id,
+          platform_id,
           job_type,
           salary,
           url,
           country,
           companies(name, website, logo_url, rating_indeed, is_customer),
           job_sources:source_id(id, name),
-          regions(plaats,postcode,regio_platform,id)
+          platforms:platform_id(id, regio_platform, central_place, central_postcode)
         `,
         { count: "exact" },
       )
 
-      // Add search filter using tsvector if available
+      // Add search filter - note: job_type is an array so we can't use ilike on it
       if (search) {
         query = query.or(
-          `title.ilike.%${search}%,location.ilike.%${search}%,job_type.ilike.%${search}%`,
+          `title.ilike.%${search}%,location.ilike.%${search}%`,
         )
       }
 
@@ -134,11 +134,11 @@ export class SupabaseService {
         query = query.eq("review_status", review_status)
       }
 
-      // Add region filter
-      if (region_id === null) {
-        query = query.is("region_id", null)
-      } else if (region_id) {
-        query = query.eq("region_id", region_id)
+      // Add platform filter
+      if (platform_id === null) {
+        query = query.is("platform_id", null)
+      } else if (platform_id) {
+        query = query.eq("platform_id", platform_id)
       }
 
       // Add source filter
@@ -146,48 +146,49 @@ export class SupabaseService {
         query = query.eq("source_id", source_id)
       }
 
-      // Add regio_platform filter
-      if (regio_platform) {
-        if (regio_platform === "none") {
-          // Filter for jobs without regio_platform
-          query = query.is("regions.regio_platform", null)
-        } else {
-          // Filter for specific regio_platform
-          query = query.eq("regions.regio_platform", regio_platform)
-        }
-      }
-
-      // Add pagination
+      // Add pagination BEFORE executing the query
       const from = (page - 1) * limit
       const to = from + limit - 1
-      query = query.range(from, to)
-
-      // Order by created_at descending (or scraped_at if available)
+      
+      // Order by created_at descending
       query = query.order("created_at", { ascending: false })
-
-      const { data, error, count } = await query
+      
+      // Execute query
+      const { data, error, count } = await query.range(from, to)
 
       if (error) {
         throw error
       }
 
+      // Filter by regio_platform after fetching (PostgREST limitation)
+      let filteredData = data || []
+      if (regio_platform) {
+        filteredData = filteredData.filter((job: any) => {
+          if (regio_platform === "none") {
+            return !job.platforms || !job.platforms.regio_platform
+          } else {
+            return job.platforms && job.platforms.regio_platform === regio_platform
+          }
+        })
+      }
+
       // Transform data
-      const transformedData = await Promise.all((data || []).map(async (job: any) => {
+      const transformedData = await Promise.all(filteredData.map(async (job: any) => {
         let platform = job.job_sources?.name || null;
         if (!platform && job.source_id) {
           platform = await this.getJobSourceNameById(job.source_id);
         }
         let region = "Onbekend";
         let regio_platform = null;
-        if (Array.isArray(job.regions)) {
-          const r = job.regions[0];
-          if (r) {
-            region = r.plaats + (r.regio_platform ? ` (${r.regio_platform})` : "");
-            regio_platform = r.regio_platform;
+        if (Array.isArray(job.platforms)) {
+          const p = job.platforms[0];
+          if (p) {
+            region = p.central_place + (p.regio_platform ? ` (${p.regio_platform})` : "");
+            regio_platform = p.regio_platform;
           }
-        } else if (job.regions && typeof job.regions === 'object') {
-          region = job.regions.plaats + (job.regions.regio_platform ? ` (${job.regions.regio_platform})` : "");
-          regio_platform = job.regions.regio_platform;
+        } else if (job.platforms && typeof job.platforms === 'object') {
+          region = job.platforms.central_place + (job.platforms.regio_platform ? ` (${job.platforms.regio_platform})` : "");
+          regio_platform = job.platforms.regio_platform;
         }
         return {
           id: job.id,
@@ -211,7 +212,7 @@ export class SupabaseService {
           salary: job.salary,
           url: job.url,
           country: job.country,
-          region_id: job.region_id,
+          platform_id: job.platform_id,
         }
       })) || []
 
@@ -569,46 +570,46 @@ export class SupabaseService {
         }
       }
 
-      // Get regions data for company_region mapping
-      const { data: regions } = await this.client.from("regions").select("*")
+      // Get platforms data for company_platform mapping
+      const { data: platforms } = await this.client.from("platforms").select("*")
       
-      // Get recent job postings for each company to determine their region
-      const companyIdsForRegions = (data || []).map(c => c.id)
-      const companyRegions: Record<string, string | null> = {}
+      // Get recent job postings for each company to determine their platform
+      const companyIdsForPlatforms = (data || []).map(c => c.id)
+      const companyPlatforms: Record<string, string | null> = {}
       
-      if (companyIdsForRegions.length > 0) {
+      if (companyIdsForPlatforms.length > 0) {
         try {
-          // Get the most recent job posting for each company to determine region
+          // Get the most recent job posting for each company to determine platform
           const { data: recentJobPostings } = await this.client
             .from("job_postings")
-            .select("company_id, region_id")
-            .in("company_id", companyIdsForRegions)
+            .select("company_id, platform_id")
+            .in("company_id", companyIdsForPlatforms)
             .not("company_id", "is", null)
             .order("created_at", { ascending: false })
           
-          // Create a map of company_id to region_id (using the most recent posting)
-          const companyToRegionMap = new Map<string, string>()
+          // Create a map of company_id to platform_id (using the most recent posting)
+          const companyToPlatformMap = new Map<string, string>()
           if (recentJobPostings) {
             recentJobPostings.forEach((posting: any) => {
-              if (posting.company_id && !companyToRegionMap.has(posting.company_id)) {
-                companyToRegionMap.set(posting.company_id, posting.region_id)
+              if (posting.company_id && !companyToPlatformMap.has(posting.company_id)) {
+                companyToPlatformMap.set(posting.company_id, posting.platform_id)
               }
             })
           }
           
-          // Map region_id to regio_platform
-          companyIdsForRegions.forEach(companyId => {
-            const regionId = companyToRegionMap.get(companyId)
-            if (regionId && regions) {
-              const region = regions.find((r: any) => r.id === regionId)
-              companyRegions[companyId] = region ? region.regio_platform : null
+          // Map platform_id to regio_platform
+          companyIdsForPlatforms.forEach(companyId => {
+            const platformId = companyToPlatformMap.get(companyId)
+            if (platformId && platforms) {
+              const platform = platforms.find((p: any) => p.id === platformId)
+              companyPlatforms[companyId] = platform ? platform.regio_platform : null
             } else {
-              companyRegions[companyId] = null
+              companyPlatforms[companyId] = null
             }
           })
         } catch (error) {
-          console.warn("getCompanies: Error fetching company regions:", error)
-          // Continue without region data
+          console.warn("getCompanies: Error fetching company platforms:", error)
+          // Continue without platform data
         }
       }
 
@@ -625,7 +626,7 @@ export class SupabaseService {
           contact_count: contactCounts[company.id] || 0,
           source_name: source_name,
           source_id: company.source,
-          company_region: companyRegions[company.id] || null,
+          company_region: companyPlatforms[company.id] || null,
           enrichment_status: company.enrichment_status || null,
           // Computed filter fields for client-side validation
           has_apollo_enrichment: !!company.apollo_enriched_at,
@@ -1362,23 +1363,23 @@ export class SupabaseService {
       const contactsWithoutCampaign = withoutCampaignData || 0
 
       // Get regions for unique regions list
-      let regions: any[] = [];
+      let platforms: any[] = [];
       try {
-        const { data: regionsData, error: regionsError } = await this.client.from("regions").select("id, plaats, regio_platform");
-        if (regionsError) {
-          console.error("Error fetching regions:", regionsError.message, regionsError)
+        const { data: platformsData, error: platformsError } = await this.client.from("platforms").select("id, central_place, regio_platform");
+        if (platformsError) {
+          console.error("Error fetching platforms:", platformsError.message, platformsError)
         } else {
-          regions = regionsData || [];
-          console.log(`Fetched ${regions.length} regions for mapping`)
+          platforms = platformsData || [];
+          console.log(`Fetched ${platforms.length} platforms for mapping`)
         }
       } catch (error) {
-        console.error("Failed to fetch regions:", error instanceof Error ? error.message : String(error))
+        console.error("Failed to fetch platforms:", error instanceof Error ? error.message : String(error))
       }
 
       // Extract unique region platforms
       const uniqueRegions = Array.from(new Set(
-        regions
-          .map((r: any) => r.regio_platform)
+        platforms
+          .map((p: any) => p.regio_platform)
           .filter((r: string): r is string => typeof r === "string" && r.trim() !== "")
       ))
 
@@ -1412,6 +1413,7 @@ export class SupabaseService {
           linkedin_url,
           created_at,
           campaign_name,
+          company_id,
           company_status,
           status,
           companies:company_id(
@@ -1435,6 +1437,7 @@ export class SupabaseService {
         title: contact.title,
         email: contact.email,
         email_status: contact.email_status,
+        company_id: contact.company_id,
         companies_name: contact.companies?.name || null,
         companies_size: contact.companies?.category_size || null,
         companies_status: contact.companies?.status || null,
@@ -1502,6 +1505,7 @@ export class SupabaseService {
             created_at,
             campaign_name,
             campaign_id,
+            company_id,
             company_status,
             status,
             companies:company_id(
@@ -1531,8 +1535,12 @@ export class SupabaseService {
           }
         }
         
-        if (companyIds.length > 0) {
+        // Limit company IDs to prevent 414 errors - only include if reasonable number
+        if (companyIds.length > 0 && companyIds.length <= 100) {
           searchConditions.push(`company_id.in.(${companyIds.join(',')})`)
+        } else if (companyIds.length > 100) {
+          console.log(`Warning: Too many matching companies (${companyIds.length}), limiting to first 100 to prevent URL too long error`)
+          searchConditions.push(`company_id.in.(${companyIds.slice(0, 100).join(',')})`)
         }
         
         query = query.or(searchConditions.join(','))
@@ -1557,7 +1565,8 @@ export class SupabaseService {
         }
 
         if (filters.categoryStatus) {
-          query = query.eq('qualification_status', filters.categoryStatus)
+          const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+          query = query.in('qualification_status', categoryValues)
         }
 
         if (filters.status) {
@@ -1599,6 +1608,7 @@ export class SupabaseService {
           campaign_name: contact.campaign_name,
           company_status: contact.company_status,
           status: contact.status,
+          company_id: contact.company_id,
           in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
         }))
 
@@ -1623,6 +1633,7 @@ export class SupabaseService {
             created_at,
             campaign_name,
             campaign_id,
+            company_id,
             company_status,
             status,
             companies:company_id(
@@ -1653,7 +1664,8 @@ export class SupabaseService {
         }
 
         if (filters.categoryStatus) {
-          query = query.eq('qualification_status', filters.categoryStatus)
+          const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+          query = query.in('qualification_status', categoryValues)
         }
 
         if (filters.status) {
@@ -1695,6 +1707,7 @@ export class SupabaseService {
           campaign_name: contact.campaign_name,
           company_status: contact.company_status,
           status: contact.status,
+          company_id: contact.company_id,
           in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
         }))
 
@@ -1780,7 +1793,8 @@ export class SupabaseService {
       }
 
       if (filters.categoryStatus) {
-        chunkQuery.eq('qualification_status', filters.categoryStatus)
+        const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+        chunkQuery = chunkQuery.in('qualification_status', categoryValues)
       }
 
       if (filters.status) {
@@ -1851,57 +1865,116 @@ export class SupabaseService {
     
     if (filters.companyStatus) {
       console.log(`Applying companyStatus filter: ${filters.companyStatus}`)
-      if (filters.companyStatus === 'null') {
+      const statusValues = filters.companyStatus.split(',').map(s => s.trim())
+      
+      // Handle null values separately
+      const hasNull = statusValues.includes('null')
+      const nonNullValues = statusValues.filter(s => s !== 'null')
+      
+      if (hasNull && nonNullValues.length > 0) {
+        // Handle both null and non-null values
+        const mappedStatuses = nonNullValues.map(status => {
+          const statusMap = {
+            'benaderen': 'Benaderen',
+            'prospect': 'Prospect', 
+            'disqualified': 'Disqualified',
+            'niet meer benaderen': 'Niet meer benaderen'
+          } as const
+          return statusMap[status.toLowerCase() as keyof typeof statusMap] || status
+        })
+        companyQuery = companyQuery.or(`status.is.null,status.in.("${mappedStatuses.join('","')}")`)
+      } else if (hasNull) {
+        // Only null values
         companyQuery = companyQuery.is('status', null)
-      } else if (filters.companyStatus === 'Prospect') {
-        companyQuery = companyQuery.eq('status', 'Prospect')
       } else {
-        // Handle case-insensitive matching for company status
-        let statusValue = filters.companyStatus
-        // Map lowercase to proper case based on actual database values
-        // Based on database sample: ['Prospect', 'Disqualified', 'Benaderen', 'Niet meer benaderen']
-        const statusMap = {
-          'benaderen': 'Benaderen',
-          'prospect': 'Prospect', 
-          'disqualified': 'Disqualified',
-          'niet meer benaderen': 'Niet meer benaderen'
-        } as const
-        statusValue = statusMap[statusValue.toLowerCase()] || statusValue
-        console.log(`Mapped status filter from "${filters.companyStatus}" to "${statusValue}"`)
-        companyQuery = companyQuery.eq('status', statusValue)
+        // Only non-null values - use IN for multiple values
+        const mappedStatuses = nonNullValues.map(status => {
+          const statusMap = {
+            'benaderen': 'Benaderen',
+            'prospect': 'Prospect', 
+            'disqualified': 'Disqualified',
+            'niet meer benaderen': 'Niet meer benaderen'
+          } as const
+          return statusMap[status.toLowerCase() as keyof typeof statusMap] || status
+        })
+        console.log(`Mapped status filters: ${mappedStatuses.join(',')}`)
+        companyQuery = companyQuery.in('status', mappedStatuses)
       }
     }
     
     if (filters.companyStart) {
       console.log(`Applying companyStart filter: ${filters.companyStart}`)
-      if (filters.companyStart === 'null') {
+      const startValues = filters.companyStart.split(',').map(s => s.trim())
+      
+      // Handle null values separately
+      const hasNull = startValues.includes('null')
+      const nonNullValues = startValues.filter(s => s !== 'null')
+      
+      if (hasNull && nonNullValues.length > 0) {
+        // Handle both null and non-null values
+        const mappedStarts = nonNullValues.map(start => {
+          const startMap = {
+            'true': 'Ja',
+            'false': 'Nee', 
+            'hold': 'Hold'
+          } as const
+          return startMap[start.toLowerCase() as keyof typeof startMap] || start
+        })
+        companyQuery = companyQuery.or(`start.is.null,start.in.("${mappedStarts.join('","')}")`)
+      } else if (hasNull) {
+        // Only null values
         companyQuery = companyQuery.is('start', null)
-      } else if (filters.companyStart === 'true') {
-        companyQuery = companyQuery.eq('start', 'Ja')
-      } else if (filters.companyStart === 'false') {
-        companyQuery = companyQuery.eq('start', 'Nee')
-      } else if (filters.companyStart === 'hold') {
-        companyQuery = companyQuery.eq('start', 'Hold')
+      } else {
+        // Only non-null values - use IN for multiple values
+        const mappedStarts = nonNullValues.map(start => {
+          const startMap = {
+            'true': 'Ja',
+            'false': 'Nee', 
+            'hold': 'Hold'
+          } as const
+          return startMap[start.toLowerCase() as keyof typeof startMap] || start
+        })
+        console.log(`Mapped start filters: ${mappedStarts.join(',')}`)
+        companyQuery = companyQuery.in('start', mappedStarts)
       }
     }
     
     if (filters.companySize) {
       console.log(`Applying companySize filter: ${filters.companySize}`)
-      if (filters.companySize === 'null') {
+      const sizeValues = filters.companySize.split(',').map(s => s.trim())
+      
+      // Handle null values separately
+      const hasNull = sizeValues.includes('null')
+      const nonNullValues = sizeValues.filter(s => s !== 'null')
+      
+      if (hasNull && nonNullValues.length > 0) {
+        // Handle both null and non-null values
+        const mappedSizes = nonNullValues.map(size => {
+          const sizeMap = {
+            'klein': 'Klein',
+            'middel': 'Middel', 
+            'groot': 'Groot',
+            'micro': 'Micro'
+          } as const
+          return sizeMap[size.toLowerCase() as keyof typeof sizeMap] || size
+        })
+        companyQuery = companyQuery.or(`category_size.is.null,category_size.in.("${mappedSizes.join('","')}")`)
+      } else if (hasNull) {
+        // Only null values
         companyQuery = companyQuery.is('category_size', null)
       } else {
-        // Handle case-insensitive matching for company size
-        let sizeValue = filters.companySize
-        // Map common size values - we'll update this based on actual database values
-        const sizeMap = {
-          'klein': 'Klein',
-          'middel': 'Middel', 
-          'groot': 'Groot',
-          'micro': 'Micro'
-        } as const
-        sizeValue = sizeMap[sizeValue.toLowerCase() as keyof typeof sizeMap] || sizeValue
-        console.log(`Mapped size filter from "${filters.companySize}" to "${sizeValue}"`)
-        companyQuery = companyQuery.eq('category_size', sizeValue)
+        // Only non-null values
+        const mappedSizes = nonNullValues.map(size => {
+          const sizeMap = {
+            'klein': 'Klein',
+            'middel': 'Middel', 
+            'groot': 'Groot',
+            'micro': 'Micro'
+          } as const
+          return sizeMap[size.toLowerCase() as keyof typeof sizeMap] || size
+        })
+        console.log(`Mapped size filters: ${mappedSizes.join(',')}`)
+        companyQuery = companyQuery.in('category_size', mappedSizes)
       }
     }
     
@@ -1985,6 +2058,7 @@ export class SupabaseService {
           created_at,
           campaign_name,
           campaign_id,
+          company_id,
           company_status,
           status,
           companies:company_id(
@@ -2010,7 +2084,8 @@ export class SupabaseService {
       }
 
       if (filters.categoryStatus) {
-        contactQuery = contactQuery.eq('qualification_status', filters.categoryStatus)
+        const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+        contactQuery = contactQuery.in('qualification_status', categoryValues)
       }
 
       if (filters.status) {
@@ -2108,12 +2183,26 @@ export class SupabaseService {
     }
   }
 
-  // Haal alle regio's op
+  // Haal alle regio's op - now using platforms table
   async getRegions() {
     try {
-      const { data, error } = await this.client.from("regions").select("*").order("plaats", { ascending: true })
-      if (error) throw error
-      return data || []
+      // Get all platforms with their cities for backward compatibility
+      const { data: platforms, error: platformsError } = await this.client
+        .from("platforms")
+        .select("id, regio_platform, central_place, central_postcode")
+        .order("regio_platform", { ascending: true })
+      
+      if (platformsError) throw platformsError
+      
+      // Transform to match old regions structure for compatibility
+      const regions = (platforms || []).map(p => ({
+        id: p.id,
+        regio_platform: p.regio_platform,
+        plaats: p.central_place,
+        postcode: p.central_postcode
+      }))
+      
+      return regions
     } catch (error) {
       console.error("Error fetching regions:", error)
       return []
@@ -2225,116 +2314,23 @@ export class SupabaseService {
   // Haal alle bronnen op
 
 
-  // Haal cities op met het aantal gekoppelde vacatures (uit de view of direct van cities)
-  async getRegionsWithJobPostingsCount() {
+  // Haal cities op met het aantal gekoppelde vacatures (uit de view)
+  async getCitiesWithJobPostingsCount() {
     try {
-      // First, check if cities table has regio_platform column directly
-      let { data, error } = await this.client
-        .from("cities")
+      // Use the cities_with_job_postings_count view directly
+      const { data, error } = await this.client
+        .from("cities_with_job_postings_count")
         .select("*")
-        .limit(1)
+        .order("plaats", { ascending: true })
         
       if (error) {
-        console.error("Error testing cities table:", error)
+        console.error("Error fetching from cities_with_job_postings_count view:", error)
         return []
       }
       
-      // Check if the first record has regio_platform column
-      const hasRegioPlatformColumn = data && data.length > 0 && 'regio_platform' in data[0]
-      
-      if (hasRegioPlatformColumn) {
-        // Query cities directly if it has regio_platform column - fetch all data in batches if needed
-        let allCitiesData: any[] = []
-        let page = 0
-        const pageSize = 1000
-        let hasMore = true
-        
-        while (hasMore) {
-          const { data: citiesData, error: citiesError } = await this.client
-            .from("cities")
-            .select("*")
-            .range(page * pageSize, (page + 1) * pageSize - 1)
-            .order("plaats", { ascending: true })
-          
-          if (citiesError) throw citiesError
-          
-          if (citiesData && citiesData.length > 0) {
-            allCitiesData.push(...citiesData)
-            hasMore = citiesData.length === pageSize
-            page++
-          } else {
-            hasMore = false
-          }
-        }
-        
-        return allCitiesData
-      } else {
-        // Query cities with join to platforms to get regio_platform
-        const { data: citiesData, error: citiesError } = await this.client
-          .from("cities")
-          .select(`
-            id,
-            plaats,
-            postcode,
-            created_at,
-            platform_id,
-            platforms(regio_platform)
-          `)
-          .limit(2000) // Set high limit to ensure we get all cities
-          .order("plaats", { ascending: true })
-        
-        if (citiesError) {
-          console.error("Error with platforms join:", citiesError)
-          // Fallback: get cities without join and add default regio_platform
-          const { data: fallbackData, error: fallbackError } = await this.client
-            .from("cities")
-            .select("*")
-            .limit(2000) // Set high limit to ensure we get all cities
-            .order("plaats", { ascending: true })
-          
-          if (fallbackError) throw fallbackError
-          
-          return (fallbackData || []).map((city: any) => ({
-            ...city,
-            regio_platform: city.regio_platform || 'Unknown'
-          }))
-        }
-        
-        // Get job postings counts for each city
-        const { data: jobCounts, error: jobError } = await this.client
-          .from("job_postings")
-          .select("region_id")
-          .not("region_id", "is", null)
-        
-        if (jobError) {
-          console.warn("Could not fetch job postings counts:", jobError)
-        }
-        
-        // Create a count map
-        const countMap = new Map<string, number>()
-        if (jobCounts) {
-          jobCounts.forEach(posting => {
-            const regionId = posting.region_id
-            if (regionId) {
-              countMap.set(regionId, (countMap.get(regionId) || 0) + 1)
-            }
-          })
-        }
-        
-        // Transform the data to match the expected format
-        const transformedData = (citiesData || []).map((city: any) => ({
-          id: city.id,
-          plaats: city.plaats,
-          postcode: city.postcode,
-          created_at: city.created_at,
-          regio_platform: city.platforms?.regio_platform || 'Unknown',
-          job_postings_count: countMap.get(city.id) || 0
-        }))
-        
-        return transformedData
-      }
+      return data || []
     } catch (error) {
-      console.error("Error fetching regions with job postings count:", error)
+      console.error("Error fetching cities with job postings count:", error)
       return []
     }
   }
@@ -2451,23 +2447,23 @@ export class SupabaseService {
       console.log("Successfully retrieved stats from materialized view:", statsData)
 
       // Get regions for unique regions list
-      let regions: any[] = [];
+      let platforms: any[] = [];
       try {
-        const { data: regionsData, error: regionsError } = await this.client.from("regions").select("id, plaats, regio_platform");
-        if (regionsError) {
-          console.error("Error fetching regions:", regionsError.message, regionsError)
+        const { data: platformsData, error: platformsError } = await this.client.from("platforms").select("id, central_place, regio_platform");
+        if (platformsError) {
+          console.error("Error fetching platforms:", platformsError.message, platformsError)
         } else {
-          regions = regionsData || [];
-          console.log(`Fetched ${regions.length} regions for mapping`)
+          platforms = platformsData || [];
+          console.log(`Fetched ${platforms.length} platforms for mapping`)
         }
       } catch (error) {
-        console.error("Failed to fetch regions:", error instanceof Error ? error.message : String(error))
+        console.error("Failed to fetch platforms:", error instanceof Error ? error.message : String(error))
       }
 
       // Extract unique region platforms
       const uniqueRegions = Array.from(new Set(
-        regions
-          .map((r: any) => r.regio_platform)
+        platforms
+          .map((p: any) => p.regio_platform)
           .filter((r: string): r is string => typeof r === "string" && r.trim() !== "")
       ))
 
@@ -2538,18 +2534,18 @@ export class SupabaseService {
         .or('qualification_status.eq.pending,and(qualification_status.is.null,status.is.null,campaign_id.is.null),and(qualification_status.is.null,status.eq.pending,campaign_id.is.null),and(qualification_status.is.null,status.eq.Prospect,campaign_id.is.null),and(qualification_status.is.null,status.is.null,campaign_id.eq.),and(qualification_status.is.null,status.eq.pending,campaign_id.eq.),and(qualification_status.is.null,status.eq.Prospect,campaign_id.eq.)')
 
       // Get regions
-      let regions: any[] = [];
+      let platforms: any[] = [];
       try {
-        const { data: regionsData } = await this.client.from("regions").select("id, plaats, regio_platform");
-        regions = regionsData || [];
-      } catch (regionError) {
-        console.error("Failed to fetch regions:", regionError)
+        const { data: platformsData } = await this.client.from("platforms").select("id, central_place, regio_platform");
+        platforms = platformsData || [];
+      } catch (platformError) {
+        console.error("Failed to fetch platforms:", platformError)
       }
 
       // Extract unique region platforms
       const uniqueRegions = Array.from(new Set(
-        regions
-          .map((r: any) => r.regio_platform)
+        platforms
+          .map((p: any) => p.regio_platform)
           .filter((r: string): r is string => typeof r === "string" && r.trim() !== "")
       ))
 

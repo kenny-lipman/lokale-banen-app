@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { supabaseService } from "@/lib/supabase-service"
 
-const CACHE_VERSION = "2.4" // Fixed companies query optimization and platform distribution scalability
+const CACHE_VERSION = "2.5" // Removed contacts array, using contact stats for performance
 const dashboardCache: { data?: any, version?: string } = {}
 
 export function useDashboardCache() {
@@ -26,10 +26,17 @@ export function useDashboardCache() {
       const apifyRuns = await supabaseService.getApifyRuns()
       console.log("Dashboard cache: Fetched apify runs")
       
-      const contacts = await supabaseService.getContacts()
-      console.log("Dashboard cache: Fetched contacts:", contacts?.length || 0)
+      // Get contact stats separately instead of loading all contacts
+      const contactStats = await supabaseService.getContactStats()
+      console.log("Dashboard cache: Fetched contact stats:", contactStats?.totalContacts || 0)
       
-      const result = { stats, apifyRuns, contacts }
+      const result = { 
+        stats: {
+          ...stats,
+          totalContacts: contactStats?.totalContacts || 0
+        }, 
+        apifyRuns 
+      }
       dashboardCache.data = result
       dashboardCache.version = CACHE_VERSION
       if (thisFetch === fetchRef.current) {

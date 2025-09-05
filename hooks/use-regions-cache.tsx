@@ -15,7 +15,7 @@ export function useRegionsCache() {
     fetchRef.current++
     const thisFetch = fetchRef.current
     try {
-      const result = await supabaseService.getRegionsWithJobPostingsCount()
+      const result = await supabaseService.getCitiesWithJobPostingsCount()
       regionsCache.data = result
       if (thisFetch === fetchRef.current) {
         setData(result)

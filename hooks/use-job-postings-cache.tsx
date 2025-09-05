@@ -18,9 +18,8 @@ export function useJobPostingsCache(params: {
   limit?: number
   search?: string
   status?: string
-  region_id?: string | null
+  platform_id?: string | null
   source_id?: string | null
-  regio_platform?: string // Add regio_platform filter
 }) {
   const cacheKey = JSON.stringify(params)
   const [data, setData] = useState<any>(jobPostingsCache[cacheKey] || null)
@@ -34,16 +33,44 @@ export function useJobPostingsCache(params: {
     fetchRef.current++
     const thisFetch = fetchRef.current
     try {
-      const service = await getSupabaseService()
-      const result = await service.getJobPostings(params)
-      jobPostingsCache[cacheKey] = result
+      // Build query string from params
+      const searchParams = new URLSearchParams()
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          searchParams.append(key, String(value))
+        }
+      })
+      
+      const response = await fetch(`/api/job-postings?${searchParams.toString()}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch job postings: ${response.statusText}`)
+      }
+      
+      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load job postings')
+      }
+      
+      const formattedResult = {
+        data: result.data,
+        count: result.count,
+        totalPages: result.totalPages
+      }
+      
+      jobPostingsCache[cacheKey] = formattedResult
       if (thisFetch === fetchRef.current) {
-        setData(result)
+        setData(formattedResult)
         setLoading(false)
       }
-    } catch (e) {
+    } catch (e: any) {
       if (thisFetch === fetchRef.current) {
-        setError(e)
+        const errorMessage = e?.message || 'Unknown error'
+        console.error('Error fetching job postings:', {
+          message: errorMessage,
+          params: params,
+          error: e
+        })
+        setError(new Error(errorMessage))
         setLoading(false)
       }
     }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase"
 
 interface PlatformStats {
   total: number
@@ -17,14 +18,27 @@ export function usePlatformStats() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch("/api/platforms?stats=true")
-      const result = await response.json()
+      const supabase = createClient()
       
-      if (result.success) {
-        setStats(result.data)
-      } else {
-        setError(result.error || "Failed to fetch platform statistics")
+      const { data, error: queryError } = await supabase
+        .from("platforms")
+        .select("is_active")
+        .not("regio_platform", "is", null)
+        .not("regio_platform", "eq", "")
+      
+      if (queryError) {
+        throw queryError
       }
+      
+      const total = data?.length || 0
+      const active = data?.filter(platform => platform.is_active === true).length || 0
+      const inactive = total - active
+      
+      setStats({
+        total,
+        active,
+        inactive
+      })
     } catch (err) {
       setError("Failed to fetch platform statistics")
       console.error("Error fetching platform stats:", err)

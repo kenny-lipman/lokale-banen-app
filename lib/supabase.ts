@@ -121,6 +121,10 @@ export type Database = {
           id: string
           price_per_unit_usd: number | null
           pricingModel: string | null
+          processing_notes: string | null
+          processing_status: 'not_started' | 'in_progress' | 'completed' | null
+          processed_at: string | null
+          processed_by: string | null
           region: string | null
           region_id: string | null
           session_id: string | null
@@ -137,6 +141,10 @@ export type Database = {
           id: string
           price_per_unit_usd?: number | null
           pricingModel?: string | null
+          processing_notes?: string | null
+          processing_status?: 'not_started' | 'in_progress' | 'completed' | null
+          processed_at?: string | null
+          processed_by?: string | null
           region?: string | null
           region_id?: string | null
           session_id?: string | null
@@ -153,6 +161,10 @@ export type Database = {
           id?: string
           price_per_unit_usd?: number | null
           pricingModel?: string | null
+          processing_notes?: string | null
+          processing_status?: 'not_started' | 'in_progress' | 'completed' | null
+          processed_at?: string | null
+          processed_by?: string | null
           region?: string | null
           region_id?: string | null
           session_id?: string | null
@@ -174,7 +186,7 @@ export type Database = {
             foreignKeyName: "apify_runs_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
-            referencedRelation: "regions_with_job_postings_count"
+            referencedRelation: "cities_with_job_postings_count"
             referencedColumns: ["id"]
           },
           {
@@ -680,7 +692,7 @@ export type Database = {
             foreignKeyName: "job_postings_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
-            referencedRelation: "regions_with_job_postings_count"
+            referencedRelation: "cities_with_job_postings_count"
             referencedColumns: ["id"]
           },
           {
