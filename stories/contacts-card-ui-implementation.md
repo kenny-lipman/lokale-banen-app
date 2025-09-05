@@ -24,14 +24,14 @@ High
   - **Qualified Contacts**: Green card showing count of qualified contacts with "Ready for Campaign" description
   - **In Review Contacts**: Orange card showing count of contacts marked for review with "Needs attention" description  
   - **Disqualified Contacts**: Red card showing count of disqualified contacts with "Not suitable" description
-  - **Pending Contacts**: Gray card showing count of unqualified/pending contacts with "Needs qualification" description
+  - **Pending Contacts**: Gray card showing count of pending contacts with "Needs qualification" description
 
 #### 2. Workflow Tabs Implementation
 - [ ] **Qualification Workflow Tabs**: Implement 4 tabs below status cards matching Companies tab structure:
   - **✅ Qualified** tab: Shows qualified contacts ready for campaign addition
   - **⭕ Review** tab: Shows contacts marked for review requiring manual decision
   - **❌ Disqualified** tab: Shows disqualified contacts archived from workflow
-  - **⏳ Pending** tab: Shows unqualified contacts awaiting qualification
+  - **⏳ Pending** tab: Shows pending contacts awaiting qualification
 
 #### 3. Card-Based Contact Display
 - [ ] **Contact Cards**: Replace current table/list view with individual contact cards matching company card styling:
