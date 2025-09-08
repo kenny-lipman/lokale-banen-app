@@ -9,12 +9,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3 } from "lucide-react"
 import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useToast } from "@/hooks/use-toast"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { useRecommendedPlatform } from "@/hooks/use-recommended-platform"
+import { EditContactModal } from "@/components/contacts/edit-contact-modal"
+import { ColumnVisibilityToggle, ColumnVisibility } from "@/components/contacts/column-visibility-toggle"
+import { formatDutchPhone } from "@/lib/validators/contact"
 
 interface Contact {
   id: string
@@ -22,6 +25,7 @@ interface Contact {
   last_name: string | null
   title: string | null
   email: string | null
+  phone: string | null
   email_status: string | null
   source: string | null
   companies_name: string | null
@@ -148,6 +152,30 @@ export default function ContactsPage() {
   const [isQualificationModalOpen, setIsQualificationModalOpen] = useState(false)
   const [selectedQualificationStatus, setSelectedQualificationStatus] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Edit contact modal state
+  const [editContactModal, setEditContactModal] = useState<{
+    isOpen: boolean
+    contact: Contact | null
+  }>({ isOpen: false, contact: null })
+  
+  // Column visibility state
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
+    naam: true,
+    kwalificatiestatus: true,
+    functie: true,
+    telefoon: true,
+    email: true,
+    emailStatus: false,
+    bron: false,
+    bedrijf: true,
+    bedrijfsgrootte: false,
+    companyStatus: false,
+    companyStart: false,
+    linkedin: false,
+    campagne: true,
+    aangemaakt: false
+  })
   
   const { toast } = useToast()
 
@@ -334,6 +362,24 @@ export default function ContactsPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleEditContact = (contact: Contact) => {
+    setEditContactModal({ isOpen: true, contact })
+  }
+
+  const handleCloseEditModal = () => {
+    setEditContactModal({ isOpen: false, contact: null })
+  }
+
+  const handleEditSuccess = (updatedContact: Contact) => {
+    // Update the contact in the current list
+    const updatedContacts = contacts.map(contact => 
+      contact.id === updatedContact.id ? updatedContact : contact
+    )
+    // Note: In a real app, you'd update the contacts state or refetch data
+    // For now, we'll just refresh the page to show updated data
+    window.location.reload()
   }
 
   const handleUpdateQualificationStatus = async () => {
@@ -777,8 +823,17 @@ export default function ContactsPage() {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Contacten</CardTitle>
+            <div>
+              <CardTitle>Contacten</CardTitle>
+              <CardDescription className="text-xs text-gray-500 mt-1">
+                {Object.values(columnVisibility).filter(Boolean).length} van {Object.keys(columnVisibility).length} kolommen zichtbaar
+              </CardDescription>
+            </div>
             <div className="flex items-center space-x-4">
+              <ColumnVisibilityToggle
+                visibility={columnVisibility}
+                onVisibilityChange={setColumnVisibility}
+              />
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600">Rijen per pagina:</span>
                 <Select value={itemsPerPage.toString()} onValueChange={(value) => {
@@ -843,25 +898,30 @@ export default function ContactsPage() {
                           aria-label="Select all contacts"
                         />
                       </TableHead>
-                      <TableHead>Naam</TableHead>
-                      <TableHead>Kwalificatiestatus</TableHead>
-                      <TableHead className="max-w-[150px]">Functie</TableHead>
-                      <TableHead className="w-[180px]">Email</TableHead>
-                      <TableHead>Email Status</TableHead>
-                      <TableHead>Bron</TableHead>
-                      <TableHead>Bedrijf</TableHead>
-                      <TableHead>Bedrijfsgrootte</TableHead>
-                      <TableHead>Company Status</TableHead>
-                      <TableHead>Company Start</TableHead>
-                      <TableHead>LinkedIn</TableHead>
-                      <TableHead>Campagne</TableHead>
-                      <TableHead>Aangemaakt</TableHead>
+                      {columnVisibility.naam && <TableHead className="min-w-[120px]">Naam</TableHead>}
+                      {columnVisibility.kwalificatiestatus && <TableHead className="min-w-[100px]">Kwalificatiestatus</TableHead>}
+                      {columnVisibility.functie && <TableHead className="min-w-[120px]">Functie</TableHead>}
+                      {columnVisibility.telefoon && <TableHead className="min-w-[140px]">Telefoon</TableHead>}
+                      {columnVisibility.email && <TableHead className="min-w-[160px]">Email</TableHead>}
+                      {columnVisibility.emailStatus && <TableHead className="min-w-[90px]">Email Status</TableHead>}
+                      {columnVisibility.bron && <TableHead className="min-w-[80px]">Bron</TableHead>}
+                      {columnVisibility.bedrijf && <TableHead className="min-w-[140px]">Bedrijf</TableHead>}
+                      {columnVisibility.bedrijfsgrootte && <TableHead className="min-w-[100px]">Bedrijfsgrootte</TableHead>}
+                      {columnVisibility.companyStatus && <TableHead className="min-w-[110px]">Company Status</TableHead>}
+                      {columnVisibility.companyStart && <TableHead className="min-w-[100px]">Company Start</TableHead>}
+                      {columnVisibility.linkedin && <TableHead className="min-w-[80px]">LinkedIn</TableHead>}
+                      {columnVisibility.campagne && <TableHead className="min-w-[120px]">Campagne</TableHead>}
+                      {columnVisibility.aangemaakt && <TableHead className="min-w-[100px]">Aangemaakt</TableHead>}
+                      <TableHead className="w-[60px] sticky right-0 bg-white shadow-sm">Acties</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contacts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={13} className="text-center py-8">
+                        <TableCell 
+                          colSpan={1 + Object.values(columnVisibility).filter(Boolean).length + 1} 
+                          className="text-center py-8"
+                        >
                           Geen contacten gevonden
                         </TableCell>
                       </TableRow>
@@ -875,57 +935,126 @@ export default function ContactsPage() {
                               aria-label={`Select contact ${contact.first_name} ${contact.last_name}`}
                             />
                           </TableCell>
-                          <TableCell className="py-2">
-                            {contact.first_name || contact.last_name 
-                              ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
-                              : '-'
-                            }
-                          </TableCell>
-                          <TableCell className="py-2">
-                            {getQualificationStatusBadge(contact.qualification_status)}
-                          </TableCell>
-                          <TableCell className="py-2 max-w-[150px]">
-                            <div className="truncate" title={contact.title || '-'}>
-                              {contact.title || '-'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-2 w-[180px]">
-                            <div className="truncate" title={contact.email || '-'}>
-                              {contact.email || '-'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-2">
-                            {getEmailStatusBadge(contact.email_status)}
-                          </TableCell>
-                          <TableCell className="py-2">{contact.source || '-'}</TableCell>
-                          <TableCell className="py-2">{contact.companies_name || '-'}</TableCell>
-                          <TableCell className="py-2">
-                            {getCompanySizeBadge(contact.companies_size)}
-                          </TableCell>
-                          <TableCell className="py-2">{contact.companies_status || '-'}</TableCell>
-                          <TableCell className="py-2">
-                            {contact.companies_start || '-'}
-                          </TableCell>
-                          <TableCell className="py-2">
-                            {contact.linkedin_url ? (
-                              <a 
-                                href={contact.linkedin_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline"
-                              >
-                                LinkedIn
-                              </a>
-                            ) : (
-                              '-'
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2">{contact.campaign_name || '-'}</TableCell>
-                          <TableCell className="py-2">
-                            {contact.created_at 
-                              ? new Date(contact.created_at).toLocaleDateString('nl-NL')
-                              : '-'
-                            }
+                          {columnVisibility.naam && (
+                            <TableCell className="py-2 min-w-[120px]">
+                              <div className="truncate font-medium" title={`${contact.first_name || ''} ${contact.last_name || ''}`.trim()}>
+                                {contact.first_name || contact.last_name 
+                                  ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
+                                  : '-'
+                                }
+                              </div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.kwalificatiestatus && (
+                            <TableCell className="py-2 min-w-[100px]">
+                              {getQualificationStatusBadge(contact.qualification_status)}
+                            </TableCell>
+                          )}
+                          {columnVisibility.functie && (
+                            <TableCell className="py-2 min-w-[120px]">
+                              <div className="truncate" title={contact.title || '-'}>
+                                {contact.title || '-'}
+                              </div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.telefoon && (
+                            <TableCell className="py-2 min-w-[140px]">
+                              {contact.phone ? (
+                                <a 
+                                  href={`tel:${contact.phone}`}
+                                  className="text-green-600 hover:text-green-800 hover:underline text-sm font-medium"
+                                  title={`Bel ${contact.phone}`}
+                                >
+                                  {formatDutchPhone(contact.phone)}
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                          )}
+                          {columnVisibility.email && (
+                            <TableCell className="py-2 min-w-[160px]">
+                              <div className="truncate text-blue-600" title={contact.email || '-'}>
+                                {contact.email || '-'}
+                              </div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.emailStatus && (
+                            <TableCell className="py-2 min-w-[90px]">
+                              {getEmailStatusBadge(contact.email_status)}
+                            </TableCell>
+                          )}
+                          {columnVisibility.bron && (
+                            <TableCell className="py-2 min-w-[80px]">
+                              <div className="truncate">{contact.source || '-'}</div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.bedrijf && (
+                            <TableCell className="py-2 min-w-[140px]">
+                              <div className="truncate" title={contact.companies_name || '-'}>
+                                {contact.companies_name || '-'}
+                              </div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.bedrijfsgrootte && (
+                            <TableCell className="py-2 min-w-[100px]">
+                              {getCompanySizeBadge(contact.companies_size)}
+                            </TableCell>
+                          )}
+                          {columnVisibility.companyStatus && (
+                            <TableCell className="py-2 min-w-[110px]">
+                              <div className="truncate">{contact.companies_status || '-'}</div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.companyStart && (
+                            <TableCell className="py-2 min-w-[100px]">
+                              <div className="truncate">{contact.companies_start || '-'}</div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.linkedin && (
+                            <TableCell className="py-2 min-w-[80px]">
+                              {contact.linkedin_url ? (
+                                <a 
+                                  href={contact.linkedin_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline text-sm"
+                                  title="LinkedIn profiel"
+                                >
+                                  LinkedIn
+                                </a>
+                              ) : (
+                                '-'
+                              )}
+                            </TableCell>
+                          )}
+                          {columnVisibility.campagne && (
+                            <TableCell className="py-2 min-w-[120px]">
+                              <div className="truncate" title={contact.campaign_name || '-'}>
+                                {contact.campaign_name || '-'}
+                              </div>
+                            </TableCell>
+                          )}
+                          {columnVisibility.aangemaakt && (
+                            <TableCell className="py-2 min-w-[100px]">
+                              <div className="text-sm text-gray-600">
+                                {contact.created_at 
+                                  ? new Date(contact.created_at).toLocaleDateString('nl-NL')
+                                  : '-'
+                                }
+                              </div>
+                            </TableCell>
+                          )}
+                          <TableCell className="py-2 w-[60px] sticky right-0 bg-white">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditContact(contact)}
+                              className="h-8 w-8 p-0 hover:bg-blue-100 shadow-sm"
+                              title="Contact bewerken"
+                            >
+                              <Edit3 className="h-4 w-4 text-blue-600" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))
@@ -969,6 +1098,14 @@ export default function ContactsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Contact Modal */}
+      <EditContactModal
+        contact={editContactModal.contact}
+        isOpen={editContactModal.isOpen}
+        onClose={handleCloseEditModal}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   )
 }
