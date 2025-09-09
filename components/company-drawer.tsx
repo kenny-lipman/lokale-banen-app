@@ -443,6 +443,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                     <TableRow className="bg-purple-50">
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
                       <TableHead>Title</TableHead>
                       <TableHead>Email Status</TableHead>
                       <TableHead>Qualification</TableHead>
@@ -452,21 +453,21 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                   <TableBody>
                     {loadingContacts ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8">
+                        <TableCell colSpan={7} className="text-center py-8">
                           <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
                           <p className="text-gray-500">Loading contacts...</p>
                         </TableCell>
                       </TableRow>
                     ) : contactsError ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-red-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-red-500">
                           <AlertCircle className="w-8 h-8 mx-auto mb-2" />
                           <p>Error: {contactsError}</p>
                         </TableCell>
                       </TableRow>
                     ) : contacts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-gray-400">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-400">
                           <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                           <p>No contacts found</p>
                         </TableCell>
@@ -480,6 +481,13 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                           <TableCell>
                             {contact.email ? (
                               <span className="text-sm text-gray-700">{contact.email}</span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {contact.phone ? (
+                              <span className="text-sm text-gray-700">{contact.phone}</span>
                             ) : (
                               <span className="text-gray-400 text-sm">-</span>
                             )}

@@ -499,21 +499,25 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                     {job.salary && <span>{job.salary}</span>}
                   </TableCell>
                   <TableCell>
-                    {job.job_type && Array.isArray(job.job_type)
-                      ? job.job_type.map((type, idx) => (
-                          <Badge key={type + idx} variant="outline" className="text-xs mr-1">
-                            {type}
-                          </Badge>
-                        ))
-                      : job.job_type &&
-                        job.job_type
-                          .split(/[\/,|]+|\s+/)
-                          .filter((t) => t && t.trim() !== "")
-                          .map((type, idx) => (
-                            <Badge key={type + idx} variant="outline" className="text-xs mr-1">
-                              {type}
-                            </Badge>
-                          ))}
+                    {job.job_type && (
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(job.job_type)
+                          ? job.job_type.map((type, idx) => (
+                              <Badge key={type + idx} variant="outline" className="text-xs">
+                                {type}
+                              </Badge>
+                            ))
+                          : job.job_type
+                              .replace(/([a-z])([A-Z])/g, '$1,$2')
+                              .split(/[\/,|]+/)
+                              .filter((t) => t && t.trim() !== "")
+                              .map((type, idx) => (
+                                <Badge key={type + idx} variant="outline" className="text-xs">
+                                  {type.trim()}
+                                </Badge>
+                              ))}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>{getStatusBadge(job.status)}</TableCell>
                   <TableCell className="text-sm text-gray-600">{formatDate(job.scraped_at)}</TableCell>
