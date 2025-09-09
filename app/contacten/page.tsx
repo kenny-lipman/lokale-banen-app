@@ -18,6 +18,7 @@ import { useRecommendedPlatform } from "@/hooks/use-recommended-platform"
 import { EditContactModal } from "@/components/contacts/edit-contact-modal"
 import { ColumnVisibilityToggle, ColumnVisibility } from "@/components/contacts/column-visibility-toggle"
 import { formatDutchPhone } from "@/lib/validators/contact"
+import { TableCellWithTooltip } from "@/components/ui/table-cell-with-tooltip"
 
 interface Contact {
   id: string
@@ -64,69 +65,54 @@ const getEmailStatusBadge = (status: string | null) => {
   switch (status?.toLowerCase()) {
     case 'valid':
     case 'verified':
-      return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">✅ Valid</Badge>
+      return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-1 py-0" title="Valid">✅</Badge>
     case 'invalid':
     case 'bounced':
-      return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">❌ Invalid</Badge>
+      return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-1 py-0" title="Invalid">❌</Badge>
     case 'risky':
     case 'catch_all':
-      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">⚠️ Risky</Badge>
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs px-1 py-0" title="Risky">⚠️</Badge>
     case 'unknown':
     case 'accept_all':
-      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">❓</Badge>
+      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-1 py-0" title="Unknown">❓</Badge>
     case 'disposable':
-      return <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">🗑️ Disposable</Badge>
+      return <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs px-1 py-0" title="Disposable">🗑️</Badge>
     default:
-      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">❓</Badge>
+      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-1 py-0" title="Unknown">❓</Badge>
   }
 }
 
 const getQualificationStatusBadge = (status: string | null) => {
   switch (status) {
     case 'in_campaign':
-      return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">🎯 In Campaign</Badge>
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1 py-0" title="In Campaign">🎯</Badge>
     case 'qualified':
-      return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">✅ Qualified</Badge>
+      return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-1 py-0" title="Qualified">✅</Badge>
     case 'disqualified':
-      return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">❌ Disqualified</Badge>
+      return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-1 py-0" title="Disqualified">❌</Badge>
     case 'review':
-      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs animate-pulse">⭕ Review</Badge>
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs px-1 py-0 animate-pulse" title="Review">⭕</Badge>
     case 'pending':
     default:
-      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">⏳ Pending</Badge>
+      return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-1 py-0" title="Pending">⏳</Badge>
   }
 }
 
 const getCompanySizeBadge = (size: string | null) => {
   switch (size?.toLowerCase()) {
     case 'groot':
-      return (
-        <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs font-semibold">
-          <Building2 className="w-3 h-3 mr-1" />
-          Groot
-        </Badge>
-      )
+      return <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs px-1 py-0" title="Groot">🏢</Badge>
     case 'middel':
-      return (
-        <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs font-semibold">
-          <Building2 className="w-3 h-3 mr-1" />
-          Middel
-        </Badge>
-      )
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1 py-0" title="Middel">🏬</Badge>
     case 'klein':
-      return (
-        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs font-semibold">
-          <Building2 className="w-3 h-3 mr-1" />
-          Klein
-        </Badge>
-      )
+      return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-1 py-0" title="Klein">🏪</Badge>
     default:
       return size ? (
-        <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs">
-          {size}
+        <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-1 py-0" title={size}>
+          {size.charAt(0).toUpperCase()}
         </Badge>
       ) : (
-        <span className="text-gray-400">-</span>
+        <span className="text-gray-400 text-xs">-</span>
       )
   }
 }
@@ -898,20 +884,20 @@ export default function ContactsPage() {
                           aria-label="Select all contacts"
                         />
                       </TableHead>
-                      {columnVisibility.naam && <TableHead className="min-w-[120px]">Naam</TableHead>}
-                      {columnVisibility.kwalificatiestatus && <TableHead className="min-w-[100px]">Kwalificatiestatus</TableHead>}
-                      {columnVisibility.functie && <TableHead className="min-w-[120px]">Functie</TableHead>}
-                      {columnVisibility.telefoon && <TableHead className="min-w-[140px]">Telefoon</TableHead>}
-                      {columnVisibility.email && <TableHead className="min-w-[160px]">Email</TableHead>}
-                      {columnVisibility.emailStatus && <TableHead className="min-w-[90px]">Email Status</TableHead>}
-                      {columnVisibility.bron && <TableHead className="min-w-[80px]">Bron</TableHead>}
-                      {columnVisibility.bedrijf && <TableHead className="min-w-[140px]">Bedrijf</TableHead>}
-                      {columnVisibility.bedrijfsgrootte && <TableHead className="min-w-[100px]">Bedrijfsgrootte</TableHead>}
-                      {columnVisibility.companyStatus && <TableHead className="min-w-[110px]">Company Status</TableHead>}
-                      {columnVisibility.companyStart && <TableHead className="min-w-[100px]">Company Start</TableHead>}
-                      {columnVisibility.linkedin && <TableHead className="min-w-[80px]">LinkedIn</TableHead>}
-                      {columnVisibility.campagne && <TableHead className="min-w-[120px]">Campagne</TableHead>}
-                      {columnVisibility.aangemaakt && <TableHead className="min-w-[100px]">Aangemaakt</TableHead>}
+                      {columnVisibility.naam && <TableHead className="w-24">Naam</TableHead>}
+                      {columnVisibility.kwalificatiestatus && <TableHead className="w-20">Status</TableHead>}
+                      {columnVisibility.functie && <TableHead className="w-24">Functie</TableHead>}
+                      {columnVisibility.telefoon && <TableHead className="w-24">Telefoon</TableHead>}
+                      {columnVisibility.email && <TableHead className="w-32">Email</TableHead>}
+                      {columnVisibility.emailStatus && <TableHead className="w-12" title="Email Status">✉️</TableHead>}
+                      {columnVisibility.bron && <TableHead className="w-16">Bron</TableHead>}
+                      {columnVisibility.bedrijf && <TableHead className="w-28">Bedrijf</TableHead>}
+                      {columnVisibility.bedrijfsgrootte && <TableHead className="w-20">Grootte</TableHead>}
+                      {columnVisibility.companyStatus && <TableHead className="w-20">C.Status</TableHead>}
+                      {columnVisibility.companyStart && <TableHead className="w-20">C.Start</TableHead>}
+                      {columnVisibility.linkedin && <TableHead className="w-12" title="LinkedIn">💼</TableHead>}
+                      {columnVisibility.campagne && <TableHead className="w-24">Campagne</TableHead>}
+                      {columnVisibility.aangemaakt && <TableHead className="w-20">Datum</TableHead>}
                       <TableHead className="w-[60px] sticky right-0 bg-white shadow-sm">Acties</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -936,113 +922,128 @@ export default function ContactsPage() {
                             />
                           </TableCell>
                           {columnVisibility.naam && (
-                            <TableCell className="py-2 min-w-[120px]">
-                              <div className="truncate font-medium" title={`${contact.first_name || ''} ${contact.last_name || ''}`.trim()}>
-                                {contact.first_name || contact.last_name 
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.first_name || contact.last_name 
                                   ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
-                                  : '-'
+                                  : null
                                 }
-                              </div>
+                                className="font-medium"
+                                maxWidth="w-24"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.kwalificatiestatus && (
-                            <TableCell className="py-2 min-w-[100px]">
+                            <TableCell className="py-2 w-20">
                               {getQualificationStatusBadge(contact.qualification_status)}
                             </TableCell>
                           )}
                           {columnVisibility.functie && (
-                            <TableCell className="py-2 min-w-[120px]">
-                              <div className="truncate" title={contact.title || '-'}>
-                                {contact.title || '-'}
-                              </div>
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.title}
+                                maxWidth="w-24"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.telefoon && (
-                            <TableCell className="py-2 min-w-[140px]">
-                              {contact.phone ? (
-                                <a 
-                                  href={`tel:${contact.phone}`}
-                                  className="text-green-600 hover:text-green-800 hover:underline text-sm font-medium"
-                                  title={`Bel ${contact.phone}`}
-                                >
-                                  {formatDutchPhone(contact.phone)}
-                                </a>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.phone ? formatDutchPhone(contact.phone) : null}
+                                href={contact.phone ? `tel:${contact.phone}` : undefined}
+                                hrefClassName="text-green-600 hover:text-green-800 hover:underline text-xs font-medium"
+                                maxWidth="w-24"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.email && (
-                            <TableCell className="py-2 min-w-[160px]">
-                              <div className="truncate text-blue-600" title={contact.email || '-'}>
-                                {contact.email || '-'}
-                              </div>
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.email}
+                                href={contact.email ? `mailto:${contact.email}` : undefined}
+                                hrefClassName="text-blue-600 hover:text-blue-800 hover:underline text-xs"
+                                maxWidth="w-32"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.emailStatus && (
-                            <TableCell className="py-2 min-w-[90px]">
+                            <TableCell className="py-2 w-12">
                               {getEmailStatusBadge(contact.email_status)}
                             </TableCell>
                           )}
                           {columnVisibility.bron && (
-                            <TableCell className="py-2 min-w-[80px]">
-                              <div className="truncate">{contact.source || '-'}</div>
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.source}
+                                maxWidth="w-16"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.bedrijf && (
-                            <TableCell className="py-2 min-w-[140px]">
-                              <div className="truncate" title={contact.companies_name || '-'}>
-                                {contact.companies_name || '-'}
-                              </div>
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.companies_name}
+                                maxWidth="w-28"
+                                className="font-medium"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.bedrijfsgrootte && (
-                            <TableCell className="py-2 min-w-[100px]">
+                            <TableCell className="py-2 w-20">
                               {getCompanySizeBadge(contact.companies_size)}
                             </TableCell>
                           )}
                           {columnVisibility.companyStatus && (
-                            <TableCell className="py-2 min-w-[110px]">
-                              <div className="truncate">{contact.companies_status || '-'}</div>
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.companies_status}
+                                maxWidth="w-20"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.companyStart && (
-                            <TableCell className="py-2 min-w-[100px]">
-                              <div className="truncate">{contact.companies_start || '-'}</div>
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.companies_start}
+                                maxWidth="w-20"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.linkedin && (
-                            <TableCell className="py-2 min-w-[80px]">
+                            <TableCell className="py-2 w-12">
                               {contact.linkedin_url ? (
                                 <a 
                                   href={contact.linkedin_url} 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline text-sm"
+                                  className="text-blue-600 hover:underline text-xs"
                                   title="LinkedIn profiel"
                                 >
-                                  LinkedIn
+                                  🔗
                                 </a>
                               ) : (
-                                '-'
+                                <span className="text-gray-400 text-xs">-</span>
                               )}
                             </TableCell>
                           )}
                           {columnVisibility.campagne && (
-                            <TableCell className="py-2 min-w-[120px]">
-                              <div className="truncate" title={contact.campaign_name || '-'}>
-                                {contact.campaign_name || '-'}
-                              </div>
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.campaign_name}
+                                maxWidth="w-24"
+                              />
                             </TableCell>
                           )}
                           {columnVisibility.aangemaakt && (
-                            <TableCell className="py-2 min-w-[100px]">
-                              <div className="text-sm text-gray-600">
-                                {contact.created_at 
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip 
+                                value={contact.created_at 
                                   ? new Date(contact.created_at).toLocaleDateString('nl-NL')
-                                  : '-'
+                                  : null
                                 }
-                              </div>
+                                className="text-gray-600"
+                                maxWidth="w-20"
+                              />
                             </TableCell>
                           )}
                           <TableCell className="py-2 w-[60px] sticky right-0 bg-white">

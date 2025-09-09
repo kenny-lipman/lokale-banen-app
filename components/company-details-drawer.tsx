@@ -203,12 +203,12 @@ export function CompanyDetailsDrawer({
     }
   }, [open, companyId])
 
-  // Separate useEffect to fetch contacts when company data is loaded and is enriched
+  // Separate useEffect to fetch contacts when company data is loaded
   useEffect(() => {
-    if (company && company.qualification_status === 'enriched') {
+    if (company && companyId) {
       fetchContacts()
     }
-  }, [company?.qualification_status, companyId])
+  }, [company?.id, companyId])
 
   const fetchCompanyDetails = async () => {
     if (!companyId) return
@@ -242,7 +242,7 @@ export function CompanyDetailsDrawer({
   }
 
   const fetchContacts = async () => {
-    if (!companyId || !company || company.qualification_status !== 'enriched') return
+    if (!companyId || !company) return
 
     setLoadingContacts(true)
     setContactsError(null)
@@ -522,9 +522,10 @@ export function CompanyDetailsDrawer({
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="jobs">Job Postings ({company.job_postings?.length || 0})</TabsTrigger>
+                <TabsTrigger value="contacts">Contacten ({contacts.length})</TabsTrigger>
                 <TabsTrigger value="enrichment">Enrichment Data</TabsTrigger>
               </TabsList>
 
@@ -625,114 +626,6 @@ export function CompanyDetailsDrawer({
                   </Card>
                 )}
 
-                {/* Contacts Section - Only show for enriched companies in Overview tab */}
-                {company.qualification_status === 'enriched' && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <Users className="w-5 h-5 text-purple-600" />
-                        <span>Apollo Contacts ({contacts.length})</span>
-                        {loadingContacts && (
-                          <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
-                        )}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-purple-50">
-                              <TableHead>Name</TableHead>
-                              <TableHead>Job Title</TableHead>
-                              <TableHead>Email</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>LinkedIn</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {loadingContacts ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8">
-                                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
-                                  <p className="text-gray-500">Loading contacts...</p>
-                                </TableCell>
-                              </TableRow>
-                            ) : contactsError ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-red-500">
-                                  <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-                                  <p>Error: {contactsError}</p>
-                                </TableCell>
-                              </TableRow>
-                            ) : contacts.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-gray-400">
-                                  <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                                  <p>No contacts found</p>
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              contacts.map((contact) => (
-                                <TableRow key={contact.id} className="hover:bg-purple-50">
-                                  <TableCell className="font-medium">
-                                    {contact.first_name || contact.name || '-'}
-                                  </TableCell>
-                                  <TableCell className="text-sm text-gray-600">
-                                    {contact.title || '-'}
-                                  </TableCell>
-                                  <TableCell>
-                                    {contact.email ? (
-                                      <a 
-                                        href={`mailto:${contact.email}`} 
-                                        className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                                      >
-                                        <Mail className="w-3 h-3" />
-                                        <span className="text-sm">{contact.email}</span>
-                                      </a>
-                                    ) : (
-                                      <span className="text-gray-400">-</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    {contact.email_status ? (
-                                      <Badge 
-                                        className={
-                                          contact.email_status === 'verified' 
-                                            ? 'bg-green-100 text-green-800 border-green-200'
-                                            : contact.email_status === 'bounced'
-                                            ? 'bg-red-100 text-red-800 border-red-200'
-                                            : 'bg-gray-100 text-gray-800 border-gray-200'
-                                        }
-                                      >
-                                        {contact.email_status}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-gray-400">-</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    {contact.linkedin_url ? (
-                                      <a
-                                        href={contact.linkedin_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800"
-                                      >
-                                        <Link className="w-4 h-4" />
-                                      </a>
-                                    ) : (
-                                      <span className="text-gray-400">-</span>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </TabsContent>
 
               {/* Job Postings Tab */}
@@ -799,6 +692,125 @@ export function CompanyDetailsDrawer({
                         <p>No job postings found</p>
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Contacts Tab */}
+              <TabsContent value="contacts">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-purple-600" />
+                      <span>Contacten</span>
+                      {loadingContacts && (
+                        <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      Contacten die gelinkt zijn aan dit bedrijf
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-purple-50">
+                            <TableHead>Naam</TableHead>
+                            <TableHead>Functie</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Telefoon</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>LinkedIn</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loadingContacts ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-8">
+                                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
+                                <p className="text-gray-500">Contacten laden...</p>
+                              </TableCell>
+                            </TableRow>
+                          ) : contactsError ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-8 text-red-500">
+                                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                                <p>Error: {contactsError}</p>
+                              </TableCell>
+                            </TableRow>
+                          ) : contacts.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-8 text-gray-400">
+                                <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                <p>Geen contacten gevonden</p>
+                                {company.qualification_status !== 'enriched' && (
+                                  <p className="text-sm mt-2">Verrijk eerst het bedrijf om contacten te vinden</p>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            contacts.map((contact) => (
+                              <TableRow key={contact.id} className="hover:bg-purple-50">
+                                <TableCell className="font-medium">
+                                  {contact.first_name || contact.name || '-'}
+                                </TableCell>
+                                <TableCell className="text-sm text-gray-600">
+                                  {contact.title || '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {contact.email ? (
+                                    <a 
+                                      href={`mailto:${contact.email}`} 
+                                      className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                                    >
+                                      <Mail className="w-3 h-3" />
+                                      <span className="text-sm">{contact.email}</span>
+                                    </a>
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm text-gray-600">
+                                  {contact.phone || '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {contact.email_status ? (
+                                    <Badge 
+                                      className={
+                                        contact.email_status === 'verified' 
+                                          ? 'bg-green-100 text-green-800 border-green-200'
+                                          : contact.email_status === 'bounced'
+                                          ? 'bg-red-100 text-red-800 border-red-200'
+                                          : 'bg-gray-100 text-gray-800 border-gray-200'
+                                      }
+                                    >
+                                      {contact.email_status}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {contact.linkedin_url ? (
+                                    <a
+                                      href={contact.linkedin_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800"
+                                    >
+                                      <Link className="w-4 h-4" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

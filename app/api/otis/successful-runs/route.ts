@@ -93,7 +93,6 @@ export async function GET(req: NextRequest) {
       const companyIds = [...new Set(jobData?.map(j => j.companies.id).filter(Boolean))] || []
       const companyCount = companyIds.length
       
-      console.log(`Run ${runId}: ${jobCount} jobs, ${companyCount} companies`)
       return { runId, jobCount, companyCount, companyIds }
     })
     
@@ -135,7 +134,6 @@ export async function GET(req: NextRequest) {
       }
       const companyCount = companyCountMap.get(run.id) || 0
       const jobCount = jobCountMap.get(run.id) || 0
-      console.log(`Assigning to run ${run.id} (${title}): ${companyCount} companies, ${jobCount} job postings`)
       
       // Format date for freshness (Jul 25, or Jul 25 10:12 if same day and time matters)
       const date = new Date(run.created_at)
@@ -174,7 +172,6 @@ export async function GET(req: NextRequest) {
       }
     }).filter(run => run.id)
 
-    console.log(`Found ${transformedRuns.length} successful Apify runs`)
 
     return NextResponse.json({
       runs: transformedRuns,
