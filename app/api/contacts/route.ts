@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseService } from "@/lib/supabase-service"
+import { sendToPipedriveWebhook } from "@/lib/pipedrive-webhook"
 
 export async function GET(req: Request) {
   try {
@@ -129,11 +130,14 @@ export async function POST(req: Request) {
           company_id,
           campaign_id,
           campaign_name,
+          pipedrive_synced,
+          pipedrive_synced_at,
           companies(
             id,
             name,
             website,
-            category_size
+            category_size,
+            city
           )
         `)
         .in('id', uniqueContactIds)
@@ -313,6 +317,24 @@ export async function POST(req: Request) {
                 instantlyId
               })
             } else {
+              // Send to Pipedrive webhook after successful Instantly sync
+              const webhookResult = await sendToPipedriveWebhook(contact, campaignName || "")
+              
+              // Update contact with Pipedrive sync status
+              if (webhookResult.success) {
+                await supabaseService.client
+                  .from('contacts')
+                  .update({
+                    pipedrive_synced: true,
+                    pipedrive_synced_at: new Date().toISOString()
+                  })
+                  .eq('id', contact.id)
+                
+                console.log(`[Pipedrive] Contact ${contact.email} synced successfully`)
+              } else {
+                console.log(`[Pipedrive] Failed to sync contact ${contact.email}:`, webhookResult.error)
+              }
+              
               results.push({ 
                 contactId: contact.id, 
                 instantlyId, 

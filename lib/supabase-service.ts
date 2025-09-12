@@ -628,6 +628,8 @@ export class SupabaseService {
           source_id: company.source,
           company_region: companyPlatforms[company.id] || null,
           enrichment_status: company.enrichment_status || null,
+          pipedrive_synced: company.pipedrive_synced || false,
+          pipedrive_synced_at: company.pipedrive_synced_at || null,
           // Computed filter fields for client-side validation
           has_apollo_enrichment: !!company.apollo_enriched_at,
           has_contacts: (contactCounts[company.id] || 0) > 0,
@@ -1413,6 +1415,8 @@ export class SupabaseService {
           linkedin_url,
           created_at,
           campaign_name,
+          pipedrive_synced,
+          pipedrive_synced_at,
           company_id,
           company_status,
           status,
@@ -1448,7 +1452,9 @@ export class SupabaseService {
         created_at: contact.created_at,
         campaign_name: contact.campaign_name,
         company_status: contact.company_status,
-        status: contact.status
+        status: contact.status,
+        pipedrive_synced: contact.pipedrive_synced,
+        pipedrive_synced_at: contact.pipedrive_synced_at
       }))
     } catch (error) {
       console.error("Error in getContacts:", error)
@@ -1511,6 +1517,8 @@ export class SupabaseService {
             company_id,
             company_status,
             status,
+            pipedrive_synced,
+            pipedrive_synced_at,
             companies:company_id(
               name,
               category_size,
@@ -1614,7 +1622,11 @@ export class SupabaseService {
           company_status: contact.company_status,
           status: contact.status,
           company_id: contact.company_id,
-          in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+          pipedrive_synced: contact.pipedrive_synced,
+          pipedrive_synced_at: contact.pipedrive_synced_at,
+          in_campaign: contact.campaign_id && contact.campaign_id.trim() !== '',
+      pipedrive_synced: contact.pipedrive_synced,
+      pipedrive_synced_at: contact.pipedrive_synced_at
         }))
 
         return {
@@ -1643,6 +1655,8 @@ export class SupabaseService {
             company_id,
             company_status,
             status,
+            pipedrive_synced,
+            pipedrive_synced_at,
             companies:company_id(
               name,
               category_size,
@@ -1717,7 +1731,11 @@ export class SupabaseService {
           company_status: contact.company_status,
           status: contact.status,
           company_id: contact.company_id,
-          in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+          pipedrive_synced: contact.pipedrive_synced,
+          pipedrive_synced_at: contact.pipedrive_synced_at,
+          in_campaign: contact.campaign_id && contact.campaign_id.trim() !== '',
+      pipedrive_synced: contact.pipedrive_synced,
+      pipedrive_synced_at: contact.pipedrive_synced_at
         }))
 
         return {
@@ -1778,6 +1796,8 @@ export class SupabaseService {
           linkedin_url,
           created_at,
           campaign_name,
+          pipedrive_synced,
+          pipedrive_synced_at,
           campaign_id,
           company_status,
           status,
@@ -1850,7 +1870,9 @@ export class SupabaseService {
       campaign_name: contact.campaign_name,
       company_status: contact.company_status,
       status: contact.status,
-      in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+      in_campaign: contact.campaign_id && contact.campaign_id.trim() !== '',
+      pipedrive_synced: contact.pipedrive_synced,
+      pipedrive_synced_at: contact.pipedrive_synced_at
     }))
 
     console.log(`Chunked processing complete: ${transformedContacts.length} contacts returned (est. total: ${totalCount})`)
@@ -2071,6 +2093,8 @@ export class SupabaseService {
           linkedin_url,
           created_at,
           campaign_name,
+          pipedrive_synced,
+          pipedrive_synced_at,
           campaign_id,
           company_id,
           company_status,
@@ -2154,7 +2178,9 @@ export class SupabaseService {
       campaign_name: contact.campaign_name,
       company_status: contact.company_status,
       status: contact.status,
-      in_campaign: contact.campaign_id && contact.campaign_id.trim() !== ''
+      in_campaign: contact.campaign_id && contact.campaign_id.trim() !== '',
+      pipedrive_synced: contact.pipedrive_synced,
+      pipedrive_synced_at: contact.pipedrive_synced_at
     }))
 
     return {

@@ -41,6 +41,8 @@ interface Company {
   region_platform?: string | null
   region_id?: string | null
   qualification_status?: string | null
+  pipedrive_synced?: boolean | null
+  pipedrive_synced_at?: string | null
 }
 
 interface Contact {
@@ -316,6 +318,27 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
             {company.source && (
               <div className="text-xs text-gray-500">Bron: {company.source_name || company.source}</div>
             )}
+
+            {/* Pipedrive Sync Status */}
+            <div className="flex items-center space-x-2 text-sm">
+              <span className="text-gray-500">Pipedrive:</span>
+              {company.pipedrive_synced ? (
+                <Badge className="bg-green-100 text-green-800 border-green-200">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Gesynct
+                  {company.pipedrive_synced_at && (
+                    <span className="ml-1 text-xs opacity-75">
+                      ({new Date(company.pipedrive_synced_at).toLocaleDateString('nl-NL')})
+                    </span>
+                  )}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-gray-600">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Niet gesynct
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Description */}

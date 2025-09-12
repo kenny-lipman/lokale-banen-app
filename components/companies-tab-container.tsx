@@ -36,6 +36,8 @@ interface Company {
   apollo_enriched_at?: string | null
   enrichment_status?: string | null
   is_customer?: boolean | null
+  pipedrive_synced?: boolean | null
+  pipedrive_synced_at?: string | null
 }
 
 interface CompaniesTabContainerProps {
@@ -731,6 +733,18 @@ export function CompaniesTabContainer({
                 )}
                 {company.enrichment_status === 'failed' && (
                   <Badge className="bg-red-100 text-red-800">❌ Enrich Failed</Badge>
+                )}
+                {/* Pipedrive Sync Status */}
+                {company.pipedrive_synced ? (
+                  <Badge className="bg-green-100 text-green-800 border-green-200">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Pipedrive
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-gray-500">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    No Pipedrive
+                  </Badge>
                 )}
               </div>
             </div>

@@ -51,6 +51,8 @@ interface Company {
   enrichment_status?: string | null; // Added for Verrijkt column
   qualification_status?: string | null; // Added for qualification workflow
   qualification_timestamp?: string | null; // Added for qualification workflow
+  pipedrive_synced?: boolean | null; // Added for Pipedrive sync status
+  pipedrive_synced_at?: string | null; // Added for Pipedrive sync timestamp
 }
 
 interface CompaniesTableProps {
@@ -289,6 +291,24 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
           </Badge>
         )
     }
+  }
+
+  const getPipedriveSyncBadge = (synced: boolean | null | undefined, syncedAt: string | null | undefined) => {
+    if (synced === true) {
+      return (
+        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Gesynct
+        </Badge>
+      )
+    }
+    
+    return (
+      <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
+        <XCircle className="w-3 h-3 mr-1" />
+        Niet gesynct
+      </Badge>
+    )
   }
 
   // Navigate to contacts page filtered by company
@@ -729,6 +749,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               <TableHead className="w-[180px]">Website</TableHead>
               <TableHead>Hoofddomein</TableHead>
               <TableHead>Verrijkt</TableHead>
+              <TableHead>Pipedrive</TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => {
@@ -912,6 +933,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                   <TableCell className="text-sm">{company.company_region || "-"}</TableCell>
                   <TableCell>
                     {getEnrichmentStatusBadge(company.enrichment_status)}
+                  </TableCell>
+                  <TableCell>
+                    {getPipedriveSyncBadge(company.pipedrive_synced, company.pipedrive_synced_at)}
                   </TableCell>
                   <TableCell>
                     <Button 
