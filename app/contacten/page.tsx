@@ -5,9 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SimpleDropdown as CampaignCombobox } from "@/components/ui/simple-dropdown"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3 } from "lucide-react"
 import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
@@ -19,6 +22,7 @@ import { EditContactModal } from "@/components/contacts/edit-contact-modal"
 import { ColumnVisibilityToggle, ColumnVisibility } from "@/components/contacts/column-visibility-toggle"
 import { formatDutchPhone } from "@/lib/validators/contact"
 import { TableCellWithTooltip } from "@/components/ui/table-cell-with-tooltip"
+import { LocationSummaryCompact } from "@/components/contacts/location-summary-compact"
 
 interface Contact {
   id: string
@@ -41,6 +45,8 @@ interface Contact {
   status: string | null
   in_campaign?: boolean
   company_id: string
+  pipedrive_synced?: boolean | null
+  pipedrive_synced_at?: string | null
 }
 
 interface Campaign {
@@ -117,6 +123,15 @@ const getCompanySizeBadge = (size: string | null) => {
   }
 }
 
+const getPipedriveSyncBadge = (synced: boolean | null, syncedAt: string | null) => {
+  if (synced) {
+    const syncDate = syncedAt ? new Date(syncedAt).toLocaleDateString('nl-NL') : ''
+    return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-1 py-0" title={`Synced ${syncDate}`}>✅</Badge>
+  } else {
+    return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-1 py-0" title="Not synced">❌</Badge>
+  }
+}
+
 export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [inCampaignFilter, setInCampaignFilter] = useState<string>("all")
@@ -131,6 +146,8 @@ export default function ContactsPage() {
   // Selection state
   const [selectedContacts, setSelectedContacts] = useState<Set<number>>(new Set())
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([])
+  const [showAllCampaigns, setShowAllCampaigns] = useState<boolean>(false)
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
   
   // Modal states
@@ -160,6 +177,7 @@ export default function ContactsPage() {
     companyStart: false,
     linkedin: false,
     campagne: true,
+    pipedriveStatus: true,
     aangemaakt: false
   })
   
@@ -216,13 +234,29 @@ export default function ContactsPage() {
         const response = await fetch('/api/instantly-campaigns')
         const data = await response.json()
         if (data.campaigns) {
-          // Filter campaigns to only show status 1, 2, 3, 4 as requested
-          const activeCampaigns = data.campaigns.filter((campaign: Campaign) => 
+          console.log(`Loaded ${data.total || data.campaigns.length} total campaigns from Instantly`)
+          
+          // Store all campaigns (sorted)
+          const sortedAllCampaigns = [...data.campaigns].sort((a: Campaign, b: Campaign) => 
+            a.name.localeCompare(b.name)
+          )
+          setAllCampaigns(sortedAllCampaigns)
+          
+          // Filter campaigns to only show status 1, 2, 3, 4 by default
+          const activeCampaigns = sortedAllCampaigns.filter((campaign: Campaign) => 
             ['1', '2', '3', '4'].includes(String(campaign.status))
           )
-          // Sort campaigns A-Z by name
-          activeCampaigns.sort((a: Campaign, b: Campaign) => a.name.localeCompare(b.name))
+          
+          console.log(`Filtered to ${activeCampaigns.length} active campaigns (status 1,2,3,4)`)
           setCampaigns(activeCampaigns)
+          
+          // Show info toast if many campaigns were filtered out
+          if (data.campaigns.length > activeCampaigns.length) {
+            toast({
+              title: "Campagnes geladen",
+              description: `${activeCampaigns.length} actieve campagnes weergegeven van ${data.campaigns.length} totaal`,
+            })
+          }
         }
       } catch (error) {
         console.error('Error loading campaigns:', error)
@@ -235,6 +269,18 @@ export default function ContactsPage() {
     }
     loadCampaigns()
   }, [toast])
+  
+  // Update campaigns when toggle changes
+  useEffect(() => {
+    if (showAllCampaigns) {
+      setCampaigns(allCampaigns)
+    } else {
+      const activeCampaigns = allCampaigns.filter((campaign: Campaign) => 
+        ['1', '2', '3', '4'].includes(String(campaign.status))
+      )
+      setCampaigns(activeCampaigns)
+    }
+  }, [showAllCampaigns, allCampaigns])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -470,6 +516,13 @@ export default function ContactsPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
+                  {/* Location Summary */}
+                  {selectedContacts.size > 0 && (
+                    <LocationSummaryCompact 
+                      contactIds={Array.from(selectedContacts).map(idx => contacts[idx]?.id).filter(Boolean)}
+                    />
+                  )}
+                  
                   {/* Platform Recommendation */}
                   {selectedContacts.size > 0 && (
                     <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -530,28 +583,33 @@ export default function ContactsPage() {
                     </div>
                   )}
                   
-                  <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecteer campagne..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campaigns.map((campaign) => {
-                        const status = CAMPAIGN_STATUS_MAP[campaign.status as keyof typeof CAMPAIGN_STATUS_MAP]
-                        return (
-                          <SelectItem key={campaign.id} value={campaign.id} className="py-3">
-                            <div className="flex flex-col items-start w-full">
-                              <span className="truncate w-full font-medium">{campaign.name}</span>
-                              {status && (
-                                <Badge className={`${status.color} text-xs mt-1`}>
-                                  {status.icon} {status.label}
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
+                  <CampaignCombobox
+                    campaigns={campaigns}
+                    value={selectedCampaign}
+                    onSelect={setSelectedCampaign}
+                    placeholder="Selecteer campagne..."
+                    campaignStatusMap={CAMPAIGN_STATUS_MAP}
+                  />
+                  
+                  {/* Toggle to show all campaigns */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <Label htmlFor="show-all-campaigns" className="text-sm font-medium cursor-pointer">
+                      Toon alle campagnes (inclusief inactief)
+                    </Label>
+                    <Switch
+                      id="show-all-campaigns"
+                      checked={showAllCampaigns}
+                      onCheckedChange={setShowAllCampaigns}
+                    />
+                  </div>
+                  
+                  {/* Campaign count info */}
+                  <div className="text-xs text-muted-foreground text-center">
+                    {showAllCampaigns 
+                      ? `${campaigns.length} campagnes beschikbaar`
+                      : `${campaigns.length} actieve campagnes (${allCampaigns.length - campaigns.length} verborgen)`
+                    }
+                  </div>
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setIsCampaignModalOpen(false)}>
                       Annuleren
@@ -897,6 +955,7 @@ export default function ContactsPage() {
                       {columnVisibility.companyStart && <TableHead className="w-20">C.Start</TableHead>}
                       {columnVisibility.linkedin && <TableHead className="w-12" title="LinkedIn">💼</TableHead>}
                       {columnVisibility.campagne && <TableHead className="w-24">Campagne</TableHead>}
+                      {columnVisibility.pipedriveStatus && <TableHead className="w-16" title="Pipedrive Status">Pipedrive</TableHead>}
                       {columnVisibility.aangemaakt && <TableHead className="w-20">Datum</TableHead>}
                       <TableHead className="w-[60px] sticky right-0 bg-white shadow-sm">Acties</TableHead>
                     </TableRow>
@@ -1032,6 +1091,11 @@ export default function ContactsPage() {
                                 value={contact.campaign_name}
                                 maxWidth="w-24"
                               />
+                            </TableCell>
+                          )}
+                          {columnVisibility.pipedriveStatus && (
+                            <TableCell className="py-2 w-12">
+                              {getPipedriveSyncBadge(contact.pipedrive_synced, contact.pipedrive_synced_at)}
                             </TableCell>
                           )}
                           {columnVisibility.aangemaakt && (

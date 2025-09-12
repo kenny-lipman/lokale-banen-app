@@ -75,10 +75,55 @@ export function useCompaniesCache(params: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey])
 
+  // Optimistic update function for immediate UI updates
+  const updateCompanyOptimistically = (companyId: string, updates: Partial<any>) => {
+    if (!data || !data.data) return;
+    
+    const updatedData = {
+      ...data,
+      data: data.data.map((company: any) =>
+        company.id === companyId
+          ? { ...company, ...updates, updated_at: new Date().toISOString() }
+          : company
+      )
+    };
+    
+    // Update cache and state immediately
+    companiesCache[cacheKey] = updatedData;
+    setData(updatedData);
+  };
+
+  // Bulk optimistic update for multiple companies
+  const updateCompaniesOptimistically = (companyIds: string[], updates: Partial<any>) => {
+    if (!data || !data.data) return;
+    
+    const updatedData = {
+      ...data,
+      data: data.data.map((company: any) =>
+        companyIds.includes(company.id)
+          ? { ...company, ...updates, updated_at: new Date().toISOString() }
+          : company
+      )
+    };
+    
+    // Update cache and state immediately
+    companiesCache[cacheKey] = updatedData;
+    setData(updatedData);
+  };
+
+  // Revert optimistic update (rollback function)
+  const revertOptimisticUpdate = () => {
+    // Force refetch to get server state
+    fetchCompanies();
+  };
+
   return {
     data,
     loading,
     error,
     refetch: fetchCompanies,
+    updateCompanyOptimistically,
+    updateCompaniesOptimistically,
+    revertOptimisticUpdate,
   }
 } 

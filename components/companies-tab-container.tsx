@@ -417,11 +417,19 @@ export function CompaniesTabContainer({
     }
   }
 
-  // Qualification functions
+  // Qualification functions with optimistic updates
   const qualifyCompany = async (companyId: string, status: 'qualified' | 'disqualified' | 'review' | 'pending') => {
     setIsQualifying(prev => new Set(prev).add(companyId))
     
     try {
+      // 1. OPTIMISTIC UPDATE: Update UI immediately
+      setCompanies(prev => prev.map(company =>
+        company.id === companyId
+          ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
+          : company
+      ));
+
+      // 2. API CALL: Send to backend
       const response = await fetch('/api/companies/qualify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -429,16 +437,20 @@ export function CompaniesTabContainer({
       })
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        await refreshData();
         throw new Error(`Failed to update company qualification: ${response.status}`)
       }
 
+      // 3. SUCCESS: Show feedback (UI already updated!)
       toast({
         title: "Company qualification updated",
         description: `Company ${status} successfully`,
       })
 
-      // Refresh data
-      await refreshData()
+      // Background refresh to sync counts and ensure consistency
+      setTimeout(() => refreshData(), 1000);
+
     } catch (error) {
       console.error('Error qualifying company:', error)
       toast({
@@ -455,7 +467,7 @@ export function CompaniesTabContainer({
     }
   }
 
-  // Bulk qualification
+  // Bulk qualification with optimistic updates
   const bulkQualifyCompanies = async (status: 'qualified' | 'disqualified' | 'review' | 'pending') => {
     const selectedIds = Array.from(selectedCompanies)
     if (selectedIds.length === 0) return
@@ -463,6 +475,14 @@ export function CompaniesTabContainer({
     selectedIds.forEach(id => setIsQualifying(prev => new Set(prev).add(id)))
 
     try {
+      // 1. OPTIMISTIC UPDATE: Update UI immediately
+      setCompanies(prev => prev.map(company =>
+        selectedIds.includes(company.id)
+          ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
+          : company
+      ));
+
+      // 2. API CALL: Send to backend
       const response = await fetch('/api/companies/qualify', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -470,16 +490,22 @@ export function CompaniesTabContainer({
       })
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        await refreshData();
         throw new Error(`Failed to bulk update qualifications: ${response.status}`)
       }
 
+      // 3. SUCCESS: Show feedback (UI already updated!)
       toast({
         title: "Bulk qualification updated",
         description: `${selectedIds.length} companies ${status} successfully`,
       })
 
       setSelectedCompanies(new Set())
-      await refreshData()
+      
+      // Background refresh to sync counts and ensure consistency
+      setTimeout(() => refreshData(), 1000);
+
     } catch (error) {
       console.error('Error bulk qualifying companies:', error)
       toast({

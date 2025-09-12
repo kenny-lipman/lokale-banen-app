@@ -10,10 +10,10 @@ const supabase = createClient(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const contactId = params.id
+    const { id: contactId } = await params
     
     // Parse request body
     const body: ContactUpdateRequest = await request.json()
@@ -100,10 +100,10 @@ export async function PUT(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const contactId = params.id
+    const { id: contactId } = await params
     
     const { data, error } = await supabase
       .from('contacts')

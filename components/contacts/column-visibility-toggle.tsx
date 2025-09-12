@@ -26,6 +26,7 @@ export interface ColumnVisibility {
   companyStart: boolean
   linkedin: boolean
   campagne: boolean
+  pipedriveStatus: boolean
   aangemaakt: boolean
 }
 
@@ -52,6 +53,7 @@ export function ColumnVisibilityToggle({
     companyStart: "Company Start",
     linkedin: "LinkedIn",
     campagne: "Campagne",
+    pipedriveStatus: "Pipedrive",
     aangemaakt: "Aangemaakt"
   }
 
@@ -88,6 +90,7 @@ export function ColumnVisibilityToggle({
       companyStart: false,
       linkedin: false,
       campagne: false,
+      pipedriveStatus: true,
       aangemaakt: false
     }
     onVisibilityChange(essentialOnly)

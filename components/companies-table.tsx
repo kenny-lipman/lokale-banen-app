@@ -102,12 +102,15 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     hasContacts: hasContactsFilter !== "all" ? hasContactsFilter : undefined,
     regioPlatformFilter: regioPlatformFilter !== "all" ? regioPlatformFilter : undefined,
   };
-  // Vervang fetchCompanies en gerelateerde state
+  // Enhanced companies cache with optimistic updates
   const {
     data: companiesResult,
     loading,
     error,
     refetch,
+    updateCompanyOptimistically,
+    updateCompaniesOptimistically,
+    revertOptimisticUpdate,
   } = useCompaniesCache(backendFilters)
   const companies = companiesResult?.data || []
   const totalCount = companiesResult?.count || 0
@@ -330,11 +333,18 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     setSelectedCompany(null)
   }
 
-  // Company qualification functions
+  // Company qualification functions with optimistic updates
   const qualifyCompany = async (companyId: string, status: 'qualified' | 'disqualified' | 'review') => {
     setIsQualifying(prev => new Set(prev).add(companyId))
     
     try {
+      // 1. OPTIMISTIC UPDATE: Update UI immediately
+      updateCompanyOptimistically(companyId, {
+        qualification_status: status,
+        qualification_timestamp: new Date().toISOString()
+      });
+
+      // 2. API CALL: Send to backend
       const response = await fetch('/api/companies/qualify', {
         method: 'POST',
         headers: {
@@ -349,25 +359,21 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Company qualification API error:', response.status, errorText)
+        
+        // Revert optimistic update on error
+        revertOptimisticUpdate();
         throw new Error(`Failed to update company qualification: ${response.status}`)
       }
 
-      // Update local state immediately for better UX
-      if (companiesResult?.data) {
-        const updatedData = companiesResult.data.map((company: Company) =>
-          company.id === companyId
-            ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
-            : company
-        )
-        // Note: This would need to be properly integrated with the cache/state management
-        // For now, we'll just refetch the data
-        refetch()
-      }
-
+      // 3. SUCCESS: Show feedback (UI already updated!)
       toast({
         title: "Company qualification updated",
         description: `Company ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`,
       })
+
+      // Background sync to ensure consistency
+      setTimeout(() => refetch(), 1000);
+
     } catch (error) {
       console.error('Error qualifying company:', error)
       toast({
@@ -384,7 +390,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     }
   }
 
-  // Bulk qualification function
+  // Bulk qualification function with optimistic updates
   const bulkQualifyCompanies = async (status: 'qualified' | 'disqualified' | 'review') => {
     if (qualificationSelectedIds.length === 0) return
 
@@ -392,6 +398,13 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     companyIds.forEach(id => setIsQualifying(prev => new Set(prev).add(id)))
 
     try {
+      // 1. OPTIMISTIC UPDATE: Update UI immediately
+      updateCompaniesOptimistically(companyIds, {
+        qualification_status: status,
+        qualification_timestamp: new Date().toISOString()
+      });
+
+      // 2. API CALL: Send to backend
       const response = await fetch('/api/companies/qualify', {
         method: 'PUT',
         headers: {
@@ -406,20 +419,13 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Bulk company qualification API error:', response.status, errorText)
+        
+        // Revert optimistic update on error
+        revertOptimisticUpdate();
         throw new Error(`Failed to bulk update company qualifications: ${response.status}`)
       }
 
-      // Update local state
-      if (companiesResult?.data) {
-        const updatedData = companiesResult.data.map((company: Company) =>
-          companyIds.includes(company.id)
-            ? { ...company, qualification_status: status, qualification_timestamp: new Date().toISOString() }
-            : company
-        )
-        // Refetch data to ensure consistency
-        refetch()
-      }
-
+      // 3. SUCCESS: Show feedback (UI already updated!)
       toast({
         title: "Bulk qualification updated",
         description: `${companyIds.length} companies ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`,
@@ -427,6 +433,10 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
 
       // Clear selection after successful update
       setQualificationSelectedIds([])
+
+      // Background sync to ensure consistency
+      setTimeout(() => refetch(), 1000);
+
     } catch (error) {
       console.error('Error bulk qualifying companies:', error)
       toast({
@@ -479,16 +489,27 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
 
   // Selection functions now provided by useCompanySelection hook
 
-  // In handleBulkStatus, gebruik refetch na update
+  // Optimistic UI update for bulk status changes
   const handleBulkStatus = async () => {
     if (!bulkStatus || selectedCount === 0) return;
+    
+    const selectedCompanyIds = selectedIds;
+    
     try {
+      // 1. OPTIMISTIC UPDATE: Update UI immediately without page refresh
+      updateCompaniesOptimistically(selectedCompanyIds, { status: bulkStatus });
+      
+      // 2. API CALL: Send to backend
       const res = await fetch("/api/companies", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyIds: selectedIds, status: bulkStatus }),
+        body: JSON.stringify({ companyIds: selectedCompanyIds, status: bulkStatus }),
       });
+      
       if (res.ok) {
+        const result = await res.json();
+        
+        // 3. SUCCESS: Show feedback, clear selection (scroll position preserved!)
         toast({
           title: "Status bijgewerkt",
           description: (
@@ -500,14 +521,31 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         });
         clearSelection();
         setBulkStatus("");
-        refetch();
+        
+        // Background sync (optional - UI already updated)
+        setTimeout(() => refetch(), 1000);
         if (onStatusChange) onStatusChange();
+        
       } else {
+        // 4. ERROR: Revert optimistic update and show error
         const data = await res.json();
-        toast({ title: "Fout bij bijwerken", description: data.error || "Onbekende fout", variant: "destructive" });
+        revertOptimisticUpdate(); // Rollback UI changes
+        
+        toast({ 
+          title: "Fout bij bijwerken", 
+          description: data.error || "Onbekende fout", 
+          variant: "destructive" 
+        });
       }
     } catch (e) {
-      toast({ title: "Netwerkfout", description: e?.toString() || "Onbekende fout", variant: "destructive" });
+      // 5. NETWORK ERROR: Revert and show error
+      revertOptimisticUpdate(); // Rollback UI changes
+      
+      toast({ 
+        title: "Netwerkfout", 
+        description: e?.toString() || "Onbekende fout", 
+        variant: "destructive" 
+      });
     }
   }
 

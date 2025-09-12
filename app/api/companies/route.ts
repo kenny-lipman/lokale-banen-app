@@ -88,28 +88,89 @@ export async function PATCH(req: NextRequest) {
     // Validate status
     const validStatuses = ['Prospect', 'Qualified', 'Disqualified', 'Customer']
     if (!validStatuses.includes(status)) {
-      return NextResponse.json({ error: 'Invalid status. Must be one of: Prospect, Qualified, Disqualified, Customer' }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'Invalid status. Must be one of: Prospect, Qualified, Disqualified, Customer',
+        code: 'INVALID_STATUS',
+        validStatuses
+      }, { status: 400 })
     }
 
+    // Get current company data for business rule validation
+    const { data: currentCompany, error: fetchError } = await supabase
+      .from('companies')
+      .select('id, status')
+      .eq('id', companyId)
+      .single()
+
+    if (fetchError) {
+      console.error('Error fetching company for validation:', fetchError)
+      return NextResponse.json({ 
+        error: 'Company not found',
+        code: 'COMPANY_NOT_FOUND'
+      }, { status: 404 })
+    }
+
+    // Business rule validation (example: can't go from Customer back to Prospect)
+    if (currentCompany.status === 'Customer' && status === 'Prospect') {
+      return NextResponse.json({ 
+        error: 'Cannot change Customer status back to Prospect',
+        code: 'INVALID_STATUS_TRANSITION',
+        currentStatus: currentCompany.status,
+        requestedStatus: status
+      }, { status: 422 })
+    }
+
+    // Update with timestamp and return full company data
     const { data, error } = await supabase
       .from('companies')
-      .update({ status })
+      .update({ 
+        status,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', companyId)
-      .select('id, name, status')
+      .select(`
+        id,
+        name,
+        website,
+        location,
+        is_customer,
+        status,
+        created_at,
+        updated_at,
+        logo_url,
+        rating_indeed,
+        review_count_indeed,
+        size_min,
+        size_max,
+        category_size,
+        description,
+        qualification_status,
+        qualification_timestamp,
+        qualification_notes
+      `)
       .single()
 
     if (error) {
       console.error('Error updating company status:', error)
-      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+      
+      // Return more specific error messages
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ 
+          error: 'Company not found',
+          code: 'COMPANY_NOT_FOUND'
+        }, { status: 404 })
+      }
+      
+      return NextResponse.json({ 
+        error: 'Database error',
+        code: 'DATABASE_ERROR'
+      }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      data: {
-        id: data.id,
-        name: data.name,
-        status: data.status
-      }
+      data: data,
+      timestamp: new Date().toISOString()
     })
 
   } catch (error) {
