@@ -1,26 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
-
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  
-  const params = {
-    page: parseInt(searchParams.get('page') || '1'),
-    limit: parseInt(searchParams.get('limit') || '10'),
-    search: searchParams.get('search') || undefined,
-    status: searchParams.get('status') || undefined,
-    source_id: searchParams.get('source_id') || undefined,
-    platform_id: searchParams.get('platform_id') || undefined,
-  }
-
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+async function jobPostingsGetHandler(req: NextRequest, authResult: AuthResult) {
   try {
-    const result = await supabaseService.getJobPostings(params)
-    
+    const { searchParams } = new URL(req.url)
+
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const search = searchParams.get('search')
+    const status = searchParams.get('status')
+
+    // Build query
+    let query = authResult.supabase
+      .from('job_postings')
+      .select('*', { count: 'exact' })
+
+    // Apply filters
+    if (search) {
+      query = query.ilike('title', `%${search}%`)
+    }
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    // Execute with pagination
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, page * limit - 1)
+
+    if (error) throw error
+
     return NextResponse.json({
       success: true,
-      data: result.data,
-      count: result.count,
-      totalPages: result.totalPages
+      data: data || [],
+      count: count || 0,
+      totalPages: Math.ceil((count || 0) / limit)
     })
   } catch (error: any) {
     console.error('API Error fetching job postings:', {
@@ -42,3 +55,5 @@ export async function GET(req: NextRequest) {
     }, { status: 500 })
   }
 }
+
+export const GET = withAuth(jobPostingsGetHandler)

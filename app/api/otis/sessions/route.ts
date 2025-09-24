@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+async function otisSessionsHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    const supabase = createClient()
+    const { supabase } = authResult
     
     // Get query parameters
     const { searchParams } = new URL(request.url)
@@ -93,4 +91,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
+
+export const GET = withAuth(otisSessionsHandler) 

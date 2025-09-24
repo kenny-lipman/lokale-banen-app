@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+async function companyJobPostingsHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ companyId: string }> }
+  authResult: AuthResult,
+  context: { params: Promise<{ companyId: string }> }
 ) {
-  const { companyId } = await params
+  const { companyId } = await context.params
 
   if (!companyId) {
     return NextResponse.json(
@@ -16,9 +17,10 @@ export async function GET(
 
   try {
     console.log(`Fetching job postings for company_id: ${companyId}`)
+    console.log(`Using authenticated user: ${authResult.user?.email}`)
 
     // Get all job postings for this company with essential details
-    const { data: jobPostings, error } = await supabaseService.client
+    const { data: jobPostings, error } = await authResult.supabase
       .from('job_postings')
       .select(`
         id,
@@ -45,6 +47,9 @@ export async function GET(
     }
 
     console.log(`Found ${jobPostings?.length || 0} job postings for company_id: ${companyId}`)
+    if (jobPostings?.length === 0) {
+      console.log('DEBUG: No job postings found - checking if RLS is blocking...')
+    }
 
     return NextResponse.json({
       success: true,
@@ -64,3 +69,4 @@ export async function GET(
     }, { status: 500 })
   }
 } 
+export const GET = withAuth(companyJobPostingsHandler)

@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { supabaseService } from "@/lib/supabase-service"
 import { sendToPipedriveWebhook } from "@/lib/pipedrive-webhook"
 
-export async function GET(req: Request) {
+async function contactsGetHandler(req: NextRequest, authResult: AuthResult) {
   try {
+    // Authentication handled by withAuth wrapper
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '15')
@@ -38,9 +40,125 @@ export async function GET(req: Request) {
       }
     })
     
-    const data = await supabaseService.getContactsWithFilters(page, limit, filters)
-    console.log("API: Successfully fetched contacts:", data?.data?.length || 0, "contacts")
-    return NextResponse.json(data)
+    // Check if we need to use inner join for company filters
+    const needsCompanyJoin = !!(
+      filters.companyStatus ||
+      filters.companyStart ||
+      filters.companySize ||
+      (filters.search && filters.search.includes(' ')) // might be searching for company
+    )
+
+    // Build query with authenticated client
+    let query = authResult.supabase
+      .from("contacts")
+      .select(`
+        id,
+        first_name,
+        last_name,
+        title,
+        email,
+        phone,
+        email_status,
+        source,
+        qualification_status,
+        linkedin_url,
+        created_at,
+        campaign_name,
+        campaign_id,
+        company_id,
+        companies${needsCompanyJoin ? '!inner' : ''} (
+          id,
+          name,
+          website,
+          category_size,
+          status,
+          start
+        )
+      `, { count: 'exact' })
+
+    // Apply search filter
+    if (filters.search) {
+      query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,companies.name.ilike.%${filters.search}%`)
+    }
+
+    // Apply hasEmail filter
+    if (filters.hasEmail === 'with') {
+      query = query.not('email', 'is', null).neq('email', '')
+    } else if (filters.hasEmail === 'without') {
+      query = query.or('email.is.null,email.eq.')
+    }
+
+    // Apply inCampaign filter
+    if (filters.inCampaign === 'with') {
+      query = query.not('campaign_id', 'is', null)
+    } else if (filters.inCampaign === 'without') {
+      query = query.is('campaign_id', null)
+    }
+
+    // Apply qualification status filter
+    if (filters.categoryStatus) {
+      const statuses = filters.categoryStatus.split(',')
+      query = query.in('qualification_status', statuses)
+    }
+
+    // Apply company filters - these need the companies table
+    if (filters.companyStatus) {
+      const statuses = filters.companyStatus.split(',').map(s =>
+        s === 'null' ? null : s
+      )
+      query = query.in('companies.status', statuses)
+    }
+
+    if (filters.companyStart) {
+      const starts = filters.companyStart.split(',').map(s => {
+        if (s === 'null') return null
+        if (s === 'true') return true
+        if (s === 'false') return false
+        return s
+      })
+      query = query.in('companies.start', starts)
+    }
+
+    if (filters.companySize) {
+      const sizes = filters.companySize.split(',').map(s =>
+        s === 'null' ? null : s
+      )
+      query = query.in('companies.category_size', sizes)
+    }
+
+    // Execute query with pagination
+    const { data: contacts, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, page * limit - 1)
+
+    if (error) {
+      console.error("API: Error fetching contacts:", error)
+      throw error
+    }
+
+    // Format contacts to match frontend expectations
+    const formattedContacts = (contacts || []).map(contact => ({
+      ...contact,
+      companies_name: contact.companies?.name || null,
+      companies_size: contact.companies?.category_size || null,
+      companies_status: contact.companies?.status || null,
+      companies_start: contact.companies?.start || null,
+      // Keep the companies object for backward compatibility
+      companies: contact.companies
+    }))
+
+    const result = {
+      data: formattedContacts,
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit)
+      }
+    }
+
+    console.log("API: Successfully fetched contacts:", result.data?.length || 0, "contacts")
+    return NextResponse.json(result)
   } catch (e) {
     console.error("API: Error fetching contacts:", e)
     const errorMessage = e instanceof Error ? e.message : "Unknown error"
@@ -53,7 +171,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
   try {
     const body = await req.json()
     
@@ -70,7 +188,7 @@ export async function POST(req: Request) {
 
       console.log("API: Fetching contacts for companies:", companyIds)
 
-      const { data, error } = await supabaseService.client
+      const { data, error } = await authResult.supabase
         .from("contacts")
         .select(`
           id,
@@ -116,7 +234,7 @@ export async function POST(req: Request) {
       console.log(`Original contactIds: ${contactIds.length}, after deduplication: ${uniqueContactIds.length}`)
       
       // Get all contacts from Supabase with company details
-      const { data: selectedContacts, error: contactsError } = await supabaseService.client
+      const { data: selectedContacts, error: contactsError } = await authResult.supabase
         .from('contacts')
         .select(`
           id,
@@ -167,7 +285,7 @@ export async function POST(req: Request) {
       
       let regioPlatformMap = {}
       if (companyIds.length > 0) {
-        const { data: companiesWithRegions, error: regionsError } = await supabaseService.client
+        const { data: companiesWithRegions, error: regionsError } = await authResult.supabase
           .from('companies')
           .select(`
             id,
@@ -297,7 +415,7 @@ export async function POST(req: Request) {
             console.log(`Successfully created lead: ${instantlyId} for contact: ${contact.email}`)
             
             // Update contact in Supabase with lead info and campaign assignment
-            const { error: updateError } = await supabaseService.client
+            const { error: updateError } = await authResult.supabase
               .from('contacts')
               .update({
                 instantly_id: instantlyId,
@@ -322,7 +440,7 @@ export async function POST(req: Request) {
               
               // Update contact with Pipedrive sync status
               if (webhookResult.success) {
-                await supabaseService.client
+                await authResult.supabase
                   .from('contacts')
                   .update({
                     pipedrive_synced: true,
@@ -392,9 +510,12 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("API: Error in POST /api/contacts:", e)
     const errorMessage = e instanceof Error ? e.message : "Unknown error"
-    return NextResponse.json({ 
-      error: errorMessage, 
+    return NextResponse.json({
+      error: errorMessage,
       details: String(e)
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(contactsGetHandler)
+export const POST = withAuth(contactsPostHandler) 

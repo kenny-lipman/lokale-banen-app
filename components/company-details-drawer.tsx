@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { authFetch } from "@/lib/authenticated-fetch"
 import { EnrichmentButton, EnrichmentStatusBadge } from "@/components/ui/enrichment-button"
 import { ContextualHelp, QuickHelpTooltip, ProgressiveHelp } from "@/components/ui/contextual-help"
 import { useEnrichmentPolling } from "@/hooks/use-enrichment-polling"
@@ -248,7 +249,7 @@ export function CompanyDetailsDrawer({
     setContactsError(null)
 
     try {
-      const response = await fetch(`/api/companies/${companyId}/contacts`)
+      const response = await authFetch(`/api/companies/${companyId}/contacts`)
       if (!response.ok) {
         throw new Error(`Failed to fetch contacts: ${response.statusText}`)
       }

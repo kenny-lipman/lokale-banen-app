@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
+import { createServiceRoleClient } from '@/lib/supabase-server'
 import { logger } from '@/lib/error-logger'
+import { getInstantlyConfig } from '@/lib/api-config'
 
 interface HealthCheckResult {
   service: string
@@ -31,10 +32,11 @@ const startTime = Date.now()
 
 async function checkDatabaseHealth(): Promise<HealthCheckResult> {
   const start = Date.now()
-  
+
   try {
     // Test basic connectivity
-    const { count, error } = await supabaseService.client
+    const supabase = createServiceRoleClient()
+    const { count, error } = await supabase
       .from('companies')
       .select('*', { count: 'exact', head: true })
     
@@ -71,10 +73,11 @@ async function checkDatabaseHealth(): Promise<HealthCheckResult> {
 
 async function checkContactsTableHealth(): Promise<HealthCheckResult> {
   const start = Date.now()
-  
+
   try {
     // Test contacts table with qualification fields
-    const { data, error } = await supabaseService.client
+    const supabase = createServiceRoleClient()
+    const { data, error } = await supabase
       .from('contacts')
       .select('id, qualification_status, is_key_contact')
       .limit(1)
@@ -112,10 +115,11 @@ async function checkContactsTableHealth(): Promise<HealthCheckResult> {
 
 async function checkEnrichmentSystemHealth(): Promise<HealthCheckResult> {
   const start = Date.now()
-  
+
   try {
     // Test enrichment tables
-    const { data, error } = await supabaseService.client
+    const supabase = createServiceRoleClient()
+    const { data, error } = await supabase
       .from('enrichment_batches')
       .select('id, status')
       .limit(1)
@@ -153,12 +157,12 @@ async function checkEnrichmentSystemHealth(): Promise<HealthCheckResult> {
 
 async function checkInstantlyAPIHealth(): Promise<HealthCheckResult> {
   const start = Date.now()
-  
+
   try {
     // Test Instantly API connectivity (without making actual requests)
-    const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
-    
-    if (!INSTANTLY_API_KEY) {
+    const instantlyConfig = getInstantlyConfig()
+
+    if (!instantlyConfig.apiKey) {
       return {
         service: 'instantly_api',
         status: 'unhealthy',

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { authFetch } from '@/lib/authenticated-fetch'
 
 export interface LocationCount {
   name: string
@@ -39,7 +40,7 @@ export function useLocationData(
       setError(null)
       
       try {
-        const response = await fetch('/api/contacts/locations', {
+        const response = await authFetch('/api/contacts/locations', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

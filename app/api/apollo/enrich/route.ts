@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { apolloRetryService } from "@/lib/apollo-retry-service"
 
 interface EnrichmentRequest {
@@ -13,7 +13,8 @@ interface EnrichmentRequest {
   }>
 }
 
-export async function POST(req: NextRequest) {
+async function apolloEnrichHandler(req: NextRequest, authResult: AuthResult) {
+  const { supabase } = authResult
   try {
     const body: EnrichmentRequest = await req.json()
     const { batchId, companies } = body
@@ -319,3 +320,4 @@ export async function POST(req: NextRequest) {
     )
   }
 } 
+export const POST = withAuth(apolloEnrichHandler)

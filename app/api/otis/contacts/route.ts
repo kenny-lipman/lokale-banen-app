@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+async function otisContactsHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    const supabase = supabaseService.client
+    const supabase = authResult.supabase
     
     // Get all contacts with their company information
     const { data: contacts, error } = await supabase
@@ -67,4 +67,6 @@ export async function GET(request: NextRequest) {
       error: 'Internal server error' 
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(otisContactsHandler) 

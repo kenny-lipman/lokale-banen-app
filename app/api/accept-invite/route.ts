@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
-import { supabaseService } from "@/lib/supabase-service"
+import { NextRequest, NextResponse } from "next/server"
+import { createServiceRoleClient } from "@/lib/supabase-server"
 import { rateLimit } from "@/lib/rate-limit"
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   // Rate limiting: max 5 per 10 min per IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"
   const rl = rateLimit(`accept-invite:${ip}`, 5, 10 * 60 * 1000)
@@ -15,7 +15,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "token, fullName en password vereist" }, { status: 400 })
     }
     // Zoek invitation op
-    const { data: invitation, error: inviteError } = await supabaseService.client
+    const supabase = createServiceRoleClient()
+    const { data: invitation, error: inviteError } = await supabase
       .from("invitations")
       .select("*")
       .eq("token", token)
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Uitnodiging is al geaccepteerd" }, { status: 400 })
     }
     // Maak account aan via Supabase Auth
-    const { data: signUpData, error: signUpError } = await supabaseService.client.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: invitation.email,
       password,
       options: {
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
     // Markeer invitation als geaccepteerd
-    await supabaseService.client
+    await supabase
       .from("invitations")
       .update({ accepted: true })
       .eq("id", invitation.id)

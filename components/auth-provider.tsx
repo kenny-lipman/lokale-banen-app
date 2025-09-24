@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react"
-import { supabaseService } from "@/lib/supabase-service"
+import { createClient } from "@/lib/supabase"
 import { User, Session } from "@supabase/supabase-js"
 
 // Auth state machine
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [authState, setAuthState] = useState<AuthState>('INITIALIZING')
   const [refreshIndex, setRefreshIndex] = useState(0)
-  
+
   // Refs to prevent race conditions
   const mountedRef = useRef(true)
   const initializationRef = useRef(false)
@@ -53,7 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Background cleanup
     try {
-      await supabaseService.client.auth.signOut()
+      const supabase = createClient()
+      await supabase.auth.signOut()
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -68,18 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const profilePromise = (async () => {
       try {
-        const { data: profileData, error } = await supabaseService.client
+        const supabase = createClient()
+        const { data: profileData, error } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", userId)
           .single()
-        
+
         if (error) {
           if (error.code === 'PGRST116') {
             // Profile doesn't exist, create one
-            const { data: { user: currentUser } } = await supabaseService.client.auth.getUser()
-            
-            const { data: newProfile, error: createError } = await supabaseService.client
+            const { data: { user: currentUser } } = await supabase.auth.getUser()
+
+            const { data: newProfile, error: createError } = await supabase
               .from("profiles")
               .insert({
                 id: userId,
@@ -89,19 +91,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               })
               .select()
               .single()
-            
+
             if (createError) {
               console.error('Error creating profile:', createError)
               return null
             }
-            
+
             return newProfile
           }
-          
+
           console.error('Error fetching profile:', error)
           return null
         }
-        
+
         return profileData
       } catch (error) {
         console.error('Error in profile fetch:', error)
@@ -134,7 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
 
         // First, try to get the current session with timeout
-        const sessionPromise = supabaseService.client.auth.getSession()
+        const supabase = createClient()
+        const sessionPromise = supabase.auth.getSession()
         const { data: { session }, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise]) as any
         
         if (!mounted) return
@@ -188,7 +191,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth()
 
     // Set up auth state listener with improved error handling
-    const { data: { subscription } } = supabaseService.client.auth.onAuthStateChange(
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
 

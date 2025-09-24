@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles, AlertCircle, Target } from "lucide-react"
+import { authFetch } from "@/lib/authenticated-fetch"
 import { supabaseService } from "@/lib/supabase-service"
 import { useToast } from "@/hooks/use-toast"
 import { Card } from "@/components/ui/card"
@@ -345,7 +346,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       });
 
       // 2. API CALL: Send to backend
-      const response = await fetch('/api/companies/qualify', {
+      const response = await authFetch('/api/companies/qualify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -405,7 +406,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       });
 
       // 2. API CALL: Send to backend
-      const response = await fetch('/api/companies/qualify', {
+      const response = await authFetch('/api/companies/qualify', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -500,7 +501,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       updateCompaniesOptimistically(selectedCompanyIds, { status: bulkStatus });
       
       // 2. API CALL: Send to backend
-      const res = await fetch("/api/companies", {
+      const res = await authFetch("/api/companies", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyIds: selectedCompanyIds, status: bulkStatus }),

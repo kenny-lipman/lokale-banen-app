@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { OtisErrorHandler } from '@/lib/error-handler'
 
-export async function POST(req: NextRequest) {
+async function otisWorkflowHandler(req: NextRequest, authResult: AuthResult) {
   try {
     const { action, data } = await req.json()
-    const supabase = createClient()
+    const { supabase } = authResult
     
     console.log('Workflow API called with action:', action, 'data:', data)
     
@@ -414,7 +414,6 @@ async function handleGetScrapingResults(data: any, supabase: any) {
   }
 }
 
-
-
+export const POST = withAuth(otisWorkflowHandler)
 
 

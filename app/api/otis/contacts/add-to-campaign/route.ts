@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { RateLimiter, RateLimitUtils } from '@/middleware/rate-limiting'
 
 const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
@@ -14,7 +14,7 @@ const campaignAdditionLimiter = new RateLimiter({
   }
 })
 
-export async function POST(request: NextRequest) {
+async function addToCampaignHandler(request: NextRequest, authResult: AuthResult) {
   try {
     // Apply rate limiting
     const rateLimitResult = await campaignAdditionLimiter.checkLimit(request)
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const uniqueContactIds = [...new Set(contactIds)]
     
     // Enhanced contact validation with better error messages
-    const { data: contacts, error: contactsError } = await supabaseService.client
+    const { data: contacts, error: contactsError } = await authResult.supabase
       .from('contacts')
       .select(`
         id,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get regio_platform from apify_runs table using runId
-    const { data: apifyRun, error: apifyRunError } = await supabaseService.client
+    const { data: apifyRun, error: apifyRunError } = await authResult.supabase
       .from('apify_runs')
       .select(`
         region_id,
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     // Fetch company data separately for contacts that have company_id
     let companyDataMap = {}
     if (contactIdsWithCompanyData.length > 0) {
-      const { data: companiesData, error: companiesError } = await supabaseService.client
+      const { data: companiesData, error: companiesError } = await authResult.supabase
         .from('companies')
         .select('id, name, website, category_size')
         .in('id', contacts.filter(c => c.company_id).map(c => c.company_id))
@@ -339,7 +339,7 @@ export async function POST(request: NextRequest) {
           console.log(`Successfully created lead: ${leadCreationData.id} for contact: ${contact.email}`)
           
           // Update contact in Supabase with lead info and campaign assignment
-          const { error: updateError } = await supabaseService.client
+          const { error: updateError } = await authResult.supabase
             .from('contacts')
             .update({
               instantly_id: leadCreationData.id,
@@ -509,3 +509,5 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+export const POST = withAuth(addToCampaignHandler)

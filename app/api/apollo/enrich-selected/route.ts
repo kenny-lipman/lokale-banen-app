@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function POST(req: NextRequest) {
+async function apolloEnrichSelectedHandler(req: NextRequest, authResult: AuthResult) {
   try {
     const { selectedCompanyIds, apifyRunId } = await req.json()
-    
+
     if (!selectedCompanyIds || !Array.isArray(selectedCompanyIds) || selectedCompanyIds.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'selectedCompanyIds is required and must be a non-empty array' 
+      return NextResponse.json({
+        success: false,
+        error: 'selectedCompanyIds is required and must be a non-empty array'
       }, { status: 400 })
     }
 
     if (!apifyRunId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'apifyRunId is required' 
+      return NextResponse.json({
+        success: false,
+        error: 'apifyRunId is required'
       }, { status: 400 })
     }
 
     console.log('🎯 Starting enrichment for companies:', selectedCompanyIds.length)
     console.log('📊 Apify Run ID:', apifyRunId)
 
-    // Create regular client (RLS disabled for enrichment tables)
-    const supabase = createClient()
+    // Use authenticated client from authResult
+    const { supabase } = authResult
 
     // Get the apify run details to find the region
     const { data: apifyRun, error: runError } = await supabase
@@ -157,10 +157,12 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error in enrich-selected API:', error)
-    return NextResponse.json({ 
-      success: false, 
+    return NextResponse.json({
+      success: false,
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
-} 
+}
+
+export const POST = withAuth(apolloEnrichSelectedHandler) 

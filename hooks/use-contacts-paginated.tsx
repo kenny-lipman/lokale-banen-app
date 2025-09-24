@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { supabaseService } from "@/lib/supabase-service"
+import { authFetch } from "@/lib/authenticated-fetch"
 
 interface ContactsFilters {
   search?: string
@@ -60,7 +60,7 @@ export function useContactsPaginated(
       if (filters.categoryStatus) params.append('categoryStatus', filters.categoryStatus)
       if (filters.status) params.append('status', filters.status)
       
-      const response = await fetch(`/api/contacts?${params.toString()}`)
+      const response = await authFetch(`/api/contacts?${params.toString()}`)
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -76,8 +76,9 @@ export function useContactsPaginated(
       
       if (thisFetch === fetchRef.current) {
         setData(result?.data || [])
-        setCount(result?.count || 0)
-        setTotalPages(result?.totalPages || 1)
+        // Handle both old and new API response format
+        setCount(result?.pagination?.total || result?.count || 0)
+        setTotalPages(result?.pagination?.totalPages || result?.totalPages || 1)
         setCurrentPage(page)
         setLoading(false)
       }

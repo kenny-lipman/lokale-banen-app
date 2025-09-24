@@ -1,4 +1,4 @@
-import { supabase, createServiceRoleClient } from "./supabase"
+import { createClient, createServiceRoleClient } from "./supabase"
 import type { Database } from "./supabase"
 
 type JobPosting = Database["public"]["Tables"]["job_postings"]["Row"]
@@ -7,12 +7,12 @@ type JobSource = Database["public"]["Tables"]["job_sources"]["Row"]
 type SearchRequest = Database["public"]["Tables"]["search_requests"]["Row"]
 
 export class SupabaseService {
-  /** Use the singleton Supabase client instance for authenticated operations */
+  /** Use authenticated client for operations that respect RLS and user permissions */
   get client() {
-    return supabase
+    return createClient()
   }
 
-  /** Use service role client for server-side operations that need full access */
+  /** Use service role client for server-side operations that need full access and bypass RLS */
   get serviceClient() {
     return createServiceRoleClient()
   }

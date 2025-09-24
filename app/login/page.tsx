@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { supabaseService } from "@/lib/supabase-service"
+import { createClient } from "@/lib/supabase"
 import Link from "next/link"
 import { PasswordInput } from "@/components/ui/password-input"
 import { useAuth } from "@/components/auth-provider"
@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [success, setSuccess] = useState(false)
   const router = useRouter()
   const { isAuthenticated, loading: authLoading, authState } = useAuth()
+  const supabase = createClient()
 
   // Clear error when user starts typing
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +56,7 @@ export default function LoginPage() {
     setSuccess(false)
 
     try {
-      const { data, error } = await supabaseService.client.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })

@@ -5,7 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TableFilters, TablePagination } from "@/components/ui/table-filters"
-import { ArrowUpDown, ChevronUp, ChevronDown, Mail, Building2, User, ExternalLink, CheckCircle, Clock, XCircle, AlertCircle, Send } from "lucide-react"
+import { ArrowUpDown, ChevronUp, ChevronDown, Mail, Building2, User, ExternalLink, CheckCircle, Clock, XCircle, AlertCircle, Send, Shield, ShieldAlert } from "lucide-react"
+import { ContactBlocklistIntegration, BulkContactActions } from "@/components/blocklist"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface Lead {
   id: string
@@ -54,6 +56,8 @@ export function InstantlyLeadsTable({
 
   // Selection State
   const [selectedLeads, setSelectedLeads] = useState<string[]>([])
+  const [selectedLeadContacts, setSelectedLeadContacts] = useState<Lead[]>([])
+  const [blocklistStatuses, setBlocklistStatuses] = useState<Map<string, boolean>>(new Map())
 
   // Get unique filter options from data
   const { statusOptions, campaignOptions, responseOptions } = useMemo(() => {
@@ -129,20 +133,35 @@ export function InstantlyLeadsTable({
   }
 
   // Selection handlers
-  const toggleSelectLead = (leadId: string) => {
-    setSelectedLeads(prev => 
-      prev.includes(leadId) 
+  const toggleSelectLead = (leadId: string, lead: Lead) => {
+    setSelectedLeads(prev => {
+      const newSelection = prev.includes(leadId)
         ? prev.filter(id => id !== leadId)
         : [...prev, leadId]
-    )
+
+      // Update selected lead contacts for bulk actions
+      setSelectedLeadContacts(prevContacts => {
+        if (newSelection.includes(leadId)) {
+          return [...prevContacts, lead]
+        } else {
+          return prevContacts.filter(c => c.id !== leadId)
+        }
+      })
+
+      return newSelection
+    })
   }
 
   const toggleSelectAll = () => {
-    setSelectedLeads(prev => 
-      prev.length === paginatedData.length 
-        ? [] 
-        : paginatedData.map(lead => lead.id)
-    )
+    setSelectedLeads(prev => {
+      const isSelectingAll = prev.length !== paginatedData.length
+      const newSelection = isSelectingAll ? paginatedData.map(lead => lead.id) : []
+
+      // Update selected lead contacts for bulk actions
+      setSelectedLeadContacts(isSelectingAll ? paginatedData : [])
+
+      return newSelection
+    })
   }
 
   // Reset all filters
@@ -278,6 +297,21 @@ export function InstantlyLeadsTable({
               <span className="text-sm font-medium text-gray-600">
                 {selectedLeads.length} leads geselecteerd
               </span>
+              <BulkContactActions
+                selectedContacts={selectedLeadContacts}
+                onActionComplete={() => {
+                  setSelectedLeads([])
+                  setSelectedLeadContacts([])
+                  // Reload data to reflect blocklist changes
+                  window.location.reload()
+                }}
+                trigger={
+                  <Button size="sm" variant="outline">
+                    <Shield className="w-4 h-4 mr-2" />
+                    Blocklist Acties
+                  </Button>
+                }
+              />
               <Button size="sm" variant="outline">
                 <Mail className="w-4 h-4 mr-2" />
                 Email versturen
@@ -318,6 +352,7 @@ export function InstantlyLeadsTable({
               <TableHead>Titel</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Response</TableHead>
+              <TableHead>Blocklist</TableHead>
               <SortableHeader field="campaign_name">Campagne</SortableHeader>
               <SortableHeader field="created_at">Toegevoegd</SortableHeader>
               <TableHead className="w-[100px]">Acties</TableHead>
@@ -359,7 +394,7 @@ export function InstantlyLeadsTable({
                     <input
                       type="checkbox"
                       checked={selectedLeads.includes(lead.id)}
-                      onChange={() => toggleSelectLead(lead.id)}
+                      onChange={() => toggleSelectLead(lead.id, lead)}
                       aria-label={`Selecteer lead ${lead.name || lead.email}`}
                     />
                   </TableCell>
@@ -393,6 +428,15 @@ export function InstantlyLeadsTable({
                   </TableCell>
                   <TableCell>{getStatusBadge(lead.status)}</TableCell>
                   <TableCell>{getStatusBadge(lead.response_status)}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <ContactBlocklistIntegration
+                      contact={lead}
+                      showQuickActions={true}
+                      onContactUpdated={() => {
+                        // Optional: refresh data after update
+                      }}
+                    />
+                  </TableCell>
                   <TableCell>
                     {lead.campaign_name ? (
                       <Badge variant="outline" className="bg-blue-50 text-blue-700">

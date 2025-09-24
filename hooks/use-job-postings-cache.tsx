@@ -1,14 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-
-// Lazy load supabaseService to avoid circular dependencies
-let supabaseService: any = null
-const getSupabaseService = async () => {
-  if (!supabaseService) {
-    const { supabaseService: service } = await import("@/lib/supabase-service")
-    supabaseService = service
-  }
-  return supabaseService
-}
+import { createClient } from "@/lib/supabase"
 
 // In-memory cache (per sessie/tab)
 const jobPostingsCache: Record<string, any> = {}
@@ -32,36 +23,104 @@ export function useJobPostingsCache(params: {
     setError(null)
     fetchRef.current++
     const thisFetch = fetchRef.current
+
     try {
-      // Build query string from params
-      const searchParams = new URLSearchParams()
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          searchParams.append(key, String(value))
-        }
-      })
-      
-      const response = await fetch(`/api/job-postings?${searchParams.toString()}`)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch job postings: ${response.statusText}`)
+      const supabase = createClient()
+
+      // Build the query
+      let query = supabase
+        .from('job_postings')
+        .select(`
+          id,
+          title,
+          location,
+          status,
+          review_status,
+          scraped_at,
+          job_type,
+          salary,
+          url,
+          country,
+          companies!inner(
+            id,
+            name,
+            website,
+            logo_url,
+            rating_indeed,
+            is_customer
+          ),
+          job_sources!inner(
+            name
+          ),
+          platforms(
+            regio_platform
+          )
+        `, { count: 'exact' })
+
+      // Apply filters
+      if (params.search) {
+        query = query.or(`title.ilike.%${params.search}%,companies.name.ilike.%${params.search}%,location.ilike.%${params.search}%`)
       }
-      
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to load job postings')
+
+      if (params.status) {
+        query = query.eq('status', params.status)
       }
-      
+
+      if (params.platform_id) {
+        query = query.eq('platform_id', params.platform_id)
+      }
+
+      if (params.source_id) {
+        query = query.eq('source_id', params.source_id)
+      }
+
+      // Apply pagination
+      const page = params.page || 1
+      const limit = params.limit || 10
+      const from = (page - 1) * limit
+      const to = from + limit - 1
+
+      query = query.range(from, to).order('scraped_at', { ascending: false })
+
+      const { data, error, count } = await query
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      // Format the data to match the expected structure
+      const formattedData = data?.map(item => ({
+        id: item.id,
+        title: item.title,
+        company_name: item.companies?.name,
+        company_logo: item.companies?.logo_url,
+        company_website: item.companies?.website,
+        company_rating: item.companies?.rating_indeed,
+        is_customer: item.companies?.is_customer,
+        location: item.location,
+        platform: item.platforms?.regio_platform,
+        source_name: item.job_sources?.name,
+        status: item.status,
+        review_status: item.review_status,
+        scraped_at: item.scraped_at,
+        job_type: item.job_type,
+        salary: item.salary,
+        url: item.url,
+        country: item.country
+      })) || []
+
       const formattedResult = {
-        data: result.data,
-        count: result.count,
-        totalPages: result.totalPages
+        data: formattedData,
+        count: count || 0,
+        totalPages: Math.ceil((count || 0) / limit)
       }
-      
+
       jobPostingsCache[cacheKey] = formattedResult
       if (thisFetch === fetchRef.current) {
         setData(formattedResult)
         setLoading(false)
       }
+
     } catch (e: any) {
       if (thisFetch === fetchRef.current) {
         const errorMessage = e?.message || 'Unknown error'

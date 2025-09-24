@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+async function companiesGetHandler(req: NextRequest, authResult: AuthResult) {
   try {
-    const supabase = createClient()
+    const { supabase } = authResult
     const { searchParams } = new URL(req.url)
     
     const page = parseInt(searchParams.get('page') || '1')
@@ -67,16 +67,19 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Error in companies API:', error)
-    return NextResponse.json({ 
+
+    // Authentication is handled by withAuth wrapper
+
+    return NextResponse.json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }
 
-export async function PATCH(req: NextRequest) {
+async function companiesPatchHandler(req: NextRequest, authResult: AuthResult) {
   try {
-    const supabase = createClient()
+    const { supabase } = authResult
     const body = await req.json()
     
     const { companyId, status } = body
@@ -175,9 +178,12 @@ export async function PATCH(req: NextRequest) {
 
   } catch (error) {
     console.error('Error in companies PATCH API:', error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(companiesGetHandler)
+export const PATCH = withAuth(companiesPatchHandler) 

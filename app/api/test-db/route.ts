@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth } from '@/lib/auth-middleware'
 
-export async function GET() {
+async function testDbHandler(req: NextRequest) {
   try {
     const supabase = createClient()
     
@@ -55,4 +56,7 @@ export async function GET() {
       details: error instanceof Error ? error.message : 'Unknown error'
     })
   }
-} 
+}
+
+// Export the wrapped handler
+export const GET = withAuth(testDbHandler) 

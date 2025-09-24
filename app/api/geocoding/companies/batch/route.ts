@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseService } from '@/lib/supabase-service';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
 import { GeocodingService } from '@/lib/geocoding-service';
 
-export async function POST(request: NextRequest) {
+async function geocodingCompaniesHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    const supabase = supabaseService.client;
+    const supabase = authResult.supabase;
     
     // Get companies that need geocoding (no lat/lng and have raw_address)
     const { data: companies, error: fetchError } = await supabase
@@ -85,8 +85,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Batch geocoding error:', error);
     return NextResponse.json(
-      { error: 'Failed to process batch geocoding' }, 
+      { error: 'Failed to process batch geocoding' },
       { status: 500 }
     );
   }
 }
+
+export const POST = withAuth(geocodingCompaniesHandler)

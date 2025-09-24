@@ -22,6 +22,7 @@ import {
   Crown
 } from 'lucide-react'
 import { supabaseService } from '@/lib/supabase-service'
+import { authFetch } from '@/lib/authenticated-fetch'
 
 interface Company {
   id: string
@@ -430,7 +431,7 @@ export function CompaniesTabContainer({
       ));
 
       // 2. API CALL: Send to backend
-      const response = await fetch('/api/companies/qualify', {
+      const response = await authFetch('/api/companies/qualify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId, qualification_status: status })
@@ -483,7 +484,7 @@ export function CompaniesTabContainer({
       ));
 
       // 2. API CALL: Send to backend
-      const response = await fetch('/api/companies/qualify', {
+      const response = await authFetch('/api/companies/qualify', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyIds: selectedIds, qualification_status: status })

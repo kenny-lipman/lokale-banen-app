@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive, Crown, RefreshCw, Mail, Link } from "lucide-react"
+import { authFetch } from "@/lib/authenticated-fetch"
 
 interface JobPosting {
   id: string
@@ -90,7 +91,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
     setJobsError(null)
 
     try {
-      const response = await fetch(`/api/companies/${company.id}/job-postings`)
+      const response = await authFetch(`/api/companies/${company.id}/job-postings`)
       if (!response.ok) {
         throw new Error(`Failed to fetch job postings: ${response.statusText}`)
       }
@@ -117,7 +118,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
     setContactsError(null)
 
     try {
-      const response = await fetch(`/api/companies/${company.id}/contacts`)
+      const response = await authFetch(`/api/companies/${company.id}/contacts`)
       if (!response.ok) {
         throw new Error(`Failed to fetch contacts: ${response.statusText}`)
       }

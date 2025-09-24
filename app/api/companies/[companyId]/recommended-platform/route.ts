@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
 import { GeocodingService } from '@/lib/geocoding-service';
 
 interface RecommendationResult {
@@ -20,13 +20,14 @@ interface RecommendationResult {
   fallback_used?: boolean;
 }
 
-export async function GET(
+async function recommendedPlatformHandler(
   request: NextRequest,
-  { params }: { params: Promise<{ companyId: string }> }
+  authResult: AuthResult,
+  context: { params: Promise<{ companyId: string }> }
 ) {
   try {
-    const supabase = createServiceRoleClient();
-    const { companyId } = await params;
+    const supabase = authResult.supabase;
+    const { companyId } = await context.params;
 
     // Get company details
     const { data: company, error: companyError } = await supabase
@@ -178,3 +179,5 @@ async function findPlatformByPostcode(supabase: any, postcode: string) {
 
   return platform;
 }
+
+export const GET = withAuth(recommendedPlatformHandler);

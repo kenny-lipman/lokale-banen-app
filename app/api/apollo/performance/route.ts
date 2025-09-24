@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { performanceMonitor } from "@/lib/performance-monitoring"
 import { cacheService } from "@/lib/cache-service"
 import { apolloStatusService } from "@/lib/apollo-status-service"
 
-export async function GET(req: NextRequest) {
+async function apolloPerformanceHandler(req: NextRequest, authResult: AuthResult) {
   try {
     const timeWindow = parseInt(req.nextUrl.searchParams.get('window') || '300000') // 5 minutes default
     const format = req.nextUrl.searchParams.get('format') || 'json'
@@ -105,3 +106,4 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+export const GET = withAuth(apolloPerformanceHandler)

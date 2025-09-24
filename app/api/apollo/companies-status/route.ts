@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 
 interface CompanyEnrichmentStatus {
   companyId: string
@@ -13,7 +13,7 @@ interface CompanyEnrichmentStatus {
   batchId?: string
 }
 
-export async function POST(req: NextRequest) {
+async function apolloCompaniesStatusHandler(req: NextRequest, authResult: AuthResult) {
   try {
     const { companyIds } = await req.json()
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const { supabase } = authResult
 
     // Get enrichment status for the specified companies
     const { data: statusData, error: statusError } = await supabase
@@ -100,3 +100,4 @@ export async function POST(req: NextRequest) {
     )
   }
 } 
+export const POST = withAuth(apolloCompaniesStatusHandler)

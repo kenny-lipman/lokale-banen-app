@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { authFetch } from '@/lib/authenticated-fetch';
 
 export interface RecommendedPlatform {
   id: string;
@@ -33,7 +34,7 @@ export function useRecommendedPlatform(selectedContacts: Contact[]) {
 
   const fetchRecommendation = useCallback(async (companyId: string): Promise<PlatformRecommendationResult | null> => {
     try {
-      const response = await fetch(`/api/companies/${companyId}/recommended-platform`);
+      const response = await authFetch(`/api/companies/${companyId}/recommended-platform`);
       if (!response.ok) {
         throw new Error(`Failed to fetch recommendation: ${response.status}`);
       }

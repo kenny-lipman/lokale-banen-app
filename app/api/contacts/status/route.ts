@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
-import { supabaseService } from "@/lib/supabase-service"
+import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 
-export async function PUT(req: Request) {
+async function statusHandler(req: NextRequest, authResult: AuthResult) {
   try {
     const body = await req.json()
     const { contactIds, status } = body
@@ -15,7 +15,7 @@ export async function PUT(req: Request) {
     console.log(`API: Updating status for ${contactIds.length} contacts to "${status}"`)
     
     // Update the company_status field for all selected contacts
-    const { data, error } = await supabaseService.client
+    const { data, error } = await authResult.supabase
       .from("contacts")
       .update({ company_status: status })
       .in("id", contactIds)
@@ -45,4 +45,6 @@ export async function PUT(req: Request) {
       details: String(e)
     }, { status: 500 })
   }
-} 
+}
+
+export const PUT = withAuth(statusHandler) 

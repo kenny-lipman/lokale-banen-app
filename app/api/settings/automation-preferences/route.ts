@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
 interface AutomationPreferencesResponse {
   preferences: {
@@ -15,29 +15,12 @@ interface UpdateAutomationPreferencesRequest {
   }[];
 }
 
-export async function GET(request: NextRequest) {
+async function settingsAutomationPreferencesGetHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabaseService.client.auth.getUser(token)
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const { user } = authResult
 
     // Fetch user's automation preferences with caching
-    const { data: preferences, error } = await supabaseService.client
+    const { data: preferences, error } = await authResult.supabase
       .from('user_automation_preferences')
       .select('region_id, automation_enabled')
       .eq('user_id', user.id)
@@ -70,26 +53,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function settingsAutomationPreferencesPutHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabaseService.client.auth.getUser(token)
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const { user } = authResult
 
     // Parse request body
     const requestBody: UpdateAutomationPreferencesRequest = await request.json()
@@ -113,7 +79,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Use the batch upsert function for better performance
-    const { error: upsertError } = await supabaseService.client.rpc('upsert_automation_preferences', {
+    const { error: upsertError } = await authResult.supabase.rpc('upsert_automation_preferences', {
       p_user_id: user.id,
       p_preferences: requestBody.preferences
     })
@@ -143,3 +109,5 @@ export async function PUT(request: NextRequest) {
     )
   }
 } 
+export const GET = withAuth(settingsAutomationPreferencesGetHandler)
+export const PUT = withAuth(settingsAutomationPreferencesPutHandler)

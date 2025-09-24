@@ -4,10 +4,14 @@ import { createServiceRoleClient } from '@/lib/supabase'
 export async function GET(req: NextRequest) {
   try {
     console.log('Starting successful-runs API...')
-    
+
     // Get query parameters
     const searchParams = req.nextUrl.searchParams
     const statusFilter = searchParams.get('status')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '100') // Default to 100 instead of fetching all
+
+    console.log('Query params - page:', page, 'limit:', limit, 'statusFilter:', statusFilter)
     
     // Use service role client to bypass RLS
     const supabase = createServiceRoleClient()
@@ -44,9 +48,11 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    // Order by created_at descending (most recent first)
-    query = query.order('created_at', { ascending: false })
-    
+    // Order by created_at descending (most recent first) and apply pagination
+    query = query
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, page * limit - 1)
+
     const { data: apifyRuns, error } = await query
 
     console.log('Query completed. Error:', error)
@@ -107,15 +113,7 @@ export async function GET(req: NextRequest) {
       companyCountMap.set(runId, companyCount)
     })
     
-    // Legacy approach - keeping for comparison
-    const { data: jobPostingsData, error: jobPostingsError } = await supabase
-      .from('job_postings')
-      .select('apify_run_id, company_id, id')
-      .in('apify_run_id', runIds)
-      
-    // Legacy query results for debugging/comparison
-    console.log('Legacy Supabase query completed. Error:', jobPostingsError)
-    console.log('Legacy query found:', jobPostingsData?.length || 0, 'job postings')
+    // Legacy code removed to avoid errors with large datasets
 
     // Transform data for frontend with Option B format: "Financial Controller (Indeed • Wassenaar) • 151 companies • Jul 25"
     const transformedRuns = (apifyRuns || []).map(run => {
@@ -170,12 +168,17 @@ export async function GET(req: NextRequest) {
         processed_at: run.processed_at || null,
         processed_by: run.processed_by || null
       }
-    }).filter(run => run.id)
+    })
+    .filter(run => run.id)
+    .filter(run => run.jobCount > 0 || run.companyCount > 0) // Filter out runs with 0 jobs AND 0 companies
 
 
     return NextResponse.json({
       runs: transformedRuns,
-      count: transformedRuns.length
+      count: transformedRuns.length,
+      page: page,
+      limit: limit,
+      total: transformedRuns.length // Note: This is the filtered count, not total DB count
     })
 
   } catch (error) {

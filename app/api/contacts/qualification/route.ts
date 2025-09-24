@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
-import { supabaseService } from "@/lib/supabase-service"
+import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 
-export async function POST(req: Request) {
+async function qualificationHandler(req: NextRequest, authResult: AuthResult) {
   try {
     const body = await req.json()
     const { contacts, qualification_status } = body
@@ -35,9 +35,9 @@ export async function POST(req: Request) {
     }
 
     // Update qualification status in database using IDs
-    const { data, error } = await supabaseService.client
+    const { data, error } = await authResult.supabase
       .from('contacts')
-      .update({ 
+      .update({
         qualification_status,
         qualification_timestamp: new Date().toISOString()
       })
@@ -62,9 +62,11 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("Error in POST /api/contacts/qualification:", e)
     const errorMessage = e instanceof Error ? e.message : "Unknown error"
-    return NextResponse.json({ 
-      error: errorMessage, 
+    return NextResponse.json({
+      error: errorMessage,
       details: String(e)
     }, { status: 500 })
   }
 }
+
+export const POST = withAuth(qualificationHandler)

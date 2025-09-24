@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { withCronAuth } from '@/lib/auth-middleware'
 
 // Environment variable check
 const DAILY_SCRAPE_WEBHOOK_URL = process.env.DAILY_SCRAPE_WEBHOOK_URL
@@ -88,9 +89,9 @@ const processDailyScrapeTriggers = async (platforms: DailyScrapePlatform[]): Pro
   return { success: successCount, failed: failedCount, errors }
 }
 
-export async function GET(request: NextRequest) {
+async function cronTriggerHandler(request: NextRequest) {
   try {
-    // No authentication required for cron job
+    // Authentication is handled by withCronAuth wrapper
 
     const supabase = createServiceRoleClient()
     const startTime = Date.now()
@@ -212,7 +213,7 @@ export async function GET(request: NextRequest) {
     console.error('❌ Unexpected error in daily scrape CRON job:', errorMessage)
     
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         message: errorMessage
       },
@@ -221,12 +222,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Health check endpoint for CRON monitoring
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function POST(_request: NextRequest) {
+// Health check endpoint for CRON monitoring (also secured)
+async function cronHealthHandler(_request: NextRequest) {
   return NextResponse.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     service: 'automation-cron'
   })
-} 
+}
+
+// Export secured handlers
+export const GET = withCronAuth(cronTriggerHandler)
+export const POST = withCronAuth(cronHealthHandler) 

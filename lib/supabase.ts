@@ -1,63 +1,59 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './supabase'
 
-// Singleton pattern for Supabase client
-let supabaseClient: ReturnType<typeof createSupabaseClient<Database>> | null = null
+// Singleton instance to prevent multiple GoTrueClient instances
+let supabaseInstance: ReturnType<typeof createSupabaseClient<Database>> | null = null
 
+/**
+ * Create a Supabase client for client-side operations.
+ * This client will automatically handle authentication headers and session management.
+ * Uses singleton pattern to prevent multiple GoTrueClient instances.
+ */
 export function createClient() {
-  if (supabaseClient) {
-    return supabaseClient
+  // Return existing instance if it exists
+  if (supabaseInstance) {
+    return supabaseInstance
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables:', {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseAnonKey
-    })
     throw new Error('Missing Supabase environment variables')
   }
 
-  console.log('Creating Supabase client with:', {
-    hasUrl: !!supabaseUrl,
-    hasKey: !!supabaseAnonKey,
-    url: supabaseUrl.substring(0, 20) + '...'
+  // Create and cache the instance
+  supabaseInstance = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storageKey: 'lokale-banen-auth',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      flowType: 'pkce'
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'lokale-banen-web'
+      }
+    }
   })
 
-  try {
-    supabaseClient = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        storageKey: 'lokale-banen-auth', // Custom storage key to avoid conflicts
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        flowType: 'pkce' // More secure auth flow
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
-      },
-      global: {
-        headers: {
-          'X-Client-Info': 'lokale-banen-web'
-        }
-      }
-    })
-
-    console.log('Supabase client created successfully')
-    return supabaseClient
-  } catch (error) {
-    console.error('Error creating Supabase client:', error)
-    throw error
-  }
+  return supabaseInstance
 }
 
-// Export the singleton instance
-export const supabase = createClient()
+/**
+ * Get the authenticated Supabase client instance.
+ * Returns the singleton instance to prevent multiple GoTrueClient instances.
+ */
+export function getSupabaseClient() {
+  return createClient()
+}
 
 /**
  * Create a Supabase service role client for server-side operations that bypass RLS.

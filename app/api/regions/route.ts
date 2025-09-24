@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server"
-import { supabaseService } from "@/lib/supabase-service"
-
-export async function GET() {
+import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
+async function regionsGetHandler(req: NextRequest, authResult: AuthResult) {
   try {
-    const regions = await supabaseService.getRegionsWithJobPostingsCount()
-    return NextResponse.json({ success: true, data: regions })
+    const { data: regions, error } = await authResult.supabase
+      .from('regions')
+      .select('*')
+      .order('regio_platform')
+
+    if (error) throw error
+
+    return NextResponse.json({ success: true, regions: regions || [] })
   } catch (error) {
     console.error("Error fetching regions:", error)
     return NextResponse.json(
@@ -14,7 +19,8 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function regionsPostHandler(req: NextRequest, authResult: AuthResult) {
+  const request = req
   try {
     const body = await request.json()
     const { plaats, postcode, regio_platform, platform_id, central_place, central_postcode, is_new_platform } = body
@@ -54,3 +60,5 @@ export async function POST(request: Request) {
     )
   }
 } 
+export const GET = withAuth(regionsGetHandler)
+export const POST = withAuth(regionsPostHandler)

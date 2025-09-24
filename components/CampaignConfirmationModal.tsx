@@ -27,9 +27,12 @@ import {
   ChevronUp,
   Loader2,
   Target,
-  RefreshCw
+  RefreshCw,
+  Shield,
+  ShieldAlert
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CampaignValidation } from '@/components/blocklist/campaign-validation'
 
 // TypeScript interfaces
 export interface Contact {
@@ -58,7 +61,7 @@ export interface Campaign {
 export interface CampaignConfirmationModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: () => void
+  onConfirm: (validatedContacts?: Contact[]) => void
   selectedContacts: Contact[]
   selectedCampaign: Campaign | null
   isLoading?: boolean
@@ -112,6 +115,9 @@ export function CampaignConfirmationModal({
 }: CampaignConfirmationModalProps) {
   const [expandedContacts, setExpandedContacts] = useState(false)
   const [expandedCompanies, setExpandedCompanies] = useState(false)
+  const [validatedContacts, setValidatedContacts] = useState<Contact[]>(selectedContacts)
+  const [blockedCount, setBlockedCount] = useState(0)
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([])
   const confirmButtonRef = useRef<HTMLButtonElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -131,6 +137,7 @@ export function CampaignConfirmationModal({
   const companyGroups = Object.values(contactsByCompany)
   const totalContacts = selectedContacts.length
   const totalCompanies = companyGroups.length
+  const validContacts = validatedContacts.length
 
 
 
@@ -306,14 +313,34 @@ export function CampaignConfirmationModal({
             </Card>
           )}
 
+          {/* Blocklist Validation */}
+          <div className="space-y-4">
+            <CampaignValidation
+              contacts={selectedContacts}
+              onValidationComplete={(result) => {
+                setValidatedContacts(result.validContacts)
+                setBlockedCount(result.blockedContacts.length)
+                setValidationWarnings(result.warnings)
+              }}
+              showBlockedDetails={true}
+              autoValidate={true}
+            />
+          </div>
+
           {/* Contact Summary */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-gray-900">Contact Summary</h3>
               <div className="flex gap-2">
                 <Badge variant="outline" className="text-sm">
-                  {totalContacts} contact{totalContacts !== 1 ? 's' : ''}
+                  {validContacts} toegestaan
                 </Badge>
+                {blockedCount > 0 && (
+                  <Badge variant="destructive" className="text-sm">
+                    <ShieldAlert className="h-3 w-3 mr-1" />
+                    {blockedCount} geblokkeerd
+                  </Badge>
+                )}
                 <Badge variant="outline" className="text-sm">
                   {totalCompanies} compan{totalCompanies !== 1 ? 'ies' : 'y'}
                 </Badge>
@@ -591,8 +618,8 @@ export function CampaignConfirmationModal({
           </Button>
           <Button
             ref={confirmButtonRef}
-            onClick={onConfirm}
-            disabled={isLoading || selectedContacts.length === 0}
+            onClick={() => onConfirm(validatedContacts)}
+            disabled={isLoading || validatedContacts.length === 0}
             className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
           >
             {isLoading ? (
@@ -601,7 +628,12 @@ export function CampaignConfirmationModal({
                 Adding to Campaign...
               </>
             ) : (
-              `Add ${totalContacts} Contact${totalContacts !== 1 ? 's' : ''} to Campaign`
+              <>
+                {blockedCount > 0 && (
+                  <Shield className="h-4 w-4 mr-2" />
+                )}
+                Add {validContacts} Valid Contact{validContacts !== 1 ? 's' : ''} to Campaign
+              </>
             )}
           </Button>
         </DialogFooter>

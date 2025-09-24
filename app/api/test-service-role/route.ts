@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { withAdminAuth } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+async function testServiceRoleHandler(request: NextRequest) {
   try {
     console.log('Testing service role client...')
     
@@ -44,3 +45,6 @@ export async function GET(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+// Export the wrapped handler (admin only for service role testing)
+export const GET = withAdminAuth(testServiceRoleHandler)

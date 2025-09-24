@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAdminAuth } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+async function adminSessionsHandler(request: NextRequest) {
   try {
     const supabase = createClient()
-    
-    // TODO: Add proper admin authentication check
-    // For now, we'll allow access but this should be secured
     
     // Get query parameters
     const { searchParams } = new URL(request.url)
@@ -136,4 +134,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
+
+// Export the wrapped handler
+export const GET = withAdminAuth(adminSessionsHandler) 

@@ -11,32 +11,15 @@ interface SyncResult {
   errors: string[]
 }
 
-export async function POST(request: NextRequest) {
+async function syncCentralPlacesHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabaseService.client.auth.getUser(token)
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const { user } = authResult
 
     // Get all unique regio_platforms from regions
     const uniquePlatforms = await supabaseService.getUniqueRegioPlatforms()
     
     // Get existing central places
-    const { data: existingCentralPlaces, error: existingError } = await supabaseService.client
+    const { data: existingCentralPlaces, error: existingError } = await authResult.supabase
       .from('regio_platform_central_places')
       .select('regio_platform')
 
@@ -69,7 +52,7 @@ export async function POST(request: NextRequest) {
         // Extract city name from platform (e.g., "HaagseBanen" -> "Den Haag")
         const centralPlace = extractCityFromPlatform(platform)
         
-        const { data: insertedData, error: insertError } = await supabaseService.client
+        const { data: insertedData, error: insertError } = await authResult.supabase
           .from('regio_platform_central_places')
           .insert({
             regio_platform: platform,
@@ -114,6 +97,8 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const POST = withAuth(syncCentralPlacesHandler)
 
 /**
  * Extract city name from platform name

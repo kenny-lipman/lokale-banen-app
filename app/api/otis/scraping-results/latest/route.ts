@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+async function latestScrapingResultsHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    const supabase = supabaseService.client
+    const supabase = authResult.supabase
     
     // Get the latest scraping job
     const { data: latestJob, error: jobError } = await supabase
@@ -71,8 +71,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching latest scraping results:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(latestScrapingResultsHandler) 

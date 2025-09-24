@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseService } from '@/lib/supabase-service';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
 import { GeocodingService } from '@/lib/geocoding-service';
 
-export async function POST(request: NextRequest) {
+async function geocodingPlatformsHandler(request: NextRequest, authResult: AuthResult) {
   try {
-    const supabase = supabaseService.client;
+    const supabase = authResult.supabase;
     
     // Get platforms that need geocoding (no lat/lng)
     const { data: platforms, error: fetchError } = await supabase
@@ -72,8 +72,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Platform batch geocoding error:', error);
     return NextResponse.json(
-      { error: 'Failed to process platform batch geocoding' }, 
+      { error: 'Failed to process platform batch geocoding' },
       { status: 500 }
     );
   }
 }
+
+export const POST = withAuth(geocodingPlatformsHandler)

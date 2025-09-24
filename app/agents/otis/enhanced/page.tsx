@@ -46,7 +46,7 @@ import {
 import { JobPostingsTable } from '@/components/job-postings-table'
 import { CompanyDetailsDrawer } from '@/components/company-details-drawer'
 import { CampaignConfirmationModal, Contact, Campaign } from '@/components/CampaignConfirmationModal'
-import { supabaseService } from '@/lib/supabase-service'
+import { authFetch } from '@/lib/authenticated-fetch'
 
 interface ScrapingJob {
   id: string
@@ -552,7 +552,9 @@ function FullOtisDashboard() {
 
   const loadRegions = async () => {
     try {
-      const regions = await supabaseService.getRegions()
+      const response = await authFetch('/api/regions')
+      const data = await response.json()
+      const regions = data.regions || []
       // Get unique regio_platform values
       const uniquePlatforms = [...new Set(regions.map((region: any) => region.regio_platform).filter(Boolean))]
       setRegions(uniquePlatforms)
@@ -565,8 +567,9 @@ function FullOtisDashboard() {
 
   const loadJobSources = async () => {
     try {
-      const sources = await supabaseService.getJobSourcesWithCosts()
-      setJobSources(sources || [])
+      const response = await authFetch('/api/job-sources')
+      const data = await response.json()
+      setJobSources(data.sources || [])
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error loading job sources:', error)
@@ -577,7 +580,7 @@ function FullOtisDashboard() {
   const loadExistingRuns = async () => {
     setIsLoadingExistingRuns(true)
     try {
-      const response = await fetch('/api/otis/successful-runs', {
+      const response = await fetch('/api/otis/successful-runs?limit=500', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -706,7 +709,8 @@ function FullOtisDashboard() {
 
   const loadStats = async () => {
     try {
-      const stats = await supabaseService.getDashboardStats()
+      const response = await authFetch('/api/dashboard/stats')
+      const stats = await response.json()
       setStats({
         totalJobs: stats.totalJobs || 0,
         totalCompanies: stats.totalCompanies || 0,
@@ -823,7 +827,8 @@ function FullOtisDashboard() {
 
   const loadRecentJobPostings = async () => {
     try {
-      const result = await supabaseService.getJobPostings({ limit: 10 })
+      const response = await authFetch('/api/job-postings?limit=10')
+      const result = await response.json()
       setRecentJobPostings(result.data || [])
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -834,13 +839,7 @@ function FullOtisDashboard() {
 
   const loadInstantlyCampaigns = async () => {
     try {
-      const response = await fetch("/api/instantly-campaigns", {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include' // Include cookies for authentication
-      })
+      const response = await authFetch("/api/instantly-campaigns")
       if (response.ok) {
         const data = await response.json()
         setInstantlyCampaigns(data.campaigns || [])

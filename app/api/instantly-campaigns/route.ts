@@ -1,26 +1,26 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { getInstantlyConfig } from "@/lib/api-config"
 
-const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    console.log("API: Starting to fetch Instantly campaigns...")
-    
+    // Get secure API configuration
+    const instantlyConfig = getInstantlyConfig()
+
     // Fetch all campaigns with pagination
     let allCampaigns: any[] = []
     let skip = 0
     const limit = 100 // Maximum allowed by Instantly API
     let hasMore = true
-    
+
     while (hasMore) {
       // Gebruik de v2 API met Bearer token authentication en pagination
-      const url = `https://api.instantly.ai/api/v2/campaigns?skip=${skip}&limit=${limit}`
+      const url = `${instantlyConfig.baseUrl}/api/v2/campaigns?skip=${skip}&limit=${limit}`
       console.log("Fetching from:", url)
-      
+
       const res = await fetch(url, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${INSTANTLY_API_KEY}`,
+          "Authorization": `Bearer ${instantlyConfig.apiKey}`,
           "Content-Type": "application/json"
         }
       })
@@ -71,3 +71,5 @@ export async function GET() {
     return NextResponse.json({ error: e?.toString() }, { status: 500 })
   }
 }
+
+// No authentication needed for this endpoint - it only fetches campaign list

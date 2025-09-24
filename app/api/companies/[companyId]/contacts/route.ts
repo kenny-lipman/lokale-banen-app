@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseService } from '@/lib/supabase-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+async function companyContactsHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ companyId: string }> }
+  authResult: AuthResult,
+  context: { params: Promise<{ companyId: string }> }
 ) {
-  const { companyId } = await params
+  const { companyId } = await context.params
   
   if (!companyId) {
     return NextResponse.json(
@@ -16,7 +17,7 @@ export async function GET(
 
   try {
     // Fetch contacts for the company
-    const { data: contacts, error } = await supabaseService.client
+    const { data: contacts, error } = await authResult.supabase
       .from('contacts')
       .select(`
         id,
@@ -27,6 +28,7 @@ export async function GET(
         linkedin_url,
         phone,
         email_status,
+        qualification_status,
         campaign_id,
         campaign_name,
         created_at
@@ -58,3 +60,4 @@ export async function GET(
     )
   }
 }
+export const GET = withAuth(companyContactsHandler)
