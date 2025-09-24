@@ -14,6 +14,7 @@ export interface BlocklistEntry {
   updated_at: string
   instantly_synced?: boolean
   instantly_synced_at?: string | null
+  instantly_id?: string | null
   instantly_error?: string | null
   pipedrive_synced?: boolean
   pipedrive_synced_at?: string | null
@@ -292,7 +293,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await authFetch("/api/blocklist/import", {
+      const response = await authFetch("/api/blocklist/upload", {
         method: "POST",
         body: formData,
       })
@@ -303,7 +304,18 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
       }
 
       const result = await response.json()
-      toast.success(`Import geslaagd: ${result.summary.successfully_imported} entries toegevoegd`)
+      if (result.data?.import?.successful) {
+        toast.success(`Import geslaagd: ${result.data.import.successful} entries toegevoegd`)
+      } else if (result.data?.validation?.validEntries) {
+        toast.success(`Bestand verwerkt: ${result.data.validation.validEntries} entries gevalideerd`)
+      } else {
+        toast.success("Import succesvol verwerkt")
+      }
+
+      // Show errors if any occurred
+      if (result.data?.import?.error) {
+        toast.error(`Import waarschuwing: ${result.data.import.error}`)
+      }
 
       // Refresh data
       fetchEntries()

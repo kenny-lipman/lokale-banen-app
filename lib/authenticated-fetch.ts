@@ -22,7 +22,8 @@ export async function authenticatedFetch(
   }
 
   // Add Content-Type if not already set and we have a body
-  if (init?.body && !headers.has('Content-Type')) {
+  // But DON'T add it for FormData - browser will set multipart/form-data automatically
+  if (init?.body && !headers.has('Content-Type') && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
 

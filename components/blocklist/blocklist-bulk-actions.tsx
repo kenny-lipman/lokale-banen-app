@@ -30,8 +30,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { ImportModal } from "./import-modal"
 
 interface BlocklistBulkActionsProps {
   selectedItems: string[]
@@ -57,6 +56,7 @@ export function BlocklistBulkActions({
   loading = false,
 }: BlocklistBulkActionsProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [action, setAction] = useState<"activate" | "deactivate" | "delete" | null>(null)
 
   const handleBulkAction = async (actionType: "activate" | "deactivate" | "delete") => {
@@ -78,13 +78,9 @@ export function BlocklistBulkActions({
     }
   }
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      onBulkImport(file)
-      // Reset input
-      event.target.value = ""
-    }
+  const handleImport = async (file: File) => {
+    await onBulkImport(file)
+    setShowImportModal(false)
   }
 
   const confirmDelete = () => {
@@ -102,39 +98,41 @@ export function BlocklistBulkActions({
 
   if (selectedItems.length === 0) {
     return (
-      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">
-            Geen items geselecteerd
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onExport} disabled={loading}>
-            <Download className="h-4 w-4 mr-2" />
-            Exporteren
-          </Button>
-          <div className="relative">
-            <Input
-              id="import"
-              type="file"
-              accept=".csv,.json"
-              onChange={handleImport}
-              className="sr-only"
-              disabled={loading}
-            />
-            <Label htmlFor="import" asChild>
-              <Button variant="outline" size="sm" disabled={loading}>
-                <Upload className="h-4 w-4 mr-2" />
-                Importeren
-              </Button>
-            </Label>
+      <>
+        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              Geen items geselecteerd
+            </span>
           </div>
-          <Button variant="outline" size="sm" onClick={onSyncAll} disabled={loading}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Alles Synchroniseren
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onExport} disabled={loading}>
+              <Download className="h-4 w-4 mr-2" />
+              Exporteren
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowImportModal(true)}
+              disabled={loading}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Importeren
+            </Button>
+            <Button variant="outline" size="sm" onClick={onSyncAll} disabled={loading}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Alles Synchroniseren
+            </Button>
+          </div>
         </div>
-      </div>
+
+        <ImportModal
+          open={showImportModal}
+          onOpenChange={setShowImportModal}
+          onImport={handleImport}
+          loading={loading}
+        />
+      </>
     )
   }
 
@@ -210,6 +208,13 @@ export function BlocklistBulkActions({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportModal
+        open={showImportModal}
+        onOpenChange={setShowImportModal}
+        onImport={handleImport}
+        loading={loading}
+      />
     </>
   )
 }
