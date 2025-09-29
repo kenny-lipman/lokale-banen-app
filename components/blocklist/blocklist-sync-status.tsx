@@ -178,13 +178,14 @@ export function BlocklistSyncStatus({
             <Badge variant={getSyncBadgeVariant(instantly)} className={`text-xs ${getSyncBadgeClassName(instantly)}`}>
               {getSyncStatusText(instantly)}
             </Badge>
-            {onRetrySync && instantly?.error && (
+            {onRetrySync && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onRetrySync("instantly")}
                 disabled={loading}
                 className="h-6 px-2"
+                title="Sync naar Instantly"
               >
                 <RefreshCw className="h-3 w-3" />
               </Button>
@@ -207,13 +208,14 @@ export function BlocklistSyncStatus({
             <Badge variant={getSyncBadgeVariant(pipedrive)} className={`text-xs ${getSyncBadgeClassName(pipedrive)}`}>
               {getSyncStatusText(pipedrive)}
             </Badge>
-            {onRetrySync && pipedrive?.error && (
+            {onRetrySync && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onRetrySync("pipedrive")}
                 disabled={loading}
                 className="h-6 px-2"
+                title="Sync naar Pipedrive"
               >
                 <RefreshCw className="h-3 w-3" />
               </Button>

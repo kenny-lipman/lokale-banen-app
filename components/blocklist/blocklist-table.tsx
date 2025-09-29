@@ -53,6 +53,7 @@ interface BlocklistEntry {
   updated_at: string
   instantly_synced?: boolean
   instantly_synced_at?: string | null
+  instantly_id?: string | null
   pipedrive_synced?: boolean
   pipedrive_synced_at?: string | null
   created_by_user?: {
@@ -272,14 +273,14 @@ export function BlocklistTable({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1" title="Instantly">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
                       {getSyncIcon(entry.instantly_synced)}
-                      <span className="text-xs text-muted-foreground">I</span>
+                      <span className="text-xs">Instantly</span>
                     </div>
-                    <div className="flex items-center gap-1" title="Pipedrive">
+                    <div className="flex items-center gap-1.5">
                       {getSyncIcon(entry.pipedrive_synced)}
-                      <span className="text-xs text-muted-foreground">P</span>
+                      <span className="text-xs">Pipedrive</span>
                     </div>
                   </div>
                 </TableCell>

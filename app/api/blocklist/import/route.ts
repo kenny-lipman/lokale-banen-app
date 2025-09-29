@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { supabaseService } from "@/lib/supabase-service"
 import { z } from "zod"
+import { detectBlockType, BlockType } from '@/lib/blocklist-detection'
+import {
+  findCompanyByName,
+  createCompanyBlock,
+  createDomainBlock,
+  createEmailBlock,
+  getCompanyDomain
+} from '@/lib/blocklist-helpers'
 
-const importBlocklistSchema = z.object({
+// New simplified import schema - just value and reason
+const smartImportSchema = z.object({
+  entries: z.array(z.object({
+    value: z.string().trim(),
+    reason: z.string().trim().min(1, "Reason is required")
+  })).min(1).max(1000)
+})
+
+// Legacy import schema for backward compatibility
+const legacyImportSchema = z.object({
   entries: z.array(z.object({
     type: z.enum(["email", "domain"]),
     value: z.string().trim().toLowerCase(),
@@ -10,54 +28,50 @@ const importBlocklistSchema = z.object({
   })).min(1).max(1000)
 })
 
-export async function POST(req: NextRequest) {
+async function importHandler(req: NextRequest, authResult: AuthResult) {
   try {
+    console.log(`User ${authResult.user.email} importing blocklist entries`)
     const supabase = supabaseService.serviceClient
-
-    // Note: Authentication temporarily disabled to match other API routes
-    // TODO: Implement proper server-side auth when needed
 
     const body = await req.json()
 
-    // Validate the request body
-    const validationResult = importBlocklistSchema.safeParse(body)
+    // Check if it's smart import or legacy format
+    const isSmartImport = body.entries?.[0] && !('type' in body.entries[0])
 
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { error: "Invalid request data", details: validationResult.error.flatten() },
-        { status: 400 }
-      )
+    let entries: Array<{ value: string; reason: string; type?: 'email' | 'domain' }>
+
+    if (isSmartImport) {
+      // Smart import - detect types automatically
+      const validationResult = smartImportSchema.safeParse(body)
+
+      if (!validationResult.success) {
+        return NextResponse.json(
+          { error: "Invalid request data", details: validationResult.error.flatten() },
+          { status: 400 }
+        )
+      }
+
+      entries = validationResult.data.entries
+    } else {
+      // Legacy import with explicit types
+      const validationResult = legacyImportSchema.safeParse(body)
+
+      if (!validationResult.success) {
+        return NextResponse.json(
+          { error: "Invalid request data", details: validationResult.error.flatten() },
+          { status: 400 }
+        )
+      }
+
+      entries = validationResult.data.entries
     }
 
-    const { entries } = validationResult.data
-
-    // Validate each entry
-    const validationErrors: string[] = []
-    const validEntries: typeof entries = []
-
-    entries.forEach((entry, index) => {
-      if (entry.type === 'email') {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailRegex.test(entry.value)) {
-          validationErrors.push(`Entry ${index + 1}: Invalid email format - ${entry.value}`)
-        } else {
-          validEntries.push(entry)
-        }
-      } else if (entry.type === 'domain') {
-        const domainRegex = /^(\*\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i
-        if (!domainRegex.test(entry.value)) {
-          validationErrors.push(`Entry ${index + 1}: Invalid domain format - ${entry.value}`)
-        } else {
-          validEntries.push(entry)
-        }
-      }
-    })
-
-    if (validationErrors.length > 0 && validEntries.length === 0) {
-      return NextResponse.json(
-        { error: "All entries have validation errors", details: validationErrors },
-        { status: 400 }
-      )
+    // Process entries and collect results
+    const results = {
+      success: [] as string[],
+      failed: [] as { value: string; error: string }[],
+      warnings: [] as { value: string; message: string }[],
+      duplicates: [] as string[]
     }
 
     // Get existing entries to check for duplicates
@@ -69,60 +83,145 @@ export async function POST(req: NextRequest) {
       existingEntries?.map(e => `${e.type}:${e.value.toLowerCase()}`) || []
     )
 
-    // Filter out duplicates and prepare for insert
-    const newEntries = validEntries
-      .filter(entry => !existingSet.has(`${entry.type}:${entry.value}`))
-      .map(entry => ({
-        type: entry.type,
-        value: entry.value,
-        reason: entry.reason,
-        is_active: true
-        // created_by: temporarily disabled
-      }))
+    // Process each entry with smart detection
+    for (const entry of entries) {
+      try {
+        let processedSuccessfully = false
 
-    const duplicatesCount = validEntries.length - newEntries.length
+        if (isSmartImport) {
+          // Use smart detection
+          const detection = detectBlockType(entry.value)
 
-    // Bulk insert new entries
-    let insertedCount = 0
-    let insertError = null
+          if (detection.type === BlockType.COMPANY) {
+            // Try to find company
+            const company = await findCompanyByName(detection.normalized_value)
 
-    if (newEntries.length > 0) {
-      const { data, error } = await supabase
-        .from('blocklist_entries')
-        .insert(newEntries)
-        .select()
+            if (company) {
+              // Check if already blocked
+              const domain = await getCompanyDomain(company.id)
+              if (existingSet.has(`domain:${domain.toLowerCase()}`)) {
+                results.duplicates.push(entry.value)
+              } else {
+                const result = await createCompanyBlock(company.id, entry.reason)
+                if (result.success) {
+                  results.success.push(entry.value)
+                  processedSuccessfully = true
+                } else {
+                  results.failed.push({ value: entry.value, error: result.error || 'Failed to block company' })
+                }
+              }
+            } else {
+              // Company not found - create as domain block
+              results.warnings.push({
+                value: entry.value,
+                message: 'Company not found, created as domain block instead'
+              })
 
-      if (error) {
-        console.error("Error inserting blocklist entries:", error)
-        insertError = error
-      } else {
-        insertedCount = data?.length || 0
+              const result = await createDomainBlock(detection.normalized_value, entry.reason)
+              if (result.success) {
+                results.success.push(entry.value)
+                processedSuccessfully = true
+              } else {
+                results.failed.push({ value: entry.value, error: result.error || 'Failed to create domain block' })
+              }
+            }
+          } else if (detection.type === BlockType.EMAIL) {
+            // Check if already blocked
+            if (existingSet.has(`email:${detection.normalized_value}`)) {
+              results.duplicates.push(entry.value)
+            } else {
+              const result = await createEmailBlock(detection.normalized_value, entry.reason)
+              if (result.success) {
+                results.success.push(entry.value)
+                processedSuccessfully = true
+              } else {
+                results.failed.push({ value: entry.value, error: result.error || 'Failed to create email block' })
+              }
+            }
+          } else if (detection.type === BlockType.DOMAIN) {
+            // Check if already blocked
+            if (existingSet.has(`domain:${detection.normalized_value}`)) {
+              results.duplicates.push(entry.value)
+            } else {
+              const result = await createDomainBlock(detection.normalized_value, entry.reason)
+              if (result.success) {
+                results.success.push(entry.value)
+                processedSuccessfully = true
+              } else {
+                results.failed.push({ value: entry.value, error: result.error || 'Failed to create domain block' })
+              }
+            }
+          }
+        } else {
+          // Legacy format - use provided type
+          const type = entry.type!
+          const value = entry.value.toLowerCase()
+
+          if (existingSet.has(`${type}:${value}`)) {
+            results.duplicates.push(entry.value)
+          } else {
+            const { error } = await supabase
+              .from('blocklist_entries')
+              .insert({
+                type,
+                blocklist_level: type === 'email' ? 'contact' : 'domain',
+                value,
+                reason: entry.reason,
+                is_active: true
+              })
+
+            if (error) {
+              results.failed.push({ value: entry.value, error: error.message })
+            } else {
+              results.success.push(entry.value)
+              processedSuccessfully = true
+            }
+          }
+        }
+
+        // Update existing set if successful
+        if (processedSuccessfully) {
+          const detection = detectBlockType(entry.value)
+          const dbType = detection.type === BlockType.EMAIL ? 'email' : 'domain'
+          existingSet.add(`${dbType}:${detection.normalized_value}`)
+        }
+
+      } catch (error) {
+        console.error(`Error processing entry ${entry.value}:`, error)
+        results.failed.push({
+          value: entry.value,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
       }
     }
 
-    // TODO: Trigger sync to external platforms
-    // This will be implemented when the sync services are ready
-
-    const result = {
+    // Return comprehensive results
+    return NextResponse.json({
+      success: true,
+      message: "Import completed",
       summary: {
-        total_submitted: entries.length,
-        validation_errors: validationErrors.length,
-        duplicates_skipped: duplicatesCount,
-        successfully_imported: insertedCount,
-        failed: insertError ? newEntries.length - insertedCount : 0
+        total: entries.length,
+        successful: results.success.length,
+        failed: results.failed.length,
+        duplicates: results.duplicates.length,
+        warnings: results.warnings.length
       },
-      validation_errors: validationErrors.length > 0 ? validationErrors : undefined,
-      error: insertError ? "Some entries failed to import" : undefined
-    }
-
-    const status = insertError ? 207 : 200 // 207 Multi-Status for partial success
-
-    return NextResponse.json(result, { status })
+      results: {
+        success: results.success,
+        failed: results.failed.length > 0 ? results.failed : undefined,
+        duplicates: results.duplicates.length > 0 ? results.duplicates : undefined,
+        warnings: results.warnings.length > 0 ? results.warnings : undefined
+      }
+    }, {
+      status: results.failed.length > 0 ? 207 : 200 // 207 Multi-Status for partial success
+    })
   } catch (error) {
-    console.error("API error:", error)
+    console.error("Import API error:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     )
   }
 }
+
+export const POST = withAuth(importHandler)

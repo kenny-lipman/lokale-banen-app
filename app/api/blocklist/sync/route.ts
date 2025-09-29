@@ -4,12 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { syncBlockedContacts } from '@/lib/blocklist-sync'
 
 async function syncHandler(req: NextRequest, authResult: AuthResult) {
   try {
-    console.log(`Admin ${authResult.user.email} initiated blocklist sync`)
+    console.log(`User ${authResult.user.email} initiated blocklist sync`)
 
     const result = await syncBlockedContacts()
 
@@ -31,4 +31,4 @@ async function syncHandler(req: NextRequest, authResult: AuthResult) {
   }
 }
 
-export const POST = withAdminAuth(syncHandler)
+export const POST = withAuth(syncHandler)

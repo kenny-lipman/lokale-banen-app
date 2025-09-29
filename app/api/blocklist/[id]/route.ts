@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseService } from "@/lib/supabase-service"
 import { z } from "zod"
+import { removeEntryFromBlocklist, deactivateBlocklistEntry } from "@/lib/blocklist-sync"
+import { instantlyClient } from "@/lib/instantly-client"
 
 const updateBlocklistEntrySchema = z.object({
   type: z.enum(["email", "domain"]).optional(),
@@ -109,7 +111,30 @@ export async function PUT(
       }
     }
 
-    // Update the blocklist entry
+    // Check if we're deactivating an entry
+    if (updateData.is_active === false) {
+      // Use the deactivate function which handles Instantly sync
+      try {
+        await deactivateBlocklistEntry(id)
+
+        // Get the updated entry
+        const { data: updatedEntry } = await supabase
+          .from('blocklist_entries')
+          .select('*')
+          .eq('id', id)
+          .single()
+
+        return NextResponse.json(updatedEntry)
+      } catch (error) {
+        console.error("Error deactivating entry:", error)
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : "Failed to deactivate entry" },
+          { status: 500 }
+        )
+      }
+    }
+
+    // For other updates, handle normally
     const { data, error } = await supabase
       .from('blocklist_entries')
       .update({
@@ -134,8 +159,24 @@ export async function PUT(
       )
     }
 
-    // TODO: Trigger sync to external platforms if value or is_active changed
-    // This will be implemented when the sync services are ready
+    // If activating, sync to Instantly
+    if (updateData.is_active === true && data.value) {
+      try {
+        const instantlyEntry = await instantlyClient.addToBlocklist(data.value)
+
+        // Update sync status with Instantly ID
+        await supabase
+          .from('blocklist_entries')
+          .update({
+            instantly_synced: true,
+            instantly_synced_at: new Date().toISOString(),
+            instantly_id: instantlyEntry.id
+          })
+          .eq('id', id)
+      } catch (error) {
+        console.error("Failed to sync to Instantly:", error)
+      }
+    }
 
     return NextResponse.json(data)
   } catch (error) {
@@ -152,44 +193,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = supabaseService.serviceClient
     const { id } = params
 
     // Note: Authentication temporarily disabled to match other API routes
     // TODO: Implement proper server-side auth when needed
 
-    // Get the entry before deletion for sync purposes
-    const { data: entryToDelete } = await supabase
-      .from('blocklist_entries')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    // Delete the blocklist entry
-    const { error } = await supabase
-      .from('blocklist_entries')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json(
-          { error: "Blocklist entry not found" },
-          { status: 404 }
-        )
-      }
-      console.error("Error deleting blocklist entry:", error)
-      return NextResponse.json(
-        { error: "Failed to delete blocklist entry" },
-        { status: 500 }
-      )
-    }
-
-    // TODO: Trigger sync to external platforms to remove the entry
-    // This will be implemented when the sync services are ready
-    if (entryToDelete) {
-      console.log("Entry deleted, sync to external platforms needed:", entryToDelete)
-    }
+    // Use the removeEntryFromBlocklist function which handles Instantly sync
+    await removeEntryFromBlocklist(id)
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {

@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { supabaseService } from '@/lib/supabase-service'
 
 export interface BlocklistEntry {
   id: string
@@ -232,4 +233,49 @@ export class BlocklistValidationService {
     this.blocklistCache.clear()
     this.cacheTimestamp = 0
   }
+
+  /**
+   * Check if a value is blocked (alias for checkSingle)
+   */
+  public async isBlocked(value: string, options: {
+    checkDomains?: boolean;
+    includeInactive?: boolean;
+  } = {}): Promise<{
+    isBlocked: boolean;
+    reason?: string;
+    entryId?: string;
+    blockedAt?: string;
+  }> {
+    const result = await this.checkSingle(value)
+    return {
+      isBlocked: result.is_blocked,
+      reason: result.blocked_reason,
+      entryId: result.blocked_by,
+      blockedAt: result.is_blocked ? new Date().toISOString() : undefined
+    }
+  }
+
+  /**
+   * Bulk check multiple values (alias for checkBulk)
+   */
+  public async bulkCheck(values: string[], options: {
+    checkDomains?: boolean;
+    includeInactive?: boolean;
+  } = {}): Promise<Array<{
+    isBlocked: boolean;
+    reason?: string;
+    entryId?: string;
+    blockedAt?: string;
+  }>> {
+    const results = await this.checkBulk(values)
+    return results.map(result => ({
+      isBlocked: result.is_blocked,
+      reason: result.blocked_reason,
+      entryId: result.blocked_by,
+      blockedAt: result.is_blocked ? new Date().toISOString() : undefined
+    }))
+  }
 }
+
+// Export service instance
+export const blocklistValidationService = new BlocklistValidationService(supabaseService.serviceClient)

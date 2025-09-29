@@ -15,9 +15,11 @@ interface BlocklistModalProps {
   mode: "add" | "edit"
   initialData?: {
     id?: string
-    type: "email" | "domain"
-    value: string
+    block_type?: "email" | "company" | "domain" | "contact"
+    value?: string
     reason: string
+    company_id?: string | null
+    contact_id?: string | null
     is_active: boolean
   }
   onSubmit: (data: any) => Promise<void>

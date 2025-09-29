@@ -71,6 +71,8 @@ export default function BlocklistPage() {
   const [editingEntry, setEditingEntry] = useState<BlocklistEntry | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingEntry, setDeletingEntry] = useState<BlocklistEntry | null>(null)
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
+  const [deactivatingEntry, setDeactivatingEntry] = useState<BlocklistEntry | null>(null)
   const [showFilters, setShowFilters] = useState(false)
 
   // Handlers
@@ -105,8 +107,23 @@ export default function BlocklistPage() {
     }
   }
 
-  const handleToggleActive = async (entry: BlocklistEntry) => {
-    await updateEntry(entry.id, { is_active: !entry.is_active })
+  const handleToggleActive = (entry: BlocklistEntry) => {
+    if (entry.is_active) {
+      // Deactivating - show confirmation
+      setDeactivatingEntry(entry)
+      setShowDeactivateDialog(true)
+    } else {
+      // Activating - no confirmation needed
+      updateEntry(entry.id, { is_active: true })
+    }
+  }
+
+  const confirmDeactivate = async () => {
+    if (deactivatingEntry) {
+      await updateEntry(deactivatingEntry.id, { is_active: false })
+      setShowDeactivateDialog(false)
+      setDeactivatingEntry(null)
+    }
   }
 
   const handleBulkImport = async (file: File) => {
@@ -344,13 +361,24 @@ export default function BlocklistPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Entry Verwijderen</AlertDialogTitle>
             <AlertDialogDescription>
-              Weet je zeker dat je deze blocklist entry wilt verwijderen? Deze actie
-              kan niet ongedaan worden gemaakt.
-              {deletingEntry && (
-                <div className="mt-2 p-2 bg-gray-50 rounded">
-                  <strong>{deletingEntry.value}</strong> ({deletingEntry.type})
+              <span>Weet je zeker dat je deze blocklist entry wilt verwijderen?</span>
+              {deletingEntry?.instantly_synced && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <div className="text-sm text-amber-800 font-medium">
+                    ⚠️ Deze entry wordt ook verwijderd uit Instantly.ai
+                  </div>
                 </div>
               )}
+              {deletingEntry && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                  <div className="text-sm text-gray-600 mb-1">Te verwijderen entry:</div>
+                  <div className="font-medium">{deletingEntry.value}</div>
+                  <div className="text-sm text-gray-500">Type: {deletingEntry.type}</div>
+                </div>
+              )}
+              <div className="mt-3 text-sm text-gray-600">
+                Deze actie kan niet ongedaan worden gemaakt.
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -359,7 +387,47 @@ export default function BlocklistPage() {
               onClick={confirmDelete}
               className="bg-red-600 hover:bg-red-700"
             >
-              Verwijderen
+              Definitief Verwijderen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Entry Deactiveren</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span>Weet je zeker dat je deze blocklist entry wilt deactiveren?</span>
+              {deactivatingEntry?.instantly_synced && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <div className="text-sm text-amber-800 font-medium">
+                    ⚠️ Deze entry wordt verwijderd uit Instantly.ai
+                  </div>
+                  <div className="text-xs text-amber-700 mt-1">
+                    Bij opnieuw activeren moet de entry opnieuw gesynchroniseerd worden.
+                  </div>
+                </div>
+              )}
+              {deactivatingEntry && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                  <div className="text-sm text-gray-600 mb-1">Te deactiveren entry:</div>
+                  <div className="font-medium">{deactivatingEntry.value}</div>
+                  <div className="text-sm text-gray-500">Type: {deactivatingEntry.type}</div>
+                </div>
+              )}
+              <div className="mt-3 text-sm text-gray-600">
+                De entry blijft bewaard in de database maar wordt niet meer gebruikt voor blocking.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeactivate}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Deactiveren
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

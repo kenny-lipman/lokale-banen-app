@@ -1,0 +1,5 @@
+type,value,reason
+email,spam@example.com,Spam emails received
+email,unwanted@company.com,Unwanted marketing emails
+domain,spamsite.com,Known spam domain
+domain,malicious.net,Malicious domain reported by users

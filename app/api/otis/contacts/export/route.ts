@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-service'
+import { createClient } from '@/lib/supabase'
 
 // Helper function to convert JSON to CSV
 function jsonToCsv(data: any[]): string {

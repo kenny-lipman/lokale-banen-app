@@ -5,7 +5,7 @@
 
 import { NextRequest } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
-import { getWebhookConfig } from './api-config'
+import { getWebhookConfigValidated } from './api-config'
 
 // Webhook security error types
 export class WebhookSecurityError extends Error {
@@ -94,7 +94,7 @@ function validateTimestamp(timestamp: string | null, toleranceSeconds: number = 
  * Get webhook secret for specific service
  */
 function getWebhookSecret(webhookType: WebhookType): string {
-  const config = getWebhookConfig()
+  const config = getWebhookConfigValidated()
 
   switch (webhookType) {
     case 'apify':

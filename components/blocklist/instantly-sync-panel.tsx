@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { BlocklistSyncStatus } from "@/components/blocklist/blocklist-sync-status"
+import { authenticatedFetch } from "@/lib/api-client"
 import {
   CheckCircle2,
   AlertTriangle,
@@ -34,6 +36,10 @@ interface InstantlySyncPanelProps {
         synced: number
         pending: number
       }
+      pipedrive?: {
+        synced: number
+        pending: number
+      }
     }
   } | null
 }
@@ -41,6 +47,7 @@ interface InstantlySyncPanelProps {
 export function InstantlySyncPanel({ onSync, loading = false, stats }: InstantlySyncPanelProps) {
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const [syncLoading, setSyncLoading] = useState(false)
+  const [platformSyncLoading, setPlatformSyncLoading] = useState<Record<string, boolean>>({})
 
   const handleSync = async () => {
     try {
@@ -51,6 +58,32 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
       console.error("Sync failed:", error)
     } finally {
       setSyncLoading(false)
+    }
+  }
+
+  const handlePlatformSync = async (platform: "instantly" | "pipedrive") => {
+    try {
+      setPlatformSyncLoading({ ...platformSyncLoading, [platform]: true })
+
+      const endpoint = platform === "instantly" ? "/api/blocklist/sync" : "/api/blocklist/sync-pipedrive"
+      const response = await authenticatedFetch(endpoint, { method: "POST" })
+
+      if (!response.ok) {
+        throw new Error(`Sync failed: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      // Show success message or handle result
+      console.log(`${platform} sync completed:`, result)
+
+      // You might want to refetch the data here to update the UI
+      // onRefresh?.()
+
+    } catch (error) {
+      console.error(`${platform} sync failed:`, error)
+    } finally {
+      setPlatformSyncLoading({ ...platformSyncLoading, [platform]: false })
     }
   }
 
@@ -98,18 +131,10 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              Instantly.ai Synchronisatie
-              <a
-                href="https://app.instantly.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </a>
+              Blocklist Synchronisatie
             </CardTitle>
             <CardDescription>
-              Synchroniseer geblokkeerde contacten naar Instantly.ai blocklist
+              Synchroniseer geblokkeerde contacten naar Instantly.ai en Pipedrive. Je kunt alle platforms tegelijk of individueel synchroniseren.
             </CardDescription>
           </div>
           {getSyncStatusBadge()}
@@ -120,8 +145,8 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Deze synchronisatie voegt alleen geblokkeerde contacten (is_blocked = true) toe aan de Instantly.ai blocklist.
-            Contacten die al in de blocklist staan worden overgeslagen.
+            Deze synchronisatie voegt geblokkeerde entries toe aan de respectievelijke platforms.
+            Entries die al gesynchroniseerd zijn worden overgeslagen.
           </AlertDescription>
         </Alert>
 
@@ -137,7 +162,7 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            {syncLoading ? "Synchroniseren..." : "Synchroniseer naar Instantly.ai"}
+            {syncLoading ? "Synchroniseren..." : "Alles Synchroniseren"}
           </Button>
 
           {stats?.syncStatus?.instantly && (
@@ -146,6 +171,22 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
             </div>
           )}
         </div>
+
+        {/* Individual Platform Sync Status */}
+        <BlocklistSyncStatus
+          instantly={{
+            synced: stats?.syncStatus?.instantly ? (stats.syncStatus.instantly.synced > 0) : false,
+            syncedAt: null, // You might want to add this to your stats
+            error: null
+          }}
+          pipedrive={{
+            synced: stats?.syncStatus?.pipedrive ? (stats.syncStatus.pipedrive.synced > 0) : false,
+            syncedAt: null, // You might want to add this to your stats
+            error: null
+          }}
+          onRetrySync={handlePlatformSync}
+          loading={syncLoading || platformSyncLoading.instantly || platformSyncLoading.pipedrive}
+        />
 
         {/* Last Sync Result */}
         {lastSyncResult && (

@@ -28,16 +28,16 @@ function validateRequiredEnvVar(name: string, value: string | undefined): string
 function getApiConfig(): ApiConfig {
   return {
     instantly: {
-      apiKey: validateRequiredEnvVar('INSTANTLY_API_KEY', process.env.INSTANTLY_API_KEY),
+      apiKey: process.env.INSTANTLY_API_KEY || '',
       baseUrl: process.env.INSTANTLY_BASE_URL || 'https://api.instantly.ai'
     },
     webhooks: {
-      dailyScrapeUrl: validateRequiredEnvVar('DAILY_SCRAPE_WEBHOOK_URL', process.env.DAILY_SCRAPE_WEBHOOK_URL),
-      apifySecret: validateRequiredEnvVar('APIFY_WEBHOOK_SECRET', process.env.APIFY_WEBHOOK_SECRET),
-      n8nSecret: validateRequiredEnvVar('N8N_WEBHOOK_SECRET', process.env.N8N_WEBHOOK_SECRET)
+      dailyScrapeUrl: process.env.DAILY_SCRAPE_WEBHOOK_URL || '',
+      apifySecret: process.env.APIFY_WEBHOOK_SECRET || '',
+      n8nSecret: process.env.N8N_WEBHOOK_SECRET || ''
     },
     system: {
-      cronSecret: validateRequiredEnvVar('CRON_SECRET_KEY', process.env.CRON_SECRET_KEY)
+      cronSecret: process.env.CRON_SECRET_KEY || ''
     }
   }
 }
@@ -57,23 +57,54 @@ export function getInstantlyConfig() {
   return getApiConfigSingleton().instantly
 }
 
+export function getInstantlyConfigValidated() {
+  const config = getInstantlyConfig()
+  return {
+    apiKey: validateRequiredEnvVar('INSTANTLY_API_KEY', config.apiKey),
+    baseUrl: config.baseUrl
+  }
+}
+
 export function getWebhookConfig() {
   return getApiConfigSingleton().webhooks
+}
+
+export function getWebhookConfigValidated() {
+  const config = getWebhookConfig()
+  return {
+    dailyScrapeUrl: validateRequiredEnvVar('DAILY_SCRAPE_WEBHOOK_URL', config.dailyScrapeUrl),
+    apifySecret: validateRequiredEnvVar('APIFY_WEBHOOK_SECRET', config.apifySecret),
+    n8nSecret: validateRequiredEnvVar('N8N_WEBHOOK_SECRET', config.n8nSecret)
+  }
 }
 
 export function getSystemConfig() {
   return getApiConfigSingleton().system
 }
 
+export function getSystemConfigValidated() {
+  const config = getSystemConfig()
+  return {
+    cronSecret: validateRequiredEnvVar('CRON_SECRET_KEY', config.cronSecret)
+  }
+}
+
 // Validation function for startup checks
 export function validateApiConfiguration(): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  try {
-    getApiConfigSingleton()
-    return { valid: true, errors: [] }
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : 'Unknown configuration error')
-    return { valid: false, errors }
+  // Test each configuration separately
+  try { getInstantlyConfigValidated() } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'Unknown Instantly API error')
   }
+
+  try { getWebhookConfigValidated() } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'Unknown Webhook error')
+  }
+
+  try { getSystemConfigValidated() } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'Unknown System error')
+  }
+
+  return { valid: errors.length === 0, errors }
 }

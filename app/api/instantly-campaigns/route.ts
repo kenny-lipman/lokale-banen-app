@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getInstantlyConfig } from "@/lib/api-config"
+import { getInstantlyConfigValidated } from "@/lib/api-config"
 
 export async function GET(req: NextRequest) {
   try {
     // Get secure API configuration
-    const instantlyConfig = getInstantlyConfig()
+    const instantlyConfig = getInstantlyConfigValidated()
 
     // Fetch all campaigns with pagination
     let allCampaigns: any[] = []
