@@ -6,8 +6,8 @@ import { supabaseService } from '@/lib/supabase-service'
 async function platformsHandler(request: NextRequest, authResult: AuthResult) {
   try {
     const { user, supabase } = authResult
-    
-    if (authError || !user) {
+
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized - Invalid token' },
         { status: 401 }

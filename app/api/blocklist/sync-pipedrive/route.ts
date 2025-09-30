@@ -73,8 +73,11 @@ async function syncToPipedriveOnly(entries: BlockedEntry[]): Promise<{ success: 
       }
 
       // Helper function to check if a value is a valid email
+      // Allows & and other special characters in email addresses
       const isValidEmail = (email: string): boolean => {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        // Simple check: contains @ and has characters before and after it
+        const parts = email.split('@')
+        return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0
       }
 
       // Check if the value is an email address, regardless of blocklist_level

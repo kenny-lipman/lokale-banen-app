@@ -63,6 +63,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [jobSourceList, setJobSourceList] = useState<{id: string, name: string}[]>([]);
   const [allPlatforms, setAllPlatforms] = useState<{id: string, regio_platform: string}[]>([]);
@@ -96,6 +97,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           search: debouncedSearchTerm,
           status: statusFilter === "all" ? undefined : statusFilter,
           source_id: sourceFilter !== "all" ? sourceFilter : undefined,
+          platform_id: platformFilter !== "all" ? platformFilter : undefined,
         }
   )
 
@@ -161,21 +163,10 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
     if (currentPage !== 1) {
       setCurrentPage(1)
     }
-  }, [debouncedSearchTerm, statusFilter, sourceFilter])
+  }, [debouncedSearchTerm, statusFilter, sourceFilter, platformFilter])
 
-  // Only client-side filter op bron/platform as fallback (regio_platform is handled server-side)
-  const filteredJobPostings = jobPostings.filter((job) => {
-    // Filter op source/platform
-    if (sourceFilter !== "all") {
-      const sourceName = (job.platform || job.source_name || "").toLowerCase();
-      const selectedSourceName = jobSourceList.find(s => s.id === sourceFilter)?.name?.toLowerCase();
-      if (sourceName !== selectedSourceName) return false;
-    }
-
-    // Note: regio_platform filtering is now handled server-side through the API
-
-    return true;
-  });
+  // No client-side filtering needed - all filtering is handled server-side
+  const filteredJobPostings = jobPostings;
 
   // Helper: haal de juiste bron/platform naam op client-side
   function getJobSourceName(job: JobPosting): string | undefined {
@@ -336,6 +327,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
         onResetFilters={() => {
           setSearchTerm("")
           setSourceFilter("all")
+          setPlatformFilter("all")
           setStatusFilter("all")
           setCurrentPage(1)
         }}
@@ -350,6 +342,18 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
               ...jobSourceList.map(s => ({ value: s.id, label: s.name }))
             ],
             placeholder: "Filter op bron"
+          },
+          {
+            id: "platform",
+            label: "Platform",
+            value: platformFilter,
+            onValueChange: setPlatformFilter,
+            options: [
+              { value: "all", label: "Alle platforms" },
+              { value: "null", label: "Geen platform" },
+              ...allPlatforms.map(p => ({ value: p.id, label: p.regio_platform }))
+            ],
+            placeholder: "Filter op platform"
           },
           {
             id: "status",

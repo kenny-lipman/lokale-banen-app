@@ -66,8 +66,14 @@ export function useJobPostingsCache(params: {
         query = query.eq('status', params.status)
       }
 
-      if (params.platform_id) {
-        query = query.eq('platform_id', params.platform_id)
+      if (params.platform_id !== undefined && params.platform_id !== null) {
+        if (params.platform_id === 'null') {
+          // Filter for jobs with no platform
+          query = query.is('platform_id', null)
+        } else {
+          // Filter for specific platform
+          query = query.eq('platform_id', params.platform_id)
+        }
       }
 
       if (params.source_id) {

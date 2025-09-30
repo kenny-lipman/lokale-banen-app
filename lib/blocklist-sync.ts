@@ -56,10 +56,12 @@ async function getBlockedEntries(): Promise<BlockedEntry[]> {
 
 /**
  * Validate email format
+ * Allows & and other special characters in email addresses
  */
 function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email.trim())
+  // Simple check: contains @ and has characters before and after it
+  const parts = email.trim().split('@')
+  return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0
 }
 
 /**
@@ -78,8 +80,11 @@ async function syncToPipedrive(entries: BlockedEntry[]): Promise<void> {
       }
 
       // Helper function to check if a value is a valid email
+      // Allows & and other special characters in email addresses
       const isValidEmail = (email: string): boolean => {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        // Simple check: contains @ and has characters before and after it
+        const parts = email.split('@')
+        return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0
       }
 
       // Check if the value is an email address, regardless of blocklist_level
@@ -204,8 +209,8 @@ export async function syncBlockedContacts(): Promise<SyncResult> {
         if (entry.type === 'email') {
           return entry.value && isValidEmail(entry.value)
         } else if (entry.type === 'domain') {
-          // Basic domain validation
-          const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/
+          // Basic domain validation - allows multiple dots for subdomains (e.g. b.v.golfbaanrijswijk.nl)
+          const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9.-]{0,253}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/
           return entry.value && domainRegex.test(entry.value)
         }
         return false
