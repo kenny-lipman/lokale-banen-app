@@ -41,6 +41,8 @@ export function useJobPostingsCache(params: {
           salary,
           url,
           country,
+          source_id,
+          platform_id,
           companies!inner(
             id,
             name,
@@ -98,6 +100,7 @@ export function useJobPostingsCache(params: {
       const formattedData = data?.map(item => ({
         id: item.id,
         title: item.title,
+        company_id: item.companies?.id,
         company_name: item.companies?.name,
         company_logo: item.companies?.logo_url,
         company_website: item.companies?.website,
@@ -106,6 +109,9 @@ export function useJobPostingsCache(params: {
         location: item.location,
         platform: item.platforms?.regio_platform,
         source_name: item.job_sources?.name,
+        source_id: item.source_id,
+        platform_id: item.platform_id,
+        regio_platform: item.platforms?.regio_platform,
         status: item.status,
         review_status: item.review_status,
         scraped_at: item.scraped_at,

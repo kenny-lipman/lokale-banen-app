@@ -168,13 +168,22 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
   // No client-side filtering needed - all filtering is handled server-side
   const filteredJobPostings = jobPostings;
 
-  // Helper: haal de juiste bron/platform naam op client-side
+  // Helper: haal de juiste bron naam op client-side (excluding platform)
   function getJobSourceName(job: JobPosting): string | undefined {
-    if (job.platform && job.platform.trim() !== "") return job.platform;
     if (job.source_name && job.source_name.trim() !== "") return job.source_name;
     if (job.source_id && jobSourceList.length > 0) {
       const found = jobSourceList.find(s => s.id === job.source_id);
       if (found && found.name && found.name.trim() !== "") return found.name;
+    }
+    // Fallback to platform only if no source is available
+    if (job.platform && job.platform.trim() !== "") return job.platform;
+    return undefined;
+  }
+
+  // Helper: get platform name
+  function getPlatformName(job: JobPosting): string | undefined {
+    if (job.platform_id && job.regio_platform && job.regio_platform.trim() !== "") {
+      return job.regio_platform;
     }
     return undefined;
   }
@@ -437,15 +446,27 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                       <div className="font-medium flex items-center gap-2">
                         {job.title}
                       </div>
-                      {/* Badge met bron/platform onder de functietitel, zelfde stijl als /companies */}
-                      {(() => {
-                        const sourceName: string | undefined = getJobSourceName(job);
-                        return sourceName ? (
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {sourceName}
-                          </Badge>
-                        ) : undefined;
-                      })()}
+                      {/* Badges for both source and platform */}
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(() => {
+                          const sourceName = getJobSourceName(job);
+                          const platformName = getPlatformName(job);
+                          return (
+                            <>
+                              {sourceName && (
+                                <Badge variant="outline" className="text-xs">
+                                  {sourceName}
+                                </Badge>
+                              )}
+                              {platformName && (
+                                <Badge variant="outline" className="text-xs">
+                                  {platformName}
+                                </Badge>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
                       {job.salary && <div className="text-xs text-gray-500 md:hidden">{job.salary}</div>}
                     </div>
                   </TableCell>
