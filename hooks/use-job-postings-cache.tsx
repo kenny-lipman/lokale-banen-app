@@ -26,92 +26,42 @@ export function useJobPostingsCache(params: {
 
     try {
       const supabase = createClient()
-
-      // Build the query
-      let query = supabase
-        .from('job_postings')
-        .select(`
-          id,
-          title,
-          location,
-          status,
-          review_status,
-          scraped_at,
-          job_type,
-          salary,
-          url,
-          country,
-          source_id,
-          platform_id,
-          companies!inner(
-            id,
-            name,
-            website,
-            logo_url,
-            rating_indeed,
-            is_customer
-          ),
-          job_sources!inner(
-            name
-          ),
-          platforms(
-            regio_platform
-          )
-        `, { count: 'exact' })
-
-      // Apply filters
-      if (params.search) {
-        query = query.or(`title.ilike.%${params.search}%,companies.name.ilike.%${params.search}%,location.ilike.%${params.search}%`)
-      }
-
-      if (params.status) {
-        query = query.eq('status', params.status)
-      }
-
-      if (params.platform_id !== undefined && params.platform_id !== null) {
-        if (params.platform_id === 'null') {
-          // Filter for jobs with no platform
-          query = query.is('platform_id', null)
-        } else {
-          // Filter for specific platform
-          query = query.eq('platform_id', params.platform_id)
-        }
-      }
-
-      if (params.source_id) {
-        query = query.eq('source_id', params.source_id)
-      }
-
-      // Apply pagination
       const page = params.page || 1
       const limit = params.limit || 10
-      const from = (page - 1) * limit
-      const to = from + limit - 1
 
-      query = query.range(from, to).order('scraped_at', { ascending: false })
-
-      const { data, error, count } = await query
+      // Use the PostgreSQL function for searching
+      const { data, error } = await supabase.rpc('search_job_postings', {
+        search_term: params.search || null,
+        status_filter: params.status || null,
+        source_filter: params.source_id || null,
+        platform_filter: params.platform_id === 'null' ? null : (params.platform_id || null),
+        page_number: page,
+        page_size: limit
+      })
 
       if (error) {
         throw new Error(error.message)
       }
 
+      // Get total count from the first row (all rows have the same count)
+      const totalCount = data && data.length > 0 ? data[0].total_count : 0
+
       // Format the data to match the expected structure
       const formattedData = data?.map(item => ({
         id: item.id,
         title: item.title,
-        company_id: item.companies?.id,
-        company_name: item.companies?.name,
-        company_logo: item.companies?.logo_url,
-        company_website: item.companies?.website,
-        company_rating: item.companies?.rating_indeed,
-        is_customer: item.companies?.is_customer,
+        company_id: item.company_id,
+        company_name: item.company_name,
+        company_logo: item.company_logo_url,
+        company_website: item.company_website,
+        company_rating: item.company_rating_indeed,
+        is_customer: item.company_is_customer,
         location: item.location,
-        platform: item.platforms?.regio_platform,
-        source_name: item.job_sources?.name,
+        platform: item.platform_regio_platform,
+        source_name: item.source_name,
         source_id: item.source_id,
         platform_id: item.platform_id,
-        regio_platform: item.platforms?.regio_platform,
+        regio_platform: item.platform_regio_platform,
         status: item.status,
         review_status: item.review_status,
         scraped_at: item.scraped_at,
@@ -123,8 +73,8 @@ export function useJobPostingsCache(params: {
 
       const formattedResult = {
         data: formattedData,
-        count: count || 0,
-        totalPages: Math.ceil((count || 0) / limit)
+        count: totalCount,
+        totalPages: Math.ceil(totalCount / limit)
       }
 
       jobPostingsCache[cacheKey] = formattedResult
