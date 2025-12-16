@@ -7,13 +7,48 @@ const PIPEDRIVE_API_V2_URL = process.env.PIPEDRIVE_API_V2_URL || 'https://lokale
 // Status prospect field ID for organizations
 const STATUS_PROSPECT_FIELD_ID = 'e8a27f47529d2091399f063b834339316d7d852a';
 
-// Status prospect options
+// Status prospect options (IDs from Pipedrive)
 const STATUS_PROSPECT_OPTIONS = {
   BENADEREN: 302,
   KLANT: 303,
   NIET_MEER_BENADEREN: 304,
   OPNIEUW_BENADEREN: 305,
-  IN_ONDERHANDELING: 322
+  IN_ONDERHANDELING: 322,
+  // Instantly integration statuses
+  IN_CAMPAGNE: 345,              // "In campagne Instantly"
+  NIET_GEREAGEERD_INSTANTLY: 344 // "Niet gereageerd Instantly"
+};
+
+// Export for use in other modules
+export { STATUS_PROSPECT_FIELD_ID, STATUS_PROSPECT_OPTIONS };
+
+// Status labels for display/logging
+export const STATUS_PROSPECT_LABELS: Record<string, string> = {
+  BENADEREN: 'Benaderen',
+  KLANT: 'Klant',
+  NIET_MEER_BENADEREN: 'Niet meer Benaderen',
+  OPNIEUW_BENADEREN: 'Opnieuw Benaderen',
+  IN_ONDERHANDELING: 'In onderhandeling',
+  IN_CAMPAGNE: 'In campagne Instantly',
+  NIET_GEREAGEERD_INSTANTLY: 'Niet gereageerd Instantly'
+};
+
+// Protected statuses that should not be overwritten by Instantly sync
+export const PROTECTED_STATUSES = [
+  STATUS_PROSPECT_OPTIONS.KLANT,
+  STATUS_PROSPECT_OPTIONS.IN_ONDERHANDELING
+];
+
+// Status priority for determining which status takes precedence
+// Higher number = higher priority
+export const STATUS_PRIORITY: Record<number, number> = {
+  [STATUS_PROSPECT_OPTIONS.KLANT]: 100,
+  [STATUS_PROSPECT_OPTIONS.IN_ONDERHANDELING]: 90,
+  [STATUS_PROSPECT_OPTIONS.BENADEREN]: 80,
+  [STATUS_PROSPECT_OPTIONS.IN_CAMPAGNE]: 50,
+  [STATUS_PROSPECT_OPTIONS.NIET_GEREAGEERD_INSTANTLY]: 40,
+  [STATUS_PROSPECT_OPTIONS.OPNIEUW_BENADEREN]: 30,
+  [STATUS_PROSPECT_OPTIONS.NIET_MEER_BENADEREN]: 10
 };
 
 export interface PipedriveOrganization {
@@ -67,7 +102,7 @@ export class PipedriveClient {
    * Make an API request to Pipedrive V1
    */
   private async request(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     endpoint: string,
     data?: any
   ) {
@@ -551,6 +586,244 @@ export class PipedriveClient {
       console.error('Error syncing contact to Pipedrive:', error);
       return null;
     }
+  }
+
+  // ============================================================================
+  // INSTANTLY INTEGRATION METHODS
+  // ============================================================================
+
+  /**
+   * Get the current status prospect value for an organization
+   * @param orgId - The Pipedrive organization ID
+   * @returns The current status prospect ID or null
+   */
+  async getOrganizationStatusProspect(orgId: number): Promise<number | null> {
+    try {
+      const org = await this.getOrganization(orgId);
+      if (!org) return null;
+
+      // The custom field value is stored directly on the org object
+      const statusValue = org[STATUS_PROSPECT_FIELD_ID];
+      return statusValue ? parseInt(statusValue) : null;
+    } catch (error) {
+      console.error(`Error getting status prospect for org ${orgId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if an organization has a protected status that should not be overwritten
+   * @param orgId - The Pipedrive organization ID
+   */
+  async hasProtectedStatus(orgId: number): Promise<boolean> {
+    const currentStatus = await this.getOrganizationStatusProspect(orgId);
+    if (!currentStatus) return false;
+    return PROTECTED_STATUSES.includes(currentStatus);
+  }
+
+  /**
+   * Set the status prospect for an organization
+   * @param orgId - The Pipedrive organization ID
+   * @param statusKey - The status key (e.g., 'BENADEREN', 'IN_CAMPAGNE')
+   * @param force - Force update even if current status has higher priority
+   */
+  async setOrganizationStatusProspect(
+    orgId: number,
+    statusKey: keyof typeof STATUS_PROSPECT_OPTIONS,
+    force: boolean = false
+  ): Promise<{ success: boolean; skipped: boolean; reason?: string }> {
+    try {
+      const newStatusId = STATUS_PROSPECT_OPTIONS[statusKey];
+
+      if (!newStatusId || newStatusId === 0) {
+        return {
+          success: false,
+          skipped: true,
+          reason: `Status ${statusKey} has no valid ID configured`
+        };
+      }
+
+      // Get current status
+      const currentStatus = await this.getOrganizationStatusProspect(orgId);
+
+      // Check if current status is protected
+      if (!force && currentStatus && PROTECTED_STATUSES.includes(currentStatus)) {
+        const currentLabel = Object.entries(STATUS_PROSPECT_OPTIONS)
+          .find(([_, id]) => id === currentStatus)?.[0] || 'Unknown';
+        return {
+          success: false,
+          skipped: true,
+          reason: `Organization has protected status: ${currentLabel}`
+        };
+      }
+
+      // Check priority (higher priority status wins)
+      if (!force && currentStatus) {
+        const currentPriority = STATUS_PRIORITY[currentStatus] || 0;
+        const newPriority = STATUS_PRIORITY[newStatusId] || 0;
+
+        if (currentPriority > newPriority) {
+          const currentLabel = Object.entries(STATUS_PROSPECT_OPTIONS)
+            .find(([_, id]) => id === currentStatus)?.[0] || 'Unknown';
+          return {
+            success: false,
+            skipped: true,
+            reason: `Current status ${currentLabel} has higher priority`
+          };
+        }
+      }
+
+      // Update the status
+      await this.updateOrganization(orgId, {
+        custom_fields: {
+          [STATUS_PROSPECT_FIELD_ID]: newStatusId
+        }
+      });
+
+      console.log(`✅ Set status prospect for org ${orgId} to ${statusKey} (${newStatusId})`);
+      return { success: true, skipped: false };
+    } catch (error) {
+      console.error(`Error setting status prospect for org ${orgId}:`, error);
+      return {
+        success: false,
+        skipped: false,
+        reason: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Search for an organization by email domain
+   * @param domain - The email domain (e.g., 'acme.nl')
+   */
+  async searchOrganizationByDomain(domain: string): Promise<any[]> {
+    try {
+      // Clean the domain
+      const cleanDomain = domain.toLowerCase().trim().replace(/^@/, '');
+
+      // Search in notes, custom fields, and name
+      const searchTerm = encodeURIComponent(cleanDomain);
+      const data = await this.request(
+        'GET',
+        `/organizations/search?term=${searchTerm}&fields=notes,custom_fields,name`
+      );
+      return data?.items || [];
+    } catch (error) {
+      console.error('Error searching organization by domain:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Find or create an organization
+   * First searches by name, then by domain, then creates if not found
+   * @param companyName - The company name
+   * @param emailDomain - Optional email domain for fallback search
+   */
+  async findOrCreateOrganization(
+    companyName: string | undefined,
+    emailDomain?: string
+  ): Promise<{ id: number; name: string; created: boolean } | null> {
+    try {
+      // Strategy 1: Search by company name
+      if (companyName && companyName.trim()) {
+        const byName = await this.searchOrganization(companyName.trim());
+        if (byName.length > 0) {
+          const org = byName[0].item;
+          return { id: org.id, name: org.name, created: false };
+        }
+      }
+
+      // Strategy 2: Search by email domain
+      if (emailDomain) {
+        const domain = emailDomain.replace(/^@/, '');
+        // Extract company name from domain (e.g., 'acme' from 'acme.nl')
+        const domainParts = domain.split('.');
+        if (domainParts.length >= 2) {
+          const domainName = domainParts[0];
+          const byDomain = await this.searchOrganization(domainName);
+          if (byDomain.length > 0) {
+            const org = byDomain[0].item;
+            return { id: org.id, name: org.name, created: false };
+          }
+        }
+      }
+
+      // Strategy 3: Create new organization
+      const orgName = companyName?.trim() || (emailDomain ? emailDomain.replace(/^@/, '') : null);
+
+      if (!orgName) {
+        console.error('Cannot create organization: no name or domain provided');
+        return null;
+      }
+
+      const newOrg = await this.createOrganization({
+        name: orgName,
+        owner_id: 22971285 // Default owner
+      });
+
+      console.log(`✅ Created new organization: ${orgName} (ID: ${newOrg.id})`);
+      return { id: newOrg.id, name: orgName, created: true };
+    } catch (error) {
+      console.error('Error finding/creating organization:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find or create a person, with improved name handling
+   * @param email - The person's email
+   * @param name - The person's name (optional)
+   * @param orgId - The organization ID to link to (optional)
+   */
+  async findOrCreatePersonAdvanced(
+    email: string,
+    name?: string,
+    orgId?: number
+  ): Promise<{ id: number; created: boolean } | null> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // Search for existing person by email
+      const existingPersons = await this.searchPersonByEmail(cleanEmail);
+
+      if (existingPersons.length > 0) {
+        const person = existingPersons[0].item;
+
+        // If person exists but has no org, and we have an org, link them
+        if (orgId && !person.org_id) {
+          await this.updatePerson(person.id, { org_id: orgId });
+          console.log(`🔗 Linked existing person ${person.id} to org ${orgId}`);
+        }
+
+        return { id: person.id, created: false };
+      }
+
+      // Create new person
+      const personName = name?.trim() || cleanEmail;
+      const personData: PipedrivePerson = {
+        name: personName,
+        email: [{ value: cleanEmail, primary: true }],
+        org_id: orgId,
+        visible_to: 3 // Visible to all users
+      };
+
+      const newPerson = await this.createPerson(personData);
+      console.log(`✅ Created new person: ${personName} (ID: ${newPerson.id})`);
+
+      return { id: newPerson.id, created: true };
+    } catch (error) {
+      console.error(`Error finding/creating person for ${email}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract domain from email address
+   */
+  static extractDomainFromEmail(email: string): string | null {
+    const parts = email.toLowerCase().trim().split('@');
+    return parts.length === 2 ? parts[1] : null;
   }
 }
 

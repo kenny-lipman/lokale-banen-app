@@ -1,9 +1,13 @@
 /**
  * Instantly.ai API Client
- * Handles blocklist operations with the Instantly.ai API v2
+ * Handles blocklist operations, leads, campaigns and webhooks with the Instantly.ai API v2
  */
 
 import { getInstantlyConfigValidated } from './api-config'
+
+// ============================================================================
+// BLOCKLIST TYPES
+// ============================================================================
 
 interface InstantlyBlocklistEntry {
   id?: string
@@ -25,6 +29,107 @@ interface InstantlyListResponse {
     limit: number
     starting_after?: string
   }
+}
+
+// ============================================================================
+// LEAD TYPES
+// ============================================================================
+
+export interface InstantlyLead {
+  id: string
+  email: string
+  first_name?: string
+  last_name?: string
+  company_name?: string
+  website?: string
+  phone?: string
+  status?: string
+  lead_status?: string
+  interest_status?: number | string
+  campaign?: string
+  campaign_id?: string
+  list_id?: string
+  timestamp_created?: string
+  timestamp_updated?: string
+  personalization?: Record<string, any>
+  variables?: Record<string, any>
+}
+
+export interface InstantlyLeadListResponse {
+  items: InstantlyLead[]
+  next_starting_after?: string
+  total_count?: number
+}
+
+// ============================================================================
+// CAMPAIGN TYPES
+// ============================================================================
+
+export interface InstantlyCampaign {
+  id: string
+  name: string
+  status: string
+  timestamp_created?: string
+  timestamp_updated?: string
+}
+
+export interface InstantlyCampaignAnalytics {
+  campaign_id: string
+  campaign_name: string
+  leads_count: number
+  contacted_count: number
+  emails_sent_count: number
+  open_count: number
+  reply_count: number
+  bounced_count: number
+  unsubscribed_count: number
+  completed_count: number
+}
+
+// ============================================================================
+// WEBHOOK TYPES
+// ============================================================================
+
+export interface InstantlyWebhook {
+  id: string
+  webhook_url: string
+  event_type: string
+  status?: string
+  timestamp_created?: string
+}
+
+export type InstantlyWebhookEventType =
+  | 'all_events'
+  | 'email_sent'
+  | 'email_opened'
+  | 'reply_received'
+  | 'auto_reply_received'
+  | 'link_clicked'
+  | 'email_bounced'
+  | 'lead_unsubscribed'
+  | 'campaign_completed'
+  | 'account_error'
+  | 'lead_interested'
+  | 'lead_not_interested'
+  | 'lead_neutral'
+  | 'lead_meeting_booked'
+  | 'lead_meeting_completed'
+  | 'lead_closed'
+  | 'lead_out_of_office'
+  | 'lead_wrong_person'
+
+export interface InstantlyWebhookPayload {
+  timestamp: string
+  event_type: InstantlyWebhookEventType | string
+  workspace: string
+  campaign_id: string
+  campaign_name: string
+  lead_email?: string
+  email_account?: string
+  step?: number
+  variant?: number
+  is_first?: boolean
+  unibox_url?: string
 }
 
 export class InstantlyClient {
@@ -300,6 +405,287 @@ export class InstantlyClient {
     }
 
     return { success, failed, alreadyExists }
+  }
+
+  // ============================================================================
+  // LEAD METHODS
+  // ============================================================================
+
+  /**
+   * List leads with optional filters
+   * @param options - Filter options including campaign_id, limit, starting_after
+   */
+  async listLeads(options: {
+    campaign_id?: string
+    list_id?: string
+    limit?: number
+    starting_after?: string
+    email?: string
+  } = {}): Promise<InstantlyLeadListResponse> {
+    const requestBody: Record<string, any> = {}
+
+    if (options.campaign_id) requestBody.campaign_id = options.campaign_id
+    if (options.list_id) requestBody.list_id = options.list_id
+    if (options.limit) requestBody.limit = options.limit
+    if (options.starting_after) requestBody.starting_after = options.starting_after
+    if (options.email) requestBody.email = options.email
+
+    const response = await this.makeRequest<any>('/leads/list', {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    })
+
+    return {
+      items: response.items || response.leads || [],
+      next_starting_after: response.next_starting_after,
+      total_count: response.total_count
+    }
+  }
+
+  /**
+   * List all leads for a specific campaign with pagination
+   * @param campaignId - The campaign ID to filter by
+   * @param options - Additional options like limit
+   */
+  async listLeadsByCampaign(
+    campaignId: string,
+    options: { limit?: number } = {}
+  ): Promise<InstantlyLead[]> {
+    const allLeads: InstantlyLead[] = []
+    let startingAfter: string | undefined
+    const limit = options.limit || 100
+
+    do {
+      const response = await this.listLeads({
+        campaign_id: campaignId,
+        limit,
+        starting_after: startingAfter
+      })
+
+      allLeads.push(...response.items)
+      startingAfter = response.next_starting_after
+
+      // Rate limiting between pagination requests
+      if (startingAfter) {
+        await this.delay(100)
+      }
+    } while (startingAfter)
+
+    return allLeads
+  }
+
+  /**
+   * Get a specific lead by email
+   * @param email - The lead's email address
+   * @param campaignId - Optional campaign ID to search within
+   */
+  async getLeadByEmail(email: string, campaignId?: string): Promise<InstantlyLead | null> {
+    try {
+      const response = await this.listLeads({
+        email: email.toLowerCase().trim(),
+        campaign_id: campaignId,
+        limit: 1
+      })
+
+      return response.items[0] || null
+    } catch (error) {
+      console.error('Error getting lead by email:', error)
+      return null
+    }
+  }
+
+  /**
+   * Search campaigns by lead email to find all campaigns a lead is in
+   * @param email - The lead's email address
+   */
+  async searchCampaignsByLeadEmail(email: string): Promise<InstantlyCampaign[]> {
+    try {
+      const response = await this.makeRequest<any>('/campaigns/search-by-contact', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.toLowerCase().trim() }),
+      })
+
+      return response.items || response.campaigns || []
+    } catch (error) {
+      console.error('Error searching campaigns by lead email:', error)
+      return []
+    }
+  }
+
+  // ============================================================================
+  // CAMPAIGN METHODS
+  // ============================================================================
+
+  /**
+   * List all campaigns
+   */
+  async listCampaigns(): Promise<InstantlyCampaign[]> {
+    const allCampaigns: InstantlyCampaign[] = []
+    let skip = 0
+    const limit = 100
+
+    do {
+      const response = await this.makeRequest<any>(`/campaigns?skip=${skip}&limit=${limit}`)
+      const campaigns = response.items || []
+      allCampaigns.push(...campaigns)
+
+      if (campaigns.length < limit) {
+        break
+      }
+      skip += limit
+
+      // Safety limit
+      if (skip >= 1000) {
+        console.warn('Reached maximum campaign limit of 1000')
+        break
+      }
+
+      await this.delay(100)
+    } while (true)
+
+    return allCampaigns
+  }
+
+  /**
+   * Get campaign by ID
+   * @param campaignId - The campaign ID
+   */
+  async getCampaign(campaignId: string): Promise<InstantlyCampaign | null> {
+    try {
+      const response = await this.makeRequest<InstantlyCampaign>(`/campaigns/${campaignId}`)
+      return response
+    } catch (error) {
+      console.error('Error getting campaign:', error)
+      return null
+    }
+  }
+
+  /**
+   * Get campaign analytics
+   * @param campaignId - The campaign ID
+   */
+  async getCampaignAnalytics(campaignId: string): Promise<InstantlyCampaignAnalytics | null> {
+    try {
+      const response = await this.makeRequest<any>(`/campaigns/${campaignId}/analytics`)
+      return response
+    } catch (error) {
+      console.error('Error getting campaign analytics:', error)
+      return null
+    }
+  }
+
+  // ============================================================================
+  // WEBHOOK METHODS
+  // ============================================================================
+
+  /**
+   * List all configured webhooks
+   */
+  async listWebhooks(): Promise<InstantlyWebhook[]> {
+    try {
+      const response = await this.makeRequest<any>('/webhooks')
+      return response.items || response.webhooks || []
+    } catch (error) {
+      console.error('Error listing webhooks:', error)
+      return []
+    }
+  }
+
+  /**
+   * Create a new webhook
+   * @param webhookUrl - The URL to send webhook events to
+   * @param eventType - The event type to subscribe to
+   */
+  async createWebhook(
+    webhookUrl: string,
+    eventType: InstantlyWebhookEventType
+  ): Promise<InstantlyWebhook | null> {
+    try {
+      const response = await this.makeRequest<InstantlyWebhook>('/webhooks', {
+        method: 'POST',
+        body: JSON.stringify({
+          webhook_url: webhookUrl,
+          event_type: eventType
+        }),
+      })
+      console.log(`Successfully created webhook for event: ${eventType}`)
+      return response
+    } catch (error) {
+      console.error('Error creating webhook:', error)
+      return null
+    }
+  }
+
+  /**
+   * Create multiple webhooks for different event types
+   * @param webhookUrl - The URL to send webhook events to
+   * @param eventTypes - Array of event types to subscribe to
+   */
+  async createWebhooks(
+    webhookUrl: string,
+    eventTypes: InstantlyWebhookEventType[]
+  ): Promise<{ success: InstantlyWebhook[]; failed: string[] }> {
+    const success: InstantlyWebhook[] = []
+    const failed: string[] = []
+
+    for (const eventType of eventTypes) {
+      const webhook = await this.createWebhook(webhookUrl, eventType)
+      if (webhook) {
+        success.push(webhook)
+      } else {
+        failed.push(eventType)
+      }
+      await this.delay(100)
+    }
+
+    return { success, failed }
+  }
+
+  /**
+   * Delete a webhook by ID
+   * @param webhookId - The webhook ID to delete
+   */
+  async deleteWebhook(webhookId: string): Promise<boolean> {
+    try {
+      await this.makeRequest(`/webhooks/${webhookId}`, {
+        method: 'DELETE',
+      })
+      console.log(`Successfully deleted webhook: ${webhookId}`)
+      return true
+    } catch (error) {
+      console.error('Error deleting webhook:', error)
+      return false
+    }
+  }
+
+  /**
+   * Test a webhook by ID
+   * @param webhookId - The webhook ID to test
+   */
+  async testWebhook(webhookId: string): Promise<boolean> {
+    try {
+      await this.makeRequest(`/webhooks/${webhookId}/test`, {
+        method: 'POST',
+      })
+      console.log(`Successfully tested webhook: ${webhookId}`)
+      return true
+    } catch (error) {
+      console.error('Error testing webhook:', error)
+      return false
+    }
+  }
+
+  /**
+   * Get available webhook event types
+   */
+  async getWebhookEventTypes(): Promise<string[]> {
+    try {
+      const response = await this.makeRequest<any>('/webhooks/event-types')
+      return response.event_types || response.items || []
+    } catch (error) {
+      console.error('Error getting webhook event types:', error)
+      return []
+    }
   }
 }
 

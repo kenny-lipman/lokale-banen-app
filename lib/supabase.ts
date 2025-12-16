@@ -731,6 +731,93 @@ export type Database = {
         }
         Relationships: []
       }
+      instantly_pipedrive_syncs: {
+        Row: {
+          id: string
+          instantly_lead_email: string
+          instantly_lead_id: string | null
+          instantly_campaign_id: string
+          instantly_campaign_name: string | null
+          instantly_workspace_id: string | null
+          pipedrive_org_id: number | null
+          pipedrive_org_name: string | null
+          pipedrive_person_id: number | null
+          event_type: string
+          status_prospect_set: string | null
+          sync_source: string
+          has_reply: boolean
+          reply_sentiment: string | null
+          instantly_event_at: string | null
+          synced_at: string | null
+          created_at: string | null
+          updated_at: string | null
+          raw_webhook_payload: Json | null
+          sync_error: string | null
+          sync_attempts: number
+          sync_success: boolean
+          org_created: boolean
+          person_created: boolean
+          status_skipped: boolean
+          skip_reason: string | null
+        }
+        Insert: {
+          id?: string
+          instantly_lead_email: string
+          instantly_lead_id?: string | null
+          instantly_campaign_id: string
+          instantly_campaign_name?: string | null
+          instantly_workspace_id?: string | null
+          pipedrive_org_id?: number | null
+          pipedrive_org_name?: string | null
+          pipedrive_person_id?: number | null
+          event_type: string
+          status_prospect_set?: string | null
+          sync_source?: string
+          has_reply?: boolean
+          reply_sentiment?: string | null
+          instantly_event_at?: string | null
+          synced_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          raw_webhook_payload?: Json | null
+          sync_error?: string | null
+          sync_attempts?: number
+          sync_success?: boolean
+          org_created?: boolean
+          person_created?: boolean
+          status_skipped?: boolean
+          skip_reason?: string | null
+        }
+        Update: {
+          id?: string
+          instantly_lead_email?: string
+          instantly_lead_id?: string | null
+          instantly_campaign_id?: string
+          instantly_campaign_name?: string | null
+          instantly_workspace_id?: string | null
+          pipedrive_org_id?: number | null
+          pipedrive_org_name?: string | null
+          pipedrive_person_id?: number | null
+          event_type?: string
+          status_prospect_set?: string | null
+          sync_source?: string
+          has_reply?: boolean
+          reply_sentiment?: string | null
+          instantly_event_at?: string | null
+          synced_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          raw_webhook_payload?: Json | null
+          sync_error?: string | null
+          sync_attempts?: number
+          sync_success?: boolean
+          org_created?: boolean
+          person_created?: boolean
+          status_skipped?: boolean
+          skip_reason?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       apify_runs_with_platform: {
