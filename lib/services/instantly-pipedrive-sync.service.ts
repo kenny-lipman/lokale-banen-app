@@ -258,8 +258,9 @@ export class InstantlyPipedriveSyncService {
 
       result.success = true;
 
-      // 8. Add note to organization about the sync
-      await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey);
+      // 8. Add notes to organization and person about the sync (including email history)
+      await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId);
+      await this.addPersonSyncNote(personResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId);
 
       // 9. Log the sync to database
       await this.logSync(result, eventType, syncSource, options);
@@ -1008,14 +1009,15 @@ export class InstantlyPipedriveSyncService {
   // ============================================================================
 
   /**
-   * Add a note to the organization about the sync
+   * Add a note to the organization about the sync, including email history
    */
   private async addSyncNote(
     orgId: number,
     email: string,
     campaignName: string,
     eventType: SyncEventType,
-    statusKey: string
+    statusKey: string,
+    campaignId?: string
   ): Promise<void> {
     try {
       const statusLabel = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
@@ -1028,19 +1030,117 @@ export class InstantlyPipedriveSyncService {
         backfill: 'Backfill sync'
       };
 
+      // Try to get email history from Instantly
+      let emailHistorySection = '';
+      try {
+        const emailSummary = await this.instantlyClient.getLeadEmailSummary(email, campaignId);
+
+        if (emailSummary.totalEmails > 0) {
+          emailHistorySection = `\n\n📬 **Email Conversatie** (${emailSummary.sentCount} verzonden, ${emailSummary.receivedCount} ontvangen)\n`;
+
+          for (const emailItem of emailSummary.emails) {
+            const date = new Date(emailItem.date).toLocaleDateString('nl-NL', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            const icon = emailItem.type === 'sent' ? '➡️' : '⬅️';
+            const typeLabel = emailItem.type === 'sent' ? 'Verzonden' : 'Ontvangen';
+
+            emailHistorySection += `\n${icon} **${typeLabel}** (${date})\n`;
+            emailHistorySection += `   Onderwerp: ${emailItem.subject}\n`;
+            if (emailItem.preview) {
+              emailHistorySection += `   ${emailItem.preview}\n`;
+            }
+          }
+        }
+      } catch (emailError) {
+        console.warn(`Could not fetch email history for ${email}:`, emailError);
+      }
+
       const content = `
 📧 **Instantly Sync**
 - Email: ${email}
 - Campagne: ${campaignName}
 - Event: ${eventLabels[eventType] || eventType}
 - Status gezet: ${statusLabel}
-- Datum: ${new Date().toLocaleString('nl-NL')}
+- Datum: ${new Date().toLocaleString('nl-NL')}${emailHistorySection}
       `.trim();
 
       await this.pipedriveClient.addOrganizationNote(orgId, content);
     } catch (error) {
       // Non-critical, just log
       console.warn(`Could not add sync note to org ${orgId}:`, error);
+    }
+  }
+
+  /**
+   * Add a note to a person about the sync, including email history
+   */
+  private async addPersonSyncNote(
+    personId: number,
+    email: string,
+    campaignName: string,
+    eventType: SyncEventType,
+    statusKey: string,
+    campaignId?: string
+  ): Promise<void> {
+    try {
+      const statusLabel = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
+      const eventLabels: Record<SyncEventType, string> = {
+        campaign_completed: 'Campagne doorlopen',
+        reply_received: 'Reply ontvangen',
+        lead_interested: 'Geinteresseerd',
+        lead_not_interested: 'Niet geinteresseerd',
+        lead_added: 'Toegevoegd aan campagne',
+        backfill: 'Backfill sync'
+      };
+
+      // Try to get email history from Instantly
+      let emailHistorySection = '';
+      try {
+        const emailSummary = await this.instantlyClient.getLeadEmailSummary(email, campaignId);
+
+        if (emailSummary.totalEmails > 0) {
+          emailHistorySection = `\n\n📬 **Email Conversatie** (${emailSummary.sentCount} verzonden, ${emailSummary.receivedCount} ontvangen)\n`;
+
+          for (const emailItem of emailSummary.emails) {
+            const date = new Date(emailItem.date).toLocaleDateString('nl-NL', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            const icon = emailItem.type === 'sent' ? '➡️' : '⬅️';
+            const typeLabel = emailItem.type === 'sent' ? 'Verzonden' : 'Ontvangen';
+
+            emailHistorySection += `\n${icon} **${typeLabel}** (${date})\n`;
+            emailHistorySection += `   Onderwerp: ${emailItem.subject}\n`;
+            if (emailItem.preview) {
+              emailHistorySection += `   ${emailItem.preview}\n`;
+            }
+          }
+        }
+      } catch (emailError) {
+        console.warn(`Could not fetch email history for ${email}:`, emailError);
+      }
+
+      const content = `
+📧 **Instantly Sync**
+- Email: ${email}
+- Campagne: ${campaignName}
+- Event: ${eventLabels[eventType] || eventType}
+- Status gezet: ${statusLabel}
+- Datum: ${new Date().toLocaleString('nl-NL')}${emailHistorySection}
+      `.trim();
+
+      await this.pipedriveClient.addPersonNote(personId, content);
+    } catch (error) {
+      // Non-critical, just log
+      console.warn(`Could not add sync note to person ${personId}:`, error);
     }
   }
 

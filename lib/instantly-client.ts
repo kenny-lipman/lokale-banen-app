@@ -91,6 +91,37 @@ export interface InstantlyCampaignAnalytics {
 }
 
 // ============================================================================
+// EMAIL TYPES
+// ============================================================================
+
+export interface InstantlyEmail {
+  id: string
+  timestamp_created: string
+  timestamp_email: string
+  message_id?: string
+  subject?: string
+  to_address_email_list?: string
+  from_address_email?: string
+  cc_address_email_list?: string
+  body?: {
+    text?: string
+    html?: string
+  }
+  email_type?: 'sent' | 'received'
+  campaign_id?: string
+  lead_email?: string
+  eaccount?: string
+  is_auto_reply?: number // 0 = false, 1 = true
+  step?: number
+  variant?: string
+}
+
+export interface InstantlyEmailListResponse {
+  items: InstantlyEmail[]
+  next_starting_after?: string
+}
+
+// ============================================================================
 // WEBHOOK TYPES
 // ============================================================================
 
@@ -689,6 +720,131 @@ export class InstantlyClient {
     } catch (error) {
       console.error('Error getting webhook event types:', error)
       return []
+    }
+  }
+
+  // ============================================================================
+  // EMAIL METHODS
+  // ============================================================================
+
+  /**
+   * List emails with optional filters
+   * @param options - Filter options including lead email, campaign_id, email_type
+   */
+  async listEmails(options: {
+    lead?: string // Lead email address
+    campaign_id?: string
+    email_type?: 'sent' | 'received'
+    limit?: number
+    starting_after?: string
+  } = {}): Promise<InstantlyEmailListResponse> {
+    const searchParams = new URLSearchParams()
+
+    if (options.lead) searchParams.set('lead', options.lead.toLowerCase().trim())
+    if (options.campaign_id) searchParams.set('campaign_id', options.campaign_id)
+    if (options.email_type) searchParams.set('email_type', options.email_type)
+    if (options.limit) searchParams.set('limit', options.limit.toString())
+    if (options.starting_after) searchParams.set('starting_after', options.starting_after)
+
+    const endpoint = `/emails${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+    const response = await this.makeRequest<any>(endpoint)
+
+    return {
+      items: response.items || [],
+      next_starting_after: response.next_starting_after
+    }
+  }
+
+  /**
+   * Get all emails for a specific lead (sent and received)
+   * @param leadEmail - The lead's email address
+   * @param campaignId - Optional campaign ID to filter by
+   */
+  async getLeadEmailHistory(
+    leadEmail: string,
+    campaignId?: string
+  ): Promise<InstantlyEmail[]> {
+    const allEmails: InstantlyEmail[] = []
+    let startingAfter: string | undefined
+    const limit = 50
+
+    do {
+      const response = await this.listEmails({
+        lead: leadEmail,
+        campaign_id: campaignId,
+        limit,
+        starting_after: startingAfter
+      })
+
+      allEmails.push(...response.items)
+      startingAfter = response.next_starting_after
+
+      // Rate limiting between pagination requests
+      if (startingAfter) {
+        await this.delay(100)
+      }
+    } while (startingAfter)
+
+    // Sort by timestamp (oldest first)
+    return allEmails.sort((a, b) =>
+      new Date(a.timestamp_email).getTime() - new Date(b.timestamp_email).getTime()
+    )
+  }
+
+  /**
+   * Get a summary of email conversation for a lead
+   * @param leadEmail - The lead's email address
+   * @param campaignId - Optional campaign ID
+   * @returns Formatted summary of the email conversation
+   */
+  async getLeadEmailSummary(
+    leadEmail: string,
+    campaignId?: string
+  ): Promise<{
+    totalEmails: number
+    sentCount: number
+    receivedCount: number
+    emails: Array<{
+      type: 'sent' | 'received'
+      date: string
+      subject: string
+      preview: string
+    }>
+  }> {
+    const emails = await this.getLeadEmailHistory(leadEmail, campaignId)
+
+    let sentCount = 0
+    let receivedCount = 0
+
+    const emailSummaries = emails.map(email => {
+      // Determine if sent or received based on to_address
+      const isSent = email.to_address_email_list?.toLowerCase().includes(leadEmail.toLowerCase())
+        || email.email_type === 'sent'
+      const isReceived = !isSent || email.email_type === 'received'
+
+      if (isSent && !isReceived) {
+        sentCount++
+      } else {
+        receivedCount++
+      }
+
+      // Get preview (first 200 chars of body)
+      const bodyText = email.body?.text || ''
+      const preview = bodyText.substring(0, 200).replace(/\n/g, ' ').trim()
+
+      return {
+        type: (isReceived ? 'received' : 'sent') as 'sent' | 'received',
+        date: email.timestamp_email,
+        subject: email.subject || '(geen onderwerp)',
+        preview: preview + (bodyText.length > 200 ? '...' : '')
+      }
+    })
+
+    return {
+      totalEmails: emails.length,
+      sentCount,
+      receivedCount,
+      emails: emailSummaries
     }
   }
 }
