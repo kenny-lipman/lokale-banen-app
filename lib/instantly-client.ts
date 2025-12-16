@@ -177,10 +177,17 @@ export class InstantlyClient {
     this.baseUrl = `${config.baseUrl}/api/v2`
   }
 
+  /**
+   * Make API request with exponential backoff retry for rate limits and transient errors
+   */
   private async makeRequest<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount: number = 0
   ): Promise<T> {
+    const MAX_RETRIES = 3
+    const BASE_DELAY_MS = 1000
+
     const url = `${this.baseUrl}${endpoint}`
 
     // Only add Content-Type header for requests with a body
@@ -194,32 +201,61 @@ export class InstantlyClient {
       headers['Content-Type'] = 'application/json'
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
-
-    if (response.status === 429) {
-      // Rate limit hit - wait and retry once
-      await this.delay(2000)
-      const retryResponse = await fetch(url, {
+    try {
+      const response = await fetch(url, {
         ...options,
         headers,
       })
 
-      if (!retryResponse.ok) {
-        throw new Error(`Instantly API error after retry: ${retryResponse.status} ${retryResponse.statusText}`)
+      // Handle rate limits with exponential backoff
+      if (response.status === 429) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Instantly API rate limit exceeded after ${MAX_RETRIES} retries`)
+        }
+
+        // Calculate delay with exponential backoff: 1s, 2s, 4s
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount)
+        console.log(`⏳ Rate limited by Instantly API, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`)
+        await this.delay(delayMs)
+
+        return this.makeRequest<T>(endpoint, options, retryCount + 1)
       }
 
-      return retryResponse.json()
-    }
+      // Handle server errors (5xx) with retry
+      if (response.status >= 500 && response.status < 600) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Instantly API server error ${response.status} after ${MAX_RETRIES} retries`)
+        }
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Instantly API error: ${response.status} ${response.statusText} - ${errorText}`)
-    }
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount)
+        console.log(`⏳ Server error from Instantly API (${response.status}), waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`)
+        await this.delay(delayMs)
 
-    return response.json()
+        return this.makeRequest<T>(endpoint, options, retryCount + 1)
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Instantly API error: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+
+      return response.json()
+    } catch (error) {
+      // Handle network errors with retry
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Network error connecting to Instantly API after ${MAX_RETRIES} retries: ${error.message}`)
+        }
+
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount)
+        console.log(`⏳ Network error, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`)
+        await this.delay(delayMs)
+
+        return this.makeRequest<T>(endpoint, options, retryCount + 1)
+      }
+
+      throw error
+    }
   }
 
   private delay(ms: number): Promise<void> {

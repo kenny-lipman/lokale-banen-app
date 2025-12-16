@@ -75,6 +75,10 @@ export interface SyncResult {
   skipReason?: string;
   error?: string;
   syncId?: string;
+  // Email activity sync tracking
+  emailActivitiesSynced?: boolean;
+  emailActivitiesCount?: number;
+  emailActivitiesError?: string;
 }
 
 export interface SyncStats {
@@ -84,6 +88,72 @@ export interface SyncStats {
   byCampaign: Record<string, number>;
   errorsLast24h: number;
   lastSyncAt: string | null;
+}
+
+// ============================================================================
+// EMAIL VALIDATION & FREEMAIL DETECTION
+// ============================================================================
+
+/**
+ * List of known freemail domains that should not create organizations
+ */
+const FREEMAIL_DOMAINS = new Set([
+  // Global providers
+  'gmail.com', 'googlemail.com',
+  'outlook.com', 'hotmail.com', 'hotmail.nl', 'live.com', 'live.nl', 'msn.com',
+  'yahoo.com', 'yahoo.nl', 'yahoo.co.uk',
+  'icloud.com', 'me.com', 'mac.com',
+  'protonmail.com', 'proton.me',
+  'aol.com',
+  'mail.com',
+  'zoho.com',
+  'yandex.com', 'yandex.ru',
+  'gmx.com', 'gmx.net', 'gmx.de',
+  // Dutch providers
+  'ziggo.nl', 'upcmail.nl',
+  'kpnmail.nl', 'kpnplanet.nl', 'planet.nl',
+  'xs4all.nl',
+  'hetnet.nl',
+  'home.nl',
+  'casema.nl',
+  'quicknet.nl',
+  'chello.nl',
+  'tele2.nl',
+  'telfort.nl',
+  'solcon.nl',
+  // Other European
+  'web.de', 't-online.de', 'freenet.de',
+  'orange.fr', 'wanadoo.fr', 'free.fr',
+  'libero.it', 'virgilio.it',
+]);
+
+/**
+ * Check if an email domain is a freemail provider
+ */
+function isFreemailDomain(domain: string): boolean {
+  return FREEMAIL_DOMAINS.has(domain.toLowerCase().trim());
+}
+
+/**
+ * Validate email format using a simple but effective regex
+ */
+function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+
+  const trimmed = email.trim().toLowerCase();
+  if (trimmed.length === 0 || trimmed.length > 254) return false;
+
+  // Simple but effective email regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(trimmed);
+}
+
+/**
+ * Extract domain from email address
+ */
+function extractDomainFromEmail(email: string): string | null {
+  const parts = email.toLowerCase().trim().split('@');
+  return parts.length === 2 ? parts[1] : null;
 }
 
 // ============================================================================
@@ -168,7 +238,16 @@ export class InstantlyPipedriveSyncService {
     };
 
     try {
+      // 0. Validate email format
+      if (!isValidEmail(lead.email)) {
+        result.skipped = true;
+        result.skipReason = `Invalid email format: ${lead.email}`;
+        console.warn(`⚠️ Skipping invalid email: ${lead.email}`);
+        return result;
+      }
+
       const cleanEmail = lead.email.toLowerCase().trim();
+      const emailDomain = extractDomainFromEmail(cleanEmail);
 
       // 1. Check if already synced for this specific event
       const existingSync = await this.getExistingSync(cleanEmail, campaignId, eventType);
@@ -196,29 +275,49 @@ export class InstantlyPipedriveSyncService {
         return result;
       }
 
-      // 4. Find or create organization
-      const emailDomain = PipedriveClient.extractDomainFromEmail(cleanEmail);
-      const orgResult = await this.pipedriveClient.findOrCreateOrganization(
-        enrichedLead.companyName,
-        emailDomain || undefined
-      );
+      // 4. Check if freemail domain - handle differently
+      const isFreemail = emailDomain ? isFreemailDomain(emailDomain) : false;
 
-      if (!orgResult) {
+      let orgResult: { id: number; name: string; created: boolean } | null = null;
+
+      if (isFreemail) {
+        // For freemail: only create person without organization (unless company name is provided)
+        if (enrichedLead.companyName && enrichedLead.companyName.trim()) {
+          // Company name provided from enrichment, use that
+          orgResult = await this.pipedriveClient.findOrCreateOrganization(
+            enrichedLead.companyName,
+            undefined // Don't use email domain for matching
+          );
+        } else {
+          console.log(`📧 Freemail detected (${emailDomain}), skipping organization creation`);
+        }
+      } else {
+        // Regular business email: find or create organization
+        orgResult = await this.pipedriveClient.findOrCreateOrganization(
+          enrichedLead.companyName,
+          emailDomain || undefined
+        );
+      }
+
+      // For non-freemail, org is required
+      if (!isFreemail && !orgResult) {
         result.error = 'Failed to find or create organization';
         await this.logSync(result, eventType, syncSource, options);
         return result;
       }
 
-      result.pipedriveOrgId = orgResult.id;
-      result.pipedriveOrgName = orgResult.name;
-      result.orgCreated = orgResult.created;
+      if (orgResult) {
+        result.pipedriveOrgId = orgResult.id;
+        result.pipedriveOrgName = orgResult.name;
+        result.orgCreated = orgResult.created;
+      }
 
-      // 5. Find or create person
+      // 5. Find or create person (with or without org)
       const personName = [enrichedLead.firstName, enrichedLead.lastName].filter(Boolean).join(' ') || undefined;
       const personResult = await this.pipedriveClient.findOrCreatePersonAdvanced(
         cleanEmail,
         personName,
-        orgResult.id
+        orgResult?.id // May be undefined for freemail without company
       );
 
       if (!personResult) {
@@ -230,53 +329,63 @@ export class InstantlyPipedriveSyncService {
       result.pipedrivePersonId = personResult.id;
       result.personCreated = personResult.created;
 
-      // 6. Set organization status prospect
-      const statusResult = await this.pipedriveClient.setOrganizationStatusProspect(
-        orgResult.id,
-        statusKey,
-        options.force
-      );
-
-      if (statusResult.skipped) {
-        result.skipped = true;
-        result.skipReason = statusResult.reason;
-      } else if (!statusResult.success) {
-        result.error = statusResult.reason || 'Failed to set status';
-        await this.logSync(result, eventType, syncSource, options);
-        return result;
-      }
-
-      result.statusSet = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
-
-      // 7. Set Hoofddomein if available
-      if (enrichedLead.hoofddomein) {
-        const hoofddomeinResult = await this.pipedriveClient.setOrganizationHoofddomein(
+      // 6. Set organization status prospect (only if we have an org)
+      if (orgResult) {
+        const statusResult = await this.pipedriveClient.setOrganizationStatusProspect(
           orgResult.id,
-          enrichedLead.hoofddomein
+          statusKey,
+          options.force
         );
-        if (!hoofddomeinResult.success) {
-          console.warn(`⚠️ Could not set Hoofddomein: ${hoofddomeinResult.reason}`);
+
+        if (statusResult.skipped) {
+          result.skipped = true;
+          result.skipReason = statusResult.reason;
+        } else if (!statusResult.success) {
+          result.error = statusResult.reason || 'Failed to set status';
+          await this.logSync(result, eventType, syncSource, options);
+          return result;
         }
+
+        result.statusSet = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
+
+        // 7. Set Hoofddomein if available
+        if (enrichedLead.hoofddomein) {
+          const hoofddomeinResult = await this.pipedriveClient.setOrganizationHoofddomein(
+            orgResult.id,
+            enrichedLead.hoofddomein
+          );
+          if (!hoofddomeinResult.success) {
+            console.warn(`⚠️ Could not set Hoofddomein: ${hoofddomeinResult.reason}`);
+          }
+        }
+
+        // 8. Update organization with enrichment data (website, address)
+        await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
+
+        // 9. Add note to organization about the sync (including email history and reply count)
+        await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount);
+
+        // 10. Log email activities to Pipedrive (sent/received emails from Instantly)
+        const emailActivityResult = await this.logEmailActivities(orgResult.id, personResult.id, cleanEmail, campaignId);
+        result.emailActivitiesSynced = emailActivityResult.success;
+        result.emailActivitiesCount = emailActivityResult.count;
+        result.emailActivitiesError = emailActivityResult.error;
+      } else {
+        // Freemail without organization - still mark as success
+        console.log(`📧 Freemail lead ${cleanEmail} synced as person only (no organization)`);
+        result.emailActivitiesSynced = true; // No org means no email activities to sync
+        result.emailActivitiesCount = 0;
       }
 
       result.success = true;
 
-      // 8. Update organization with enrichment data (website, address)
-      await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
-
-      // 9. Update person with enrichment data (job title)
+      // 11. Update person with enrichment data (job title) - always do this
       await this.updatePersonEnrichment(personResult.id, enrichedLead);
-
-      // 10. Add note to organization about the sync (including email history and reply count)
-      await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount);
-
-      // 11. Log email activities to Pipedrive (sent/received emails from Instantly)
-      await this.logEmailActivities(orgResult.id, personResult.id, cleanEmail, campaignId);
 
       // 12. Log the sync to database
       await this.logSync(result, eventType, syncSource, options);
 
-      console.log(`✅ Synced ${cleanEmail} to Pipedrive org ${orgResult.id} with status ${statusKey}`);
+      console.log(`✅ Synced ${cleanEmail} to Pipedrive ${orgResult ? `org ${orgResult.id}` : '(person only)'} with status ${statusKey}`);
       return result;
     } catch (error) {
       result.error = error instanceof Error ? error.message : 'Unknown error';
@@ -702,6 +811,11 @@ export class InstantlyPipedriveSyncService {
           person_created: result.personCreated,
           status_skipped: result.skipped,
           skip_reason: result.skipReason,
+          // Email activity tracking
+          email_activities_synced: result.emailActivitiesSynced ?? false,
+          email_activities_count: result.emailActivitiesCount ?? 0,
+          email_activities_error: result.emailActivitiesError,
+          email_activities_retry_count: 0,
           synced_at: new Date().toISOString()
         }, {
           onConflict: 'instantly_lead_email,instantly_campaign_id,event_type'
@@ -1022,6 +1136,12 @@ export class InstantlyPipedriveSyncService {
   // HELPER METHODS
   // ============================================================================
 
+  // Pipedrive custom field IDs
+  private static readonly PIPEDRIVE_FIELDS = {
+    ORGANIZATION_WEBSITE: '79f6688e77fed7099077425e7f956d52aaa9defb',
+    PERSON_FUNCTIE: 'eff8a3361f8ec8bc1c3edc57b170019bdf9d99f3'
+  };
+
   /**
    * Update organization with enrichment data (website, address)
    */
@@ -1034,11 +1154,7 @@ export class InstantlyPipedriveSyncService {
 
       // Add website if available
       if (lead.website) {
-        // Pipedrive uses custom_fields for some fields, but website might be a standard field
-        // Let's check and use the right approach
-        updates.custom_fields = updates.custom_fields || {};
-        // For now, we'll skip website as it requires knowing the exact field key
-        // TODO: Add website field ID when known
+        updates[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_WEBSITE] = lead.website;
       }
 
       // Add address if available
@@ -1048,9 +1164,9 @@ export class InstantlyPipedriveSyncService {
           .join(', ');
       }
 
-      if (Object.keys(updates).length > 0 && updates.address) {
+      if (Object.keys(updates).length > 0) {
         await this.pipedriveClient.updateOrganization(orgId, updates);
-        console.log(`📍 Updated organization ${orgId} with address data`);
+        console.log(`📍 Updated organization ${orgId} with enrichment data (website: ${!!lead.website}, address: ${!!updates.address})`);
       }
     } catch (error) {
       console.warn(`Could not update organization enrichment for ${orgId}:`, error);
@@ -1058,7 +1174,7 @@ export class InstantlyPipedriveSyncService {
   }
 
   /**
-   * Update person with enrichment data (job title)
+   * Update person with enrichment data (job title/functie)
    */
   private async updatePersonEnrichment(
     personId: number,
@@ -1067,10 +1183,13 @@ export class InstantlyPipedriveSyncService {
     try {
       if (!lead.title) return;
 
-      // Pipedrive uses custom fields for job title - we need to find the field ID
-      // For now, we'll add it to the person's name as a workaround if needed
-      // TODO: Find the job_title field ID in Pipedrive
-      console.log(`📋 Person ${personId} has job title: ${lead.title} (not yet synced - need field ID)`);
+      // Update person with Functie field
+      const updates: any = {
+        [InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_FUNCTIE]: lead.title
+      };
+
+      await this.pipedriveClient.updatePerson(personId, updates);
+      console.log(`👔 Updated person ${personId} with functie: ${lead.title}`);
     } catch (error) {
       console.warn(`Could not update person enrichment for ${personId}:`, error);
     }
@@ -1153,23 +1272,27 @@ export class InstantlyPipedriveSyncService {
   /**
    * Log email activities from Instantly to Pipedrive
    * Creates individual email activities for each sent/received email
+   * Returns status for tracking and retry purposes
    */
   private async logEmailActivities(
     orgId: number,
     personId: number,
     leadEmail: string,
     campaignId?: string
-  ): Promise<void> {
+  ): Promise<{ success: boolean; count: number; error?: string }> {
     try {
       // Get email history from Instantly
       const emails = await this.instantlyClient.getLeadEmailHistory(leadEmail, campaignId);
 
       if (emails.length === 0) {
         console.log(`📬 No emails found for ${leadEmail}`);
-        return;
+        return { success: true, count: 0 };
       }
 
       console.log(`📬 Logging ${emails.length} email activities to Pipedrive...`);
+
+      let successCount = 0;
+      let failCount = 0;
 
       for (const email of emails) {
         try {
@@ -1185,17 +1308,122 @@ export class InstantlyPipedriveSyncService {
             direction
           });
 
+          successCount++;
+
           // Rate limiting between activities
           await this.delay(100);
         } catch (activityError) {
+          failCount++;
           console.warn(`Could not log email activity:`, activityError);
         }
       }
 
-      console.log(`✅ Logged ${emails.length} email activities to Pipedrive`);
+      console.log(`✅ Logged ${successCount}/${emails.length} email activities to Pipedrive`);
+
+      if (failCount > 0) {
+        return {
+          success: false,
+          count: successCount,
+          error: `Failed to log ${failCount} of ${emails.length} email activities`
+        };
+      }
+
+      return { success: true, count: successCount };
     } catch (error) {
-      // Non-critical, just log
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.warn(`Could not log email activities for ${leadEmail}:`, error);
+      return { success: false, count: 0, error: errorMessage };
+    }
+  }
+
+  /**
+   * Retry failed email activity syncs
+   * Call this method to process queued failed syncs
+   */
+  async retryFailedEmailActivities(limit: number = 50): Promise<{
+    processed: number;
+    succeeded: number;
+    failed: number;
+  }> {
+    let processed = 0;
+    let succeeded = 0;
+    let failed = 0;
+
+    try {
+      // Get syncs where email activities failed
+      const { data: failedSyncs, error } = await this.supabase
+        .from('instantly_pipedrive_syncs')
+        .select('*')
+        .eq('sync_success', true) // Main sync succeeded
+        .eq('email_activities_synced', false) // But email activities failed
+        .lt('email_activities_retry_count', 3) // Less than 3 retries
+        .order('synced_at', { ascending: true })
+        .limit(limit);
+
+      if (error || !failedSyncs) {
+        console.error('Error fetching failed email activity syncs:', error);
+        return { processed: 0, succeeded: 0, failed: 0 };
+      }
+
+      for (const sync of failedSyncs) {
+        processed++;
+
+        if (!sync.pipedrive_org_id || !sync.pipedrive_person_id) {
+          console.warn(`Skip retry for ${sync.instantly_lead_email}: missing org or person ID`);
+          continue;
+        }
+
+        // Increment retry count first
+        await this.supabase
+          .from('instantly_pipedrive_syncs')
+          .update({
+            email_activities_retry_count: (sync.email_activities_retry_count || 0) + 1
+          })
+          .eq('id', sync.id);
+
+        // Retry the email activity sync
+        const result = await this.logEmailActivities(
+          sync.pipedrive_org_id,
+          sync.pipedrive_person_id,
+          sync.instantly_lead_email,
+          sync.instantly_campaign_id
+        );
+
+        if (result.success) {
+          // Update sync record
+          await this.supabase
+            .from('instantly_pipedrive_syncs')
+            .update({
+              email_activities_synced: true,
+              email_activities_count: result.count,
+              email_activities_error: null
+            })
+            .eq('id', sync.id);
+
+          succeeded++;
+          console.log(`✅ Retry succeeded for ${sync.instantly_lead_email}`);
+        } else {
+          // Update with error
+          await this.supabase
+            .from('instantly_pipedrive_syncs')
+            .update({
+              email_activities_error: result.error
+            })
+            .eq('id', sync.id);
+
+          failed++;
+          console.warn(`❌ Retry failed for ${sync.instantly_lead_email}: ${result.error}`);
+        }
+
+        // Rate limiting
+        await this.delay(200);
+      }
+
+      console.log(`📧 Email activity retry complete: ${succeeded}/${processed} succeeded, ${failed} failed`);
+      return { processed, succeeded, failed };
+    } catch (error) {
+      console.error('Error in retryFailedEmailActivities:', error);
+      return { processed, succeeded, failed };
     }
   }
 

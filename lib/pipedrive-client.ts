@@ -160,14 +160,22 @@ export class PipedriveClient {
     this.baseUrlV2 = PIPEDRIVE_API_V2_URL;
   }
 
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   /**
-   * Make an API request to Pipedrive V1
+   * Make an API request to Pipedrive V1 with exponential backoff retry
    */
   private async request(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     endpoint: string,
-    data?: any
+    data?: any,
+    retryCount: number = 0
   ) {
+    const MAX_RETRIES = 3;
+    const BASE_DELAY_MS = 1000;
+
     const url = `${this.baseUrl}${endpoint}${endpoint.includes('?') ? '&' : '?'}api_token=${this.apiKey}`;
 
     const options: RequestInit = {
@@ -182,39 +190,86 @@ export class PipedriveClient {
       options.body = JSON.stringify(data);
     }
 
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ API Error Response:`, errorText.substring(0, 500));
-      throw new Error(`Pipedrive API error: ${response.status} ${response.statusText}`);
-    }
-
-    const responseText = await response.text();
-    let result;
-
     try {
-      result = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error(`❌ JSON Parse Error. Response text:`, responseText.substring(0, 500));
-      throw new Error(`Invalid JSON response from Pipedrive API: ${parseError.message}`);
-    }
+      const response = await fetch(url, options);
 
-    if (!result.success) {
-      throw new Error(result.error || 'Pipedrive API request failed');
-    }
+      // Handle rate limits with exponential backoff
+      if (response.status === 429) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Pipedrive API rate limit exceeded after ${MAX_RETRIES} retries`);
+        }
 
-    return result.data;
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount);
+        console.log(`⏳ Rate limited by Pipedrive API, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        await this.delay(delayMs);
+
+        return this.request(method, endpoint, data, retryCount + 1);
+      }
+
+      // Handle server errors (5xx) with retry
+      if (response.status >= 500 && response.status < 600) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Pipedrive API server error ${response.status} after ${MAX_RETRIES} retries`);
+        }
+
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount);
+        console.log(`⏳ Server error from Pipedrive API (${response.status}), waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        await this.delay(delayMs);
+
+        return this.request(method, endpoint, data, retryCount + 1);
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ API Error Response:`, errorText.substring(0, 500));
+        throw new Error(`Pipedrive API error: ${response.status} ${response.statusText}`);
+      }
+
+      const responseText = await response.text();
+      let result;
+
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError: any) {
+        console.error(`❌ JSON Parse Error. Response text:`, responseText.substring(0, 500));
+        throw new Error(`Invalid JSON response from Pipedrive API: ${parseError.message}`);
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Pipedrive API request failed');
+      }
+
+      return result.data;
+    } catch (error) {
+      // Handle network errors with retry
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Network error connecting to Pipedrive API after ${MAX_RETRIES} retries: ${error.message}`);
+        }
+
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount);
+        console.log(`⏳ Network error, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        await this.delay(delayMs);
+
+        return this.request(method, endpoint, data, retryCount + 1);
+      }
+
+      throw error;
+    }
   }
 
   /**
-   * Make an API request to Pipedrive V2
+   * Make an API request to Pipedrive V2 with exponential backoff retry
    */
   private async requestV2(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     endpoint: string,
-    data?: any
+    data?: any,
+    retryCount: number = 0
   ) {
+    const MAX_RETRIES = 3;
+    const BASE_DELAY_MS = 1000;
+
     const url = `${this.baseUrlV2}${endpoint}${endpoint.includes('?') ? '&' : '?'}api_token=${this.apiKey}`;
 
     const options: RequestInit = {
@@ -229,29 +284,72 @@ export class PipedriveClient {
       options.body = JSON.stringify(data);
     }
 
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ V2 API Error Response:`, errorText.substring(0, 500));
-      throw new Error(`Pipedrive V2 API error: ${response.status} ${response.statusText}`);
-    }
-
-    const responseText = await response.text();
-    let result;
-
     try {
-      result = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error(`❌ V2 JSON Parse Error. Response text:`, responseText.substring(0, 500));
-      throw new Error(`Invalid JSON response from Pipedrive V2 API: ${parseError.message}`);
-    }
+      const response = await fetch(url, options);
 
-    if (!result.success) {
-      throw new Error(result.error || 'Pipedrive V2 API request failed');
-    }
+      // Handle rate limits with exponential backoff
+      if (response.status === 429) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Pipedrive V2 API rate limit exceeded after ${MAX_RETRIES} retries`);
+        }
 
-    return result.data;
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount);
+        console.log(`⏳ Rate limited by Pipedrive V2 API, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        await this.delay(delayMs);
+
+        return this.requestV2(method, endpoint, data, retryCount + 1);
+      }
+
+      // Handle server errors (5xx) with retry
+      if (response.status >= 500 && response.status < 600) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Pipedrive V2 API server error ${response.status} after ${MAX_RETRIES} retries`);
+        }
+
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount);
+        console.log(`⏳ Server error from Pipedrive V2 API (${response.status}), waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        await this.delay(delayMs);
+
+        return this.requestV2(method, endpoint, data, retryCount + 1);
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ V2 API Error Response:`, errorText.substring(0, 500));
+        throw new Error(`Pipedrive V2 API error: ${response.status} ${response.statusText}`);
+      }
+
+      const responseText = await response.text();
+      let result;
+
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError: any) {
+        console.error(`❌ V2 JSON Parse Error. Response text:`, responseText.substring(0, 500));
+        throw new Error(`Invalid JSON response from Pipedrive V2 API: ${parseError.message}`);
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Pipedrive V2 API request failed');
+      }
+
+      return result.data;
+    } catch (error) {
+      // Handle network errors with retry
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Network error connecting to Pipedrive V2 API after ${MAX_RETRIES} retries: ${error.message}`);
+        }
+
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount);
+        console.log(`⏳ Network error, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        await this.delay(delayMs);
+
+        return this.requestV2(method, endpoint, data, retryCount + 1);
+      }
+
+      throw error;
+    }
   }
 
   /**
