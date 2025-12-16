@@ -11,8 +11,8 @@ const STATUS_PROSPECT_FIELD_ID = 'e8a27f47529d2091399f063b834339316d7d852a';
 const HOOFDDOMEIN_FIELD_ID = '7180a7123d1de658e8d1d642b8496802002ddc66';
 
 // Mapping of platform names to Pipedrive enum IDs for Hoofddomein field
-// NOTE: Only platforms that exist in Pipedrive are mapped here
 const HOOFDDOMEIN_OPTIONS: Record<string, number> = {
+  // Original platforms
   'AalsmeerseBanen': 88,
   'AlmeerseBanen': 89,
   'AlphenseBanen': 90,
@@ -42,8 +42,31 @@ const HOOFDDOMEIN_OPTIONS: Record<string, number> = {
   'HaarlemseBanen': 300,
   'MaasluisseBanen': 338,
   'VlaardingseBanen': 339,
-  // Additional platforms that may need to be added in Pipedrive:
-  // GroningseBanen, AmsterdamseBanen, UtrechtseBanen, etc.
+  // Newly added platforms
+  'AchterhoekseBanen': 347,
+  'AlmeloseBanen': 348,
+  'AmersfoortseBanen': 349,
+  'AmsterdamseBanen': 350,
+  'ArnhemseBanen': 351,
+  'AssenseBanen': 352,
+  'BosscheBanen': 353,
+  'BredaseBanen': 354,
+  'DeventerseBanen': 355,
+  'EindhovenseBanen': 356,
+  'EmmeloordseBanen': 357,
+  'EmmenseBanen': 358,
+  'EnschedeseBanen': 359,
+  'GroningseBanen': 360,
+  'HarderwijkseBanen': 361,
+  'HeerenveenseBanen': 362,
+  'LeeuwardseBanen': 363,
+  'MaastrichtseBanen': 364,
+  'Nijmegensebanen': 365,
+  'RotterdamseBanen': 366,
+  'UtrechtseBanen': 367,
+  'VenloseBanen': 368,
+  'WeerterseBanen': 369,
+  'ZeeuwseBanen': 370,
 };
 
 // Status prospect options (IDs from Pipedrive)
