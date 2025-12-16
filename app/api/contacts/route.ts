@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { supabaseService } from "@/lib/supabase-service"
 import { sendToPipedriveWebhook } from "@/lib/pipedrive-webhook"
 
-async function contactsGetHandler(req: NextRequest, authResult: AuthResult) {
+export async function GET(req: NextRequest) {
   try {
-    // Authentication handled by withAuth wrapper
+    // Use service role for dashboard access
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '15')
@@ -44,12 +43,11 @@ async function contactsGetHandler(req: NextRequest, authResult: AuthResult) {
     const needsCompanyJoin = !!(
       filters.companyStatus ||
       filters.companyStart ||
-      filters.companySize ||
-      (filters.search && filters.search.includes(' ')) // might be searching for company
+      filters.companySize
     )
 
-    // Build query with authenticated client
-    let query = authResult.supabase
+    // Build query with service role client
+    let query = supabaseService.serviceClient
       .from("contacts")
       .select(`
         id,
@@ -78,7 +76,9 @@ async function contactsGetHandler(req: NextRequest, authResult: AuthResult) {
 
     // Apply search filter
     if (filters.search) {
-      query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,companies.name.ilike.%${filters.search}%`)
+      // Escape special characters that might cause SQL issues
+      const searchTerm = filters.search.replace(/[%_]/g, '\\$&')
+      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,companies.name.ilike.%${searchTerm}%`)
     }
 
     // Apply hasEmail filter
@@ -127,12 +127,27 @@ async function contactsGetHandler(req: NextRequest, authResult: AuthResult) {
     }
 
     // Execute query with pagination
+    console.log("API: Executing query with filters:", {
+      search: filters.search,
+      needsCompanyJoin,
+      page,
+      limit,
+      range: [(page - 1) * limit, page * limit - 1]
+    })
+
     const { data: contacts, error, count } = await query
       .order('created_at', { ascending: false })
       .range((page - 1) * limit, page * limit - 1)
 
     if (error) {
-      console.error("API: Error fetching contacts:", error)
+      console.error("API: Supabase query error:", {
+        error,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        filters: filters
+      })
       throw error
     }
 
@@ -163,15 +178,26 @@ async function contactsGetHandler(req: NextRequest, authResult: AuthResult) {
     console.error("API: Error fetching contacts:", e)
     const errorMessage = e instanceof Error ? e.message : "Unknown error"
     const errorStack = e instanceof Error ? e.stack : undefined
-    return NextResponse.json({ 
-      error: errorMessage, 
-      details: String(e),
-      stack: errorStack 
+
+    // Better error serialization to avoid [object Object]
+    let errorDetails = "Unknown error"
+    if (e instanceof Error) {
+      errorDetails = e.message
+    } else if (typeof e === 'string') {
+      errorDetails = e
+    } else if (e && typeof e === 'object') {
+      errorDetails = JSON.stringify(e)
+    }
+
+    return NextResponse.json({
+      error: errorMessage,
+      details: errorDetails,
+      stack: errorStack
     }, { status: 500 })
   }
 }
 
-async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     
@@ -188,7 +214,7 @@ async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
 
       console.log("API: Fetching contacts for companies:", companyIds)
 
-      const { data, error } = await authResult.supabase
+      const { data, error } = await supabaseService.serviceClient
         .from("contacts")
         .select(`
           id,
@@ -234,7 +260,7 @@ async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
       console.log(`Original contactIds: ${contactIds.length}, after deduplication: ${uniqueContactIds.length}`)
       
       // Get all contacts from Supabase with company details
-      const { data: selectedContacts, error: contactsError } = await authResult.supabase
+      const { data: selectedContacts, error: contactsError } = await supabaseService.serviceClient
         .from('contacts')
         .select(`
           id,
@@ -285,7 +311,7 @@ async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
       
       let regioPlatformMap = {}
       if (companyIds.length > 0) {
-        const { data: companiesWithRegions, error: regionsError } = await authResult.supabase
+        const { data: companiesWithRegions, error: regionsError } = await supabaseService.serviceClient
           .from('companies')
           .select(`
             id,
@@ -415,7 +441,7 @@ async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
             console.log(`Successfully created lead: ${instantlyId} for contact: ${contact.email}`)
             
             // Update contact in Supabase with lead info and campaign assignment
-            const { error: updateError } = await authResult.supabase
+            const { error: updateError } = await supabaseService.serviceClient
               .from('contacts')
               .update({
                 instantly_id: instantlyId,
@@ -440,7 +466,7 @@ async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
               
               // Update contact with Pipedrive sync status
               if (webhookResult.success) {
-                await authResult.supabase
+                await supabaseService.serviceClient
                   .from('contacts')
                   .update({
                     pipedrive_synced: true,
@@ -510,12 +536,22 @@ async function contactsPostHandler(req: NextRequest, authResult: AuthResult) {
   } catch (e) {
     console.error("API: Error in POST /api/contacts:", e)
     const errorMessage = e instanceof Error ? e.message : "Unknown error"
+
+    // Better error serialization to avoid [object Object]
+    let errorDetails = "Unknown error"
+    if (e instanceof Error) {
+      errorDetails = e.message
+    } else if (typeof e === 'string') {
+      errorDetails = e
+    } else if (e && typeof e === 'object') {
+      errorDetails = JSON.stringify(e)
+    }
+
     return NextResponse.json({
       error: errorMessage,
-      details: String(e)
+      details: errorDetails
     }, { status: 500 })
   }
 }
 
-export const GET = withAuth(contactsGetHandler)
-export const POST = withAuth(contactsPostHandler) 
+// Exports are defined inline above 

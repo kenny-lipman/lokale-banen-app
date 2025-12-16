@@ -1781,7 +1781,7 @@ export class SupabaseService {
       const chunk = companyIds.slice(i, i + chunkSize)
       
       // Query this chunk
-      const chunkQuery = this.client
+      let chunkQuery = this.client
         .from("contacts")
         .select(`
           id,

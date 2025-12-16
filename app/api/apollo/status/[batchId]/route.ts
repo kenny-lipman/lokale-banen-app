@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { apolloStatusService } from "@/lib/apollo-status-service"
 import { statusApiLimiter } from "@/middleware/rate-limiting"
 import { performanceMonitor } from "@/lib/performance-monitoring"
+import { createServiceRoleClient } from "@/lib/supabase-server"
 
 export async function GET(
   req: NextRequest,
@@ -125,7 +126,7 @@ export async function PATCH(
       )
     }
 
-    const supabase = createClient()
+    const supabase = createServiceRoleClient()
 
     // Get batch information
     const { data: batchData, error: batchError } = await supabase
