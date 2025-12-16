@@ -16,14 +16,14 @@ export default function CompaniesPage() {
 
   // Filter state (preserve all existing filters)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [sourceFilter, setSourceFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
+  const [sourceFilter, setSourceFilter] = useState<string[]>([])
   const [customerFilter, setCustomerFilter] = useState("all")
   const [websiteFilter, setWebsiteFilter] = useState("all")
-  const [categorySizeFilter, setCategorySizeFilter] = useState("all")
+  const [categorySizeFilter, setCategorySizeFilter] = useState<string[]>([])
   const [apolloEnrichedFilter, setApolloEnrichedFilter] = useState("all")
   const [hasContactsFilter, setHasContactsFilter] = useState("all")
-  const [regioPlatformFilter, setRegioPlatformFilter] = useState("all")
+  const [regioPlatformFilter, setRegioPlatformFilter] = useState<string[]>([])
 
   // Filter data state
   const [allSources, setAllSources] = useState<{id: string, name: string}[]>([])

@@ -56,6 +56,26 @@ export function MultiSelect({
     .map((value) => options.find((option) => option.value === value)?.label)
     .filter(Boolean)
 
+  // Get display text based on selection
+  const getDisplayText = () => {
+    if (selected.length === 0) {
+      return <span className="text-muted-foreground truncate">{placeholder}</span>
+    }
+    if (selected.length === 1) {
+      const label = selectedLabels[0]
+      return (
+        <span className="truncate text-sm">
+          {label}
+        </span>
+      )
+    }
+    return (
+      <span className="text-sm font-medium">
+        {selected.length} geselecteerd
+      </span>
+    )
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -63,35 +83,30 @@ export function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between", className)}
+          className={cn(
+            "w-full justify-between h-10 px-3 py-2",
+            selected.length > 0 && "border-orange-300 bg-orange-50",
+            className
+          )}
         >
-          <div className="flex gap-1 flex-wrap">
-            {selected.length > 0 ? (
-              selected.length <= 2 ? (
-                selectedLabels.map((label, index) => (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="mr-1"
-                    onClick={(e) => handleRemove(selected[index], e)}
-                  >
-                    {label}
-                    <X className="ml-1 h-3 w-3 cursor-pointer" />
-                  </Badge>
-                ))
-              ) : (
-                <Badge variant="secondary">
-                  {selected.length} selected
-                </Badge>
-              )
-            ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
-            )}
+          <div className="flex-1 min-w-0 text-left">
+            {getDisplayText()}
           </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <div className="flex items-center gap-1 ml-2 shrink-0">
+            {selected.length > 0 && (
+              <X
+                className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onChange([])
+                }}
+              />
+            )}
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-[200px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search..." />
           <CommandEmpty>No option found.</CommandEmpty>

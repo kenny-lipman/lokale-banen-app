@@ -44,14 +44,14 @@ interface Company {
 interface CompaniesTabContainerProps {
   // Filter state from parent (companies page)
   searchTerm?: string
-  statusFilter?: string
-  sourceFilter?: string
+  statusFilter?: string[]
+  sourceFilter?: string[]
   customerFilter?: string
   websiteFilter?: string
-  categorySizeFilter?: string
+  categorySizeFilter?: string[]
   apolloEnrichedFilter?: string
   hasContactsFilter?: string
-  regioPlatformFilter?: string
+  regioPlatformFilter?: string[]
   onCompanyClick?: (company: Company) => void
 }
 
@@ -65,14 +65,14 @@ interface QualificationCounts {
 
 export function CompaniesTabContainer({
   searchTerm = "",
-  statusFilter = "all",
-  sourceFilter = "all", 
+  statusFilter = [],
+  sourceFilter = [],
   customerFilter = "all",
   websiteFilter = "all",
-  categorySizeFilter = "all",
+  categorySizeFilter = [],
   apolloEnrichedFilter = "all",
   hasContactsFilter = "all",
-  regioPlatformFilter = "all",
+  regioPlatformFilter = [],
   onCompanyClick
 }: CompaniesTabContainerProps) {
   const [activeTab, setActiveTab] = useState<'qualified' | 'review' | 'disqualified' | 'pending' | 'enriched'>('qualified')
@@ -90,14 +90,14 @@ export function CompaniesTabContainer({
   // Build filter object for API calls
   const getFilterParams = (qualificationStatus?: string) => ({
     search: searchTerm,
-    status: statusFilter !== "all" ? statusFilter : undefined,
-    source: sourceFilter !== "all" ? sourceFilter : undefined,
+    status: statusFilter.length > 0 ? statusFilter.join(',') : undefined,
+    source: sourceFilter.length > 0 ? sourceFilter.join(',') : undefined,
     is_customer: customerFilter === "all" ? undefined : customerFilter === "customers",
     websiteFilter,
-    categorySize: categorySizeFilter !== "all" ? categorySizeFilter : undefined,
+    categorySize: categorySizeFilter.length > 0 ? categorySizeFilter.join(',') : undefined,
     apolloEnriched: apolloEnrichedFilter !== "all" ? apolloEnrichedFilter : undefined,
     hasContacts: hasContactsFilter !== "all" ? hasContactsFilter : undefined,
-    regioPlatformFilter: regioPlatformFilter !== "all" ? regioPlatformFilter : undefined,
+    regioPlatformFilter: regioPlatformFilter.length > 0 ? regioPlatformFilter.join(',') : undefined,
     qualification_status: qualificationStatus || 'all',
     limit: 100 // Load more companies per tab
   })
@@ -160,10 +160,11 @@ export function CompaniesTabContainer({
   }, [searchTerm])
 
   // Handle other filter changes immediately (no debounce)
+  // Using JSON.stringify for array comparisons to detect changes
   useEffect(() => {
     loadTabData(activeTab)
     loadCounts()
-  }, [statusFilter, sourceFilter, customerFilter, websiteFilter, categorySizeFilter, apolloEnrichedFilter, hasContactsFilter, regioPlatformFilter])
+  }, [JSON.stringify(statusFilter), JSON.stringify(sourceFilter), customerFilter, websiteFilter, JSON.stringify(categorySizeFilter), apolloEnrichedFilter, hasContactsFilter, JSON.stringify(regioPlatformFilter)])
 
   // Refresh all data
   const refreshData = async () => {
