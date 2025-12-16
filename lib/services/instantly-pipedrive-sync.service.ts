@@ -365,6 +365,11 @@ export class InstantlyPipedriveSyncService {
 
   /**
    * Backfill leads from a specific campaign
+   *
+   * This method intelligently determines the correct Pipedrive status based on:
+   * - email_reply_count > 0: Lead has replied → BENADEREN (positive) or needs manual review
+   * - interest_status: If set in Instantly, use that to determine interested/not interested
+   * - status = 3 (completed) with no reply → NIET_GEREAGEERD_INSTANTLY
    */
   async backfillCampaign(
     campaignId: string,
@@ -402,12 +407,15 @@ export class InstantlyPipedriveSyncService {
       console.log(`Processing batch ${Math.floor(i / batchSize) + 1}...`);
 
       for (const lead of batch) {
-        // Skip if already synced
+        // Determine event type and sentiment based on Instantly lead data
+        const { eventType, hasReply, replySentiment } = this.determineBackfillEventType(lead);
+
+        // Skip if already synced for this specific event type
         if (skipExisting) {
           const existing = await this.getExistingSync(
             lead.email,
             campaignId,
-            'campaign_completed'
+            eventType
           );
           if (existing) {
             skipped++;
@@ -419,36 +427,19 @@ export class InstantlyPipedriveSyncService {
               orgCreated: false,
               personCreated: false,
               skipped: true,
-              skipReason: 'Already synced'
+              skipReason: `Already synced for event ${eventType}`
             });
             continue;
           }
         }
 
-        // Check if lead has replied in this campaign
-        const hasReply = await this.hasReplyForCampaign(lead.email, campaignId);
-        if (hasReply) {
-          skipped++;
-          results.push({
-            success: false,
-            leadEmail: lead.email,
-            campaignId,
-            campaignName,
-            orgCreated: false,
-            personCreated: false,
-            skipped: true,
-            skipReason: 'Lead has reply in this campaign'
-          });
-          continue;
-        }
-
         if (dryRun) {
-          console.log(`[DRY RUN] Would sync: ${lead.email}`);
+          console.log(`[DRY RUN] Would sync: ${lead.email} as ${eventType} (hasReply: ${hasReply}, sentiment: ${replySentiment})`);
           synced++;
           continue;
         }
 
-        // Sync the lead
+        // Sync the lead with the correct event type and sentiment
         const result = await this.syncLeadToPipedrive(
           {
             email: lead.email,
@@ -458,8 +449,12 @@ export class InstantlyPipedriveSyncService {
           },
           campaignId,
           campaignName,
+          eventType,
           'backfill',
-          'backfill'
+          {
+            hasReply,
+            replySentiment
+          }
         );
 
         results.push(result);
@@ -485,6 +480,63 @@ export class InstantlyPipedriveSyncService {
       skipped,
       errors,
       results
+    };
+  }
+
+  /**
+   * Determine the correct event type and sentiment for backfill based on Instantly lead data
+   *
+   * Instantly lead statuses:
+   * - status: -1 = bounced, 0 = not started, 1 = in progress, 2 = paused, 3 = completed
+   * - email_reply_count > 0: Lead has replied
+   * - interest_status: 1 = interested, -1 = not interested (if set)
+   */
+  private determineBackfillEventType(lead: InstantlyLead): {
+    eventType: SyncEventType;
+    hasReply: boolean;
+    replySentiment?: ReplySentiment;
+  } {
+    // Check if lead has replied (from Instantly data)
+    const hasReply = (lead.email_reply_count ?? 0) > 0;
+
+    // Check interest_status if available (can be number or string)
+    const interestStatus = typeof lead.interest_status === 'string'
+      ? parseInt(lead.interest_status, 10)
+      : lead.interest_status;
+
+    // If interest status is explicitly set
+    if (interestStatus === 1) {
+      // Marked as interested
+      return {
+        eventType: 'lead_interested',
+        hasReply: true,
+        replySentiment: 'positive'
+      };
+    }
+
+    if (interestStatus === -1) {
+      // Marked as not interested
+      return {
+        eventType: 'lead_not_interested',
+        hasReply: true,
+        replySentiment: 'negative'
+      };
+    }
+
+    // If lead has replied but no interest status set
+    if (hasReply) {
+      return {
+        eventType: 'reply_received',
+        hasReply: true,
+        replySentiment: 'neutral' // Default to neutral, will set BENADEREN
+      };
+    }
+
+    // Default: no reply, campaign completed
+    return {
+      eventType: 'backfill',
+      hasReply: false,
+      replySentiment: undefined
     };
   }
 

@@ -43,9 +43,9 @@ export interface InstantlyLead {
   company_name?: string
   website?: string
   phone?: string
-  status?: string
+  status?: number | string  // -1 = bounced, 0 = not started, 1 = in progress, 2 = paused, 3 = completed
   lead_status?: string
-  interest_status?: number | string
+  interest_status?: number | string  // 1 = interested, -1 = not interested
   campaign?: string
   campaign_id?: string
   list_id?: string
@@ -53,6 +53,10 @@ export interface InstantlyLead {
   timestamp_updated?: string
   personalization?: Record<string, any>
   variables?: Record<string, any>
+  // Reply tracking fields
+  email_reply_count?: number
+  email_open_count?: number
+  email_click_count?: number
 }
 
 export interface InstantlyLeadListResponse {

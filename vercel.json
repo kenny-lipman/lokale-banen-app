@@ -1,10 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/trigger-automation?secret=${CRON_SECRET}",
-      "schedule": "0 4 * * *"
-    }
-  ],
   "functions": {
     "app/api/cron/trigger-automation/route.ts": {
       "maxDuration": 300
