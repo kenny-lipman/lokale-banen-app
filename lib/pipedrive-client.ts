@@ -8,8 +8,43 @@ const PIPEDRIVE_API_V2_URL = process.env.PIPEDRIVE_API_V2_URL || 'https://lokale
 const STATUS_PROSPECT_FIELD_ID = 'e8a27f47529d2091399f063b834339316d7d852a';
 
 // Hoofddomein field ID for organizations (platform name like "GroningseBanen")
-// TODO: Update this with the actual field ID from Pipedrive organization fields
-const HOOFDDOMEIN_FIELD_ID = process.env.PIPEDRIVE_HOOFDDOMEIN_FIELD_ID || '';
+const HOOFDDOMEIN_FIELD_ID = '7180a7123d1de658e8d1d642b8496802002ddc66';
+
+// Mapping of platform names to Pipedrive enum IDs for Hoofddomein field
+// NOTE: Only platforms that exist in Pipedrive are mapped here
+const HOOFDDOMEIN_OPTIONS: Record<string, number> = {
+  'AalsmeerseBanen': 88,
+  'AlmeerseBanen': 89,
+  'AlphenseBanen': 90,
+  'ApeldoornseBanen': 91,
+  'BarendrechtseBanen': 92,
+  'BollenstreekseBanen': 93,
+  'DelftseBanen': 94,
+  'DrechtseBanen': 95,
+  'GoudseBanen': 96,
+  'HaagseBanen': 97,
+  'HoekscheBanen': 98,
+  'HoofddorpseBanen': 99,
+  'LansingerlandseBanen': 100,
+  'LeidseBanen': 101,
+  'OosterhoutseBanen': 336,
+  'SchiedamseBanen': 102,
+  'VeghelseBanen': 103,
+  'VoornseBanen': 104,
+  'WestlandseBanen': 105,
+  'WoerdenseBanen': 106,
+  'ZoetermeerseBanen': 107,
+  'ZundertseBanen': 108,
+  'ZwolseBanen': 220,
+  'AlkmaarseBanen': 221,
+  'ZaanseBanen': 298,
+  'TilburgseBanen': 299,
+  'HaarlemseBanen': 300,
+  'MaasluisseBanen': 338,
+  'VlaardingseBanen': 339,
+  // Additional platforms that may need to be added in Pipedrive:
+  // GroningseBanen, AmsterdamseBanen, UtrechtseBanen, etc.
+};
 
 // Status prospect options (IDs from Pipedrive)
 const STATUS_PROSPECT_OPTIONS = {
@@ -840,18 +875,24 @@ export class PipedriveClient {
     platformName: string
   ): Promise<{ success: boolean; reason?: string }> {
     try {
-      if (!HOOFDDOMEIN_FIELD_ID) {
-        console.warn('⚠️ HOOFDDOMEIN_FIELD_ID not configured, skipping Hoofddomein update');
-        return { success: false, reason: 'HOOFDDOMEIN_FIELD_ID not configured' };
+      // Look up the enum ID for this platform name
+      const enumId = HOOFDDOMEIN_OPTIONS[platformName];
+
+      if (!enumId) {
+        console.warn(`⚠️ Platform "${platformName}" not found in Pipedrive Hoofddomein options, skipping`);
+        return {
+          success: false,
+          reason: `Platform "${platformName}" not configured in Pipedrive Hoofddomein field`
+        };
       }
 
       await this.updateOrganization(orgId, {
         custom_fields: {
-          [HOOFDDOMEIN_FIELD_ID]: platformName
+          [HOOFDDOMEIN_FIELD_ID]: enumId
         }
       });
 
-      console.log(`✅ Set Hoofddomein for org ${orgId} to ${platformName}`);
+      console.log(`✅ Set Hoofddomein for org ${orgId} to ${platformName} (enum ID: ${enumId})`);
       return { success: true };
     } catch (error) {
       console.error(`Error setting Hoofddomein for org ${orgId}:`, error);
@@ -860,6 +901,13 @@ export class PipedriveClient {
         reason: error instanceof Error ? error.message : 'Unknown error'
       };
     }
+  }
+
+  /**
+   * Get the list of supported Hoofddomein options
+   */
+  static getSupportedHoofddomeinPlatforms(): string[] {
+    return Object.keys(HOOFDDOMEIN_OPTIONS);
   }
 
   /**
