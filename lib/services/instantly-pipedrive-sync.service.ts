@@ -48,6 +48,9 @@ export interface SyncLeadData {
   streetAddress?: string;
   postalCode?: string;
   hoofddomein?: string; // Platform name like "GroningseBanen"
+  title?: string; // Job title/function
+  // Instantly data
+  replyCount?: number;
 }
 
 export interface SyncOptions {
@@ -258,11 +261,19 @@ export class InstantlyPipedriveSyncService {
 
       result.success = true;
 
-      // 8. Add notes to organization and person about the sync (including email history)
-      await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId);
-      await this.addPersonSyncNote(personResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId);
+      // 8. Update organization with enrichment data (website, address)
+      await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
 
-      // 9. Log the sync to database
+      // 9. Update person with enrichment data (job title)
+      await this.updatePersonEnrichment(personResult.id, enrichedLead);
+
+      // 10. Add note to organization about the sync (including email history and reply count)
+      await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount);
+
+      // 11. Log email activities to Pipedrive (sent/received emails from Instantly)
+      await this.logEmailActivities(orgResult.id, personResult.id, cleanEmail, campaignId);
+
+      // 12. Log the sync to database
       await this.logSync(result, eventType, syncSource, options);
 
       console.log(`✅ Synced ${cleanEmail} to Pipedrive org ${orgResult.id} with status ${statusKey}`);
@@ -468,7 +479,8 @@ export class InstantlyPipedriveSyncService {
             email: lead.email,
             firstName: lead.first_name,
             lastName: lead.last_name,
-            companyName: lead.company_name
+            companyName: lead.company_name,
+            replyCount: lead.email_reply_count || 0
           },
           campaignId,
           campaignName,
@@ -1000,7 +1012,9 @@ export class InstantlyPipedriveSyncService {
       city: lead.city || enrichment.company?.city,
       streetAddress: lead.streetAddress || enrichment.company?.streetAddress,
       postalCode: lead.postalCode || enrichment.company?.postalCode,
-      hoofddomein: lead.hoofddomein || enrichment.hoofddomein
+      hoofddomein: lead.hoofddomein || enrichment.hoofddomein,
+      title: lead.title || enrichment.contact?.title,
+      replyCount: lead.replyCount
     };
   }
 
@@ -1009,7 +1023,61 @@ export class InstantlyPipedriveSyncService {
   // ============================================================================
 
   /**
-   * Add a note to the organization about the sync, including email history
+   * Update organization with enrichment data (website, address)
+   */
+  private async updateOrganizationEnrichment(
+    orgId: number,
+    lead: SyncLeadData
+  ): Promise<void> {
+    try {
+      const updates: any = {};
+
+      // Add website if available
+      if (lead.website) {
+        // Pipedrive uses custom_fields for some fields, but website might be a standard field
+        // Let's check and use the right approach
+        updates.custom_fields = updates.custom_fields || {};
+        // For now, we'll skip website as it requires knowing the exact field key
+        // TODO: Add website field ID when known
+      }
+
+      // Add address if available
+      if (lead.streetAddress || lead.city || lead.postalCode) {
+        updates.address = [lead.streetAddress, lead.postalCode, lead.city]
+          .filter(Boolean)
+          .join(', ');
+      }
+
+      if (Object.keys(updates).length > 0 && updates.address) {
+        await this.pipedriveClient.updateOrganization(orgId, updates);
+        console.log(`📍 Updated organization ${orgId} with address data`);
+      }
+    } catch (error) {
+      console.warn(`Could not update organization enrichment for ${orgId}:`, error);
+    }
+  }
+
+  /**
+   * Update person with enrichment data (job title)
+   */
+  private async updatePersonEnrichment(
+    personId: number,
+    lead: SyncLeadData
+  ): Promise<void> {
+    try {
+      if (!lead.title) return;
+
+      // Pipedrive uses custom fields for job title - we need to find the field ID
+      // For now, we'll add it to the person's name as a workaround if needed
+      // TODO: Find the job_title field ID in Pipedrive
+      console.log(`📋 Person ${personId} has job title: ${lead.title} (not yet synced - need field ID)`);
+    } catch (error) {
+      console.warn(`Could not update person enrichment for ${personId}:`, error);
+    }
+  }
+
+  /**
+   * Add a note to the organization about the sync, including email history and reply count
    */
   private async addSyncNote(
     orgId: number,
@@ -1017,7 +1085,8 @@ export class InstantlyPipedriveSyncService {
     campaignName: string,
     eventType: SyncEventType,
     statusKey: string,
-    campaignId?: string
+    campaignId?: string,
+    replyCount?: number
   ): Promise<void> {
     try {
       const statusLabel = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
@@ -1060,12 +1129,17 @@ export class InstantlyPipedriveSyncService {
         console.warn(`Could not fetch email history for ${email}:`, emailError);
       }
 
+      // Build reply count line
+      const replyLine = replyCount !== undefined && replyCount > 0
+        ? `\n- Replies ontvangen: ${replyCount}`
+        : '';
+
       const content = `
 📧 **Instantly Sync**
 - Email: ${email}
 - Campagne: ${campaignName}
 - Event: ${eventLabels[eventType] || eventType}
-- Status gezet: ${statusLabel}
+- Status gezet: ${statusLabel}${replyLine}
 - Datum: ${new Date().toLocaleString('nl-NL')}${emailHistorySection}
       `.trim();
 
@@ -1077,70 +1151,51 @@ export class InstantlyPipedriveSyncService {
   }
 
   /**
-   * Add a note to a person about the sync, including email history
+   * Log email activities from Instantly to Pipedrive
+   * Creates individual email activities for each sent/received email
    */
-  private async addPersonSyncNote(
+  private async logEmailActivities(
+    orgId: number,
     personId: number,
-    email: string,
-    campaignName: string,
-    eventType: SyncEventType,
-    statusKey: string,
+    leadEmail: string,
     campaignId?: string
   ): Promise<void> {
     try {
-      const statusLabel = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
-      const eventLabels: Record<SyncEventType, string> = {
-        campaign_completed: 'Campagne doorlopen',
-        reply_received: 'Reply ontvangen',
-        lead_interested: 'Geinteresseerd',
-        lead_not_interested: 'Niet geinteresseerd',
-        lead_added: 'Toegevoegd aan campagne',
-        backfill: 'Backfill sync'
-      };
+      // Get email history from Instantly
+      const emails = await this.instantlyClient.getLeadEmailHistory(leadEmail, campaignId);
 
-      // Try to get email history from Instantly
-      let emailHistorySection = '';
-      try {
-        const emailSummary = await this.instantlyClient.getLeadEmailSummary(email, campaignId);
-
-        if (emailSummary.totalEmails > 0) {
-          emailHistorySection = `\n\n📬 **Email Conversatie** (${emailSummary.sentCount} verzonden, ${emailSummary.receivedCount} ontvangen)\n`;
-
-          for (const emailItem of emailSummary.emails) {
-            const date = new Date(emailItem.date).toLocaleDateString('nl-NL', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-            const icon = emailItem.type === 'sent' ? '➡️' : '⬅️';
-            const typeLabel = emailItem.type === 'sent' ? 'Verzonden' : 'Ontvangen';
-
-            emailHistorySection += `\n${icon} **${typeLabel}** (${date})\n`;
-            emailHistorySection += `   Onderwerp: ${emailItem.subject}\n`;
-            if (emailItem.preview) {
-              emailHistorySection += `   ${emailItem.preview}\n`;
-            }
-          }
-        }
-      } catch (emailError) {
-        console.warn(`Could not fetch email history for ${email}:`, emailError);
+      if (emails.length === 0) {
+        console.log(`📬 No emails found for ${leadEmail}`);
+        return;
       }
 
-      const content = `
-📧 **Instantly Sync**
-- Email: ${email}
-- Campagne: ${campaignName}
-- Event: ${eventLabels[eventType] || eventType}
-- Status gezet: ${statusLabel}
-- Datum: ${new Date().toLocaleString('nl-NL')}${emailHistorySection}
-      `.trim();
+      console.log(`📬 Logging ${emails.length} email activities to Pipedrive...`);
 
-      await this.pipedriveClient.addPersonNote(personId, content);
+      for (const email of emails) {
+        try {
+          // Determine if sent or received
+          const isSent = email.to_address_email_list?.toLowerCase().includes(leadEmail.toLowerCase())
+            || email.email_type === 'sent';
+          const direction: 'sent' | 'received' = isSent ? 'sent' : 'received';
+
+          await this.pipedriveClient.addEmailActivity(orgId, personId, {
+            subject: email.subject || '(geen onderwerp)',
+            body: email.body?.text || '',
+            date: email.timestamp_email,
+            direction
+          });
+
+          // Rate limiting between activities
+          await this.delay(100);
+        } catch (activityError) {
+          console.warn(`Could not log email activity:`, activityError);
+        }
+      }
+
+      console.log(`✅ Logged ${emails.length} email activities to Pipedrive`);
     } catch (error) {
       // Non-critical, just log
-      console.warn(`Could not add sync note to person ${personId}:`, error);
+      console.warn(`Could not log email activities for ${leadEmail}:`, error);
     }
   }
 

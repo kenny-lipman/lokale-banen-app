@@ -513,6 +513,83 @@ export class PipedriveClient {
   }
 
   /**
+   * Add an activity (email, call, meeting, etc.) to Pipedrive
+   * @param activity - The activity data
+   */
+  async addActivity(activity: {
+    subject: string;
+    type?: string; // 'email', 'call', 'meeting', 'task', etc.
+    done?: boolean;
+    due_date?: string; // YYYY-MM-DD
+    due_time?: string; // HH:MM
+    duration?: string; // HH:MM
+    org_id?: number;
+    person_id?: number;
+    deal_id?: number;
+    note?: string;
+    public_description?: string;
+  }): Promise<any> {
+    // Activities endpoint uses V1 API
+    const v1BaseUrl = 'https://api.pipedrive.com/v1';
+    const url = `${v1BaseUrl}/activities?api_token=${this.apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        ...activity,
+        done: activity.done ?? true // Default to done/completed
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Activities API Error Response:`, errorText.substring(0, 500));
+      throw new Error(`Activities API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Add an email activity to Pipedrive
+   * @param orgId - Organization ID
+   * @param personId - Person ID
+   * @param email - Email details
+   */
+  async addEmailActivity(
+    orgId: number,
+    personId: number,
+    email: {
+      subject: string;
+      body?: string;
+      date: string; // ISO date string
+      direction: 'sent' | 'received';
+    }
+  ): Promise<any> {
+    const directionLabel = email.direction === 'sent' ? '➡️ Verzonden' : '⬅️ Ontvangen';
+    const emailDate = new Date(email.date);
+    const dueDate = emailDate.toISOString().split('T')[0];
+    const dueTime = emailDate.toTimeString().substring(0, 5);
+
+    return this.addActivity({
+      subject: `${directionLabel}: ${email.subject}`,
+      type: 'email',
+      done: true,
+      due_date: dueDate,
+      due_time: dueTime,
+      org_id: orgId,
+      person_id: personId,
+      note: email.body?.substring(0, 2000) || '', // Pipedrive has a limit
+      public_description: `Email ${email.direction === 'sent' ? 'verzonden naar' : 'ontvangen van'} contact via Instantly campagne`
+    });
+  }
+
+  /**
    * Sync a company to Pipedrive (create or update)
    */
   async syncCompanyToPipedrive(companyId: string): Promise<number | null> {
