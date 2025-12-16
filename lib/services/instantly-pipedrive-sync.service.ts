@@ -42,6 +42,12 @@ export interface SyncLeadData {
   lastName?: string;
   companyName?: string;
   phone?: string;
+  // Enrichment data from database
+  website?: string;
+  city?: string;
+  streetAddress?: string;
+  postalCode?: string;
+  hoofddomein?: string; // Platform name like "GroningseBanen"
 }
 
 export interface SyncOptions {
@@ -170,7 +176,11 @@ export class InstantlyPipedriveSyncService {
         return result;
       }
 
-      // 2. Determine the status to set
+      // 2. Enrich lead data from database (contacts, companies, platforms)
+      const enrichedLead = await this.enrichLeadData(lead);
+      console.log(`📊 Lead enrichment: company=${enrichedLead.companyName}, hoofddomein=${enrichedLead.hoofddomein}`);
+
+      // 3. Determine the status to set
       const statusKey = getStatusKeyForEvent(
         eventType,
         options.hasReply || false,
@@ -183,10 +193,10 @@ export class InstantlyPipedriveSyncService {
         return result;
       }
 
-      // 3. Find or create organization
+      // 4. Find or create organization
       const emailDomain = PipedriveClient.extractDomainFromEmail(cleanEmail);
       const orgResult = await this.pipedriveClient.findOrCreateOrganization(
-        lead.companyName,
+        enrichedLead.companyName,
         emailDomain || undefined
       );
 
@@ -200,8 +210,8 @@ export class InstantlyPipedriveSyncService {
       result.pipedriveOrgName = orgResult.name;
       result.orgCreated = orgResult.created;
 
-      // 4. Find or create person
-      const personName = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || undefined;
+      // 5. Find or create person
+      const personName = [enrichedLead.firstName, enrichedLead.lastName].filter(Boolean).join(' ') || undefined;
       const personResult = await this.pipedriveClient.findOrCreatePersonAdvanced(
         cleanEmail,
         personName,
@@ -217,7 +227,7 @@ export class InstantlyPipedriveSyncService {
       result.pipedrivePersonId = personResult.id;
       result.personCreated = personResult.created;
 
-      // 5. Set organization status prospect
+      // 6. Set organization status prospect
       const statusResult = await this.pipedriveClient.setOrganizationStatusProspect(
         orgResult.id,
         statusKey,
@@ -234,12 +244,24 @@ export class InstantlyPipedriveSyncService {
       }
 
       result.statusSet = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
+
+      // 7. Set Hoofddomein if available
+      if (enrichedLead.hoofddomein) {
+        const hoofddomeinResult = await this.pipedriveClient.setOrganizationHoofddomein(
+          orgResult.id,
+          enrichedLead.hoofddomein
+        );
+        if (!hoofddomeinResult.success) {
+          console.warn(`⚠️ Could not set Hoofddomein: ${hoofddomeinResult.reason}`);
+        }
+      }
+
       result.success = true;
 
-      // 6. Add note to organization about the sync
+      // 8. Add note to organization about the sync
       await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey);
 
-      // 7. Log the sync to database
+      // 9. Log the sync to database
       await this.logSync(result, eventType, syncSource, options);
 
       console.log(`✅ Synced ${cleanEmail} to Pipedrive org ${orgResult.id} with status ${statusKey}`);
@@ -844,6 +866,141 @@ export class InstantlyPipedriveSyncService {
     }
 
     return { retried, succeeded, failed };
+  }
+
+  // ============================================================================
+  // DATABASE ENRICHMENT METHODS
+  // ============================================================================
+
+  /**
+   * Look up enrichment data from the database for a lead by email
+   * This searches the contacts table and joins with companies and platforms
+   * to get additional data like company info and the Hoofddomein (platform name)
+   */
+  async getEnrichmentDataByEmail(email: string): Promise<{
+    contact?: {
+      id: string;
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      title?: string;
+    };
+    company?: {
+      id: string;
+      name?: string;
+      website?: string;
+      phone?: string;
+      city?: string;
+      streetAddress?: string;
+      postalCode?: string;
+    };
+    hoofddomein?: string;
+  } | null> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // First, try to find the contact by email
+      const { data: contact, error: contactError } = await this.supabase
+        .from('contacts')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          phone,
+          title,
+          company_id,
+          companies (
+            id,
+            name,
+            website,
+            phone,
+            city,
+            street_address,
+            postal_code
+          )
+        `)
+        .eq('email', cleanEmail)
+        .limit(1)
+        .single();
+
+      if (contactError || !contact) {
+        console.log(`📋 No contact found in database for email: ${cleanEmail}`);
+        return null;
+      }
+
+      // Get the company data
+      const company = contact.companies as any;
+
+      // Now get the Hoofddomein (platform) via job_postings
+      let hoofddomein: string | undefined;
+      if (company?.id) {
+        const { data: platformData } = await this.supabase
+          .from('job_postings')
+          .select(`
+            platform_id,
+            platforms (
+              regio_platform
+            )
+          `)
+          .eq('company_id', company.id)
+          .limit(1)
+          .single();
+
+        if (platformData?.platforms) {
+          hoofddomein = (platformData.platforms as any).regio_platform;
+        }
+      }
+
+      console.log(`✅ Found enrichment data for ${cleanEmail}: company=${company?.name}, hoofddomein=${hoofddomein}`);
+
+      return {
+        contact: {
+          id: contact.id,
+          firstName: contact.first_name || undefined,
+          lastName: contact.last_name || undefined,
+          phone: contact.phone || undefined,
+          title: contact.title || undefined
+        },
+        company: company ? {
+          id: company.id,
+          name: company.name || undefined,
+          website: company.website || undefined,
+          phone: company.phone || undefined,
+          city: company.city || undefined,
+          streetAddress: company.street_address || undefined,
+          postalCode: company.postal_code || undefined
+        } : undefined,
+        hoofddomein
+      };
+    } catch (error) {
+      console.error(`Error getting enrichment data for ${email}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Enrich lead data with database information
+   */
+  async enrichLeadData(lead: SyncLeadData): Promise<SyncLeadData> {
+    const enrichment = await this.getEnrichmentDataByEmail(lead.email);
+
+    if (!enrichment) {
+      return lead;
+    }
+
+    // Merge enrichment data, preferring existing lead data where available
+    return {
+      email: lead.email,
+      firstName: lead.firstName || enrichment.contact?.firstName,
+      lastName: lead.lastName || enrichment.contact?.lastName,
+      companyName: lead.companyName || enrichment.company?.name,
+      phone: lead.phone || enrichment.contact?.phone || enrichment.company?.phone,
+      website: lead.website || enrichment.company?.website,
+      city: lead.city || enrichment.company?.city,
+      streetAddress: lead.streetAddress || enrichment.company?.streetAddress,
+      postalCode: lead.postalCode || enrichment.company?.postalCode,
+      hoofddomein: lead.hoofddomein || enrichment.hoofddomein
+    };
   }
 
   // ============================================================================

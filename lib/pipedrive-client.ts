@@ -7,6 +7,10 @@ const PIPEDRIVE_API_V2_URL = process.env.PIPEDRIVE_API_V2_URL || 'https://lokale
 // Status prospect field ID for organizations
 const STATUS_PROSPECT_FIELD_ID = 'e8a27f47529d2091399f063b834339316d7d852a';
 
+// Hoofddomein field ID for organizations (platform name like "GroningseBanen")
+// TODO: Update this with the actual field ID from Pipedrive organization fields
+const HOOFDDOMEIN_FIELD_ID = process.env.PIPEDRIVE_HOOFDDOMEIN_FIELD_ID || '';
+
 // Status prospect options (IDs from Pipedrive)
 const STATUS_PROSPECT_OPTIONS = {
   BENADEREN: 302,
@@ -20,7 +24,7 @@ const STATUS_PROSPECT_OPTIONS = {
 };
 
 // Export for use in other modules
-export { STATUS_PROSPECT_FIELD_ID, STATUS_PROSPECT_OPTIONS };
+export { STATUS_PROSPECT_FIELD_ID, STATUS_PROSPECT_OPTIONS, HOOFDDOMEIN_FIELD_ID };
 
 // Status labels for display/logging
 export const STATUS_PROSPECT_LABELS: Record<string, string> = {
@@ -824,6 +828,51 @@ export class PipedriveClient {
   static extractDomainFromEmail(email: string): string | null {
     const parts = email.toLowerCase().trim().split('@');
     return parts.length === 2 ? parts[1] : null;
+  }
+
+  /**
+   * Set the Hoofddomein (platform name) for an organization
+   * @param orgId - The Pipedrive organization ID
+   * @param platformName - The platform name (e.g., "GroningseBanen")
+   */
+  async setOrganizationHoofddomein(
+    orgId: number,
+    platformName: string
+  ): Promise<{ success: boolean; reason?: string }> {
+    try {
+      if (!HOOFDDOMEIN_FIELD_ID) {
+        console.warn('⚠️ HOOFDDOMEIN_FIELD_ID not configured, skipping Hoofddomein update');
+        return { success: false, reason: 'HOOFDDOMEIN_FIELD_ID not configured' };
+      }
+
+      await this.updateOrganization(orgId, {
+        custom_fields: {
+          [HOOFDDOMEIN_FIELD_ID]: platformName
+        }
+      });
+
+      console.log(`✅ Set Hoofddomein for org ${orgId} to ${platformName}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`Error setting Hoofddomein for org ${orgId}:`, error);
+      return {
+        success: false,
+        reason: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * List all organization fields (useful for finding field IDs)
+   */
+  async listOrganizationFields(): Promise<any[]> {
+    try {
+      const data = await this.request('GET', '/organizationFields');
+      return data || [];
+    } catch (error) {
+      console.error('Error listing organization fields:', error);
+      return [];
+    }
   }
 }
 

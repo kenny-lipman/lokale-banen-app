@@ -62,8 +62,8 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [platformFilter, setPlatformFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
+  const [platformFilter, setPlatformFilter] = useState<string[]>([]);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [jobSourceList, setJobSourceList] = useState<{id: string, name: string}[]>([]);
   const [allPlatforms, setAllPlatforms] = useState<{id: string, regio_platform: string}[]>([]);
@@ -96,8 +96,8 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           limit: itemsPerPage,
           search: debouncedSearchTerm,
           status: statusFilter === "all" ? undefined : statusFilter,
-          source_id: sourceFilter !== "all" ? sourceFilter : undefined,
-          platform_id: platformFilter !== "all" ? platformFilter : undefined,
+          source_id: sourceFilter.length > 0 ? sourceFilter : undefined,
+          platform_id: platformFilter.length > 0 ? platformFilter : undefined,
         }
   )
 
@@ -335,8 +335,8 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
         resultText="vacatures"
         onResetFilters={() => {
           setSearchTerm("")
-          setSourceFilter("all")
-          setPlatformFilter("all")
+          setSourceFilter([])
+          setPlatformFilter([])
           setStatusFilter("all")
           setCurrentPage(1)
         }}
@@ -345,24 +345,34 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
             id: "source",
             label: "Bron",
             value: sourceFilter,
-            onValueChange: setSourceFilter,
-            options: [
-              { value: "all", label: "Alle bronnen" },
-              ...jobSourceList.map(s => ({ value: s.id, label: s.name }))
-            ],
-            placeholder: "Filter op bron"
+            onValueChange: (val: string) => {
+              setSourceFilter(prev =>
+                prev.includes(val)
+                  ? prev.filter(v => v !== val)
+                  : [...prev, val]
+              )
+            },
+            options: jobSourceList.map(s => ({ value: s.id, label: s.name })),
+            placeholder: "Filter op bronnen",
+            multiple: true
           },
           {
             id: "platform",
             label: "Platform",
             value: platformFilter,
-            onValueChange: setPlatformFilter,
+            onValueChange: (val: string) => {
+              setPlatformFilter(prev =>
+                prev.includes(val)
+                  ? prev.filter(v => v !== val)
+                  : [...prev, val]
+              )
+            },
             options: [
-              { value: "all", label: "Alle platforms" },
               { value: "null", label: "Geen platform" },
               ...allPlatforms.map(p => ({ value: p.id, label: p.regio_platform }))
             ],
-            placeholder: "Filter op platform"
+            placeholder: "Filter op platforms",
+            multiple: true
           },
           {
             id: "status",

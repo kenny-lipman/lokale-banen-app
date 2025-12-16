@@ -9,8 +9,8 @@ export function useJobPostingsCache(params: {
   limit?: number
   search?: string
   status?: string
-  platform_id?: string | null
-  source_id?: string | null
+  platform_id?: string[] | null
+  source_id?: string[] | null
 }) {
   const cacheKey = JSON.stringify(params)
   const [data, setData] = useState<any>(jobPostingsCache[cacheKey] || null)
@@ -30,11 +30,16 @@ export function useJobPostingsCache(params: {
       const limit = params.limit || 10
 
       // Use the PostgreSQL function for searching
+      // Handle special "null" value in platform filter array for "no platform" selection
+      const platformFilterArray = params.platform_id && params.platform_id.length > 0
+        ? (params.platform_id.includes('null') ? null : params.platform_id)
+        : null
+
       const { data, error } = await supabase.rpc('search_job_postings', {
         search_term: params.search || null,
         status_filter: params.status || null,
-        source_filter: params.source_id || null,
-        platform_filter: params.platform_id === 'null' ? null : (params.platform_id || null),
+        source_filter: params.source_id && params.source_id.length > 0 ? params.source_id : null,
+        platform_filter: platformFilterArray,
         page_number: page,
         page_size: limit
       })
