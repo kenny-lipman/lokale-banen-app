@@ -385,6 +385,46 @@ export class InstantlyPipedriveSyncService {
       // 12. Log the sync to database
       await this.logSync(result, eventType, syncSource, options);
 
+      // 13. Update Otis contacts & companies tables for visibility in UI
+      const contactUpdateResult = await this.updateOtisContact(
+        cleanEmail,
+        personResult.id,
+        campaignId,
+        eventType, // Use event type as status (e.g., 'reply_received', 'lead_interested')
+        {
+          hasReply: options.hasReply,
+          replyCount: enrichedLead.replyCount,
+          instantlyLeadId: undefined // Could be enhanced to fetch from Instantly API
+        }
+      );
+
+      // Get contact info for blocklist integration
+      const { data: contactData } = await this.supabase
+        .from('contacts')
+        .select('id, company_id')
+        .eq('email', cleanEmail)
+        .single();
+
+      await this.updateOtisCompany(
+        cleanEmail,
+        orgResult?.id,
+        orgResult?.name,
+        eventType,
+        {
+          hasReply: options.hasReply,
+          replySentiment: options.replySentiment
+        }
+      );
+
+      // 14. Create blocklist entry if lead is not interested
+      if (eventType === 'lead_not_interested') {
+        await this.createBlocklistForNotInterested(
+          cleanEmail,
+          contactData?.id ?? undefined,
+          contactData?.company_id ?? undefined
+        );
+      }
+
       console.log(`✅ Synced ${cleanEmail} to Pipedrive ${orgResult ? `org ${orgResult.id}` : '(person only)'} with status ${statusKey}`);
       return result;
     } catch (error) {
@@ -1429,6 +1469,403 @@ export class InstantlyPipedriveSyncService {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // ============================================================================
+  // OTIS SYNC - UPDATE CONTACTS & COMPANIES TABLES
+  // ============================================================================
+
+  /**
+   * Update the contacts table with sync information
+   * This ensures visibility in /contacts page for which contacts are synced
+   */
+  private async updateOtisContact(
+    email: string,
+    pipedrivePersonId: number | undefined,
+    campaignId: string | undefined,
+    instantlyStatus: string,
+    options: {
+      hasReply?: boolean;
+      replyCount?: number;
+      instantlyLeadId?: string;
+    } = {}
+  ): Promise<void> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // First check if contact exists
+      const { data: existingContact } = await this.supabase
+        .from('contacts')
+        .select('id, instantly_campaign_ids, reply_count')
+        .eq('email', cleanEmail)
+        .single();
+
+      if (!existingContact) {
+        console.log(`📋 No Otis contact found for ${cleanEmail}, skipping contact update`);
+        return;
+      }
+
+      // Build campaign IDs array (append if not already present)
+      let campaignIds = existingContact.instantly_campaign_ids || [];
+      if (campaignId && !campaignIds.includes(campaignId)) {
+        campaignIds = [...campaignIds, campaignId];
+      }
+
+      // Update contact with sync info
+      const updateData: any = {
+        instantly_synced: true,
+        instantly_synced_at: new Date().toISOString(),
+        instantly_status: instantlyStatus,
+        instantly_campaign_ids: campaignIds,
+        // Always update last_touch when syncing
+        last_touch: new Date().toISOString().split('T')[0], // DATE format
+        // Set qualification_status to in_campaign
+        qualification_status: 'in_campaign'
+      };
+
+      // Add Instantly lead ID if available
+      if (options.instantlyLeadId) {
+        updateData.instantly_id = options.instantlyLeadId;
+      }
+
+      // Add Pipedrive person ID if available
+      if (pipedrivePersonId) {
+        updateData.pipedrive_person_id = pipedrivePersonId.toString();
+        updateData.pipedrive_synced = true;
+        updateData.pipedrive_synced_at = new Date().toISOString();
+      }
+
+      // Update reply tracking if this is a reply event
+      if (options.hasReply) {
+        // Increment reply count (use provided count or increment by 1)
+        const newReplyCount = options.replyCount ?? ((existingContact.reply_count || 0) + 1);
+        updateData.reply_count = newReplyCount;
+        updateData.last_reply_at = new Date().toISOString();
+      }
+
+      const { error } = await this.supabase
+        .from('contacts')
+        .update(updateData)
+        .eq('id', existingContact.id);
+
+      if (error) {
+        console.warn(`⚠️ Could not update Otis contact ${cleanEmail}:`, error.message);
+      } else {
+        console.log(`📋 Updated Otis contact ${cleanEmail} with sync info (qualification: in_campaign, last_touch: today${options.hasReply ? ', reply tracked' : ''})`);
+      }
+    } catch (error) {
+      console.warn(`Could not update Otis contact for ${email}:`, error);
+    }
+  }
+
+  /**
+   * Update the companies table with sync information
+   * This ensures visibility in /companies page for which companies are synced
+   */
+  private async updateOtisCompany(
+    email: string,
+    pipedriveOrgId: number | undefined,
+    pipedriveOrgName: string | undefined,
+    eventType: SyncEventType,
+    options: {
+      hasReply?: boolean;
+      replySentiment?: ReplySentiment;
+    } = {}
+  ): Promise<void> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+      const emailDomain = cleanEmail.split('@')[1];
+
+      if (!emailDomain) return;
+
+      // Try to find company by:
+      // 1. Contact's company_id (via contact email)
+      // 2. Website domain match
+      // 3. Name match with Pipedrive org name
+
+      // First try via contact
+      const { data: contact } = await this.supabase
+        .from('contacts')
+        .select('company_id')
+        .eq('email', cleanEmail)
+        .single();
+
+      let companyId: string | null = contact?.company_id || null;
+
+      // If no company via contact, try website domain
+      if (!companyId) {
+        const { data: companyByDomain } = await this.supabase
+          .from('companies')
+          .select('id')
+          .or(`website.ilike.%${emailDomain}%,website.ilike.%${emailDomain.replace('.nl', '').replace('.com', '')}%`)
+          .limit(1)
+          .single();
+
+        companyId = companyByDomain?.id || null;
+      }
+
+      // If still no company and we have org name, try name match
+      if (!companyId && pipedriveOrgName) {
+        const { data: companyByName } = await this.supabase
+          .from('companies')
+          .select('id')
+          .ilike('name', `%${pipedriveOrgName}%`)
+          .limit(1)
+          .single();
+
+        companyId = companyByName?.id || null;
+      }
+
+      if (!companyId) {
+        console.log(`📋 No Otis company found for ${emailDomain}, skipping company update`);
+        return;
+      }
+
+      // Get current company data for stats calculation
+      const { data: currentCompany } = await this.supabase
+        .from('companies')
+        .select('contacts_in_campaign, status, qualification_status')
+        .eq('id', companyId)
+        .single();
+
+      // Build update data
+      const updateData: any = {
+        pipedrive_synced: true,
+        pipedrive_synced_at: new Date().toISOString()
+      };
+
+      // Add Pipedrive org ID if available
+      if (pipedriveOrgId) {
+        updateData.pipedrive_id = pipedriveOrgId.toString();
+      }
+
+      // Increment contacts_in_campaign (we'll recalculate properly later)
+      // For now, just increment if this is a new contact being synced
+      const currentContactsInCampaign = currentCompany?.contacts_in_campaign || 0;
+      updateData.contacts_in_campaign = currentContactsInCampaign + 1;
+
+      // Determine company status and qualification_status based on event type
+      const statusMapping = this.getCompanyStatusForEvent(eventType, options.hasReply, options.replySentiment);
+
+      // Only update status if we have a mapping and current status allows it
+      if (statusMapping.status && this.shouldUpdateCompanyStatus(currentCompany?.status, statusMapping.status)) {
+        updateData.status = statusMapping.status;
+      }
+
+      if (statusMapping.qualificationStatus && this.shouldUpdateQualificationStatus(currentCompany?.qualification_status, statusMapping.qualificationStatus)) {
+        updateData.qualification_status = statusMapping.qualificationStatus;
+      }
+
+      // Set is_customer for interested leads (optional - only if explicitly interested)
+      if (eventType === 'lead_interested') {
+        updateData.is_customer = false; // They're interested, but not a customer yet - just a qualified lead
+      }
+
+      const { error } = await this.supabase
+        .from('companies')
+        .update(updateData)
+        .eq('id', companyId);
+
+      if (error) {
+        console.warn(`⚠️ Could not update Otis company ${companyId}:`, error.message);
+      } else {
+        console.log(`📋 Updated Otis company ${companyId} (status: ${updateData.status || 'unchanged'}, qualification: ${updateData.qualification_status || 'unchanged'}, contacts_in_campaign: ${updateData.contacts_in_campaign})`);
+      }
+
+      // Recalculate campaign reply rate for this company
+      await this.recalculateCompanyCampaignStats(companyId);
+
+    } catch (error) {
+      console.warn(`Could not update Otis company for ${email}:`, error);
+    }
+  }
+
+  /**
+   * Get the company status and qualification_status based on the sync event type
+   */
+  private getCompanyStatusForEvent(
+    eventType: SyncEventType,
+    hasReply?: boolean,
+    replySentiment?: ReplySentiment
+  ): { status: string | null; qualificationStatus: string | null } {
+    // If there's a reply, determine status based on sentiment
+    if (hasReply || eventType === 'reply_received') {
+      if (replySentiment === 'negative' || eventType === 'lead_not_interested') {
+        return { status: 'Niet meer benaderen', qualificationStatus: 'disqualified' };
+      }
+      if (replySentiment === 'positive' || eventType === 'lead_interested') {
+        return { status: 'Benaderen', qualificationStatus: 'qualified' };
+      }
+      // Neutral reply - needs review
+      return { status: 'Benaderen', qualificationStatus: 'review' };
+    }
+
+    // Map event types to status
+    switch (eventType) {
+      case 'lead_interested':
+        return { status: 'Benaderen', qualificationStatus: 'qualified' };
+      case 'lead_not_interested':
+        return { status: 'Niet meer benaderen', qualificationStatus: 'disqualified' };
+      case 'campaign_completed':
+      case 'backfill':
+        // No reply after campaign - keep as prospect, but mark as enriched (contacted)
+        return { status: null, qualificationStatus: 'enriched' };
+      case 'lead_added':
+        // Just added to campaign - no status change yet
+        return { status: null, qualificationStatus: null };
+      default:
+        return { status: null, qualificationStatus: null };
+    }
+  }
+
+  /**
+   * Determine if we should update the company status (don't downgrade important statuses)
+   */
+  private shouldUpdateCompanyStatus(currentStatus: string | null | undefined, newStatus: string): boolean {
+    // Status priority (higher = more important, don't overwrite)
+    const statusPriority: Record<string, number> = {
+      'Klant': 100,
+      'Benaderen': 50,
+      'opnieuw benaderen': 40,
+      'Niet meer benaderen': 30,
+      'Qualified': 20,
+      'Disqualified': 15,
+      'Prospect': 10
+    };
+
+    const currentPriority = statusPriority[currentStatus || 'Prospect'] || 0;
+    const newPriority = statusPriority[newStatus] || 0;
+
+    // Only update if new status has higher or equal priority
+    // Exception: always allow setting to "Niet meer benaderen" (they said no)
+    if (newStatus === 'Niet meer benaderen') return true;
+
+    return newPriority >= currentPriority;
+  }
+
+  /**
+   * Determine if we should update qualification status
+   */
+  private shouldUpdateQualificationStatus(currentStatus: string | null | undefined, newStatus: string): boolean {
+    // Qualification priority
+    const qualPriority: Record<string, number> = {
+      'qualified': 100,
+      'disqualified': 90, // Always respect disqualification
+      'review': 50,
+      'enriched': 40,
+      'pending': 10
+    };
+
+    const currentPriority = qualPriority[currentStatus || 'pending'] || 0;
+    const newPriority = qualPriority[newStatus] || 0;
+
+    // Always allow disqualification
+    if (newStatus === 'disqualified') return true;
+
+    return newPriority >= currentPriority;
+  }
+
+  /**
+   * Recalculate campaign statistics for a company
+   */
+  private async recalculateCompanyCampaignStats(companyId: string): Promise<void> {
+    try {
+      // Count contacts in campaign for this company
+      const { count: contactsInCampaign } = await this.supabase
+        .from('contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .eq('instantly_synced', true);
+
+      // Count contacts with replies
+      const { count: contactsWithReplies } = await this.supabase
+        .from('contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .eq('instantly_synced', true)
+        .gt('reply_count', 0);
+
+      // Calculate reply rate
+      const replyRate = contactsInCampaign && contactsInCampaign > 0
+        ? ((contactsWithReplies || 0) / contactsInCampaign) * 100
+        : 0;
+
+      // Update company with accurate stats
+      await this.supabase
+        .from('companies')
+        .update({
+          contacts_in_campaign: contactsInCampaign || 0,
+          campaign_reply_rate: Math.round(replyRate * 100) / 100 // Round to 2 decimals
+        })
+        .eq('id', companyId);
+
+      console.log(`📊 Updated company ${companyId} stats: ${contactsInCampaign} contacts, ${replyRate.toFixed(1)}% reply rate`);
+    } catch (error) {
+      console.warn(`Could not recalculate campaign stats for company ${companyId}:`, error);
+    }
+  }
+
+  // ============================================================================
+  // BLOCKLIST INTEGRATION
+  // ============================================================================
+
+  /**
+   * Create a blocklist entry when a lead marks themselves as not interested
+   */
+  private async createBlocklistForNotInterested(
+    email: string,
+    contactId: string | undefined,
+    companyId: string | undefined,
+    reason: string = 'Instantly - Niet geïnteresseerd'
+  ): Promise<void> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // Check if blocklist entry already exists
+      const { data: existingEntry } = await this.supabase
+        .from('blocklist_entries')
+        .select('id')
+        .eq('value', cleanEmail)
+        .eq('type', 'email')
+        .single();
+
+      if (existingEntry) {
+        console.log(`📋 Blocklist entry already exists for ${cleanEmail}`);
+        return;
+      }
+
+      // Create blocklist entry
+      const { error: blocklistError } = await this.supabase
+        .from('blocklist_entries')
+        .insert({
+          type: 'email',
+          value: cleanEmail,
+          reason: reason,
+          blocklist_level: 'contact',
+          contact_id: contactId || null,
+          company_id: companyId || null,
+          instantly_synced: true,
+          instantly_synced_at: new Date().toISOString(),
+          is_active: true
+        });
+
+      if (blocklistError) {
+        console.warn(`⚠️ Could not create blocklist entry for ${cleanEmail}:`, blocklistError.message);
+        return;
+      }
+
+      // Also mark the contact as blocked if we have a contact ID
+      if (contactId) {
+        await this.supabase
+          .from('contacts')
+          .update({ is_blocked: true })
+          .eq('id', contactId);
+      }
+
+      console.log(`🚫 Created blocklist entry for ${cleanEmail} (not interested)`);
+    } catch (error) {
+      console.warn(`Could not create blocklist entry for ${email}:`, error);
+    }
   }
 }
 

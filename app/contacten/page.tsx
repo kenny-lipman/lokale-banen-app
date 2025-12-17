@@ -1262,18 +1262,6 @@ export default function ContactsPage() {
                               {getInstantlySyncBadge(contact.instantly_synced, contact.instantly_synced_at, contact.instantly_status)}
                             </TableCell>
                           )}
-                          {columnVisibility.aangemaakt && (
-                            <TableCell className="py-2">
-                              <TableCellWithTooltip 
-                                value={contact.created_at 
-                                  ? new Date(contact.created_at).toLocaleDateString('nl-NL')
-                                  : null
-                                }
-                                className="text-gray-600"
-                                maxWidth="w-20"
-                              />
-                            </TableCell>
-                          )}
                           <TableCell className="py-2 w-[90px] sticky right-0 bg-white">
                             <div className="flex items-center gap-1">
                               <Button
