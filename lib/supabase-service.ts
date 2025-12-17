@@ -246,10 +246,12 @@ export class SupabaseService {
       apolloEnriched?: 'all' | 'enriched' | 'not_enriched'
       hasContacts?: 'all' | 'with_contacts' | 'no_contacts'
       regioPlatformFilter?: string
+      pipedriveFilter?: 'all' | 'synced' | 'not_synced'
+      instantlyFilter?: 'all' | 'synced' | 'not_synced'
       qualification_status?: 'pending' | 'qualified' | 'disqualified' | 'review' | 'all'
     } = {},
   ) {
-    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts, regioPlatformFilter, qualification_status } = options
+    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts, regioPlatformFilter, pipedriveFilter, instantlyFilter, qualification_status } = options
 
     try {
       console.log("getCompanies: Starting with params:", options)
@@ -339,6 +341,24 @@ export class SupabaseService {
         query = query.is('apollo_enriched_at', null)
       }
 
+      // Pipedrive sync filter
+      if (pipedriveFilter === 'synced') {
+        query = query.eq('pipedrive_synced', true)
+      } else if (pipedriveFilter === 'not_synced') {
+        query = query.or('pipedrive_synced.is.null,pipedrive_synced.eq.false')
+      }
+
+      // Instantly sync filter - for companies, we need to check via contacts
+      // Companies don't have directly instantly_synced, but we can check if any contact linked to this company is synced
+      // For now, check if company has pipedrive_id (which means it was synced via Instantly -> Pipedrive flow)
+      // We'll add proper instantly_synced column to companies later if needed
+      if (instantlyFilter === 'synced') {
+        // Companies synced via Instantly have pipedrive_id set via the sync flow
+        query = query.not('pipedrive_id', 'is', null)
+      } else if (instantlyFilter === 'not_synced') {
+        query = query.is('pipedrive_id', null)
+      }
+
       // Qualification status filter for tab-based view
       if (qualification_status && qualification_status !== 'all') {
         console.log("getCompanies: Applying qualification_status filter:", qualification_status)
@@ -419,71 +439,90 @@ export class SupabaseService {
         }
       }
 
-      // Handle regio_platform filter (hoofddomein) 
+      // Handle regio_platform filter (hoofddomein) - supports multi-select
       let regioPlatformFilteredCompanyIds: string[] | null = null
       if (regioPlatformFilter && regioPlatformFilter !== 'all') {
-        console.log("getCompanies: Applying regio_platform filter:", regioPlatformFilter)
-        
+        // Parse multi-select values (comma-separated)
+        const selectedPlatforms = regioPlatformFilter.split(',').map(p => p.trim()).filter(p => p)
+        console.log("getCompanies: Applying regio_platform filter:", selectedPlatforms)
+
         try {
-          if (regioPlatformFilter === 'none') {
-            // Get companies that DON'T have any regio_platform (no job_postings or job_postings without region)
-            const { data: companiesWithRegioPlatform, error: regioPlatformError } = await this.client
+          const hasNoneFilter = selectedPlatforms.includes('none')
+          const specificPlatforms = selectedPlatforms.filter(p => p !== 'none')
+
+          let companiesWithSpecificPlatforms: string[] = []
+          let companiesWithoutPlatform: string[] = []
+
+          // Handle specific platform selections
+          if (specificPlatforms.length > 0) {
+            // First get the platform IDs for the selected regio_platforms
+            const { data: platformsData, error: platformsError } = await this.client
+              .from("platforms")
+              .select("id")
+              .in("regio_platform", specificPlatforms)
+
+            if (platformsError) {
+              console.warn("getCompanies: Error fetching platform IDs:", platformsError)
+            } else if (platformsData && platformsData.length > 0) {
+              const platformIds = platformsData.map(p => p.id)
+
+              // Now get company IDs that have job_postings with these platform_ids
+              const { data: companiesWithRegioPlatform, error: regioPlatformError } = await this.client
+                .from("job_postings")
+                .select("company_id")
+                .in("platform_id", platformIds)
+                .not("company_id", "is", null)
+
+              if (regioPlatformError) {
+                console.warn("getCompanies: RegioPlatform filter error:", regioPlatformError)
+              } else {
+                companiesWithSpecificPlatforms = [...new Set(companiesWithRegioPlatform.map(c => c.company_id))]
+                console.log("getCompanies: Found", companiesWithSpecificPlatforms.length, "companies with selected platforms:", specificPlatforms)
+              }
+            }
+          }
+
+          // Handle "none" filter (companies without any hoofddomein)
+          if (hasNoneFilter) {
+            // Get companies that have job_postings with a valid platform_id
+            const { data: companiesWithAnyPlatform, error: anyPlatformError } = await this.client
               .from("job_postings")
-              .select("company_id, regions!inner(regio_platform)")
-              .not("regions.regio_platform", "is", null)
-              .not("regions.regio_platform", "eq", "")
+              .select("company_id")
+              .not("platform_id", "is", null)
               .not("company_id", "is", null)
-            
-            if (regioPlatformError) {
-              console.warn("getCompanies: RegioPlatform filter error:", regioPlatformError)
-              regioPlatformFilteredCompanyIds = []
+
+            if (anyPlatformError) {
+              console.warn("getCompanies: RegioPlatform 'none' filter error:", anyPlatformError)
             } else {
-              // Get companies WITHOUT regio_platform by excluding those with regio_platform
-              const companiesWithRegioPlatformIds = new Set(companiesWithRegioPlatform.map(c => c.company_id))
-              
-              // Get all company IDs, then filter out those with regio_platform
+              const companiesWithPlatformIds = new Set(companiesWithAnyPlatform.map(c => c.company_id))
+
+              // Get all company IDs, then filter out those with any platform
               const { data: allCompanies, error: allError } = await this.client
                 .from("companies")
                 .select("id")
-              
+
               if (allError) {
-                console.warn("getCompanies: Error getting all companies for none regio_platform filter:", allError)
-                regioPlatformFilteredCompanyIds = []
+                console.warn("getCompanies: Error getting all companies for none filter:", allError)
               } else {
-                // Filter out companies that have regio_platform
-                regioPlatformFilteredCompanyIds = allCompanies
+                companiesWithoutPlatform = allCompanies
                   .map(c => c.id)
-                  .filter(id => !companiesWithRegioPlatformIds.has(id))
-                console.log("getCompanies: Found", regioPlatformFilteredCompanyIds.length, "companies without regio_platform")
+                  .filter(id => !companiesWithPlatformIds.has(id))
+                console.log("getCompanies: Found", companiesWithoutPlatform.length, "companies without any platform")
               }
             }
-          } else {
-            // Get company IDs that have job_postings with specific regio_platform
-            const { data: companiesWithRegioPlatform, error: regioPlatformError } = await this.client
-              .from("job_postings")
-              .select("company_id, regions!inner(regio_platform)")
-              .eq("regions.regio_platform", regioPlatformFilter)
-              .not("company_id", "is", null)
-            
-            if (regioPlatformError) {
-              console.warn("getCompanies: RegioPlatform filter error:", regioPlatformError)
-              regioPlatformFilteredCompanyIds = []
-            } else {
-              regioPlatformFilteredCompanyIds = [...new Set(companiesWithRegioPlatform.map(c => c.company_id))]
-              console.log("getCompanies: Found", regioPlatformFilteredCompanyIds.length, "companies with regio_platform:", regioPlatformFilter)
-            }
           }
-          
+
+          // Combine results (OR logic for multi-select)
+          regioPlatformFilteredCompanyIds = [...new Set([...companiesWithSpecificPlatforms, ...companiesWithoutPlatform])]
+
           // Apply the regio_platform filter using IN clause
-          if (regioPlatformFilteredCompanyIds !== null) {
-            if (regioPlatformFilteredCompanyIds.length > 0) {
-              query = query.in('id', regioPlatformFilteredCompanyIds)
-              console.log("getCompanies: Applying regio_platform filter for", regioPlatformFilteredCompanyIds.length, "companies")
-            } else {
-              // No matching companies found, return empty result
-              console.log("getCompanies: No companies match regio_platform filter, returning empty result")
-              return { data: [], count: 0, totalPages: 0 }
-            }
+          if (regioPlatformFilteredCompanyIds.length > 0) {
+            query = query.in('id', regioPlatformFilteredCompanyIds)
+            console.log("getCompanies: Applying regio_platform filter for", regioPlatformFilteredCompanyIds.length, "companies")
+          } else {
+            // No matching companies found, return empty result
+            console.log("getCompanies: No companies match regio_platform filter, returning empty result")
+            return { data: [], count: 0, totalPages: 0 }
           }
         } catch (error) {
           console.error("getCompanies: Error applying regio_platform filter:", error)
@@ -517,6 +556,7 @@ export class SupabaseService {
       const companyIds = (data || []).map(c => c.id)
       let jobCounts: Record<string, number> = {}
       let contactCounts: Record<string, number> = {}
+      let instantlySyncedCompanies: Record<string, boolean> = {}
       
       if (companyIds.length > 0) {
         console.log("getCompanies: Fetching job counts for", companyIds.length, "companies")
@@ -544,25 +584,35 @@ export class SupabaseService {
           // Continue without job counts
         }
 
-        // Get contact counts for all returned companies
+        // Get contact counts and instantly sync status for all returned companies
         console.log("getCompanies: Fetching contact counts for", companyIds.length, "companies")
         try {
           const { data: contactCountsData, error: contactCountsError } = await this.client
             .from("contacts")
-            .select("company_id")
+            .select("company_id, instantly_synced")
             .in("company_id", companyIds)
             .not("company_id", "is", null)
-          
+
           if (contactCountsError) {
             console.warn("getCompanies: Contact counts query error:", contactCountsError)
             // Continue without contact counts rather than failing
           } else {
-            // Count occurrences of each company_id
+            // Count occurrences of each company_id and check instantly_synced status
             contactCounts = (contactCountsData || []).reduce((acc: Record<string, number>, row: any) => {
               acc[row.company_id] = (acc[row.company_id] || 0) + 1
               return acc
             }, {})
+            // Check if any contact for each company has instantly_synced = true
+            instantlySyncedCompanies = (contactCountsData || []).reduce((acc: Record<string, boolean>, row: any) => {
+              if (row.instantly_synced) {
+                acc[row.company_id] = true
+              } else if (acc[row.company_id] === undefined) {
+                acc[row.company_id] = false
+              }
+              return acc
+            }, {})
             console.log("getCompanies: Contact counts calculated for", Object.keys(contactCounts).length, "companies")
+            console.log("getCompanies: Instantly synced status calculated for", Object.keys(instantlySyncedCompanies).length, "companies")
           }
         } catch (contactCountError) {
           console.warn("getCompanies: Failed to get contact counts:", contactCountError)
@@ -630,6 +680,17 @@ export class SupabaseService {
           enrichment_status: company.enrichment_status || null,
           pipedrive_synced: company.pipedrive_synced || false,
           pipedrive_synced_at: company.pipedrive_synced_at || null,
+          // Instantly sync status (derived from contacts)
+          instantly_synced: instantlySyncedCompanies[company.id] || false,
+          // Additional company details for drawer
+          linkedin_url: company.linkedin_url || null,
+          kvk: company.kvk || null,
+          phone: company.phone || null,
+          industries: company.industries || null,
+          category_size: company.category_size || null,
+          apollo_enriched_at: company.apollo_enriched_at || null,
+          apollo_contacts_count: company.apollo_contacts_count || null,
+          created_at: company.created_at || null,
           // Computed filter fields for client-side validation
           has_apollo_enrichment: !!company.apollo_enriched_at,
           has_contacts: (contactCounts[company.id] || 0) > 0,

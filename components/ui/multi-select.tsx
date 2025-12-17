@@ -106,27 +106,49 @@ export function MultiSelect({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="start">
+      <PopoverContent className="w-[220px] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search..." />
-          <CommandEmpty>No option found.</CommandEmpty>
+          <CommandInput placeholder="Zoeken..." />
+          <CommandEmpty>Geen optie gevonden.</CommandEmpty>
+          <div className="px-2 py-1.5 text-xs text-muted-foreground border-b bg-muted/50">
+            Meerdere opties mogelijk
+          </div>
           <CommandGroup className="max-h-64 overflow-auto">
             {options.map((option) => (
               <CommandItem
                 key={option.value}
                 value={option.value}
                 onSelect={() => handleSelect(option.value)}
+                className="cursor-pointer"
               >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    selected.includes(option.value) ? "opacity-100" : "opacity-0"
+                <div className={cn(
+                  "mr-2 h-4 w-4 border rounded flex items-center justify-center",
+                  selected.includes(option.value)
+                    ? "bg-orange-500 border-orange-500"
+                    : "border-gray-300"
+                )}>
+                  {selected.includes(option.value) && (
+                    <Check className="h-3 w-3 text-white" />
                   )}
-                />
+                </div>
                 {option.label}
               </CommandItem>
             ))}
           </CommandGroup>
+          {selected.length > 0 && (
+            <div className="px-2 py-1.5 text-xs border-t flex items-center justify-between bg-muted/50">
+              <span className="text-muted-foreground">{selected.length} geselecteerd</span>
+              <button
+                className="text-orange-600 hover:text-orange-800 font-medium"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onChange([])
+                }}
+              >
+                Wissen
+              </button>
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>
