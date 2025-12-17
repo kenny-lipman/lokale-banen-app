@@ -31,7 +31,13 @@ async function companyContactsHandler(
         qualification_status,
         campaign_id,
         campaign_name,
-        created_at
+        created_at,
+        pipedrive_synced,
+        pipedrive_synced_at,
+        pipedrive_person_id,
+        instantly_synced,
+        instantly_synced_at,
+        instantly_status
       `)
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })

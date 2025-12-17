@@ -27,6 +27,10 @@ interface CompaniesFiltersProps {
   setHasContactsFilter: (value: string) => void
   regioPlatformFilter: string[]
   setRegioPlatformFilter: (value: string[]) => void
+  pipedriveFilter: string
+  setPipedriveFilter: (value: string) => void
+  instantlyFilter: string
+  setInstantlyFilter: (value: string) => void
   totalCount: number
   allSources: {id: string, name: string}[]
   allRegioPlatformOptions: {value: string, label: string, key: string}[]
@@ -52,6 +56,10 @@ export function CompaniesFilters({
   setHasContactsFilter,
   regioPlatformFilter,
   setRegioPlatformFilter,
+  pipedriveFilter,
+  setPipedriveFilter,
+  instantlyFilter,
+  setInstantlyFilter,
   totalCount,
   allSources,
   allRegioPlatformOptions,
@@ -68,6 +76,8 @@ export function CompaniesFilters({
     setApolloEnrichedFilter("all")
     setHasContactsFilter("all")
     setRegioPlatformFilter([])
+    setPipedriveFilter("all")
+    setInstantlyFilter("all")
     onResetPage?.()
   }
 
@@ -83,6 +93,8 @@ export function CompaniesFilters({
     if (apolloEnrichedFilter !== "all") count++
     if (hasContactsFilter !== "all") count++
     if (regioPlatformFilter.length > 0) count++
+    if (pipedriveFilter !== "all") count++
+    if (instantlyFilter !== "all") count++
     return count
   }
 
@@ -194,6 +206,24 @@ export function CompaniesFilters({
                     />
                   </Badge>
                 )}
+                {pipedriveFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    Pipedrive: {pipedriveFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => setPipedriveFilter("all")}
+                    />
+                  </Badge>
+                )}
+                {instantlyFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    Instantly: {instantlyFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => setInstantlyFilter("all")}
+                    />
+                  </Badge>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -300,6 +330,30 @@ export function CompaniesFilters({
             onChange={setRegioPlatformFilter}
             placeholder="Hoofddomein"
           />
+
+          {/* Pipedrive Filter */}
+          <Select value={pipedriveFilter} onValueChange={setPipedriveFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pipedrive" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Pipedrive</SelectItem>
+              <SelectItem value="synced">In Pipedrive</SelectItem>
+              <SelectItem value="not_synced">Niet in Pipedrive</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Instantly Filter */}
+          <Select value={instantlyFilter} onValueChange={setInstantlyFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Instantly" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Instantly</SelectItem>
+              <SelectItem value="synced">In Instantly</SelectItem>
+              <SelectItem value="not_synced">Niet in Instantly</SelectItem>
+            </SelectContent>
+          </Select>
 
           {/* Reset Filters Button */}
           <Button

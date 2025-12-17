@@ -27,6 +27,7 @@ export interface ColumnVisibility {
   linkedin: boolean
   campagne: boolean
   pipedriveStatus: boolean
+  instantlyStatus: boolean
   aangemaakt: boolean
 }
 
@@ -41,7 +42,7 @@ export function ColumnVisibilityToggle({
 }: ColumnVisibilityToggleProps) {
   const columnLabels = {
     naam: "Naam",
-    kwalificatiestatus: "Kwalificatiestatus", 
+    kwalificatiestatus: "Kwalificatiestatus",
     functie: "Functie",
     telefoon: "Telefoon",
     email: "Email",
@@ -54,6 +55,7 @@ export function ColumnVisibilityToggle({
     linkedin: "LinkedIn",
     campagne: "Campagne",
     pipedriveStatus: "Pipedrive",
+    instantlyStatus: "Instantly",
     aangemaakt: "Aangemaakt"
   }
 
@@ -91,6 +93,7 @@ export function ColumnVisibilityToggle({
       linkedin: false,
       campagne: false,
       pipedriveStatus: true,
+      instantlyStatus: true,
       aangemaakt: false
     }
     onVisibilityChange(essentialOnly)

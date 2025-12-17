@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -12,13 +13,14 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3, Eye } from "lucide-react"
 import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useToast } from "@/hooks/use-toast"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { useRecommendedPlatform } from "@/hooks/use-recommended-platform"
 import { EditContactModal } from "@/components/contacts/edit-contact-modal"
+import { ContactDetailsDrawer } from "@/components/contacts/contact-details-drawer"
 import { ColumnVisibilityToggle, ColumnVisibility } from "@/components/contacts/column-visibility-toggle"
 import { formatDutchPhone } from "@/lib/validators/contact"
 import { TableCellWithTooltip } from "@/components/ui/table-cell-with-tooltip"
@@ -47,6 +49,11 @@ interface Contact {
   company_id: string
   pipedrive_synced?: boolean | null
   pipedrive_synced_at?: string | null
+  pipedrive_person_id?: string | null
+  instantly_synced?: boolean | null
+  instantly_synced_at?: string | null
+  instantly_status?: string | null
+  instantly_campaign_ids?: string[] | null
 }
 
 interface Campaign {
@@ -132,7 +139,19 @@ const getPipedriveSyncBadge = (synced: boolean | null, syncedAt: string | null) 
   }
 }
 
+const getInstantlySyncBadge = (synced: boolean | null, syncedAt: string | null, status: string | null) => {
+  if (synced) {
+    const syncDate = syncedAt ? new Date(syncedAt).toLocaleDateString('nl-NL') : ''
+    const statusLabel = status ? ` (${status})` : ''
+    return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1 py-0" title={`Synced ${syncDate}${statusLabel}`}>✅</Badge>
+  } else {
+    return <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-1 py-0" title="Not synced">❌</Badge>
+  }
+}
+
 export default function ContactsPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [inCampaignFilter, setInCampaignFilter] = useState<string>("all")
   const [hasEmailFilter, setHasEmailFilter] = useState<string>("all")
@@ -140,28 +159,33 @@ export default function ContactsPage() {
   const [companyStartFilter, setCompanyStartFilter] = useState<string[]>([])
   const [companySizeFilter, setCompanySizeFilter] = useState<string[]>([])
   const [categoryStatusFilter, setCategoryStatusFilter] = useState<string[]>([])
+  const [pipedriveFilter, setPipedriveFilter] = useState<string>("all")
+  const [instantlyFilter, setInstantlyFilter] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
-  
+
   // Selection state
   const [selectedContacts, setSelectedContacts] = useState<Set<number>>(new Set())
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([])
   const [showAllCampaigns, setShowAllCampaigns] = useState<boolean>(false)
   const [selectedCampaign, setSelectedCampaign] = useState<string>("")
-  
+
   // Modal states
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false)
   const [isQualificationModalOpen, setIsQualificationModalOpen] = useState(false)
   const [selectedQualificationStatus, setSelectedQualificationStatus] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
-  
+
   // Edit contact modal state
   const [editContactModal, setEditContactModal] = useState<{
     isOpen: boolean
     contact: Contact | null
   }>({ isOpen: false, contact: null })
-  
+
+  // Contact details drawer state
+  const [selectedContactForDrawer, setSelectedContactForDrawer] = useState<Contact | null>(null)
+
   // Column visibility state
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     naam: true,
@@ -178,6 +202,7 @@ export default function ContactsPage() {
     linkedin: false,
     campagne: true,
     pipedriveStatus: true,
+    instantlyStatus: true,
     aangemaakt: false
   })
   
@@ -196,7 +221,9 @@ export default function ContactsPage() {
     companyStatusFilter,
     companyStartFilter,
     companySizeFilter,
-    categoryStatusFilter
+    categoryStatusFilter,
+    pipedriveFilter,
+    instantlyFilter
   ])
 
   // Build filters object for API call
@@ -207,14 +234,54 @@ export default function ContactsPage() {
     companyStatus: companyStatusFilter.length > 0 ? companyStatusFilter.join(',') : undefined,
     companyStart: companyStartFilter.length > 0 ? companyStartFilter.join(',') : undefined,
     companySize: companySizeFilter.length > 0 ? companySizeFilter.join(',') : undefined,
-    categoryStatus: categoryStatusFilter.length > 0 ? categoryStatusFilter.join(',') : undefined
+    categoryStatus: categoryStatusFilter.length > 0 ? categoryStatusFilter.join(',') : undefined,
+    pipedriveFilter: pipedriveFilter !== "all" ? pipedriveFilter : undefined,
+    instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined
   }
 
   const { data: contacts, loading, error, count, totalPages } = useContactsPaginated(
-    currentPage, 
-    itemsPerPage, 
+    currentPage,
+    itemsPerPage,
     filters
   )
+
+  // Handle URL query param for contact ID
+  useEffect(() => {
+    const contactId = searchParams.get('id')
+    if (contactId && !selectedContactForDrawer) {
+      // Find contact in current page or fetch it
+      const contact = contacts.find(c => c.id === contactId)
+      if (contact) {
+        setSelectedContactForDrawer(contact)
+      } else if (contacts.length > 0 || !loading) {
+        // Fetch contact by ID if not in current page
+        const fetchContactById = async () => {
+          try {
+            const response = await fetch(`/api/contacts/${contactId}`)
+            if (response.ok) {
+              const data = await response.json()
+              setSelectedContactForDrawer(data)
+            }
+          } catch (error) {
+            console.error('Error fetching contact by ID:', error)
+          }
+        }
+        fetchContactById()
+      }
+    }
+  }, [searchParams, contacts, loading, selectedContactForDrawer])
+
+  // Handle opening contact drawer
+  const handleOpenContactDrawer = (contact: Contact) => {
+    setSelectedContactForDrawer(contact)
+    router.push(`/contacten?id=${contact.id}`, { scroll: false })
+  }
+
+  // Handle closing contact drawer
+  const handleCloseContactDrawer = () => {
+    setSelectedContactForDrawer(null)
+    router.push('/contacten', { scroll: false })
+  }
 
   // Platform recommendation logic (only when modal is open)
   const selectedContactsData = useMemo(() => {
@@ -319,6 +386,8 @@ export default function ContactsPage() {
     setCompanyStartFilter([])
     setCompanySizeFilter([])
     setCategoryStatusFilter([])
+    setPipedriveFilter("all")
+    setInstantlyFilter("all")
     setCurrentPage(1)
   }
 
@@ -332,6 +401,8 @@ export default function ContactsPage() {
     if (companyStartFilter.length > 0) count++
     if (companySizeFilter.length > 0) count++
     if (categoryStatusFilter.length > 0) count++
+    if (pipedriveFilter !== "all") count++
+    if (instantlyFilter !== "all") count++
     return count
   }
 
@@ -732,9 +803,27 @@ export default function ContactsPage() {
                 {categoryStatusFilter.length > 0 && (
                   <Badge variant="secondary" className="gap-1">
                     Kwalificatiestatus: {categoryStatusFilter.length} geselecteerd
-                    <X 
-                      className="h-3 w-3 cursor-pointer ml-1" 
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
                       onClick={() => setCategoryStatusFilter([])}
+                    />
+                  </Badge>
+                )}
+                {pipedriveFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    Pipedrive: {pipedriveFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => setPipedriveFilter("all")}
+                    />
+                  </Badge>
+                )}
+                {instantlyFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    Instantly: {instantlyFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => setInstantlyFilter("all")}
                     />
                   </Badge>
                 )}
@@ -850,6 +939,30 @@ export default function ContactsPage() {
               placeholder="Kwalificatiestatus"
             />
 
+            {/* Pipedrive Filter */}
+            <Select value={pipedriveFilter} onValueChange={setPipedriveFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pipedrive" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Pipedrive</SelectItem>
+                <SelectItem value="synced">In Pipedrive</SelectItem>
+                <SelectItem value="not_synced">Niet in Pipedrive</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Instantly Filter */}
+            <Select value={instantlyFilter} onValueChange={setInstantlyFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Instantly" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Instantly</SelectItem>
+                <SelectItem value="synced">In Instantly</SelectItem>
+                <SelectItem value="not_synced">Niet in Instantly</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Reset Filters Button */}
             <Button 
               variant="outline" 
@@ -956,8 +1069,9 @@ export default function ContactsPage() {
                       {columnVisibility.linkedin && <TableHead className="w-12" title="LinkedIn">💼</TableHead>}
                       {columnVisibility.campagne && <TableHead className="w-24">Campagne</TableHead>}
                       {columnVisibility.pipedriveStatus && <TableHead className="w-16" title="Pipedrive Status">Pipedrive</TableHead>}
+                      {columnVisibility.instantlyStatus && <TableHead className="w-16" title="Instantly Status">Instantly</TableHead>}
                       {columnVisibility.aangemaakt && <TableHead className="w-20">Datum</TableHead>}
-                      <TableHead className="w-[60px] sticky right-0 bg-white shadow-sm">Acties</TableHead>
+                      <TableHead className="w-[90px] sticky right-0 bg-white shadow-sm">Acties</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1098,6 +1212,11 @@ export default function ContactsPage() {
                               {getPipedriveSyncBadge(contact.pipedrive_synced, contact.pipedrive_synced_at)}
                             </TableCell>
                           )}
+                          {columnVisibility.instantlyStatus && (
+                            <TableCell className="py-2 w-12">
+                              {getInstantlySyncBadge(contact.instantly_synced, contact.instantly_synced_at, contact.instantly_status)}
+                            </TableCell>
+                          )}
                           {columnVisibility.aangemaakt && (
                             <TableCell className="py-2">
                               <TableCellWithTooltip 
@@ -1110,16 +1229,27 @@ export default function ContactsPage() {
                               />
                             </TableCell>
                           )}
-                          <TableCell className="py-2 w-[60px] sticky right-0 bg-white">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditContact(contact)}
-                              className="h-8 w-8 p-0 hover:bg-blue-100 shadow-sm"
-                              title="Contact bewerken"
-                            >
-                              <Edit3 className="h-4 w-4 text-blue-600" />
-                            </Button>
+                          <TableCell className="py-2 w-[90px] sticky right-0 bg-white">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenContactDrawer(contact)}
+                                className="h-8 w-8 p-0 hover:bg-purple-100 shadow-sm"
+                                title="Contact details bekijken"
+                              >
+                                <Eye className="h-4 w-4 text-purple-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditContact(contact)}
+                                className="h-8 w-8 p-0 hover:bg-blue-100 shadow-sm"
+                                title="Contact bewerken"
+                              >
+                                <Edit3 className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -1170,6 +1300,13 @@ export default function ContactsPage() {
         isOpen={editContactModal.isOpen}
         onClose={handleCloseEditModal}
         onSuccess={handleEditSuccess}
+      />
+
+      {/* Contact Details Drawer */}
+      <ContactDetailsDrawer
+        contact={selectedContactForDrawer}
+        open={!!selectedContactForDrawer}
+        onClose={handleCloseContactDrawer}
       />
     </div>
   )

@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive, Crown, RefreshCw, Mail, Link } from "lucide-react"
+import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive, Crown, RefreshCw, Mail, Link, Phone, Hash, Linkedin, Database, Calendar, Tag } from "lucide-react"
 import { authFetch } from "@/lib/authenticated-fetch"
 
 interface JobPosting {
@@ -44,6 +44,20 @@ interface Company {
   qualification_status?: string | null
   pipedrive_synced?: boolean | null
   pipedrive_synced_at?: string | null
+  // New fields
+  linkedin_url?: string | null
+  kvk?: string | null
+  phone?: string | null
+  industries?: string[] | null
+  category_size?: string | null
+  apollo_enriched_at?: string | null
+  apollo_contacts_count?: number | null
+  enrichment_status?: string | null
+  created_at?: string | null
+  // Sync fields
+  pipedrive_id?: string | null
+  instantly_synced?: boolean | null
+  instantly_synced_at?: string | null
 }
 
 interface Contact {
@@ -59,6 +73,13 @@ interface Contact {
   campaign_id?: string | null
   campaign_name?: string | null
   created_at: string
+  // Sync fields
+  pipedrive_synced?: boolean | null
+  pipedrive_synced_at?: string | null
+  pipedrive_person_id?: string | null
+  instantly_synced?: boolean | null
+  instantly_synced_at?: string | null
+  instantly_status?: string | null
 }
 
 interface CompanyDrawerProps {
@@ -250,96 +271,304 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          {/* Company Info */}
-          <div className="grid grid-cols-1 gap-4">
-            {company.website && (
-              <div className="flex items-center space-x-2 text-sm">
-                <Globe className="w-4 h-4 text-gray-500" />
-                <a
-                  href={company.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-600 hover:text-orange-800 hover:underline"
-                >
-                  {company.website}
-                </a>
-              </div>
-            )}
-
-            {company.indeed_url && (
-              <div className="flex items-center space-x-2 text-sm">
-                <ExternalLink className="w-4 h-4 text-gray-500" />
-                <a
-                  href={company.indeed_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-600 hover:text-orange-800 hover:underline"
-                >
-                  Indeed profiel
-                </a>
-              </div>
-            )}
-
-            {company.location && (
-              <div className="flex items-center space-x-2 text-sm">
-                <MapPin className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">{company.location}</span>
-              </div>
-            )}
-
-            <div className="flex items-center space-x-2 text-sm">
-              <Briefcase className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-700">{company.job_count || company.job_counts || 0} actieve vacatures</span>
-            </div>
-
-            <div className="flex items-center space-x-2 text-sm">
-              <Star className="w-4 h-4 text-yellow-500 fill-current" />
-              <span className="text-gray-700">
-                {company.rating_indeed 
-                  ? `${company.rating_indeed} sterren${company.review_count_indeed ? ` (${company.review_count_indeed} reviews)` : ''}`
-                  : 'Geen rating bekend'}
-              </span>
-            </div>
-
-            {getCompanySize() && (
-              <div className="flex items-center space-x-2 text-sm">
-                <Users className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">{getCompanySize()}</span>
-              </div>
-            )}
-
-            {company.region_platform && (
-              <div className="flex items-center space-x-2 text-sm">
-                <Globe className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">Regio: {company.region_platform}</span>
-                {company.region_plaats && <span className="text-gray-500">• {company.region_plaats}</span>}
-              </div>
-            )}
-
-            {company.source && (
-              <div className="text-xs text-gray-500">Bron: {company.source_name || company.source}</div>
-            )}
-
-            {/* Pipedrive Sync Status */}
-            <div className="flex items-center space-x-2 text-sm">
-              <span className="text-gray-500">Pipedrive:</span>
-              {company.pipedrive_synced ? (
-                <Badge className="bg-green-100 text-green-800 border-green-200">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Gesynct
-                  {company.pipedrive_synced_at && (
-                    <span className="ml-1 text-xs opacity-75">
-                      ({new Date(company.pipedrive_synced_at).toLocaleDateString('nl-NL')})
-                    </span>
-                  )}
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-gray-600">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Niet gesynct
-                </Badge>
+          {/* Source Badge - Prominent display */}
+          {company.source && (
+            <div className="flex items-center gap-2">
+              <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                <Database className="w-3 h-3 mr-1" />
+                {company.source_name || company.source}
+              </Badge>
+              {company.created_at && (
+                <span className="text-xs text-gray-400 flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Toegevoegd {formatDate(company.created_at)}
+                </span>
               )}
             </div>
+          )}
+
+          {/* Contact & Links Section */}
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">Contact & Links</h4>
+
+            <div className="grid grid-cols-1 gap-2">
+              {company.website && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <Globe className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <a
+                    href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-600 hover:text-orange-800 hover:underline truncate"
+                  >
+                    {company.website.replace(/^https?:\/\//, '')}
+                  </a>
+                </div>
+              )}
+
+              {company.linkedin_url && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <Linkedin className="w-4 h-4 text-[#0A66C2] flex-shrink-0" />
+                  <a
+                    href={company.linkedin_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#0A66C2] hover:text-[#004182] hover:underline"
+                  >
+                    LinkedIn profiel
+                  </a>
+                </div>
+              )}
+
+              {company.indeed_url && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <ExternalLink className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                  <a
+                    href={company.indeed_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-600 hover:text-purple-800 hover:underline"
+                  >
+                    Indeed profiel
+                  </a>
+                </div>
+              )}
+
+              {company.phone && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <Phone className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <a
+                    href={`tel:${company.phone}`}
+                    className="text-gray-700 hover:text-green-600 hover:underline"
+                  >
+                    {company.phone}
+                  </a>
+                </div>
+              )}
+
+              {company.kvk && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <Hash className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <span className="text-gray-700">KvK: {company.kvk}</span>
+                </div>
+              )}
+
+              {/* Show message if no contact info available */}
+              {!company.website && !company.linkedin_url && !company.indeed_url && !company.phone && !company.kvk && (
+                <p className="text-sm text-gray-400 italic">Geen contactgegevens beschikbaar</p>
+              )}
+            </div>
+          </div>
+
+          {/* Company Details Section */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Left column */}
+            <div className="space-y-3">
+              {company.location && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <MapPin className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <span className="text-gray-700">{company.location}</span>
+                </div>
+              )}
+
+              {company.region_platform && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <Globe className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <span className="text-gray-700">{company.region_platform}</span>
+                  {company.region_plaats && <span className="text-gray-500">• {company.region_plaats}</span>}
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2 text-sm">
+                <Briefcase className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <span className="text-gray-700">{company.job_count || company.job_counts || 0} actieve vacatures</span>
+              </div>
+            </div>
+
+            {/* Right column */}
+            <div className="space-y-3">
+              {(getCompanySize() || company.category_size) && (
+                <div className="flex items-center space-x-2 text-sm">
+                  <Users className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <span className="text-gray-700">{getCompanySize() || company.category_size}</span>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2 text-sm">
+                <Star className="w-4 h-4 text-yellow-500 fill-current flex-shrink-0" />
+                <span className="text-gray-700">
+                  {company.rating_indeed
+                    ? `${company.rating_indeed} sterren${company.review_count_indeed ? ` (${company.review_count_indeed} reviews)` : ''}`
+                    : 'Geen rating'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Industries */}
+          {company.industries && company.industries.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                <Tag className="w-4 h-4" />
+                Industrieën
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {company.industries.map((industry, index) => (
+                  <Badge key={index} variant="outline" className="text-xs bg-gray-50">
+                    {industry}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sync Status Section - Enhanced */}
+          <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg p-4 space-y-4 border border-gray-200">
+            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-blue-600" />
+              Synchronisatie Status
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Pipedrive Sync Status */}
+              <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pipedrive</span>
+                  {company.pipedrive_synced && company.pipedrive_id && (
+                    <a
+                      href={`https://lokale-banen.pipedrive.com/organization/${company.pipedrive_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Open
+                    </a>
+                  )}
+                </div>
+                {company.pipedrive_synced ? (
+                  <div className="space-y-1">
+                    <Badge className="bg-green-100 text-green-800 border-green-200 w-full justify-center">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Gesynchroniseerd
+                    </Badge>
+                    {company.pipedrive_synced_at && (
+                      <p className="text-xs text-gray-500 text-center">
+                        {new Date(company.pipedrive_synced_at).toLocaleDateString('nl-NL', {
+                          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Badge variant="outline" className="text-gray-500 w-full justify-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Niet gesynchroniseerd
+                  </Badge>
+                )}
+              </div>
+
+              {/* Instantly Sync Status */}
+              <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Instantly</span>
+                </div>
+                {company.instantly_synced ? (
+                  <div className="space-y-1">
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 w-full justify-center">
+                      <Mail className="w-3 h-3 mr-1" />
+                      In Campagne
+                    </Badge>
+                    {company.instantly_synced_at && (
+                      <p className="text-xs text-gray-500 text-center">
+                        {new Date(company.instantly_synced_at).toLocaleDateString('nl-NL', {
+                          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Badge variant="outline" className="text-gray-500 w-full justify-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Niet in campagne
+                  </Badge>
+                )}
+              </div>
+
+              {/* Apollo Enrichment Status */}
+              <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Apollo</span>
+                </div>
+                {company.apollo_enriched_at ? (
+                  <div className="space-y-1">
+                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 w-full justify-center">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Verrijkt
+                    </Badge>
+                    <p className="text-xs text-gray-500 text-center">
+                      {new Date(company.apollo_enriched_at).toLocaleDateString('nl-NL', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                ) : company.enrichment_status ? (
+                  <Badge variant="outline" className={`w-full justify-center ${
+                    company.enrichment_status === 'pending'
+                      ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                      : company.enrichment_status === 'failed'
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : 'text-gray-600'
+                  }`}>
+                    <Clock className="w-3 h-3 mr-1" />
+                    {company.enrichment_status === 'pending' ? 'In wachtrij' :
+                     company.enrichment_status === 'failed' ? 'Mislukt' :
+                     company.enrichment_status}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-gray-500 w-full justify-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Niet verrijkt
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Contact Sync Summary */}
+            {contacts.length > 0 && (
+              <div className="bg-white rounded-lg p-3 border border-gray-100 mt-3">
+                <h5 className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  Contacten Sync Overzicht
+                </h5>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 bg-gray-50 rounded">
+                    <p className="text-lg font-bold text-gray-900">{contacts.length}</p>
+                    <p className="text-xs text-gray-500">Totaal</p>
+                  </div>
+                  <div className="p-2 bg-green-50 rounded">
+                    <p className="text-lg font-bold text-green-700">
+                      {contacts.filter(c => c.pipedrive_synced).length}
+                    </p>
+                    <p className="text-xs text-green-600">In Pipedrive</p>
+                  </div>
+                  <div className="p-2 bg-blue-50 rounded">
+                    <p className="text-lg font-bold text-blue-700">
+                      {contacts.filter(c => c.instantly_synced).length}
+                    </p>
+                    <p className="text-xs text-blue-600">In Instantly</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Apollo contacts count if enriched */}
+            {company.apollo_contacts_count !== null && company.apollo_contacts_count !== undefined && company.apollo_contacts_count > 0 && (
+              <div className="text-xs text-purple-600 bg-purple-50 rounded px-2 py-1 inline-flex items-center gap-1">
+                <Database className="w-3 h-3" />
+                {company.apollo_contacts_count} contacten gevonden via Apollo
+              </div>
+            )}
           </div>
 
           {/* Description */}
@@ -469,8 +698,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Title</TableHead>
-                      <TableHead>Email Status</TableHead>
-                      <TableHead>Qualification</TableHead>
+                      <TableHead className="text-center">Pipedrive</TableHead>
+                      <TableHead className="text-center">Instantly</TableHead>
                       <TableHead className="text-center">LinkedIn</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -519,40 +748,47 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                           <TableCell className="text-sm text-gray-600">
                             {contact.title || '-'}
                           </TableCell>
-                          <TableCell>
-                            {contact.email_status ? (
-                              <Badge 
-                                variant="outline"
-                                className={
-                                  contact.email_status === 'verified' 
-                                    ? 'bg-green-50 text-green-700 border-green-200 text-xs'
-                                    : contact.email_status === 'bounced'
-                                    ? 'bg-red-50 text-red-700 border-red-200 text-xs'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200 text-xs'
-                                }
-                              >
-                                {contact.email_status}
-                              </Badge>
+                          <TableCell className="text-center">
+                            {contact.pipedrive_synced ? (
+                              contact.pipedrive_person_id ? (
+                                <a
+                                  href={`https://lokale-banen.pipedrive.com/person/${contact.pipedrive_person_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`Synced ${contact.pipedrive_synced_at ? new Date(contact.pipedrive_synced_at).toLocaleDateString('nl-NL') : ''}`}
+                                >
+                                  <Badge className="bg-green-100 text-green-700 border-green-300 text-xs hover:bg-green-200 cursor-pointer">
+                                    ✓ Synced
+                                  </Badge>
+                                </a>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="bg-green-50 text-green-700 border-green-200 text-xs"
+                                  title={`Synced ${contact.pipedrive_synced_at ? new Date(contact.pipedrive_synced_at).toLocaleDateString('nl-NL') : ''}`}
+                                >
+                                  ✓ Synced
+                                </Badge>
+                              )
                             ) : (
-                              <span className="text-gray-400 text-sm">-</span>
+                              <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 text-xs">
+                                —
+                              </Badge>
                             )}
                           </TableCell>
-                          <TableCell>
-                            {contact.qualification_status ? (
-                              <Badge 
+                          <TableCell className="text-center">
+                            {contact.instantly_synced ? (
+                              <Badge
                                 variant="outline"
-                                className={
-                                  contact.qualification_status === 'qualified' 
-                                    ? 'bg-purple-50 text-purple-700 border-purple-200 text-xs'
-                                    : contact.qualification_status === 'disqualified'
-                                    ? 'bg-orange-50 text-orange-700 border-orange-200 text-xs'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200 text-xs'
-                                }
+                                className="bg-blue-50 text-blue-700 border-blue-200 text-xs"
+                                title={`Synced ${contact.instantly_synced_at ? new Date(contact.instantly_synced_at).toLocaleDateString('nl-NL') : ''}`}
                               >
-                                {contact.qualification_status}
+                                ✓ Synced
                               </Badge>
                             ) : (
-                              <span className="text-gray-400 text-sm">-</span>
+                              <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 text-xs">
+                                —
+                              </Badge>
                             )}
                           </TableCell>
                           <TableCell className="text-center">

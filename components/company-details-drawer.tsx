@@ -541,7 +541,7 @@ export function CompanyDetailsDrawer({
                       <div className="flex items-center space-x-2 text-sm">
                         <Globe className="w-4 h-4 text-gray-500" />
                         <a
-                          href={company.website}
+                          href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-orange-600 hover:text-orange-800 hover:underline"

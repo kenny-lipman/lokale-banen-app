@@ -52,6 +52,8 @@ interface CompaniesTabContainerProps {
   apolloEnrichedFilter?: string
   hasContactsFilter?: string
   regioPlatformFilter?: string[]
+  pipedriveFilter?: string
+  instantlyFilter?: string
   onCompanyClick?: (company: Company) => void
 }
 
@@ -73,6 +75,8 @@ export function CompaniesTabContainer({
   apolloEnrichedFilter = "all",
   hasContactsFilter = "all",
   regioPlatformFilter = [],
+  pipedriveFilter = "all",
+  instantlyFilter = "all",
   onCompanyClick
 }: CompaniesTabContainerProps) {
   const [activeTab, setActiveTab] = useState<'qualified' | 'review' | 'disqualified' | 'pending' | 'enriched'>('qualified')
@@ -98,6 +102,8 @@ export function CompaniesTabContainer({
     apolloEnriched: apolloEnrichedFilter !== "all" ? apolloEnrichedFilter : undefined,
     hasContacts: hasContactsFilter !== "all" ? hasContactsFilter : undefined,
     regioPlatformFilter: regioPlatformFilter.length > 0 ? regioPlatformFilter.join(',') : undefined,
+    pipedriveFilter: pipedriveFilter !== "all" ? pipedriveFilter : undefined,
+    instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined,
     qualification_status: qualificationStatus || 'all',
     limit: 100 // Load more companies per tab
   })
@@ -164,7 +170,7 @@ export function CompaniesTabContainer({
   useEffect(() => {
     loadTabData(activeTab)
     loadCounts()
-  }, [JSON.stringify(statusFilter), JSON.stringify(sourceFilter), customerFilter, websiteFilter, JSON.stringify(categorySizeFilter), apolloEnrichedFilter, hasContactsFilter, JSON.stringify(regioPlatformFilter)])
+  }, [JSON.stringify(statusFilter), JSON.stringify(sourceFilter), customerFilter, websiteFilter, JSON.stringify(categorySizeFilter), apolloEnrichedFilter, hasContactsFilter, JSON.stringify(regioPlatformFilter), pipedriveFilter, instantlyFilter])
 
   // Refresh all data
   const refreshData = async () => {
@@ -711,9 +717,9 @@ export function CompaniesTabContainer({
                   </span>
                 </div>
                 {company.website && (
-                  <a 
-                    href={company.website} 
-                    target="_blank" 
+                  <a
+                    href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:text-blue-700"
                   >

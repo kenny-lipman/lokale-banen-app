@@ -152,9 +152,9 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                   {company.website && (
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4 text-gray-400" />
-                      <a 
-                        href={company.website} 
-                        target="_blank" 
+                      <a
+                        href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline text-sm break-all"
                       >

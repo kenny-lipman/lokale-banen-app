@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles, AlertCircle, Target } from "lucide-react"
+import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles, AlertCircle, Target, Send } from "lucide-react"
 import { authFetch } from "@/lib/authenticated-fetch"
 import { supabaseService } from "@/lib/supabase-service"
 import { useToast } from "@/hooks/use-toast"
@@ -54,6 +54,7 @@ interface Company {
   qualification_timestamp?: string | null; // Added for qualification workflow
   pipedrive_synced?: boolean | null; // Added for Pipedrive sync status
   pipedrive_synced_at?: string | null; // Added for Pipedrive sync timestamp
+  instantly_synced?: boolean | null; // Added for Instantly sync status (derived from contacts)
 }
 
 interface CompaniesTableProps {
@@ -306,11 +307,29 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         </Badge>
       )
     }
-    
+
     return (
       <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
         <XCircle className="w-3 h-3 mr-1" />
         Niet gesynct
+      </Badge>
+    )
+  }
+
+  const getInstantlySyncBadge = (synced: boolean | null | undefined) => {
+    if (synced === true) {
+      return (
+        <Badge className="bg-cyan-100 text-cyan-800 border-cyan-200 text-xs px-2 py-1">
+          <Send className="w-3 h-3 mr-1" />
+          In Instantly
+        </Badge>
+      )
+    }
+
+    return (
+      <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
+        <XCircle className="w-3 h-3 mr-1" />
+        -
       </Badge>
     )
   }
@@ -789,6 +808,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               <TableHead>Hoofddomein</TableHead>
               <TableHead>Verrijkt</TableHead>
               <TableHead>Pipedrive</TableHead>
+              <TableHead>Instantly</TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => {
@@ -830,9 +850,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
           <TableBody>
             {loading ? (
               <>
-                <TableSkeleton rows={8} columns={11} />
+                <TableSkeleton rows={8} columns={12} />
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-4 text-gray-500">
+                  <TableCell colSpan={12} className="text-center py-4 text-gray-500">
                     <div className="flex items-center justify-center space-x-2">
                       <LoadingSpinner size="sm" />
                       <span>Bedrijven laden... ({totalCount.toLocaleString('nl-NL')} totaal)</span>
@@ -842,7 +862,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               </>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-red-500">
+                <TableCell colSpan={12} className="text-center py-8 text-red-500">
                   <div className="flex flex-col items-center space-y-2">
                     <AlertCircle className="w-8 h-8 text-red-400" />
                     <span>Fout bij het laden van bedrijven</span>
@@ -854,7 +874,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               </TableRow>
             ) : pagedCompanies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={12} className="text-center py-8 text-gray-500">
                   Geen bedrijven gevonden
                 </TableCell>
               </TableRow>
@@ -956,14 +976,15 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                   </TableCell>
                   <TableCell className="max-w-[180px]">
                     {company.website && company.website.trim() !== "" ? (
-                      <a 
-                        href={company.website} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
+                      <a
+                        href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-orange-600 hover:underline block truncate"
                         title={company.website}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {company.website}
+                        {company.website.replace(/^https?:\/\//, '')}
                       </a>
                     ) : (
                       <span className="text-gray-400 text-sm">-</span>
@@ -975,6 +996,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                   </TableCell>
                   <TableCell>
                     {getPipedriveSyncBadge(company.pipedrive_synced, company.pipedrive_synced_at)}
+                  </TableCell>
+                  <TableCell>
+                    {getInstantlySyncBadge(company.instantly_synced)}
                   </TableCell>
                   <TableCell>
                     <Button 
@@ -1005,7 +1029,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                       </Button>
                       {company.website && (
                         <Button variant="ghost" size="sm" asChild>
-                          <a href={company.website} target="_blank" rel="noopener noreferrer">
+                          <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer">
                             <Globe className="w-4 h-4 text-gray-500" />
                           </a>
                         </Button>

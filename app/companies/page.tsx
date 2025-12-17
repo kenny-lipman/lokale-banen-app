@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
@@ -11,8 +12,45 @@ import { CompaniesFilters } from "@/components/companies-filters"
 import { supabaseService } from "@/lib/supabase-service"
 
 export default function CompaniesPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [selectedCompany, setSelectedCompany] = useState<any>(null)
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+
+  // Handle URL query param for company ID
+  useEffect(() => {
+    const companyId = searchParams.get('id')
+    if (companyId && !selectedCompany) {
+      // Fetch company data by ID and open drawer
+      const fetchCompanyById = async () => {
+        try {
+          const response = await fetch(`/api/otis/companies/${companyId}/details`)
+          if (response.ok) {
+            const result = await response.json()
+            if (result.success && result.data) {
+              setSelectedCompany(result.data)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching company by ID:', error)
+        }
+      }
+      fetchCompanyById()
+    }
+  }, [searchParams, selectedCompany])
+
+  // Update URL when company is selected/deselected
+  const handleCompanySelect = (company: any) => {
+    setSelectedCompany(company)
+    if (company?.id) {
+      router.push(`/companies?id=${company.id}`, { scroll: false })
+    }
+  }
+
+  const handleDrawerClose = () => {
+    setSelectedCompany(null)
+    router.push('/companies', { scroll: false })
+  }
 
   // Filter state (preserve all existing filters)
   const [searchTerm, setSearchTerm] = useState("")
@@ -24,6 +62,8 @@ export default function CompaniesPage() {
   const [apolloEnrichedFilter, setApolloEnrichedFilter] = useState("all")
   const [hasContactsFilter, setHasContactsFilter] = useState("all")
   const [regioPlatformFilter, setRegioPlatformFilter] = useState<string[]>([])
+  const [pipedriveFilter, setPipedriveFilter] = useState("all")
+  const [instantlyFilter, setInstantlyFilter] = useState("all")
 
   // Filter data state
   const [allSources, setAllSources] = useState<{id: string, name: string}[]>([])
@@ -93,6 +133,10 @@ export default function CompaniesPage() {
           setHasContactsFilter={setHasContactsFilter}
           regioPlatformFilter={regioPlatformFilter}
           setRegioPlatformFilter={setRegioPlatformFilter}
+          pipedriveFilter={pipedriveFilter}
+          setPipedriveFilter={setPipedriveFilter}
+          instantlyFilter={instantlyFilter}
+          setInstantlyFilter={setInstantlyFilter}
           totalCount={totalCompaniesCount}
           allSources={allSources}
           allRegioPlatformOptions={allRegioPlatformOptions}
@@ -100,7 +144,7 @@ export default function CompaniesPage() {
       </div>
 
       {/* Companies Qualification Management */}
-      <CompaniesTabContainer 
+      <CompaniesTabContainer
         searchTerm={searchTerm}
         statusFilter={statusFilter}
         sourceFilter={sourceFilter}
@@ -110,11 +154,13 @@ export default function CompaniesPage() {
         apolloEnrichedFilter={apolloEnrichedFilter}
         hasContactsFilter={hasContactsFilter}
         regioPlatformFilter={regioPlatformFilter}
-        onCompanyClick={setSelectedCompany}
+        pipedriveFilter={pipedriveFilter}
+        instantlyFilter={instantlyFilter}
+        onCompanyClick={handleCompanySelect}
       />
 
       {/* Company Detail Drawer */}
-      <CompanyDrawer company={selectedCompany} open={!!selectedCompany} onClose={() => setSelectedCompany(null)} />
+      <CompanyDrawer company={selectedCompany} open={!!selectedCompany} onClose={handleDrawerClose} />
     </div>
   )
 }

@@ -10,6 +10,8 @@ interface ContactsFilters {
   companySize?: string
   categoryStatus?: string
   status?: string
+  pipedriveFilter?: string
+  instantlyFilter?: string
 }
 
 interface ContactsResult {
@@ -59,7 +61,9 @@ export function useContactsPaginated(
       if (filters.companySize) params.append('companySize', filters.companySize)
       if (filters.categoryStatus) params.append('categoryStatus', filters.categoryStatus)
       if (filters.status) params.append('status', filters.status)
-      
+      if (filters.pipedriveFilter) params.append('pipedriveFilter', filters.pipedriveFilter)
+      if (filters.instantlyFilter) params.append('instantlyFilter', filters.instantlyFilter)
+
       const response = await authFetch(`/api/contacts?${params.toString()}`)
       
       if (!response.ok) {

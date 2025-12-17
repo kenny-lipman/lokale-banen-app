@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star, CheckCircle, Clock, XCircle, AlertCircle, Archive, Crown, RefreshCw, Check, X, Pencil } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star, CheckCircle, Clock, XCircle, AlertCircle, Archive, Crown, RefreshCw, Check, X, Pencil, Briefcase } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useJobPostingsCache } from "@/hooks/use-job-postings-cache"
-import { TableFilters, TablePagination } from "@/components/ui/table-filters"
+import { TableFilters, TablePagination, DateRangeFilter, SalaryRangeFilter, HoursRangeFilter } from "@/components/ui/table-filters"
 import { useDebounce } from "@/hooks/use-debounce"
 import { TableSkeleton, LoadingSpinner } from "@/components/ui/loading-states"
+import { JobPostingDrawer } from "@/components/job-posting-drawer"
 
 // Lazy load supabaseService to avoid circular dependencies
 let supabaseService: any = null
@@ -51,6 +52,19 @@ interface JobPosting {
   source_name?: string;
   regio_platform?: string;
   platform_id?: string;
+  // New fields for filters and drawer
+  description?: string;
+  employment?: string;
+  career_level?: string;
+  education_level?: string;
+  working_hours_min?: number;
+  working_hours_max?: number;
+  categories?: string;
+  end_date?: string;
+  city?: string;
+  zipcode?: string;
+  street?: string;
+  created_at?: string;
 }
 
 interface JobPostingsTableProps {
@@ -79,6 +93,21 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
   const [savingJobId, setSavingJobId] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
+  // New filter states
+  const [dateFrom, setDateFrom] = useState<string | null>(null)
+  const [dateTo, setDateTo] = useState<string | null>(null)
+  const [employmentFilter, setEmploymentFilter] = useState<string[]>([])
+  const [salaryMin, setSalaryMin] = useState<number | null>(null)
+  const [salaryMax, setSalaryMax] = useState<number | null>(null)
+  const [careerLevelFilter, setCareerLevelFilter] = useState<string[]>([])
+  const [educationLevelFilter, setEducationLevelFilter] = useState<string[]>([])
+  const [hoursMin, setHoursMin] = useState<number | null>(null)
+  const [hoursMax, setHoursMax] = useState<number | null>(null)
+
+  // Drawer state
+  const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   // Debounce search term for better performance
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
 
@@ -98,6 +127,16 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           status: statusFilter === "all" ? undefined : statusFilter,
           source_id: sourceFilter.length > 0 ? sourceFilter : undefined,
           platform_id: platformFilter.length > 0 ? platformFilter : undefined,
+          // New filter parameters
+          date_from: dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
+          date_to: dateTo ? `${dateTo}T23:59:59Z` : undefined,
+          employment: employmentFilter.length > 0 ? employmentFilter : undefined,
+          salary_min: salaryMin ?? undefined,
+          salary_max: salaryMax ?? undefined,
+          career_level: careerLevelFilter.length > 0 ? careerLevelFilter : undefined,
+          education_level: educationLevelFilter.length > 0 ? educationLevelFilter : undefined,
+          hours_min: hoursMin ?? undefined,
+          hours_max: hoursMax ?? undefined,
         }
   )
 
@@ -163,7 +202,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
     if (currentPage !== 1) {
       setCurrentPage(1)
     }
-  }, [debouncedSearchTerm, statusFilter, sourceFilter, platformFilter])
+  }, [debouncedSearchTerm, statusFilter, sourceFilter, platformFilter, dateFrom, dateTo, employmentFilter, salaryMin, salaryMax, careerLevelFilter, educationLevelFilter, hoursMin, hoursMax])
 
   // No client-side filtering needed - all filtering is handled server-side
   const filteredJobPostings = jobPostings;
@@ -339,6 +378,16 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           setPlatformFilter([])
           setStatusFilter("all")
           setCurrentPage(1)
+          // Reset new filters
+          setDateFrom(null)
+          setDateTo(null)
+          setEmploymentFilter([])
+          setSalaryMin(null)
+          setSalaryMax(null)
+          setCareerLevelFilter([])
+          setEducationLevelFilter([])
+          setHoursMin(null)
+          setHoursMax(null)
         }}
         filters={[
           {
@@ -387,6 +436,78 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
               { value: "archived", label: "Gearchiveerd" }
             ],
             placeholder: "Filter op status"
+          },
+          {
+            id: "employment",
+            label: "Dienstverband",
+            value: employmentFilter,
+            onValueChange: (val: string) => {
+              setEmploymentFilter(prev =>
+                prev.includes(val)
+                  ? prev.filter(v => v !== val)
+                  : [...prev, val]
+              )
+            },
+            options: [
+              { value: "Vast", label: "Vast" },
+              { value: "Tijdelijk", label: "Tijdelijk" },
+              { value: "Stage", label: "Stage" },
+              { value: "Vrijwilliger", label: "Vrijwilliger" },
+              { value: "Bijbaan", label: "Bijbaan" },
+              { value: "Freelance", label: "Freelance" },
+              { value: "Interim", label: "Interim" },
+              { value: "ZZP", label: "ZZP" },
+              { value: "Leer-werk overeenkomst", label: "Leer-werk overeenkomst" }
+            ],
+            placeholder: "Filter op dienstverband",
+            multiple: true
+          },
+          {
+            id: "careerLevel",
+            label: "Ervaringsniveau",
+            value: careerLevelFilter,
+            onValueChange: (val: string) => {
+              setCareerLevelFilter(prev =>
+                prev.includes(val)
+                  ? prev.filter(v => v !== val)
+                  : [...prev, val]
+              )
+            },
+            options: [
+              { value: "Geen ervaring", label: "Geen ervaring" },
+              { value: "Starter", label: "Starter" },
+              { value: "Ervaren", label: "Ervaren" },
+              { value: "Leidinggevend", label: "Leidinggevend" },
+              { value: "Senior management", label: "Senior management" },
+              { value: "Directie", label: "Directie" }
+            ],
+            placeholder: "Filter op ervaring",
+            multiple: true
+          },
+          {
+            id: "educationLevel",
+            label: "Opleidingsniveau",
+            value: educationLevelFilter,
+            onValueChange: (val: string) => {
+              setEducationLevelFilter(prev =>
+                prev.includes(val)
+                  ? prev.filter(v => v !== val)
+                  : [...prev, val]
+              )
+            },
+            options: [
+              { value: "Lagere school", label: "Lagere school" },
+              { value: "VMBO/MAVO", label: "VMBO/MAVO" },
+              { value: "HAVO", label: "HAVO" },
+              { value: "VWO", label: "VWO" },
+              { value: "LBO", label: "LBO" },
+              { value: "MBO", label: "MBO" },
+              { value: "HBO", label: "HBO" },
+              { value: "WO", label: "WO" },
+              { value: "Postdoctoraal", label: "Postdoctoraal" }
+            ],
+            placeholder: "Filter op opleiding",
+            multiple: true
           }
         ]}
         actionButtons={
@@ -401,7 +522,32 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
             Vernieuwen
           </Button>
         }
-      />
+      >
+        {/* Extra range filters */}
+        <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-200 mt-3">
+          <DateRangeFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            label="Publicatiedatum"
+          />
+          <SalaryRangeFilter
+            salaryMin={salaryMin}
+            salaryMax={salaryMax}
+            onSalaryMinChange={setSalaryMin}
+            onSalaryMaxChange={setSalaryMax}
+            label="Salaris"
+          />
+          <HoursRangeFilter
+            hoursMin={hoursMin}
+            hoursMax={hoursMax}
+            onHoursMinChange={setHoursMin}
+            onHoursMaxChange={setHoursMax}
+            label="Uren per week"
+          />
+        </div>
+      </TableFilters>
 
       {/* Error message */}
       {error && !initializationError && (
@@ -450,7 +596,14 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
               </TableRow>
             ) : (
               filteredJobPostings.map((job) => (
-                <TableRow key={String(job.id ?? job.title ?? job.company_name ?? Math.random())} className="hover:bg-orange-50">
+                <TableRow
+                  key={String(job.id ?? job.title ?? job.company_name ?? Math.random())}
+                  className="hover:bg-orange-50 cursor-pointer"
+                  onClick={() => {
+                    setSelectedJob(job)
+                    setDrawerOpen(true)
+                  }}
+                >
                   <TableCell>
                     <div className="space-y-1">
                       <div className="font-medium flex items-center gap-2">
@@ -492,7 +645,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                       <div>
                         {job.company_website ? (
                           <a
-                            href={job.company_website}
+                            href={job.company_website.startsWith('http') ? job.company_website : `https://${job.company_website}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-orange-600 hover:text-orange-800 hover:underline font-medium"
@@ -557,10 +710,21 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                   <TableCell>{getStatusBadge(job.status)}</TableCell>
                   <TableCell className="text-sm text-gray-600">{formatDate(job.scraped_at)}</TableCell>
                   <TableCell>
-                    <div className="flex space-x-1">
+                    <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedJob(job)
+                          setDrawerOpen(true)
+                        }}
+                        title="Bekijk details"
+                      >
+                        <Eye className="w-4 h-4 text-gray-500" />
+                      </Button>
                       {job.url && (
                         <Button variant="ghost" size="sm" asChild>
-                          <a href={job.url} target="_blank" rel="noopener noreferrer">
+                          <a href={job.url} target="_blank" rel="noopener noreferrer" title="Open vacature">
                             <ExternalLink className="w-4 h-4 text-gray-500" />
                           </a>
                         </Button>
@@ -588,6 +752,25 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
           }}
         />
       )}
+
+      {/* Job Posting Drawer */}
+      <JobPostingDrawer
+        job={selectedJob}
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false)
+          setSelectedJob(null)
+        }}
+        onCompanyClick={async (companyId) => {
+          try {
+            const service = await getSupabaseService()
+            const companyData = await service.getCompanyDetails(companyId)
+            onCompanyClick(companyData)
+          } catch (error) {
+            console.error("Error fetching company details:", error)
+          }
+        }}
+      />
     </div>
   )
 }
