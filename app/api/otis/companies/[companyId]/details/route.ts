@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET(
   request: NextRequest,
@@ -7,7 +12,6 @@ export async function GET(
 ) {
   try {
     const { companyId } = await params
-    const supabase = createClient()
 
     // Input validation
     if (!companyId) {
@@ -17,7 +21,7 @@ export async function GET(
       }, { status: 400 })
     }
 
-    // Fetch company details
+    // Fetch company details with all fields needed by CompanyDrawer
     const { data: company, error: companyError } = await supabase
       .from('companies')
       .select(`
@@ -34,11 +38,22 @@ export async function GET(
         qualification_notes,
         qualified_by_user,
         enrichment_status,
-        enrichment_started_at,
-        enrichment_completed_at,
-        enrichment_error_message,
-        last_enrichment_batch_id,
-        created_at
+        apollo_enriched_at,
+        apollo_contacts_count,
+        created_at,
+        indeed_url,
+        logo_url,
+        rating_indeed,
+        review_count_indeed,
+        is_customer,
+        source,
+        linkedin_url,
+        kvk,
+        phone,
+        industries,
+        city,
+        status,
+        start
       `)
       .eq('id', companyId)
       .single()
@@ -76,12 +91,13 @@ export async function GET(
       // Don't fail the whole request if job postings fail
     }
 
-    // Fetch contacts for this company
+    // Fetch contacts for this company with sync status
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select(`
         id,
         name,
+        first_name,
         email,
         title,
         linkedin_url,
@@ -89,7 +105,13 @@ export async function GET(
         email_status,
         created_at,
         campaign_id,
-        campaign_name
+        campaign_name,
+        pipedrive_synced,
+        pipedrive_synced_at,
+        pipedrive_person_id,
+        instantly_synced,
+        instantly_synced_at,
+        instantly_status
       `)
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })

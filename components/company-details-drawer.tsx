@@ -382,7 +382,7 @@ export function CompanyDetailsDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
+      <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
         <SheetHeader className="space-y-4">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">

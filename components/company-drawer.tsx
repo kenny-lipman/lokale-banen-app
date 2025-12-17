@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive, Crown, RefreshCw, Mail, Link, Phone, Hash, Linkedin, Database, Calendar, Tag } from "lucide-react"
+import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive, Crown, RefreshCw, Mail, Link, Phone, Hash, Linkedin, Database, Calendar, Tag, Eye } from "lucide-react"
 import { authFetch } from "@/lib/authenticated-fetch"
 
 interface JobPosting {
@@ -89,6 +90,7 @@ interface CompanyDrawerProps {
 }
 
 export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
+  const router = useRouter()
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([])
   const [loadingJobs, setLoadingJobs] = useState(false)
   const [jobsError, setJobsError] = useState<string | null>(null)
@@ -96,6 +98,18 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [contactsError, setContactsError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Navigate to job posting detail page
+  const handleJobClick = (jobId: string) => {
+    onClose()
+    router.push(`/job-postings?id=${jobId}`)
+  }
+
+  // Navigate to contact detail page
+  const handleContactClick = (contactId: string) => {
+    onClose()
+    router.push(`/contacten?id=${contactId}`)
+  }
 
   // Fetch job postings and contacts when company changes
   useEffect(() => {
@@ -229,7 +243,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-[700px] sm:max-w-[700px] overflow-y-auto">
+      <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
         <SheetHeader className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -633,10 +647,14 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                     </TableRow>
                   ) : (
                     jobPostings.map((job) => (
-                      <TableRow key={job.id} className="hover:bg-orange-50">
+                      <TableRow
+                        key={job.id}
+                        className="hover:bg-orange-50 cursor-pointer"
+                        onClick={() => handleJobClick(job.id)}
+                      >
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="font-medium text-sm">{job.title}</div>
+                            <div className="font-medium text-sm text-orange-600 hover:text-orange-800">{job.title}</div>
                             {job.salary && <div className="text-xs text-gray-500">{job.salary}</div>}
                           </div>
                         </TableCell>
@@ -661,13 +679,23 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                         <TableCell>{getStatusBadge(job.status)}</TableCell>
                         <TableCell className="text-sm text-gray-600">{formatDate(job.created_at)}</TableCell>
                         <TableCell>
-                          {job.url && (
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={job.url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
+                          <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleJobClick(job.id)}
+                              title="Bekijk details"
+                            >
+                              <Eye className="w-3 h-3 text-gray-500" />
                             </Button>
-                          )}
+                            {job.url && (
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={job.url} target="_blank" rel="noopener noreferrer" title="Open vacature">
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -700,7 +728,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                       <TableHead>Title</TableHead>
                       <TableHead className="text-center">Pipedrive</TableHead>
                       <TableHead className="text-center">Instantly</TableHead>
-                      <TableHead className="text-center">LinkedIn</TableHead>
+                      <TableHead className="text-center">Acties</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -727,9 +755,15 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                       </TableRow>
                     ) : (
                       contacts.map((contact) => (
-                        <TableRow key={contact.id} className="hover:bg-purple-50">
+                        <TableRow
+                          key={contact.id}
+                          className="hover:bg-purple-50 cursor-pointer"
+                          onClick={() => handleContactClick(contact.id)}
+                        >
                           <TableCell className="font-medium">
-                            {contact.name || contact.first_name || '-'}
+                            <span className="text-purple-600 hover:text-purple-800">
+                              {contact.name || contact.first_name || '-'}
+                            </span>
                           </TableCell>
                           <TableCell>
                             {contact.email ? (
@@ -748,7 +782,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                           <TableCell className="text-sm text-gray-600">
                             {contact.title || '-'}
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             {contact.pipedrive_synced ? (
                               contact.pipedrive_person_id ? (
                                 <a
@@ -776,7 +810,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             {contact.instantly_synced ? (
                               <Badge
                                 variant="outline"
@@ -791,22 +825,29 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-center">
-                            {contact.linkedin_url ? (
-                              <a
-                                href={contact.linkedin_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex justify-center text-blue-600 hover:text-blue-800"
-                                title="View LinkedIn Profile"
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleContactClick(contact.id)}
+                                title="Bekijk details"
                               >
-                                <Link className="w-4 h-4" />
-                              </a>
-                            ) : (
-                              <span className="text-gray-300 inline-flex justify-center">
-                                <Link className="w-4 h-4" />
-                              </span>
-                            )}
+                                <Eye className="w-3 h-3 text-gray-500" />
+                              </Button>
+                              {contact.linkedin_url && (
+                                <Button variant="ghost" size="sm" asChild>
+                                  <a
+                                    href={contact.linkedin_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="View LinkedIn Profile"
+                                  >
+                                    <Linkedin className="w-3 h-3 text-[#0A66C2]" />
+                                  </a>
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
