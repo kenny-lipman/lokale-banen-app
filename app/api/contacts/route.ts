@@ -16,9 +16,11 @@ export async function GET(req: NextRequest) {
     const companySize = searchParams.get('companySize') || ''
     const categoryStatus = searchParams.get('categoryStatus') || ''
     const status = searchParams.get('status') || ''
+    const pipedriveFilter = searchParams.get('pipedriveFilter') || ''
+    const instantlyFilter = searchParams.get('instantlyFilter') || ''
 
-    console.log("API: Starting to fetch contacts with filters:", { 
-      page, limit, search, inCampaign, hasEmail, companyStatus, companyStart, companySize, categoryStatus, status 
+    console.log("API: Starting to fetch contacts with filters:", {
+      page, limit, search, inCampaign, hasEmail, companyStatus, companyStart, companySize, categoryStatus, status, pipedriveFilter, instantlyFilter
     })
     
     const filters = {
@@ -29,7 +31,9 @@ export async function GET(req: NextRequest) {
       companyStart: companyStart || undefined,
       companySize: companySize || undefined,
       categoryStatus: categoryStatus || undefined,
-      status: status || undefined
+      status: status || undefined,
+      pipedriveFilter: pipedriveFilter || undefined,
+      instantlyFilter: instantlyFilter || undefined
     }
 
     // Remove empty filters
@@ -64,6 +68,13 @@ export async function GET(req: NextRequest) {
         campaign_name,
         campaign_id,
         company_id,
+        pipedrive_synced,
+        pipedrive_synced_at,
+        pipedrive_person_id,
+        instantly_synced,
+        instantly_synced_at,
+        instantly_status,
+        instantly_campaign_ids,
         companies${needsCompanyJoin ? '!inner' : ''} (
           id,
           name,
@@ -74,11 +85,12 @@ export async function GET(req: NextRequest) {
         )
       `, { count: 'exact' })
 
-    // Apply search filter
+    // Apply search filter - note: can't search on related table (companies.name) in .or() with PostgREST
+    // So we only search on contacts fields directly
     if (filters.search) {
       // Escape special characters that might cause SQL issues
       const searchTerm = filters.search.replace(/[%_]/g, '\\$&')
-      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,companies.name.ilike.%${searchTerm}%`)
+      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
     }
 
     // Apply hasEmail filter
@@ -124,6 +136,20 @@ export async function GET(req: NextRequest) {
         s === 'null' ? null : s
       )
       query = query.in('companies.category_size', sizes)
+    }
+
+    // Apply Pipedrive sync filter
+    if (filters.pipedriveFilter === 'synced') {
+      query = query.eq('pipedrive_synced', true)
+    } else if (filters.pipedriveFilter === 'not_synced') {
+      query = query.or('pipedrive_synced.is.null,pipedrive_synced.eq.false')
+    }
+
+    // Apply Instantly sync filter
+    if (filters.instantlyFilter === 'synced') {
+      query = query.eq('instantly_synced', true)
+    } else if (filters.instantlyFilter === 'not_synced') {
+      query = query.or('instantly_synced.is.null,instantly_synced.eq.false')
     }
 
     // Execute query with pagination
