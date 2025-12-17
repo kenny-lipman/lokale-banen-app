@@ -12,6 +12,8 @@ interface ContactsFilters {
   status?: string
   pipedriveFilter?: string
   instantlyFilter?: string
+  dateFrom?: string
+  dateTo?: string
 }
 
 interface ContactsResult {
@@ -63,6 +65,8 @@ export function useContactsPaginated(
       if (filters.status) params.append('status', filters.status)
       if (filters.pipedriveFilter) params.append('pipedriveFilter', filters.pipedriveFilter)
       if (filters.instantlyFilter) params.append('instantlyFilter', filters.instantlyFilter)
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
+      if (filters.dateTo) params.append('dateTo', filters.dateTo)
 
       const response = await authFetch(`/api/contacts?${params.toString()}`)
       

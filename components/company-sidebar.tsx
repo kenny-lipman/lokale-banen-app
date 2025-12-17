@@ -79,7 +79,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="sm:max-w-[540px] p-0">
+      <SheetContent className="w-[700px] sm:max-w-[700px] p-0">
         <ScrollArea className="h-full">
           <div className="p-6">
             <SheetHeader className="space-y-4">
@@ -106,6 +106,12 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                       </Badge>
                     )}
                   </div>
+                  {company.created_at && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+                      <Calendar className="h-3 w-3" />
+                      <span>Aangemaakt: {formatDate(company.created_at)}</span>
+                    </div>
+                  )}
                 </div>
                 <Button variant="ghost" size="sm" onClick={onClose}>
                   <X className="h-4 w-4" />

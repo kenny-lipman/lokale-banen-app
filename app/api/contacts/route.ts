@@ -18,9 +18,11 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || ''
     const pipedriveFilter = searchParams.get('pipedriveFilter') || ''
     const instantlyFilter = searchParams.get('instantlyFilter') || ''
+    const dateFrom = searchParams.get('dateFrom') || ''
+    const dateTo = searchParams.get('dateTo') || ''
 
     console.log("API: Starting to fetch contacts with filters:", {
-      page, limit, search, inCampaign, hasEmail, companyStatus, companyStart, companySize, categoryStatus, status, pipedriveFilter, instantlyFilter
+      page, limit, search, inCampaign, hasEmail, companyStatus, companyStart, companySize, categoryStatus, status, pipedriveFilter, instantlyFilter, dateFrom, dateTo
     })
     
     const filters = {
@@ -150,6 +152,14 @@ export async function GET(req: NextRequest) {
       query = query.eq('instantly_synced', true)
     } else if (filters.instantlyFilter === 'not_synced') {
       query = query.or('instantly_synced.is.null,instantly_synced.eq.false')
+    }
+
+    // Apply date range filter (created_at)
+    if (dateFrom) {
+      query = query.gte('created_at', `${dateFrom}T00:00:00Z`)
+    }
+    if (dateTo) {
+      query = query.lte('created_at', `${dateTo}T23:59:59Z`)
     }
 
     // Execute query with pagination

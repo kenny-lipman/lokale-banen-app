@@ -25,6 +25,7 @@ import { ColumnVisibilityToggle, ColumnVisibility } from "@/components/contacts/
 import { formatDutchPhone } from "@/lib/validators/contact"
 import { TableCellWithTooltip } from "@/components/ui/table-cell-with-tooltip"
 import { LocationSummaryCompact } from "@/components/contacts/location-summary-compact"
+import { DateRangeFilter } from "@/components/ui/table-filters"
 
 interface Contact {
   id: string
@@ -161,6 +162,8 @@ export default function ContactsPage() {
   const [categoryStatusFilter, setCategoryStatusFilter] = useState<string[]>([])
   const [pipedriveFilter, setPipedriveFilter] = useState<string>("all")
   const [instantlyFilter, setInstantlyFilter] = useState<string>("all")
+  const [dateFrom, setDateFrom] = useState<string | null>(null)
+  const [dateTo, setDateTo] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(15)
 
@@ -203,7 +206,7 @@ export default function ContactsPage() {
     campagne: true,
     pipedriveStatus: true,
     instantlyStatus: true,
-    aangemaakt: false
+    aangemaakt: true
   })
   
   const { toast } = useToast()
@@ -223,7 +226,9 @@ export default function ContactsPage() {
     companySizeFilter,
     categoryStatusFilter,
     pipedriveFilter,
-    instantlyFilter
+    instantlyFilter,
+    dateFrom,
+    dateTo
   ])
 
   // Build filters object for API call
@@ -236,7 +241,9 @@ export default function ContactsPage() {
     companySize: companySizeFilter.length > 0 ? companySizeFilter.join(',') : undefined,
     categoryStatus: categoryStatusFilter.length > 0 ? categoryStatusFilter.join(',') : undefined,
     pipedriveFilter: pipedriveFilter !== "all" ? pipedriveFilter : undefined,
-    instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined
+    instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined
   }
 
   const { data: contacts, loading, error, count, totalPages } = useContactsPaginated(
@@ -388,6 +395,8 @@ export default function ContactsPage() {
     setCategoryStatusFilter([])
     setPipedriveFilter("all")
     setInstantlyFilter("all")
+    setDateFrom(null)
+    setDateTo(null)
     setCurrentPage(1)
   }
 
@@ -403,6 +412,7 @@ export default function ContactsPage() {
     if (categoryStatusFilter.length > 0) count++
     if (pipedriveFilter !== "all") count++
     if (instantlyFilter !== "all") count++
+    if (dateFrom || dateTo) count++
     return count
   }
 
@@ -827,6 +837,20 @@ export default function ContactsPage() {
                     />
                   </Badge>
                 )}
+                {(dateFrom || dateTo) && (
+                  <Badge variant="secondary" className="gap-1">
+                    Aangemaakt: {dateFrom && dateTo
+                      ? `${new Date(dateFrom).toLocaleDateString('nl-NL')} - ${new Date(dateTo).toLocaleDateString('nl-NL')}`
+                      : dateFrom
+                        ? `Vanaf ${new Date(dateFrom).toLocaleDateString('nl-NL')}`
+                        : `Tot ${new Date(dateTo!).toLocaleDateString('nl-NL')}`
+                    }
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => { setDateFrom(null); setDateTo(null); }}
+                    />
+                  </Badge>
+                )}
               </div>
               <Button 
                 variant="ghost" 
@@ -963,6 +987,15 @@ export default function ContactsPage() {
               </SelectContent>
             </Select>
 
+            {/* Date Range Filter */}
+            <DateRangeFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              label="Aangemaakt op"
+            />
+
             {/* Reset Filters Button */}
             <Button 
               variant="outline" 
@@ -1056,6 +1089,7 @@ export default function ContactsPage() {
                         />
                       </TableHead>
                       {columnVisibility.naam && <TableHead className="w-24">Naam</TableHead>}
+                      {columnVisibility.aangemaakt && <TableHead className="w-20">Datum</TableHead>}
                       {columnVisibility.kwalificatiestatus && <TableHead className="w-20">Status</TableHead>}
                       {columnVisibility.functie && <TableHead className="w-24">Functie</TableHead>}
                       {columnVisibility.telefoon && <TableHead className="w-24">Telefoon</TableHead>}
@@ -1070,7 +1104,6 @@ export default function ContactsPage() {
                       {columnVisibility.campagne && <TableHead className="w-24">Campagne</TableHead>}
                       {columnVisibility.pipedriveStatus && <TableHead className="w-16" title="Pipedrive Status">Pipedrive</TableHead>}
                       {columnVisibility.instantlyStatus && <TableHead className="w-16" title="Instantly Status">Instantly</TableHead>}
-                      {columnVisibility.aangemaakt && <TableHead className="w-20">Datum</TableHead>}
                       <TableHead className="w-[90px] sticky right-0 bg-white shadow-sm">Acties</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1096,13 +1129,25 @@ export default function ContactsPage() {
                           </TableCell>
                           {columnVisibility.naam && (
                             <TableCell className="py-2">
-                              <TableCellWithTooltip 
-                                value={contact.first_name || contact.last_name 
+                              <TableCellWithTooltip
+                                value={contact.first_name || contact.last_name
                                   ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
                                   : null
                                 }
                                 className="font-medium"
                                 maxWidth="w-24"
+                              />
+                            </TableCell>
+                          )}
+                          {columnVisibility.aangemaakt && (
+                            <TableCell className="py-2">
+                              <TableCellWithTooltip
+                                value={contact.created_at
+                                  ? new Date(contact.created_at).toLocaleDateString('nl-NL')
+                                  : null
+                                }
+                                className="text-gray-600"
+                                maxWidth="w-20"
                               />
                             </TableCell>
                           )}

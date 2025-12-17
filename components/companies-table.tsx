@@ -844,15 +844,32 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                 {orderBy === 'job_counts' && orderDirection === 'desc' && <ChevronDown className="inline w-4 h-4 ml-1 text-gray-600" />}
               </TableHead>
               <TableHead>Grootte</TableHead>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => {
+                  if (orderBy === 'created_at') {
+                    setOrderDirection(orderDirection === 'desc' ? 'asc' : 'desc')
+                  } else {
+                    setOrderBy('created_at')
+                    setOrderDirection('desc')
+                  }
+                  setCurrentPage(1)
+                }}
+              >
+                Aangemaakt
+                {orderBy !== 'created_at' && <ArrowUpDown className="inline w-4 h-4 ml-1 text-gray-400" />}
+                {orderBy === 'created_at' && orderDirection === 'asc' && <ChevronUp className="inline w-4 h-4 ml-1 text-gray-600" />}
+                {orderBy === 'created_at' && orderDirection === 'desc' && <ChevronDown className="inline w-4 h-4 ml-1 text-gray-600" />}
+              </TableHead>
               <TableHead className="w-[120px]">Acties</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <>
-                <TableSkeleton rows={8} columns={12} />
+                <TableSkeleton rows={8} columns={15} />
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-4 text-gray-500">
+                  <TableCell colSpan={15} className="text-center py-4 text-gray-500">
                     <div className="flex items-center justify-center space-x-2">
                       <LoadingSpinner size="sm" />
                       <span>Bedrijven laden... ({totalCount.toLocaleString('nl-NL')} totaal)</span>
@@ -862,7 +879,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               </>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-red-500">
+                <TableCell colSpan={15} className="text-center py-8 text-red-500">
                   <div className="flex flex-col items-center space-y-2">
                     <AlertCircle className="w-8 h-8 text-red-400" />
                     <span>Fout bij het laden van bedrijven</span>
@@ -874,7 +891,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               </TableRow>
             ) : pagedCompanies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={15} className="text-center py-8 text-gray-500">
                   Geen bedrijven gevonden
                 </TableCell>
               </TableRow>
@@ -1021,6 +1038,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                   </TableCell>
                   <TableCell>
                     {getCompanySizeBadge(company)}
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">
+                    {formatDate(company.created_at)}
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-1">

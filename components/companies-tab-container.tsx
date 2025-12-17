@@ -54,6 +54,8 @@ interface CompaniesTabContainerProps {
   regioPlatformFilter?: string[]
   pipedriveFilter?: string
   instantlyFilter?: string
+  dateFrom?: string | null
+  dateTo?: string | null
   onCompanyClick?: (company: Company) => void
 }
 
@@ -77,6 +79,8 @@ export function CompaniesTabContainer({
   regioPlatformFilter = [],
   pipedriveFilter = "all",
   instantlyFilter = "all",
+  dateFrom = null,
+  dateTo = null,
   onCompanyClick
 }: CompaniesTabContainerProps) {
   const [activeTab, setActiveTab] = useState<'qualified' | 'review' | 'disqualified' | 'pending' | 'enriched'>('qualified')
@@ -104,6 +108,8 @@ export function CompaniesTabContainer({
     regioPlatformFilter: regioPlatformFilter.length > 0 ? regioPlatformFilter.join(',') : undefined,
     pipedriveFilter: pipedriveFilter !== "all" ? pipedriveFilter : undefined,
     instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
     qualification_status: qualificationStatus || 'all',
     limit: 100 // Load more companies per tab
   })
@@ -170,7 +176,7 @@ export function CompaniesTabContainer({
   useEffect(() => {
     loadTabData(activeTab)
     loadCounts()
-  }, [JSON.stringify(statusFilter), JSON.stringify(sourceFilter), customerFilter, websiteFilter, JSON.stringify(categorySizeFilter), apolloEnrichedFilter, hasContactsFilter, JSON.stringify(regioPlatformFilter), pipedriveFilter, instantlyFilter])
+  }, [JSON.stringify(statusFilter), JSON.stringify(sourceFilter), customerFilter, websiteFilter, JSON.stringify(categorySizeFilter), apolloEnrichedFilter, hasContactsFilter, JSON.stringify(regioPlatformFilter), pipedriveFilter, instantlyFilter, dateFrom, dateTo])
 
   // Refresh all data
   const refreshData = async () => {

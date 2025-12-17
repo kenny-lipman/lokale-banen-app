@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, RotateCcw, X } from "lucide-react"
+import { DateRangeFilter } from "@/components/ui/table-filters"
 
 interface CompaniesFiltersProps {
   searchTerm: string
@@ -31,6 +32,10 @@ interface CompaniesFiltersProps {
   setPipedriveFilter: (value: string) => void
   instantlyFilter: string
   setInstantlyFilter: (value: string) => void
+  dateFrom: string | null
+  setDateFrom: (value: string | null) => void
+  dateTo: string | null
+  setDateTo: (value: string | null) => void
   totalCount: number
   allSources: {id: string, name: string}[]
   allRegioPlatformOptions: {value: string, label: string, key: string}[]
@@ -60,6 +65,10 @@ export function CompaniesFilters({
   setPipedriveFilter,
   instantlyFilter,
   setInstantlyFilter,
+  dateFrom,
+  setDateFrom,
+  dateTo,
+  setDateTo,
   totalCount,
   allSources,
   allRegioPlatformOptions,
@@ -78,6 +87,8 @@ export function CompaniesFilters({
     setRegioPlatformFilter([])
     setPipedriveFilter("all")
     setInstantlyFilter("all")
+    setDateFrom(null)
+    setDateTo(null)
     onResetPage?.()
   }
 
@@ -95,6 +106,7 @@ export function CompaniesFilters({
     if (regioPlatformFilter.length > 0) count++
     if (pipedriveFilter !== "all") count++
     if (instantlyFilter !== "all") count++
+    if (dateFrom || dateTo) count++
     return count
   }
 
@@ -221,6 +233,20 @@ export function CompaniesFilters({
                     <X
                       className="h-3 w-3 cursor-pointer ml-1"
                       onClick={() => setInstantlyFilter("all")}
+                    />
+                  </Badge>
+                )}
+                {(dateFrom || dateTo) && (
+                  <Badge variant="secondary" className="gap-1">
+                    Aangemaakt: {dateFrom && dateTo
+                      ? `${new Date(dateFrom).toLocaleDateString('nl-NL')} - ${new Date(dateTo).toLocaleDateString('nl-NL')}`
+                      : dateFrom
+                        ? `Vanaf ${new Date(dateFrom).toLocaleDateString('nl-NL')}`
+                        : `Tot ${new Date(dateTo!).toLocaleDateString('nl-NL')}`
+                    }
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => { setDateFrom(null); setDateTo(null); }}
                     />
                   </Badge>
                 )}
@@ -354,6 +380,15 @@ export function CompaniesFilters({
               <SelectItem value="not_synced">Niet in Instantly</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Date Range Filter */}
+          <DateRangeFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            label="Aangemaakt op"
+          />
 
           {/* Reset Filters Button */}
           <Button

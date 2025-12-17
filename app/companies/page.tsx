@@ -16,11 +16,15 @@ export default function CompaniesPage() {
   const router = useRouter()
   const [selectedCompany, setSelectedCompany] = useState<any>(null)
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+  const [loadingCompanyFromUrl, setLoadingCompanyFromUrl] = useState(false)
 
   // Handle URL query param for company ID
   useEffect(() => {
     const companyId = searchParams.get('id')
-    if (companyId && !selectedCompany) {
+
+    // If there's a company ID in URL and it's different from current selected company
+    if (companyId && selectedCompany?.id !== companyId && !loadingCompanyFromUrl) {
+      setLoadingCompanyFromUrl(true)
       // Fetch company data by ID and open drawer
       const fetchCompanyById = async () => {
         try {
@@ -33,11 +37,18 @@ export default function CompaniesPage() {
           }
         } catch (error) {
           console.error('Error fetching company by ID:', error)
+        } finally {
+          setLoadingCompanyFromUrl(false)
         }
       }
       fetchCompanyById()
     }
-  }, [searchParams, selectedCompany])
+
+    // If no company ID in URL but we have a selected company, clear it
+    if (!companyId && selectedCompany) {
+      setSelectedCompany(null)
+    }
+  }, [searchParams])
 
   // Update URL when company is selected/deselected
   const handleCompanySelect = (company: any) => {
@@ -64,6 +75,8 @@ export default function CompaniesPage() {
   const [regioPlatformFilter, setRegioPlatformFilter] = useState<string[]>([])
   const [pipedriveFilter, setPipedriveFilter] = useState("all")
   const [instantlyFilter, setInstantlyFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState<string | null>(null)
+  const [dateTo, setDateTo] = useState<string | null>(null)
 
   // Filter data state
   const [allSources, setAllSources] = useState<{id: string, name: string}[]>([])
@@ -137,6 +150,10 @@ export default function CompaniesPage() {
           setPipedriveFilter={setPipedriveFilter}
           instantlyFilter={instantlyFilter}
           setInstantlyFilter={setInstantlyFilter}
+          dateFrom={dateFrom}
+          setDateFrom={setDateFrom}
+          dateTo={dateTo}
+          setDateTo={setDateTo}
           totalCount={totalCompaniesCount}
           allSources={allSources}
           allRegioPlatformOptions={allRegioPlatformOptions}
@@ -156,6 +173,8 @@ export default function CompaniesPage() {
         regioPlatformFilter={regioPlatformFilter}
         pipedriveFilter={pipedriveFilter}
         instantlyFilter={instantlyFilter}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
         onCompanyClick={handleCompanySelect}
       />
 

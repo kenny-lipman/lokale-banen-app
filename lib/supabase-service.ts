@@ -249,9 +249,11 @@ export class SupabaseService {
       pipedriveFilter?: 'all' | 'synced' | 'not_synced'
       instantlyFilter?: 'all' | 'synced' | 'not_synced'
       qualification_status?: 'pending' | 'qualified' | 'disqualified' | 'review' | 'all'
+      dateFrom?: string
+      dateTo?: string
     } = {},
   ) {
-    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts, regioPlatformFilter, pipedriveFilter, instantlyFilter, qualification_status } = options
+    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts, regioPlatformFilter, pipedriveFilter, instantlyFilter, qualification_status, dateFrom, dateTo } = options
 
     try {
       console.log("getCompanies: Starting with params:", options)
@@ -368,6 +370,14 @@ export class SupabaseService {
         } else {
           query = query.eq('qualification_status', qualification_status)
         }
+      }
+
+      // Date range filter (created_at)
+      if (dateFrom) {
+        query = query.gte('created_at', `${dateFrom}T00:00:00Z`)
+      }
+      if (dateTo) {
+        query = query.lte('created_at', `${dateTo}T23:59:59Z`)
       }
 
       // Handle contacts filter with proper multi-filter AND logic
