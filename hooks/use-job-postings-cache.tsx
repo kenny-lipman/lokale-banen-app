@@ -4,14 +4,28 @@ import { createClient } from "@/lib/supabase"
 // In-memory cache (per sessie/tab)
 const jobPostingsCache: Record<string, any> = {}
 
-export function useJobPostingsCache(params: {
+export interface JobPostingsFilterParams {
   page?: number
   limit?: number
   search?: string
   status?: string
   platform_id?: string[] | null
   source_id?: string[] | null
-}) {
+  // New filter parameters
+  date_from?: string | null
+  date_to?: string | null
+  employment?: string[] | null
+  salary_min?: number | null
+  salary_max?: number | null
+  career_level?: string[] | null
+  education_level?: string[] | null
+  hours_min?: number | null
+  hours_max?: number | null
+  // Flag to skip fetching (used when external data is provided)
+  skipFetch?: boolean
+}
+
+export function useJobPostingsCache(params: JobPostingsFilterParams) {
   const cacheKey = JSON.stringify(params)
   const [data, setData] = useState<any>(jobPostingsCache[cacheKey] || null)
   const [loading, setLoading] = useState(!jobPostingsCache[cacheKey])
@@ -35,17 +49,30 @@ export function useJobPostingsCache(params: {
         ? (params.platform_id.includes('null') ? null : params.platform_id)
         : null
 
-      const { data, error } = await supabase.rpc('search_job_postings', {
+      const rpcParams = {
         search_term: params.search || null,
         status_filter: params.status || null,
         source_filter: params.source_id && params.source_id.length > 0 ? params.source_id : null,
         platform_filter: platformFilterArray,
         page_number: page,
-        page_size: limit
-      })
+        page_size: limit,
+        // New filter parameters
+        date_from: params.date_from || null,
+        date_to: params.date_to || null,
+        employment_filter: params.employment && params.employment.length > 0 ? params.employment : null,
+        salary_min: params.salary_min ?? null,
+        salary_max: params.salary_max ?? null,
+        career_level_filter: params.career_level && params.career_level.length > 0 ? params.career_level : null,
+        education_level_filter: params.education_level && params.education_level.length > 0 ? params.education_level : null,
+        hours_min: params.hours_min ?? null,
+        hours_max: params.hours_max ?? null
+      }
+
+      const { data, error } = await supabase.rpc('search_job_postings', rpcParams)
 
       if (error) {
-        throw new Error(error.message)
+        console.error('Supabase RPC error:', error.message)
+        throw new Error(error.message || 'Database error')
       }
 
       // Get total count from the first row (all rows have the same count)
@@ -73,7 +100,20 @@ export function useJobPostingsCache(params: {
         job_type: item.job_type,
         salary: item.salary,
         url: item.url,
-        country: item.country
+        country: item.country,
+        // New fields for drawer
+        description: item.description,
+        employment: item.employment,
+        career_level: item.career_level,
+        education_level: item.education_level,
+        working_hours_min: item.working_hours_min,
+        working_hours_max: item.working_hours_max,
+        categories: item.categories,
+        end_date: item.end_date,
+        city: item.city,
+        zipcode: item.zipcode,
+        street: item.street,
+        created_at: item.created_at
       })) || []
 
       const formattedResult = {
@@ -90,12 +130,8 @@ export function useJobPostingsCache(params: {
 
     } catch (e: any) {
       if (thisFetch === fetchRef.current) {
-        const errorMessage = e?.message || 'Unknown error'
-        console.error('Error fetching job postings:', {
-          message: errorMessage,
-          params: params,
-          error: e
-        })
+        const errorMessage = e?.message || 'Er is een fout opgetreden bij het ophalen van vacatures'
+        console.error('Error fetching job postings:', errorMessage)
         setError(new Error(errorMessage))
         setLoading(false)
       }
@@ -103,6 +139,12 @@ export function useJobPostingsCache(params: {
   }
 
   useEffect(() => {
+    // Skip fetching if skipFetch is true (external data provided)
+    if (params.skipFetch) {
+      setLoading(false)
+      return
+    }
+
     if (!jobPostingsCache[cacheKey]) {
       fetchJobPostings()
     } else {
@@ -110,7 +152,7 @@ export function useJobPostingsCache(params: {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey])
+  }, [cacheKey, params.skipFetch])
 
   const refetch = () => {
     fetchJobPostings()

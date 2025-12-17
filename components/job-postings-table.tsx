@@ -70,9 +70,11 @@ interface JobPosting {
 interface JobPostingsTableProps {
   onCompanyClick?: (company: any) => void
   data?: any[] // Optional: override data for custom use (e.g. Otis scraped jobs)
+  onJobSelect?: (job: JobPosting) => void // Callback when a job is selected (for URL-based drawer)
+  selectedJobId?: string // Currently selected job ID (for URL-based drawer)
 }
 
-export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPostingsTableProps) {
+export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect, selectedJobId }: JobPostingsTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
@@ -104,9 +106,21 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
   const [hoursMin, setHoursMin] = useState<number | null>(null)
   const [hoursMax, setHoursMax] = useState<number | null>(null)
 
-  // Drawer state
+  // Drawer state (only used when onJobSelect is not provided)
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Use external drawer control if onJobSelect is provided
+  const useExternalDrawer = !!onJobSelect
+
+  const handleJobClick = (job: JobPosting) => {
+    if (useExternalDrawer) {
+      onJobSelect(job)
+    } else {
+      setSelectedJob(job)
+      setDrawerOpen(true)
+    }
+  }
 
   // Debounce search term for better performance
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
@@ -119,7 +133,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
     refetch,
   } = useJobPostingsCache(
     data
-      ? {} // Als data prop, niet fetchen
+      ? { skipFetch: true } // Als data prop, niet fetchen
       : {
           page: currentPage,
           limit: itemsPerPage,
@@ -599,10 +613,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                 <TableRow
                   key={String(job.id ?? job.title ?? job.company_name ?? Math.random())}
                   className="hover:bg-orange-50 cursor-pointer"
-                  onClick={() => {
-                    setSelectedJob(job)
-                    setDrawerOpen(true)
-                  }}
+                  onClick={() => handleJobClick(job)}
                 >
                   <TableCell>
                     <div className="space-y-1">
@@ -714,10 +725,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setSelectedJob(job)
-                          setDrawerOpen(true)
-                        }}
+                        onClick={() => handleJobClick(job)}
                         title="Bekijk details"
                       >
                         <Eye className="w-4 h-4 text-gray-500" />
@@ -753,24 +761,26 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data }: JobPosting
         />
       )}
 
-      {/* Job Posting Drawer */}
-      <JobPostingDrawer
-        job={selectedJob}
-        open={drawerOpen}
-        onClose={() => {
-          setDrawerOpen(false)
-          setSelectedJob(null)
-        }}
-        onCompanyClick={async (companyId) => {
-          try {
-            const service = await getSupabaseService()
-            const companyData = await service.getCompanyDetails(companyId)
-            onCompanyClick(companyData)
-          } catch (error) {
-            console.error("Error fetching company details:", error)
-          }
-        }}
-      />
+      {/* Job Posting Drawer - only render if not using external drawer */}
+      {!useExternalDrawer && (
+        <JobPostingDrawer
+          job={selectedJob}
+          open={drawerOpen}
+          onClose={() => {
+            setDrawerOpen(false)
+            setSelectedJob(null)
+          }}
+          onCompanyClick={async (companyId) => {
+            try {
+              const service = await getSupabaseService()
+              const companyData = await service.getCompanyDetails(companyId)
+              onCompanyClick(companyData)
+            } catch (error) {
+              console.error("Error fetching company details:", error)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card } from "@/components/ui/card"
-import { Search, Filter, RotateCcw, SlidersHorizontal, ChevronDown } from "lucide-react"
+import { Search, Filter, RotateCcw, SlidersHorizontal, ChevronDown, Calendar, Euro, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Slider } from "@/components/ui/slider"
+import { Label } from "@/components/ui/label"
 
 // MultiSelect component for multiple selection
 function MultiSelect({ 
@@ -55,11 +57,11 @@ function MultiSelect({
       <PopoverContent className="w-64 p-2 shadow-lg border-gray-200">
         <div className="max-h-64 overflow-auto">
           {options.map((option) => (
-            <div 
-              key={option.value} 
+            <div
+              key={option.value}
               className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${
-                value.includes(option.value) 
-                  ? 'bg-blue-50 border border-blue-200' 
+                value.includes(option.value)
+                  ? 'bg-blue-50 border border-blue-200'
                   : 'hover:bg-gray-50'
               }`}
             >
@@ -79,6 +81,340 @@ function MultiSelect({
               </label>
             </div>
           ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// Date Range Filter component
+export function DateRangeFilter({
+  dateFrom,
+  dateTo,
+  onDateFromChange,
+  onDateToChange,
+  label = "Datum"
+}: {
+  dateFrom: string | null
+  dateTo: string | null
+  onDateFromChange: (value: string | null) => void
+  onDateToChange: (value: string | null) => void
+  label?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const hasValue = dateFrom || dateTo
+
+  const presets = [
+    { label: "Vandaag", from: new Date().toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] },
+    { label: "Laatste 7 dagen", from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] },
+    { label: "Laatste 30 dagen", from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] },
+    { label: "Laatste 90 dagen", from: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] },
+  ]
+
+  const getDisplayText = () => {
+    if (!dateFrom && !dateTo) return label
+    if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
+      const toDate = new Date(dateTo).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
+      return `${fromDate} - ${toDate}`
+    }
+    if (dateFrom) return `Vanaf ${new Date(dateFrom).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}`
+    return `Tot ${new Date(dateTo!).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}`
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={`min-w-[180px] max-w-[220px] justify-between bg-white border-gray-200 hover:border-gray-300 transition-colors ${
+            hasValue ? 'border-blue-300 bg-blue-50/30' : ''
+          }`}
+        >
+          <Calendar className="w-4 h-4 mr-2 text-gray-500" />
+          <span className={`truncate ${hasValue ? 'font-medium' : 'text-gray-600'}`}>
+            {getDisplayText()}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-4 shadow-lg border-gray-200">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Snelle selectie</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {presets.map((preset) => (
+                <Button
+                  key={preset.label}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    onDateFromChange(preset.from)
+                    onDateToChange(preset.to)
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Van</Label>
+              <Input
+                type="date"
+                value={dateFrom || ''}
+                onChange={(e) => onDateFromChange(e.target.value || null)}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Tot</Label>
+              <Input
+                type="date"
+                value={dateTo || ''}
+                onChange={(e) => onDateToChange(e.target.value || null)}
+                className="text-sm"
+              />
+            </div>
+          </div>
+          {hasValue && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-gray-500"
+              onClick={() => {
+                onDateFromChange(null)
+                onDateToChange(null)
+              }}
+            >
+              Wis datumfilter
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// Salary Range Filter component
+export function SalaryRangeFilter({
+  salaryMin,
+  salaryMax,
+  onSalaryMinChange,
+  onSalaryMaxChange,
+  label = "Salaris"
+}: {
+  salaryMin: number | null
+  salaryMax: number | null
+  onSalaryMinChange: (value: number | null) => void
+  onSalaryMaxChange: (value: number | null) => void
+  label?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const hasValue = salaryMin !== null || salaryMax !== null
+
+  const presets = [
+    { label: "Tot €2.500", min: null, max: 2500 },
+    { label: "€2.500 - €4.000", min: 2500, max: 4000 },
+    { label: "€4.000 - €6.000", min: 4000, max: 6000 },
+    { label: "€6.000+", min: 6000, max: null },
+  ]
+
+  const getDisplayText = () => {
+    if (salaryMin === null && salaryMax === null) return label
+    if (salaryMin !== null && salaryMax !== null) {
+      return `€${salaryMin.toLocaleString('nl-NL')} - €${salaryMax.toLocaleString('nl-NL')}`
+    }
+    if (salaryMin !== null) return `Vanaf €${salaryMin.toLocaleString('nl-NL')}`
+    return `Tot €${salaryMax!.toLocaleString('nl-NL')}`
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={`min-w-[180px] max-w-[220px] justify-between bg-white border-gray-200 hover:border-gray-300 transition-colors ${
+            hasValue ? 'border-blue-300 bg-blue-50/30' : ''
+          }`}
+        >
+          <Euro className="w-4 h-4 mr-2 text-gray-500" />
+          <span className={`truncate ${hasValue ? 'font-medium' : 'text-gray-600'}`}>
+            {getDisplayText()}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-4 shadow-lg border-gray-200">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Snelle selectie</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {presets.map((preset) => (
+                <Button
+                  key={preset.label}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    onSalaryMinChange(preset.min)
+                    onSalaryMaxChange(preset.max)
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Minimum (€)</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={salaryMin ?? ''}
+                onChange={(e) => onSalaryMinChange(e.target.value ? parseInt(e.target.value) : null)}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Maximum (€)</Label>
+              <Input
+                type="number"
+                placeholder="10000"
+                value={salaryMax ?? ''}
+                onChange={(e) => onSalaryMaxChange(e.target.value ? parseInt(e.target.value) : null)}
+                className="text-sm"
+              />
+            </div>
+          </div>
+          {hasValue && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-gray-500"
+              onClick={() => {
+                onSalaryMinChange(null)
+                onSalaryMaxChange(null)
+              }}
+            >
+              Wis salarisfilter
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// Hours Range Filter component
+export function HoursRangeFilter({
+  hoursMin,
+  hoursMax,
+  onHoursMinChange,
+  onHoursMaxChange,
+  label = "Uren per week"
+}: {
+  hoursMin: number | null
+  hoursMax: number | null
+  onHoursMinChange: (value: number | null) => void
+  onHoursMaxChange: (value: number | null) => void
+  label?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const hasValue = hoursMin !== null || hoursMax !== null
+
+  const presets = [
+    { label: "Parttime (0-24u)", min: 0, max: 24 },
+    { label: "Fulltime (32-40u)", min: 32, max: 40 },
+    { label: "24-32 uur", min: 24, max: 32 },
+    { label: "Alle uren", min: null, max: null },
+  ]
+
+  const getDisplayText = () => {
+    if (hoursMin === null && hoursMax === null) return label
+    if (hoursMin !== null && hoursMax !== null) {
+      return `${hoursMin} - ${hoursMax} uur`
+    }
+    if (hoursMin !== null) return `${hoursMin}+ uur`
+    return `Tot ${hoursMax} uur`
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={`min-w-[180px] max-w-[220px] justify-between bg-white border-gray-200 hover:border-gray-300 transition-colors ${
+            hasValue ? 'border-blue-300 bg-blue-50/30' : ''
+          }`}
+        >
+          <Clock className="w-4 h-4 mr-2 text-gray-500" />
+          <span className={`truncate ${hasValue ? 'font-medium' : 'text-gray-600'}`}>
+            {getDisplayText()}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-4 shadow-lg border-gray-200">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Snelle selectie</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {presets.map((preset) => (
+                <Button
+                  key={preset.label}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    onHoursMinChange(preset.min)
+                    onHoursMaxChange(preset.max)
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Minimum uren</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                min={0}
+                max={40}
+                value={hoursMin ?? ''}
+                onChange={(e) => onHoursMinChange(e.target.value ? parseInt(e.target.value) : null)}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Maximum uren</Label>
+              <Input
+                type="number"
+                placeholder="40"
+                min={0}
+                max={40}
+                value={hoursMax ?? ''}
+                onChange={(e) => onHoursMaxChange(e.target.value ? parseInt(e.target.value) : null)}
+                className="text-sm"
+              />
+            </div>
+          </div>
+          {hasValue && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-gray-500"
+              onClick={() => {
+                onHoursMinChange(null)
+                onHoursMaxChange(null)
+              }}
+            >
+              Wis urenfilter
+            </Button>
+          )}
         </div>
       </PopoverContent>
     </Popover>
