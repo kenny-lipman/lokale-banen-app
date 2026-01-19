@@ -17,7 +17,16 @@ Antwoord ALLEEN met valid JSON in dit exacte format:
   "salary": "Salaris of salarisrange indien genoemd, anders null",
   "description": "Korte samenvatting van de functie (max 500 karakters)",
   "requirements": ["Eis 1", "Eis 2"] of null indien niet duidelijk,
-  "working_hours": "Uren per week indien genoemd, anders null"
+  "working_hours": "Uren per week indien genoemd, anders null",
+
+  "company_website": "Website URL van het bedrijf (bijv. www.bedrijf.nl), null indien niet gevonden",
+  "company_phone": "Telefoonnummer van het bedrijf, null indien niet gevonden",
+  "company_email": "Algemeen emailadres (bijv. info@bedrijf.nl), null indien niet gevonden",
+
+  "contact_name": "Naam van de contactpersoon indien genoemd, anders null",
+  "contact_email": "Email van de contactpersoon (indien anders dan company_email), anders null",
+  "contact_phone": "Direct telefoonnummer contactpersoon (indien anders dan company_phone), anders null",
+  "contact_title": "Functie van contactpersoon (bijv. HR Manager, Recruiter), anders null"
 }
 
 Regels:
@@ -32,7 +41,14 @@ BELANGRIJK voor wervingsflyers zonder specifieke vacature:
 - Extract bedrijfsnaam uit: website URL (bijv. dsvleven.nl → "DSV Leven"), email domein, of genoemde organisatienaam
 - Als er een website staat zoals "werkenbij.bedrijf.nl" of "bedrijf.nl/vacatures", haal de bedrijfsnaam daaruit
 - Bij een algemene wervingsflyer, gebruik de slogan of kernboodschap als description
-- Er moet ALTIJD een title en company_name zijn - wees creatief maar accuraat`;
+- Er moet ALTIJD een title en company_name zijn - wees creatief maar accuraat
+
+BELANGRIJK voor bedrijfs- en contactgegevens:
+- Zoek naar telefoonnummers in formaten: 071-1234567, 06-12345678, +31 71 123 4567, etc.
+- Zoek naar emailadressen: info@, vacatures@, hr@, sollicitaties@, of persoonlijke emails
+- Zoek naar websites: www., .nl, .com, werkenbij., /vacatures, /werken-bij
+- Als een naam staat bij "Contact:", "Meer info:", "Solliciteren via:", extract die als contact_name
+- Als er een functie staat bij de contactpersoon (bijv. "Jan de Vries, HR Manager"), extract beide velden`;
 
 interface MistralResponse {
   choices: Array<{

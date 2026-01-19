@@ -3,6 +3,7 @@
  */
 
 export interface VacatureData {
+  // Vacancy fields
   title: string;
   company_name: string;
   location: string | null;
@@ -11,6 +12,17 @@ export interface VacatureData {
   description: string;
   requirements: string[] | null;
   working_hours: string | null;
+
+  // Company fields (extracted from PDF)
+  company_website: string | null;
+  company_phone: string | null;
+  company_email: string | null;
+
+  // Contact person fields (if mentioned in PDF)
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  contact_title: string | null; // e.g. "HR Manager", "Recruiter"
 }
 
 export interface ScrapedPdf {
@@ -19,6 +31,10 @@ export interface ScrapedPdf {
   rawText: string;
   parsedData: VacatureData | null;
   error?: string;
+  // Tracking info
+  companyCreated?: boolean;
+  companyUpdated?: boolean;
+  contactCreated?: boolean;
 }
 
 export interface ScrapeResult {
@@ -28,6 +44,9 @@ export interface ScrapeResult {
   inserted: number;
   skipped: number;
   errors: number;
+  companiesCreated: number;
+  companiesUpdated: number;
+  contactsCreated: number;
   details: ScrapedPdf[];
 }
 

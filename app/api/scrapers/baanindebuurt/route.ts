@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
         inserted: result.inserted,
         skipped: result.skipped,
         errors: result.errors,
+        companiesCreated: result.companiesCreated,
+        companiesUpdated: result.companiesUpdated,
+        contactsCreated: result.contactsCreated,
       },
       timestamp: new Date().toISOString(),
     });

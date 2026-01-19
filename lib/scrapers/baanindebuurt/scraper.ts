@@ -19,6 +19,9 @@ const BASE_URL = "https://baanindebuurt.nl";
 const VACATURES_URL = `${BASE_URL}/vacatures.php`;
 const JOB_SOURCE_NAME = "Baan in de Buurt";
 
+// Store cookies for session persistence during pagination
+let sessionCookies: string = "";
+
 /**
  * Create Supabase client with service role for server-side operations
  */
@@ -35,13 +38,34 @@ function createSupabaseClient() {
 
 /**
  * Fetch and parse a vacatures page to extract PDF URLs and pagination info
+ * Note: The website requires cookies to maintain session for pagination
  */
 async function fetchVacaturesPage(pageNum: number = 1): Promise<PageInfo> {
   const url = pageNum === 1 ? VACATURES_URL : `${VACATURES_URL}?prevnext=${pageNum}`;
 
-  const response = await fetch(url);
+  // Include cookies in request (required for pagination to work)
+  const headers: Record<string, string> = {};
+  if (sessionCookies) {
+    headers["Cookie"] = sessionCookies;
+  }
+
+  const response = await fetch(url, { headers });
   if (!response.ok) {
     throw new Error(`Failed to fetch page ${pageNum}: ${response.status}`);
+  }
+
+  // Extract and store cookies from response for subsequent requests
+  const setCookieHeader = response.headers.get("set-cookie");
+  if (setCookieHeader) {
+    // Parse cookies and merge with existing session cookies
+    const newCookies = setCookieHeader
+      .split(",")
+      .map((c) => c.split(";")[0].trim())
+      .filter((c) => c.length > 0)
+      .join("; ");
+    if (newCookies) {
+      sessionCookies = sessionCookies ? `${sessionCookies}; ${newCookies}` : newCookies;
+    }
   }
 
   const html = await response.text();
@@ -77,15 +101,20 @@ async function fetchVacaturesPage(pageNum: number = 1): Promise<PageInfo> {
  * Get all PDF URLs from all pages
  */
 async function getAllPdfUrls(): Promise<string[]> {
+  // Reset session cookies for fresh start
+  sessionCookies = "";
+
   const allUrls: string[] = [];
 
-  // Fetch first page to get pagination info
+  // Fetch first page to get pagination info (this establishes the session cookie)
   const firstPage = await fetchVacaturesPage(1);
+  console.log(`Page 1: found ${firstPage.pdfUrls.length} PDFs, total pages: ${firstPage.totalPages}`);
   allUrls.push(...firstPage.pdfUrls);
 
-  // Fetch remaining pages
+  // Fetch remaining pages (uses cookies from first request)
   for (let page = 2; page <= firstPage.totalPages; page++) {
     const pageInfo = await fetchVacaturesPage(page);
+    console.log(`Page ${page}: found ${pageInfo.pdfUrls.length} PDFs`);
     allUrls.push(...pageInfo.pdfUrls);
 
     // Small delay to be respectful
@@ -132,32 +161,57 @@ async function vacancyExists(
 }
 
 /**
- * Find or create a company by name
+ * Find or create a company by name with full data
+ * Returns: { id, created, updated }
  */
 async function findOrCreateCompany(
   supabase: SupabaseClient<any, any, any>,
-  companyName: string,
-  location?: string | null,
-  city?: string | null
-): Promise<string> {
+  companyData: {
+    name: string;
+    location?: string | null;
+    city?: string | null;
+    website?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  },
+  sourceId: string
+): Promise<{ id: string; created: boolean; updated: boolean }> {
   // Try exact match first
   const { data: existing } = await supabase
     .from("companies")
-    .select("id")
-    .ilike("name", companyName)
+    .select("id, website, phone, city, location")
+    .ilike("name", companyData.name)
     .single();
 
   if (existing) {
-    return existing.id;
+    // Update existing company with new data if we have more info
+    const updates: Record<string, unknown> = {};
+    if (companyData.website && !existing.website) updates.website = companyData.website;
+    if (companyData.phone && !existing.phone) updates.phone = companyData.phone;
+    if (companyData.city && !existing.city) updates.city = companyData.city;
+    if (companyData.location && !existing.location) updates.location = companyData.location;
+
+    const wasUpdated = Object.keys(updates).length > 0;
+    if (wasUpdated) {
+      await supabase.from("companies").update(updates).eq("id", existing.id);
+    }
+
+    return { id: existing.id, created: false, updated: wasUpdated };
   }
 
-  // Create new company
+  // Create new company with all available data
   const { data: newCompany, error } = await supabase
     .from("companies")
     .insert({
-      name: companyName,
-      location: location || null,
-      city: city || null,
+      name: companyData.name,
+      location: companyData.location || null,
+      city: companyData.city || null,
+      website: companyData.website || null,
+      phone: companyData.phone || null,
+      source: sourceId,
+      status: "Prospect",
+      enrichment_status: "pending",
+      qualification_status: "pending",
     })
     .select("id")
     .single();
@@ -166,7 +220,77 @@ async function findOrCreateCompany(
     throw new Error(`Failed to create company: ${error?.message || "No data returned"}`);
   }
 
-  return newCompany.id;
+  return { id: newCompany.id, created: true, updated: false };
+}
+
+/**
+ * Create a contact for a company if contact info is available
+ * Returns: { id, created } or null if no contact info
+ */
+async function createContactIfAvailable(
+  supabase: SupabaseClient<any, any, any>,
+  companyId: string,
+  contactData: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    title?: string | null;
+  }
+): Promise<{ id: string; created: boolean } | null> {
+  // Need at least a name or email to create a contact
+  if (!contactData.name && !contactData.email) {
+    return null;
+  }
+
+  // Check for existing contact by email (most reliable dedup)
+  if (contactData.email) {
+    const { data: existing } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("email", contactData.email)
+      .single();
+
+    if (existing) {
+      return { id: existing.id, created: false };
+    }
+  }
+
+  // Parse name into first/last name
+  let firstName: string | null = null;
+  let lastName: string | null = null;
+
+  if (contactData.name) {
+    const nameParts = contactData.name.trim().split(/\s+/);
+    if (nameParts.length >= 2) {
+      firstName = nameParts[0];
+      lastName = nameParts.slice(1).join(" ");
+    } else {
+      firstName = contactData.name;
+    }
+  }
+
+  const { data: newContact, error } = await supabase
+    .from("contacts")
+    .insert({
+      company_id: companyId,
+      name: contactData.name || null,
+      first_name: firstName,
+      last_name: lastName,
+      email: contactData.email || null,
+      phone: contactData.phone || null,
+      title: contactData.title || null,
+      source: "Baan in de Buurt",
+      qualification_status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error(`Failed to create contact: ${error.message}`);
+    return null;
+  }
+
+  return newContact ? { id: newContact.id, created: true } : null;
 }
 
 /**
@@ -244,18 +368,41 @@ async function processPdf(
     // Parse with AI
     result.parsedData = await parseVacatureWithAI(result.rawText);
 
-    // Find or create company
-    const companyId = await findOrCreateCompany(
+    // Find or create company with full data
+    const companyResult = await findOrCreateCompany(
       supabase,
-      result.parsedData.company_name,
-      result.parsedData.location,
-      result.parsedData.city
+      {
+        name: result.parsedData.company_name,
+        location: result.parsedData.location,
+        city: result.parsedData.city,
+        website: result.parsedData.company_website,
+        phone: result.parsedData.company_phone,
+        email: result.parsedData.company_email,
+      },
+      sourceId
     );
+
+    result.companyCreated = companyResult.created;
+    result.companyUpdated = companyResult.updated;
+
+    // Create contact if contact info is available
+    const contactResult = await createContactIfAvailable(supabase, companyResult.id, {
+      name: result.parsedData.contact_name,
+      email: result.parsedData.contact_email,
+      phone: result.parsedData.contact_phone,
+      title: result.parsedData.contact_title,
+    });
+
+    result.contactCreated = contactResult?.created || false;
+
+    if (contactResult?.created) {
+      console.log(`  Created contact: ${result.parsedData.contact_name || result.parsedData.contact_email}`);
+    }
 
     // Insert job posting
     await insertJobPosting(supabase, {
       title: result.parsedData.title,
-      companyId,
+      companyId: companyResult.id,
       sourceId,
       externalVacancyId: pdfId,
       url: pdfUrl,
@@ -286,6 +433,9 @@ export async function scrapeBaanindebuurt(): Promise<ScrapeResult> {
     inserted: 0,
     skipped: 0,
     errors: 0,
+    companiesCreated: 0,
+    companiesUpdated: 0,
+    contactsCreated: 0,
     details: [],
   };
 
@@ -315,6 +465,9 @@ export async function scrapeBaanindebuurt(): Promise<ScrapeResult> {
         }
       } else {
         result.inserted++;
+        if (pdfResult.companyCreated) result.companiesCreated++;
+        if (pdfResult.companyUpdated) result.companiesUpdated++;
+        if (pdfResult.contactCreated) result.contactsCreated++;
         console.log(`Inserted: ${pdfResult.parsedData?.title}`);
       }
 
@@ -325,6 +478,9 @@ export async function scrapeBaanindebuurt(): Promise<ScrapeResult> {
     result.success = true;
     console.log(
       `Scraping complete: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors} errors`
+    );
+    console.log(
+      `Companies: ${result.companiesCreated} created, ${result.companiesUpdated} updated | Contacts: ${result.contactsCreated} created`
     );
   } catch (error) {
     console.error("Scraper failed:", error);
