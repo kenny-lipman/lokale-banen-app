@@ -133,25 +133,35 @@ export interface InstantlyWebhook {
   timestamp_created?: string
 }
 
+/**
+ * All supported Instantly webhook event types
+ * Based on Instantly API v2 /webhooks/event-types endpoint
+ */
 export type InstantlyWebhookEventType =
-  | 'all_events'
+  // Engagement events
   | 'email_sent'
   | 'email_opened'
-  | 'reply_received'
-  | 'auto_reply_received'
-  | 'link_clicked'
+  | 'email_link_clicked'
   | 'email_bounced'
+  // Reply & campaign events
+  | 'reply_received'
   | 'lead_unsubscribed'
   | 'campaign_completed'
-  | 'account_error'
+  // Interest events
   | 'lead_interested'
   | 'lead_not_interested'
   | 'lead_neutral'
+  // Meeting events (high value)
   | 'lead_meeting_booked'
   | 'lead_meeting_completed'
   | 'lead_closed'
+  // Special events
   | 'lead_out_of_office'
   | 'lead_wrong_person'
+  | 'account_error'
+  // Custom label events
+  | 'custom_label_any_positive'
+  | 'custom_label_any_negative'
 
 export interface InstantlyWebhookPayload {
   timestamp: string
@@ -714,10 +724,11 @@ export class InstantlyClient {
     eventType: InstantlyWebhookEventType
   ): Promise<InstantlyWebhook | null> {
     try {
+      // Instantly API v2 uses 'target_hook_url' instead of 'webhook_url'
       const response = await this.makeRequest<InstantlyWebhook>('/webhooks', {
         method: 'POST',
         body: JSON.stringify({
-          webhook_url: webhookUrl,
+          target_hook_url: webhookUrl,
           event_type: eventType
         }),
       })

@@ -4,17 +4,30 @@
  * Receives webhook events from Instantly and processes them to sync with Pipedrive.
  *
  * Supported events:
- * - campaign_completed: Lead has completed all steps in the campaign
- * - reply_received: Lead has replied to an email
- * - lead_interested: Lead marked as interested
- * - lead_not_interested: Lead marked as not interested
+ * - Engagement: email_sent, email_opened, link_clicked (email_link_clicked)
+ * - Critical: email_bounced, lead_unsubscribed
+ * - Reply: reply_received, auto_reply_received
+ * - Campaign: campaign_completed
+ * - Interest: lead_interested, lead_not_interested, lead_neutral
+ * - Meeting: lead_meeting_booked, lead_meeting_completed, lead_closed
+ * - Special: lead_out_of_office, lead_wrong_person, account_error
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  instantlyPipedriveSyncService
+  instantlyPipedriveSyncService,
+  type SyncEventType
 } from '@/lib/services/instantly-pipedrive-sync.service';
 import { InstantlyWebhookPayload } from '@/lib/instantly-client';
+
+/**
+ * Map Instantly API event types to our internal event types
+ * Currently Instantly uses the same names as our internal types
+ */
+function mapEventType(instantlyEventType: string): SyncEventType {
+  // No mapping needed - Instantly API uses same names as our internal types
+  return instantlyEventType as SyncEventType;
+}
 
 // Webhook secret for validation (optional but recommended)
 const INSTANTLY_WEBHOOK_SECRET = process.env.INSTANTLY_WEBHOOK_SECRET;
@@ -91,12 +104,37 @@ export async function POST(req: NextRequest) {
     console.log(`📥 Instantly webhook received: ${payload.event_type} for campaign ${payload.campaign_name || payload.campaign_id}`);
 
     // 4. Check if this is an event type we handle
+    // Note: auto_reply_received is handled as part of reply_received in Instantly
     const supportedEvents = [
-      'campaign_completed',
+      // Engagement events
+      'email_sent',
+      'email_opened',
+      'email_link_clicked',
+
+      // Critical events
+      'email_bounced',
+      'lead_unsubscribed',
+
+      // Reply events (includes auto-replies)
       'reply_received',
-      'auto_reply_received',
+
+      // Campaign events
+      'campaign_completed',
+
+      // Interest events
       'lead_interested',
-      'lead_not_interested'
+      'lead_not_interested',
+      'lead_neutral',
+
+      // Meeting events (high value!)
+      'lead_meeting_booked',
+      'lead_meeting_completed',
+      'lead_closed',
+
+      // Special events
+      'lead_out_of_office',
+      'lead_wrong_person',
+      'account_error',
     ];
 
     if (!supportedEvents.includes(payload.event_type)) {
@@ -108,6 +146,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Map Instantly event type to our internal event type
+    const mappedEventType = mapEventType(payload.event_type);
+    const mappedPayload = {
+      ...payload,
+      event_type: mappedEventType,
+    };
+
     // 5. Check if we have a lead email
     if (!payload.lead_email) {
       console.warn(`⚠️ Instantly webhook: No lead_email in payload for event ${payload.event_type}`);
@@ -118,8 +163,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 6. Process the webhook
-    const result = await instantlyPipedriveSyncService.processWebhook(payload);
+    // 6. Process the webhook with mapped event type
+    const result = await instantlyPipedriveSyncService.processWebhook(mappedPayload);
 
     const duration = Date.now() - startTime;
     console.log(`✅ Instantly webhook processed in ${duration}ms:`, {
@@ -172,13 +217,16 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     status: 'ok',
     endpoint: '/api/instantly/webhook',
-    supportedEvents: [
-      'campaign_completed',
-      'reply_received',
-      'auto_reply_received',
-      'lead_interested',
-      'lead_not_interested'
-    ],
+    supportedEvents: {
+      engagement: ['email_sent', 'email_opened', 'email_link_clicked'],
+      critical: ['email_bounced', 'lead_unsubscribed'],
+      reply: ['reply_received'],  // Includes auto-replies
+      campaign: ['campaign_completed'],
+      interest: ['lead_interested', 'lead_not_interested', 'lead_neutral'],
+      meeting: ['lead_meeting_booked', 'lead_meeting_completed', 'lead_closed'],
+      special: ['lead_out_of_office', 'lead_wrong_person', 'account_error'],
+    },
+    totalEventTypes: 16,
     secretConfigured: !!INSTANTLY_WEBHOOK_SECRET
   });
 }

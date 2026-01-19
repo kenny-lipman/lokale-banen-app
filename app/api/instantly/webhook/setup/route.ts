@@ -23,11 +23,38 @@ const getWebhookUrl = (req: NextRequest): string => {
 };
 
 // Event types we want to subscribe to
+// Full list of all supported Instantly webhook event types
+// Note: auto_reply_received is handled as part of reply_received
 const REQUIRED_EVENT_TYPES: InstantlyWebhookEventType[] = [
-  'campaign_completed',
+  // Engagement events - track email interactions
+  'email_sent',
+  'email_opened',
+  'email_link_clicked',  // Correct Instantly API name
+
+  // Critical events - blocklist triggers
+  'email_bounced',
+  'lead_unsubscribed',
+
+  // Reply events (includes auto-replies)
   'reply_received',
+
+  // Campaign events
+  'campaign_completed',
+
+  // Interest events - lead qualification
   'lead_interested',
-  'lead_not_interested'
+  'lead_not_interested',
+  'lead_neutral',
+
+  // Meeting events - high value leads!
+  'lead_meeting_booked',
+  'lead_meeting_completed',
+  'lead_closed',
+
+  // Special events
+  'lead_out_of_office',
+  'lead_wrong_person',
+  'account_error',
 ];
 
 /**

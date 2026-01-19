@@ -19,18 +19,38 @@ import {
   InstantlyWebhookPayload,
   InstantlyWebhookEventType
 } from '../instantly-client';
+import {
+  type StatusKey,
+  type InstantlyEventType,
+  type QualificationStatus,
+  EVENT_CONFIG,
+  STATUS_CONFIG,
+  getStatusForEvent,
+  getQualificationForEvent,
+  shouldAddToBlocklist,
+  shouldLogActivity,
+  shouldUpdateEngagement,
+  shouldUpgradeStatus,
+  isValidTransition,
+  getStatusKey,
+  getStatusId,
+  getStatusLabel,
+  getStatusPriorityById,
+  INSTANTLY_EVENT_TYPES,
+} from '../constants/status-config';
+import {
+  determineLeadStatus,
+  type LeadStatusContext,
+  type LeadStatusResult,
+  type EngagementData,
+} from './lead-status-determination';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type SyncEventType =
-  | 'campaign_completed'
-  | 'reply_received'
-  | 'lead_interested'
-  | 'lead_not_interested'
-  | 'lead_added'
-  | 'backfill';
+// Use the centralized InstantlyEventType as SyncEventType
+export type SyncEventType = InstantlyEventType;
 
 export type SyncSource = 'webhook' | 'backfill' | 'manual';
 
@@ -51,6 +71,18 @@ export interface SyncLeadData {
   title?: string; // Job title/function
   // Instantly data
   replyCount?: number;
+  // Engagement data from Instantly
+  opensCount?: number;
+  clicksCount?: number;
+  lastOpenAt?: string;
+  lastClickAt?: string;
+  lastReplyAt?: string;
+  currentStep?: number;
+  verificationStatus?: number;
+  // Status data from Instantly
+  leadStatus?: number; // -1=bounced, -2=unsubscribed, -3=skipped, 0-3=active
+  interestStatus?: number;
+  ltInterestStatus?: number; // Extended interest status (2=meeting_booked, 4=won)
 }
 
 export interface SyncOptions {
@@ -58,6 +90,10 @@ export interface SyncOptions {
   replySentiment?: ReplySentiment;
   rawPayload?: any;
   force?: boolean; // Force status update even if protected
+  // Engagement data for tracking
+  engagementData?: EngagementData;
+  // Current Pipedrive status (for transition validation)
+  currentPipedriveStatusId?: number;
 }
 
 export interface SyncResult {
@@ -81,6 +117,16 @@ export interface SyncResult {
   emailActivitiesError?: string;
   // Instantly lead removal tracking
   instantlyLeadRemoved?: boolean;
+  // Status upgrade tracking (for race condition fix)
+  statusUpgraded?: boolean;
+  previousStatusId?: number;
+  finalPipedriveStatus?: string;
+  // Engagement tracking
+  engagementUpdated?: boolean;
+  blocklistAdded?: boolean;
+  qualificationStatus?: QualificationStatus;
+  // Event logged to instantly_email_events
+  eventLogged?: boolean;
 }
 
 export interface SyncStats {
@@ -159,18 +205,22 @@ function extractDomainFromEmail(email: string): string | null {
 }
 
 // ============================================================================
-// STATUS MAPPING
+// STATUS MAPPING (Using centralized status-config.ts)
 // ============================================================================
 
 /**
  * Map Instantly event types to Pipedrive status prospect keys
+ * Now uses the centralized EVENT_CONFIG from status-config.ts
  */
-function getStatusKeyForEvent(
+function getStatusKeyForEventLocal(
   eventType: SyncEventType,
   hasReply: boolean,
   replySentiment?: ReplySentiment
-): keyof typeof STATUS_PROSPECT_OPTIONS | null {
-  // If there's a reply, the reply sentiment determines the status
+): StatusKey | null {
+  // First check the centralized config
+  const configStatus = getStatusForEvent(eventType);
+
+  // If there's a reply with sentiment, that may override the config
   if (hasReply || eventType === 'reply_received') {
     if (replySentiment === 'negative' || eventType === 'lead_not_interested') {
       return 'NIET_MEER_BENADEREN';
@@ -179,22 +229,15 @@ function getStatusKeyForEvent(
     return 'BENADEREN';
   }
 
-  // Map event types to status keys
-  switch (eventType) {
-    case 'campaign_completed':
-      return 'NIET_GEREAGEERD_INSTANTLY';
-    case 'lead_added':
-      return 'IN_CAMPAGNE';
-    case 'lead_interested':
-      return 'BENADEREN';
-    case 'lead_not_interested':
-      return 'NIET_MEER_BENADEREN';
-    case 'backfill':
-      // Backfill assumes campaign completed without reply
-      return 'NIET_GEREAGEERD_INSTANTLY';
-    default:
-      return null;
-  }
+  // Return the configured status for this event type
+  return configStatus;
+}
+
+/**
+ * Get the qualification status for an event type
+ */
+function getQualificationStatusForEvent(eventType: SyncEventType): QualificationStatus | null {
+  return getQualificationForEvent(eventType);
 }
 
 // ============================================================================
@@ -264,14 +307,21 @@ export class InstantlyPipedriveSyncService {
       const enrichedLead = await this.enrichLeadData(lead);
       console.log(`📊 Lead enrichment: company=${enrichedLead.companyName}, hoofddomein=${enrichedLead.hoofddomein}`);
 
-      // 3. Determine the status to set
-      const statusKey = getStatusKeyForEvent(
+      // 3. Determine the status to set (using centralized config)
+      const statusKey = getStatusKeyForEventLocal(
         eventType,
         options.hasReply || false,
         options.replySentiment
       );
 
-      if (!statusKey) {
+      // Get qualification status for this event
+      const qualificationStatus = getQualificationStatusForEvent(eventType);
+      result.qualificationStatus = qualificationStatus ?? undefined;
+
+      // Check if this is an engagement-only event (no status change needed)
+      const isEngagementOnly = statusKey === null && EVENT_CONFIG[eventType]?.updateEngagement;
+
+      if (!statusKey && !isEngagementOnly) {
         result.skipped = true;
         result.skipReason = `No status mapping for event ${eventType}`;
         return result;
@@ -455,6 +505,7 @@ export class InstantlyPipedriveSyncService {
 
   /**
    * Process an incoming webhook from Instantly
+   * Now handles ALL event types using centralized status-config.ts
    */
   async processWebhook(payload: InstantlyWebhookPayload): Promise<SyncResult> {
     const { event_type, campaign_id, campaign_name, lead_email } = payload;
@@ -472,21 +523,6 @@ export class InstantlyPipedriveSyncService {
       };
     }
 
-    // Determine reply sentiment based on event type
-    let hasReply = false;
-    let replySentiment: ReplySentiment | undefined;
-
-    if (event_type === 'reply_received') {
-      hasReply = true;
-      replySentiment = 'neutral'; // Default, could be enhanced with sentiment analysis
-    } else if (event_type === 'lead_interested') {
-      hasReply = true;
-      replySentiment = 'positive';
-    } else if (event_type === 'lead_not_interested') {
-      hasReply = true;
-      replySentiment = 'negative';
-    }
-
     // Map webhook event type to our sync event type
     const syncEventType = this.mapWebhookEventToSyncEvent(event_type);
     if (!syncEventType) {
@@ -501,6 +537,16 @@ export class InstantlyPipedriveSyncService {
         skipReason: `Unsupported event type: ${event_type}`
       };
     }
+
+    // Use centralized determineLeadStatus for consistent handling
+    const statusContext: LeadStatusContext = {
+      source: 'webhook',
+      eventType: syncEventType,
+    };
+    const statusResult = determineLeadStatus(statusContext);
+
+    const hasReply = statusResult.hasReply;
+    const replySentiment = statusResult.replySentiment;
 
     // For campaign_completed, check if this lead has already replied
     if (syncEventType === 'campaign_completed') {
@@ -519,6 +565,45 @@ export class InstantlyPipedriveSyncService {
       }
     }
 
+    // Log the event to instantly_email_events table for analytics
+    await this.logInstantlyEvent(lead_email, campaign_id, campaign_name, syncEventType, payload);
+
+    // Handle engagement-only events separately
+    if (statusResult.shouldUpdateEngagement && !statusResult.pipedriveStatus) {
+      // Update engagement metrics in Supabase
+      await this.updateContactEngagement(lead_email, syncEventType);
+      return {
+        success: true,
+        leadEmail: lead_email,
+        campaignId: campaign_id,
+        campaignName: campaign_name,
+        orgCreated: false,
+        personCreated: false,
+        skipped: false,
+        engagementUpdated: true,
+        eventLogged: true
+      };
+    }
+
+    // Handle blocklist events
+    if (statusResult.shouldAddToBlocklist) {
+      const { data: contactData } = await this.supabase
+        .from('contacts')
+        .select('id, company_id')
+        .eq('email', lead_email.toLowerCase().trim())
+        .single();
+
+      await this.createBlocklistEntry(
+        lead_email,
+        syncEventType === 'email_bounced' ? 'Email bounced' :
+        syncEventType === 'lead_unsubscribed' ? 'Unsubscribed (GDPR)' :
+        syncEventType === 'lead_not_interested' ? 'Not interested' :
+        'Blocklist event',
+        contactData?.id,
+        contactData?.company_id
+      );
+    }
+
     return this.syncLeadToPipedrive(
       { email: lead_email },
       campaign_id,
@@ -535,10 +620,17 @@ export class InstantlyPipedriveSyncService {
 
   /**
    * Map Instantly webhook event type to our sync event type
+   * Now supports ALL Instantly event types from status-config.ts
    */
   private mapWebhookEventToSyncEvent(
     webhookEventType: InstantlyWebhookEventType | string
   ): SyncEventType | null {
+    // Check if this is a known event type from our centralized config
+    if (INSTANTLY_EVENT_TYPES.includes(webhookEventType as InstantlyEventType)) {
+      return webhookEventType as SyncEventType;
+    }
+
+    // Legacy mapping for backwards compatibility
     switch (webhookEventType) {
       case 'campaign_completed':
         return 'campaign_completed';
@@ -550,6 +642,7 @@ export class InstantlyPipedriveSyncService {
       case 'lead_not_interested':
         return 'lead_not_interested';
       default:
+        console.warn(`⚠️ Unknown webhook event type: ${webhookEventType}`);
         return null;
     }
   }
@@ -603,7 +696,8 @@ export class InstantlyPipedriveSyncService {
 
       for (const lead of batch) {
         // Determine event type and sentiment based on Instantly lead data
-        const { eventType, hasReply, replySentiment } = this.determineBackfillEventType(lead);
+        // Now also captures engagement data from Instantly
+        const { eventType, hasReply, replySentiment, engagementData } = this.determineBackfillEventType(lead);
 
         // Skip if already synced for this specific event type
         if (skipExisting) {
@@ -629,19 +723,31 @@ export class InstantlyPipedriveSyncService {
         }
 
         if (dryRun) {
-          console.log(`[DRY RUN] Would sync: ${lead.email} as ${eventType} (hasReply: ${hasReply}, sentiment: ${replySentiment})`);
+          console.log(`[DRY RUN] Would sync: ${lead.email} as ${eventType} (hasReply: ${hasReply}, sentiment: ${replySentiment}, engagement: opens=${engagementData?.opensCount || 0}, clicks=${engagementData?.clicksCount || 0})`);
           synced++;
           continue;
         }
 
-        // Sync the lead with the correct event type and sentiment
+        // Sync the lead with the correct event type, sentiment, and engagement data
         const result = await this.syncLeadToPipedrive(
           {
             email: lead.email,
             firstName: lead.first_name,
             lastName: lead.last_name,
             companyName: lead.company_name,
-            replyCount: lead.email_reply_count || 0
+            replyCount: lead.email_reply_count || 0,
+            // Include engagement data from Instantly
+            opensCount: lead.email_open_count || 0,
+            clicksCount: lead.email_click_count || 0,
+            lastOpenAt: (lead as any).timestamp_last_open,
+            lastClickAt: (lead as any).timestamp_last_click,
+            lastReplyAt: (lead as any).timestamp_last_reply,
+            currentStep: (lead as any).sequence_step,
+            verificationStatus: (lead as any).verification_status,
+            // Status data from Instantly
+            leadStatus: typeof lead.status === 'string' ? parseInt(lead.status, 10) : lead.status,
+            interestStatus: typeof lead.interest_status === 'string' ? parseInt(lead.interest_status, 10) : lead.interest_status,
+            ltInterestStatus: (lead as any).lt_interest_status,
           },
           campaignId,
           campaignName,
@@ -649,9 +755,15 @@ export class InstantlyPipedriveSyncService {
           'backfill',
           {
             hasReply,
-            replySentiment
+            replySentiment,
+            engagementData
           }
         );
+
+        // Store engagement metrics even for backfill if we have data
+        if (engagementData && (engagementData.opensCount > 0 || engagementData.clicksCount > 0)) {
+          await this.storeBackfillEngagementMetrics(lead.email, engagementData);
+        }
 
         results.push(result);
 
@@ -681,58 +793,44 @@ export class InstantlyPipedriveSyncService {
 
   /**
    * Determine the correct event type and sentiment for backfill based on Instantly lead data
+   * Now uses the unified determineLeadStatus function for consistent handling
    *
    * Instantly lead statuses:
-   * - status: -1 = bounced, 0 = not started, 1 = in progress, 2 = paused, 3 = completed
+   * - status: -1 = bounced, -2 = unsubscribed, -3 = skipped, 0-3 = active
    * - email_reply_count > 0: Lead has replied
-   * - interest_status: 1 = interested, -1 = not interested (if set)
+   * - interest_status: 1 = interested, -1 = not interested
+   * - lt_interest_status: 1 = interested, -1 = not interested, 2 = meeting_booked, 4 = won
    */
   private determineBackfillEventType(lead: InstantlyLead): {
     eventType: SyncEventType;
     hasReply: boolean;
     replySentiment?: ReplySentiment;
+    engagementData?: EngagementData;
   } {
-    // Check if lead has replied (from Instantly data)
-    const hasReply = (lead.email_reply_count ?? 0) > 0;
+    // Build context for unified determination
+    const context: LeadStatusContext = {
+      source: 'backfill',
+      leadStatus: typeof lead.status === 'string' ? parseInt(lead.status, 10) : lead.status,
+      interestStatus: typeof lead.interest_status === 'string'
+        ? parseInt(lead.interest_status, 10)
+        : lead.interest_status,
+      ltInterestStatus: (lead as any).lt_interest_status, // Extended field if available
+      replyCount: lead.email_reply_count ?? 0,
+      openCount: lead.email_open_count ?? 0,
+      clickCount: lead.email_click_count ?? 0,
+      timestampLastReply: (lead as any).timestamp_last_reply,
+      timestampLastOpen: (lead as any).timestamp_last_open,
+      timestampLastClick: (lead as any).timestamp_last_click,
+    };
 
-    // Check interest_status if available (can be number or string)
-    const interestStatus = typeof lead.interest_status === 'string'
-      ? parseInt(lead.interest_status, 10)
-      : lead.interest_status;
+    // Use unified determination
+    const result = determineLeadStatus(context);
 
-    // If interest status is explicitly set
-    if (interestStatus === 1) {
-      // Marked as interested
-      return {
-        eventType: 'lead_interested',
-        hasReply: true,
-        replySentiment: 'positive'
-      };
-    }
-
-    if (interestStatus === -1) {
-      // Marked as not interested
-      return {
-        eventType: 'lead_not_interested',
-        hasReply: true,
-        replySentiment: 'negative'
-      };
-    }
-
-    // If lead has replied but no interest status set
-    if (hasReply) {
-      return {
-        eventType: 'reply_received',
-        hasReply: true,
-        replySentiment: 'neutral' // Default to neutral, will set BENADEREN
-      };
-    }
-
-    // Default: no reply, campaign completed
     return {
-      eventType: 'backfill',
-      hasReply: false,
-      replySentiment: undefined
+      eventType: result.syncEventType,
+      hasReply: result.hasReply,
+      replySentiment: result.replySentiment,
+      engagementData: result.engagementData
     };
   }
 
@@ -1262,10 +1360,31 @@ export class InstantlyPipedriveSyncService {
     try {
       const statusLabel = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
       const eventLabels: Record<SyncEventType, string> = {
-        campaign_completed: 'Campagne doorlopen',
+        // Engagement events
+        email_sent: 'Email verzonden',
+        email_opened: 'Email geopend',
+        email_link_clicked: 'Link geklikt',
+        // Critical events
+        email_bounced: 'Email gebounced',
+        lead_unsubscribed: 'Uitgeschreven',
+        // Reply events
         reply_received: 'Reply ontvangen',
+        auto_reply_received: 'Auto-reply ontvangen',
+        // Interest events
         lead_interested: 'Geinteresseerd',
         lead_not_interested: 'Niet geinteresseerd',
+        lead_neutral: 'Neutraal - review nodig',
+        // Campaign events
+        campaign_completed: 'Campagne doorlopen',
+        // Meeting events
+        lead_meeting_booked: 'Meeting gepland',
+        lead_meeting_completed: 'Meeting afgerond',
+        lead_closed: 'Deal gewonnen',
+        // Special events
+        lead_out_of_office: 'Out of office',
+        lead_wrong_person: 'Verkeerd persoon',
+        account_error: 'Account error',
+        // Internal
         lead_added: 'Toegevoegd aan campagne',
         backfill: 'Backfill sync'
       };
@@ -1960,6 +2079,418 @@ export class InstantlyPipedriveSyncService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Failed to remove lead ${email} from Instantly:`, error);
       return { removed: false, error: errorMessage };
+    }
+  }
+
+  // ============================================================================
+  // BLOCKLIST MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Create a blocklist entry for any reason (bounce, unsubscribe, not interested, etc.)
+   * Syncs to both our database and Instantly blocklist
+   */
+  private async createBlocklistEntry(
+    email: string,
+    reason: string,
+    contactId?: string,
+    companyId?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // Check if blocklist entry already exists
+      const { data: existingEntry } = await this.supabase
+        .from('blocklist_entries')
+        .select('id')
+        .eq('value', cleanEmail)
+        .eq('type', 'email')
+        .single();
+
+      if (existingEntry) {
+        console.log(`📋 Blocklist entry already exists for ${cleanEmail}`);
+        return { success: true };
+      }
+
+      // Add to Instantly blocklist via API
+      let instantlyId: string | undefined;
+      let instantlySynced = false;
+      let instantlyError: string | undefined;
+
+      try {
+        const instantlyResult = await this.instantlyClient.addToBlocklist(cleanEmail);
+        instantlyId = instantlyResult.id;
+        instantlySynced = true;
+        console.log(`✅ Added ${cleanEmail} to Instantly blocklist`);
+      } catch (instantlyErr) {
+        instantlyError = instantlyErr instanceof Error ? instantlyErr.message : 'Unknown error';
+        console.warn(`⚠️ Could not add ${cleanEmail} to Instantly blocklist:`, instantlyError);
+      }
+
+      // Create blocklist entry in our database
+      const { error: blocklistError } = await this.supabase
+        .from('blocklist_entries')
+        .insert({
+          type: 'email',
+          value: cleanEmail,
+          reason: reason,
+          blocklist_level: 'contact',
+          contact_id: contactId || null,
+          company_id: companyId || null,
+          instantly_synced: instantlySynced,
+          instantly_synced_at: instantlySynced ? new Date().toISOString() : null,
+          instantly_id: instantlyId || null,
+          instantly_error: instantlyError || null,
+          is_active: true
+        });
+
+      if (blocklistError) {
+        console.warn(`⚠️ Could not create blocklist entry for ${cleanEmail}:`, blocklistError.message);
+        return { success: false, error: blocklistError.message };
+      }
+
+      // Mark the contact as blocked if we have a contact ID
+      if (contactId) {
+        await this.supabase
+          .from('contacts')
+          .update({ is_blocked: true })
+          .eq('id', contactId);
+      } else {
+        // Try to find and mark by email
+        await this.supabase
+          .from('contacts')
+          .update({ is_blocked: true })
+          .eq('email', cleanEmail);
+      }
+
+      console.log(`🚫 Created blocklist entry for ${cleanEmail} (reason: ${reason})`);
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn(`Could not create blocklist entry for ${email}:`, errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  // ============================================================================
+  // EVENT LOGGING & ENGAGEMENT TRACKING
+  // ============================================================================
+
+  /**
+   * Log an Instantly event to the instantly_email_events table for analytics
+   */
+  private async logInstantlyEvent(
+    email: string,
+    campaignId: string,
+    campaignName: string,
+    eventType: SyncEventType,
+    payload?: any
+  ): Promise<{ success: boolean; eventId?: string; error?: string }> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // Get contact and company IDs if available
+      const { data: contactData } = await this.supabase
+        .from('contacts')
+        .select('id, company_id')
+        .eq('email', cleanEmail)
+        .single();
+
+      // Insert event record
+      const { data: eventRecord, error } = await this.supabase
+        .from('instantly_email_events')
+        .insert({
+          contact_id: contactData?.id || null,
+          company_id: contactData?.company_id || null,
+          campaign_id: campaignId,
+          campaign_name: campaignName,
+          event_type: eventType,
+          event_timestamp: new Date().toISOString(),
+          lead_email: cleanEmail,
+          metadata: payload || {},
+          processed: false
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.warn(`⚠️ Could not log event ${eventType} for ${cleanEmail}:`, error.message);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, eventId: eventRecord?.id };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn(`Could not log event for ${email}:`, errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Update contact engagement metrics based on event type
+   */
+  private async updateContactEngagement(
+    email: string,
+    eventType: SyncEventType
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // Build the update object based on event type
+      const updateData: Record<string, any> = {};
+
+      switch (eventType) {
+        case 'email_opened':
+          updateData.instantly_last_open_at = new Date().toISOString();
+          // Increment opens count with raw SQL
+          break;
+        case 'email_link_clicked':
+          updateData.instantly_last_click_at = new Date().toISOString();
+          break;
+        case 'email_bounced':
+          updateData.instantly_bounced = true;
+          updateData.instantly_bounced_at = new Date().toISOString();
+          updateData.qualification_status = 'bounced';
+          break;
+        case 'lead_unsubscribed':
+          updateData.instantly_unsubscribed = true;
+          updateData.instantly_unsubscribed_at = new Date().toISOString();
+          updateData.qualification_status = 'unsubscribed';
+          break;
+        case 'lead_meeting_booked':
+          updateData.instantly_meeting_booked = true;
+          updateData.instantly_meeting_booked_at = new Date().toISOString();
+          updateData.qualification_status = 'meeting_booked';
+          break;
+        case 'lead_meeting_completed':
+          updateData.instantly_meeting_completed = true;
+          updateData.instantly_meeting_completed_at = new Date().toISOString();
+          updateData.qualification_status = 'meeting_completed';
+          break;
+        case 'lead_closed':
+          updateData.instantly_closed_won = true;
+          updateData.instantly_closed_won_at = new Date().toISOString();
+          updateData.qualification_status = 'closed_won';
+          break;
+        case 'lead_out_of_office':
+          updateData.instantly_out_of_office = true;
+          break;
+        case 'lead_wrong_person':
+          updateData.instantly_wrong_person = true;
+          updateData.qualification_status = 'wrong_person';
+          break;
+        default:
+          // No specific engagement update for this event
+          return { success: true };
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return { success: true };
+      }
+
+      // Update the contact
+      const { error } = await this.supabase
+        .from('contacts')
+        .update(updateData)
+        .eq('email', cleanEmail);
+
+      if (error) {
+        console.warn(`⚠️ Could not update engagement for ${cleanEmail}:`, error.message);
+        return { success: false, error: error.message };
+      }
+
+      // For opens/clicks, increment counters
+      if (eventType === 'email_opened') {
+        await this.incrementContactField(cleanEmail, 'instantly_opens_count');
+      } else if (eventType === 'email_link_clicked') {
+        await this.incrementContactField(cleanEmail, 'instantly_clicks_count');
+      }
+
+      // Recalculate engagement score
+      await this.recalculateEngagementScore(cleanEmail);
+
+      console.log(`📊 Updated engagement for ${cleanEmail} (event: ${eventType})`);
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn(`Could not update engagement for ${email}:`, errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Increment a numeric field on a contact
+   */
+  private async incrementContactField(
+    email: string,
+    field: string
+  ): Promise<void> {
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Get current value
+    const { data } = await this.supabase
+      .from('contacts')
+      .select(field)
+      .eq('email', cleanEmail)
+      .single();
+
+    const currentValue = (data as any)?.[field] || 0;
+
+    // Update with incremented value
+    await this.supabase
+      .from('contacts')
+      .update({ [field]: currentValue + 1 })
+      .eq('email', cleanEmail);
+  }
+
+  /**
+   * Recalculate engagement score for a contact
+   * Score formula:
+   * - Opens: 5 points each (max 25)
+   * - Clicks: 15 points each (max 45)
+   * - Replies: 20 points each (max 40)
+   * - Meeting booked: 50 points
+   * Max score: 160, normalized to 100
+   */
+  private async recalculateEngagementScore(email: string): Promise<void> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      const { data: contact } = await this.supabase
+        .from('contacts')
+        .select('instantly_opens_count, instantly_clicks_count, reply_count, instantly_meeting_booked')
+        .eq('email', cleanEmail)
+        .single();
+
+      if (!contact) return;
+
+      const openScore = Math.min((contact.instantly_opens_count || 0) * 5, 25);
+      const clickScore = Math.min((contact.instantly_clicks_count || 0) * 15, 45);
+      const replyScore = Math.min((contact.reply_count || 0) * 20, 40);
+      const meetingScore = contact.instantly_meeting_booked ? 50 : 0;
+
+      const rawScore = openScore + clickScore + replyScore + meetingScore;
+      const normalizedScore = Math.min(Math.round((rawScore / 160) * 100), 100);
+
+      await this.supabase
+        .from('contacts')
+        .update({ instantly_engagement_score: normalizedScore })
+        .eq('email', cleanEmail);
+
+      // Also update company aggregate if we have company linkage
+      await this.updateCompanyEngagementAggregate(cleanEmail);
+    } catch (error) {
+      console.warn(`Could not recalculate engagement score for ${email}:`, error);
+    }
+  }
+
+  /**
+   * Store engagement metrics from backfill data
+   */
+  private async storeBackfillEngagementMetrics(
+    email: string,
+    engagementData: EngagementData
+  ): Promise<void> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      const updateData: Record<string, any> = {};
+
+      if (engagementData.opensCount > 0) {
+        updateData.instantly_opens_count = engagementData.opensCount;
+      }
+      if (engagementData.clicksCount > 0) {
+        updateData.instantly_clicks_count = engagementData.clicksCount;
+      }
+      if (engagementData.lastOpenAt) {
+        updateData.instantly_last_open_at = engagementData.lastOpenAt;
+      }
+      if (engagementData.lastClickAt) {
+        updateData.instantly_last_click_at = engagementData.lastClickAt;
+      }
+      if (engagementData.lastReplyAt) {
+        updateData.last_reply_at = engagementData.lastReplyAt;
+      }
+      if (engagementData.currentStep) {
+        updateData.instantly_current_step = engagementData.currentStep;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await this.supabase
+          .from('contacts')
+          .update(updateData)
+          .eq('email', cleanEmail);
+
+        // Recalculate engagement score after storing metrics
+        await this.recalculateEngagementScore(cleanEmail);
+      }
+    } catch (error) {
+      console.warn(`Could not store backfill engagement metrics for ${email}:`, error);
+    }
+  }
+
+  /**
+   * Update company aggregate engagement metrics
+   */
+  private async updateCompanyEngagementAggregate(email: string): Promise<void> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // Get contact's company
+      const { data: contact } = await this.supabase
+        .from('contacts')
+        .select('company_id')
+        .eq('email', cleanEmail)
+        .single();
+
+      if (!contact?.company_id) return;
+
+      // Calculate aggregates from all contacts at this company
+      const { data: companyContacts } = await this.supabase
+        .from('contacts')
+        .select(`
+          instantly_opens_count,
+          instantly_clicks_count,
+          reply_count,
+          instantly_bounced,
+          instantly_meeting_booked,
+          instantly_engagement_score
+        `)
+        .eq('company_id', contact.company_id)
+        .not('instantly_synced', 'is', null);
+
+      if (!companyContacts || companyContacts.length === 0) return;
+
+      const totals = companyContacts.reduce(
+        (acc, c) => ({
+          leads: acc.leads + 1,
+          opens: acc.opens + (c.instantly_opens_count || 0),
+          clicks: acc.clicks + (c.instantly_clicks_count || 0),
+          replies: acc.replies + (c.reply_count || 0),
+          bounces: acc.bounces + (c.instantly_bounced ? 1 : 0),
+          meetings: acc.meetings + (c.instantly_meeting_booked ? 1 : 0),
+          totalScore: acc.totalScore + (c.instantly_engagement_score || 0)
+        }),
+        { leads: 0, opens: 0, clicks: 0, replies: 0, bounces: 0, meetings: 0, totalScore: 0 }
+      );
+
+      const avgScore = totals.leads > 0 ? totals.totalScore / totals.leads : 0;
+
+      await this.supabase
+        .from('companies')
+        .update({
+          instantly_total_leads: totals.leads,
+          instantly_total_opens: totals.opens,
+          instantly_total_clicks: totals.clicks,
+          instantly_total_replies: totals.replies,
+          instantly_total_bounces: totals.bounces,
+          instantly_meetings_booked: totals.meetings,
+          instantly_avg_engagement_score: Math.round(avgScore * 100) / 100,
+          instantly_last_activity_at: new Date().toISOString()
+        })
+        .eq('id', contact.company_id);
+    } catch (error) {
+      console.warn(`Could not update company engagement aggregate:`, error);
     }
   }
 }
