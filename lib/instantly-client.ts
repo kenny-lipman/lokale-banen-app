@@ -566,6 +566,48 @@ export class InstantlyClient {
   }
 
   /**
+   * Delete a lead from Instantly by ID
+   * Use this after syncing to Pipedrive to remove the lead from Instantly
+   * @param leadId - The lead's unique identifier (UUID)
+   * @returns The deleted lead object
+   */
+  async deleteLead(leadId: string): Promise<InstantlyLead | null> {
+    try {
+      const response = await this.makeRequest<InstantlyLead>(`/leads/${leadId}`, {
+        method: 'DELETE',
+      })
+      console.log(`🗑️ Successfully deleted lead ${leadId} from Instantly`)
+      return response
+    } catch (error) {
+      console.error(`Failed to delete lead ${leadId}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete a lead from Instantly by email
+   * Finds the lead by email first, then deletes it
+   * @param email - The lead's email address
+   * @param campaignId - Optional campaign ID to find the specific lead
+   * @returns The deleted lead object or null if not found
+   */
+  async deleteLeadByEmail(email: string, campaignId?: string): Promise<InstantlyLead | null> {
+    try {
+      const lead = await this.getLeadByEmail(email, campaignId)
+
+      if (!lead || !lead.id) {
+        console.log(`Lead with email ${email} not found in Instantly`)
+        return null
+      }
+
+      return await this.deleteLead(lead.id)
+    } catch (error) {
+      console.error(`Failed to delete lead by email ${email}:`, error)
+      throw error
+    }
+  }
+
+  /**
    * Search campaigns by lead email to find all campaigns a lead is in
    * @param email - The lead's email address
    */

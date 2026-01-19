@@ -79,6 +79,8 @@ export interface SyncResult {
   emailActivitiesSynced?: boolean;
   emailActivitiesCount?: number;
   emailActivitiesError?: string;
+  // Instantly lead removal tracking
+  instantlyLeadRemoved?: boolean;
 }
 
 export interface SyncStats {
@@ -423,6 +425,16 @@ export class InstantlyPipedriveSyncService {
           contactData?.id ?? undefined,
           contactData?.company_id ?? undefined
         );
+      }
+
+      // 15. Remove lead from Instantly after successful sync to Pipedrive
+      // This prevents the lead from being contacted again via Instantly
+      const removeResult = await this.removeLeadFromInstantly(cleanEmail, campaignId, contactData?.id);
+      if (removeResult.removed) {
+        result.instantlyLeadRemoved = true;
+        console.log(`🗑️ Removed lead ${cleanEmail} from Instantly after Pipedrive sync`);
+      } else if (removeResult.error) {
+        console.warn(`⚠️ Could not remove lead from Instantly: ${removeResult.error}`);
       }
 
       console.log(`✅ Synced ${cleanEmail} to Pipedrive ${orgResult ? `org ${orgResult.id}` : '(person only)'} with status ${statusKey}`);
@@ -1811,6 +1823,10 @@ export class InstantlyPipedriveSyncService {
 
   /**
    * Create a blocklist entry when a lead marks themselves as not interested
+   * This adds the email to:
+   * 1. Our database blocklist_entries table
+   * 2. Instantly blocklist (via API)
+   * 3. Marks the contact as blocked
    */
   private async createBlocklistForNotInterested(
     email: string,
@@ -1834,7 +1850,23 @@ export class InstantlyPipedriveSyncService {
         return;
       }
 
-      // Create blocklist entry
+      // 1. Add to Instantly blocklist via API
+      let instantlyId: string | undefined;
+      let instantlySynced = false;
+      let instantlyError: string | undefined;
+
+      try {
+        const instantlyResult = await this.instantlyClient.addToBlocklist(cleanEmail);
+        instantlyId = instantlyResult.id;
+        instantlySynced = true;
+        console.log(`✅ Added ${cleanEmail} to Instantly blocklist`);
+      } catch (instantlyErr) {
+        instantlyError = instantlyErr instanceof Error ? instantlyErr.message : 'Unknown error';
+        console.warn(`⚠️ Could not add ${cleanEmail} to Instantly blocklist:`, instantlyError);
+        // Continue with database entry even if Instantly fails
+      }
+
+      // 2. Create blocklist entry in our database
       const { error: blocklistError } = await this.supabase
         .from('blocklist_entries')
         .insert({
@@ -1844,8 +1876,10 @@ export class InstantlyPipedriveSyncService {
           blocklist_level: 'contact',
           contact_id: contactId || null,
           company_id: companyId || null,
-          instantly_synced: true,
-          instantly_synced_at: new Date().toISOString(),
+          instantly_synced: instantlySynced,
+          instantly_synced_at: instantlySynced ? new Date().toISOString() : null,
+          instantly_id: instantlyId || null,
+          instantly_error: instantlyError || null,
           is_active: true
         });
 
@@ -1854,7 +1888,7 @@ export class InstantlyPipedriveSyncService {
         return;
       }
 
-      // Also mark the contact as blocked if we have a contact ID
+      // 3. Mark the contact as blocked if we have a contact ID
       if (contactId) {
         await this.supabase
           .from('contacts')
@@ -1862,9 +1896,70 @@ export class InstantlyPipedriveSyncService {
           .eq('id', contactId);
       }
 
-      console.log(`🚫 Created blocklist entry for ${cleanEmail} (not interested)`);
+      console.log(`🚫 Created blocklist entry for ${cleanEmail} (not interested, instantly_synced: ${instantlySynced})`);
     } catch (error) {
       console.warn(`Could not create blocklist entry for ${email}:`, error);
+    }
+  }
+
+  // ============================================================================
+  // INSTANTLY LEAD REMOVAL
+  // ============================================================================
+
+  /**
+   * Remove a lead from Instantly after successful sync to Pipedrive
+   * This ensures the lead won't be contacted again via Instantly cold outreach
+   * Updates the contact's instantly_removed_at and qualification_status
+   */
+  private async removeLeadFromInstantly(
+    email: string,
+    campaignId: string,
+    contactId: string | undefined
+  ): Promise<{ removed: boolean; error?: string }> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+
+      // Try to delete the lead from Instantly
+      const deletedLead = await this.instantlyClient.deleteLeadByEmail(cleanEmail, campaignId);
+
+      if (!deletedLead) {
+        // Lead not found in Instantly - might have been removed already
+        console.log(`Lead ${cleanEmail} not found in Instantly (campaign: ${campaignId}), may have been removed already`);
+      }
+
+      // Update contact in database with removal timestamp and new status
+      if (contactId) {
+        const { error: updateError } = await this.supabase
+          .from('contacts')
+          .update({
+            instantly_removed_at: new Date().toISOString(),
+            qualification_status: 'synced_to_pipedrive'
+          })
+          .eq('id', contactId);
+
+        if (updateError) {
+          console.warn(`Could not update contact ${contactId} after Instantly removal:`, updateError.message);
+        }
+      } else {
+        // Try to find and update the contact by email
+        const { error: updateError } = await this.supabase
+          .from('contacts')
+          .update({
+            instantly_removed_at: new Date().toISOString(),
+            qualification_status: 'synced_to_pipedrive'
+          })
+          .eq('email', cleanEmail);
+
+        if (updateError) {
+          console.warn(`Could not update contact by email ${cleanEmail} after Instantly removal:`, updateError.message);
+        }
+      }
+
+      return { removed: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Failed to remove lead ${email} from Instantly:`, error);
+      return { removed: false, error: errorMessage };
     }
   }
 }

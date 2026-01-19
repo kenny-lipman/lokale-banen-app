@@ -1,5 +1,4 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import type { Database } from './supabase'
 
 // Singleton instance to prevent multiple GoTrueClient instances
 let supabaseInstance: ReturnType<typeof createSupabaseClient<Database>> | null = null
@@ -207,8 +206,10 @@ export type Database = {
           apollo_enriched_at: string | null
           apollo_enrichment_data: Json | null
           apollo_organization_id: string | null
+          campaign_reply_rate: number | null
           category_size: string | null
           city: string | null
+          contacts_in_campaign: number | null
           country: string | null
           created_at: string | null
           description: string | null
@@ -230,7 +231,14 @@ export type Database = {
           name: string
           normalized_name: string | null
           phone: string | null
+          pipedrive_id: string | null
+          pipedrive_synced: boolean | null
+          pipedrive_synced_at: string | null
           postal_code: string | null
+          qualification_notes: string | null
+          qualification_status: string | null
+          qualification_timestamp: string | null
+          qualified_by_user: string | null
           rating_indeed: number | null
           raw_address: string | null
           review_count_indeed: number | null
@@ -250,8 +258,10 @@ export type Database = {
           apollo_enriched_at?: string | null
           apollo_enrichment_data?: Json | null
           apollo_organization_id?: string | null
+          campaign_reply_rate?: number | null
           category_size?: string | null
           city?: string | null
+          contacts_in_campaign?: number | null
           country?: string | null
           created_at?: string | null
           description?: string | null
@@ -273,7 +283,14 @@ export type Database = {
           name: string
           normalized_name?: string | null
           phone?: string | null
+          pipedrive_id?: string | null
+          pipedrive_synced?: boolean | null
+          pipedrive_synced_at?: string | null
           postal_code?: string | null
+          qualification_notes?: string | null
+          qualification_status?: string | null
+          qualification_timestamp?: string | null
+          qualified_by_user?: string | null
           rating_indeed?: number | null
           raw_address?: string | null
           review_count_indeed?: number | null
@@ -293,8 +310,10 @@ export type Database = {
           apollo_enriched_at?: string | null
           apollo_enrichment_data?: Json | null
           apollo_organization_id?: string | null
+          campaign_reply_rate?: number | null
           category_size?: string | null
           city?: string | null
+          contacts_in_campaign?: number | null
           country?: string | null
           created_at?: string | null
           description?: string | null
@@ -316,7 +335,14 @@ export type Database = {
           name?: string
           normalized_name?: string | null
           phone?: string | null
+          pipedrive_id?: string | null
+          pipedrive_synced?: boolean | null
+          pipedrive_synced_at?: string | null
           postal_code?: string | null
+          qualification_notes?: string | null
+          qualification_status?: string | null
+          qualification_timestamp?: string | null
+          qualified_by_user?: string | null
           rating_indeed?: number | null
           raw_address?: string | null
           review_count_indeed?: number | null
@@ -505,16 +531,27 @@ export type Database = {
           found_at: string | null
           id: string
           instantly_id: string | null
+          instantly_synced: boolean | null
+          instantly_synced_at: string | null
+          instantly_status: string | null
+          instantly_campaign_ids: string[] | null
+          instantly_removed_at: string | null
+          is_blocked: boolean | null
           is_key_contact: boolean | null
           last_name: string | null
+          last_reply_at: string | null
           last_touch: string | null
           linkedin_url: string | null
           name: string | null
           phone: string | null
+          pipedrive_person_id: string | null
+          pipedrive_synced: boolean | null
+          pipedrive_synced_at: string | null
           qualification_notes: string | null
           qualification_status: string | null
           qualification_timestamp: string | null
           qualified_by_user: string | null
+          reply_count: number | null
           source: string | null
           status: string | null
           title: string | null
@@ -533,16 +570,27 @@ export type Database = {
           found_at?: string | null
           id?: string
           instantly_id?: string | null
+          instantly_synced?: boolean | null
+          instantly_synced_at?: string | null
+          instantly_status?: string | null
+          instantly_campaign_ids?: string[] | null
+          instantly_removed_at?: string | null
+          is_blocked?: boolean | null
           is_key_contact?: boolean | null
           last_name?: string | null
+          last_reply_at?: string | null
           last_touch?: string | null
           linkedin_url?: string | null
           name?: string | null
           phone?: string | null
+          pipedrive_person_id?: string | null
+          pipedrive_synced?: boolean | null
+          pipedrive_synced_at?: string | null
           qualification_notes?: string | null
           qualification_status?: string | null
           qualification_timestamp?: string | null
           qualified_by_user?: string | null
+          reply_count?: number | null
           source?: string | null
           status?: string | null
           title?: string | null
@@ -561,16 +609,27 @@ export type Database = {
           found_at?: string | null
           id?: string
           instantly_id?: string | null
+          instantly_synced?: boolean | null
+          instantly_synced_at?: string | null
+          instantly_status?: string | null
+          instantly_campaign_ids?: string[] | null
+          instantly_removed_at?: string | null
+          is_blocked?: boolean | null
           is_key_contact?: boolean | null
           last_name?: string | null
+          last_reply_at?: string | null
           last_touch?: string | null
           linkedin_url?: string | null
           name?: string | null
           phone?: string | null
+          pipedrive_person_id?: string | null
+          pipedrive_synced?: boolean | null
+          pipedrive_synced_at?: string | null
           qualification_notes?: string | null
           qualification_status?: string | null
           qualification_timestamp?: string | null
           qualified_by_user?: string | null
+          reply_count?: number | null
           source?: string | null
           status?: string | null
           title?: string | null
@@ -597,6 +656,7 @@ export type Database = {
           id: string
           job_type: string[] | null
           location: string | null
+          platform_id: string | null
           region_id: string | null
           review_status: string | null
           reviewed_at: string | null
@@ -620,6 +680,7 @@ export type Database = {
           id?: string
           job_type?: string[] | null
           location?: string | null
+          platform_id?: string | null
           region_id?: string | null
           review_status?: string | null
           reviewed_at?: string | null
@@ -643,6 +704,7 @@ export type Database = {
           id?: string
           job_type?: string[] | null
           location?: string | null
+          platform_id?: string | null
           region_id?: string | null
           review_status?: string | null
           reviewed_at?: string | null
@@ -705,6 +767,13 @@ export type Database = {
             referencedRelation: "job_sources_with_postings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "job_postings_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
         ]
       }
       regions: {
@@ -728,6 +797,105 @@ export type Database = {
           plaats?: string
           postcode?: string | null
           regio_platform?: string
+        }
+        Relationships: []
+      }
+      blocklist_entries: {
+        Row: {
+          id: string
+          type: string
+          value: string
+          reason: string | null
+          blocklist_level: string | null
+          contact_id: string | null
+          company_id: string | null
+          instantly_synced: boolean | null
+          instantly_synced_at: string | null
+          instantly_id: string | null
+          instantly_error: string | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          type: string
+          value: string
+          reason?: string | null
+          blocklist_level?: string | null
+          contact_id?: string | null
+          company_id?: string | null
+          instantly_synced?: boolean | null
+          instantly_synced_at?: string | null
+          instantly_id?: string | null
+          instantly_error?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          type?: string
+          value?: string
+          reason?: string | null
+          blocklist_level?: string | null
+          contact_id?: string | null
+          company_id?: string | null
+          instantly_synced?: boolean | null
+          instantly_synced_at?: string | null
+          instantly_id?: string | null
+          instantly_error?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocklist_entries_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocklist_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platforms: {
+        Row: {
+          id: string
+          name: string
+          slug: string | null
+          api_key: string | null
+          settings: Json | null
+          regio_platform: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug?: string | null
+          api_key?: string | null
+          settings?: Json | null
+          regio_platform?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string | null
+          api_key?: string | null
+          settings?: Json | null
+          regio_platform?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -759,6 +927,10 @@ export type Database = {
           person_created: boolean
           status_skipped: boolean
           skip_reason: string | null
+          email_activities_synced: boolean | null
+          email_activities_count: number | null
+          email_activities_error: string | null
+          email_activities_retry_count: number | null
         }
         Insert: {
           id?: string
@@ -787,6 +959,10 @@ export type Database = {
           person_created?: boolean
           status_skipped?: boolean
           skip_reason?: string | null
+          email_activities_synced?: boolean | null
+          email_activities_count?: number | null
+          email_activities_error?: string | null
+          email_activities_retry_count?: number | null
         }
         Update: {
           id?: string
@@ -815,6 +991,10 @@ export type Database = {
           person_created?: boolean
           status_skipped?: boolean
           skip_reason?: string | null
+          email_activities_synced?: boolean | null
+          email_activities_count?: number | null
+          email_activities_error?: string | null
+          email_activities_retry_count?: number | null
         }
         Relationships: []
       }
@@ -852,6 +1032,15 @@ export type Database = {
           },
         ]
       }
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }
