@@ -154,6 +154,7 @@ export interface ProcessedVacancy {
   companyCreated?: boolean;
   companyUpdated?: boolean;
   contactCreated?: boolean;
+  contactUpdated?: boolean;
 }
 
 /**
@@ -171,6 +172,7 @@ export interface ScrapeResult {
   companiesCreated: number;
   companiesUpdated: number;
   contactsCreated: number;
+  contactsUpdated: number;
   errorDetails: Array<{ uuid: string; title: string; error: string }>;
   resumeFromPage?: number;
 }

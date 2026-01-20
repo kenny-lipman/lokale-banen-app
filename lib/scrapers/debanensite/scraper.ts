@@ -199,7 +199,22 @@ async function findOrCreateCompany(
 }
 
 /**
+ * Normalize phone number for comparison
+ * Removes all non-digits except leading +
+ */
+function normalizePhone(phone: string): string {
+  // Keep + at start if present, remove all other non-digits
+  const hasPlus = phone.startsWith("+");
+  const digits = phone.replace(/\D/g, "");
+  return hasPlus ? `+${digits}` : digits;
+}
+
+/**
  * Create a contact for a company if contact info is available
+ * Deduplication strategy (in order of reliability):
+ * 1. Email (global) - most reliable unique identifier
+ * 2. Phone + Company - same phone at same company = same person
+ * 3. Name + Company - same name at same company = likely same person
  */
 async function createContactIfAvailable(
   supabase: SupabaseClient,
@@ -210,38 +225,90 @@ async function createContactIfAvailable(
     phone?: string | null;
     title?: string | null;
   }
-): Promise<{ id: string; created: boolean } | null> {
+): Promise<{ id: string; created: boolean; updated: boolean } | null> {
   // Need at least a name or email to create a contact
   if (!contactData.name && !contactData.email) {
     return null;
   }
 
-  // Check for existing contact by email (most reliable dedup)
+  // Strategy 1: Check by email (global - most reliable)
   if (contactData.email) {
-    const { data: existing } = await supabase
+    const { data: existingByEmail } = await supabase
       .from("contacts")
-      .select("id")
+      .select("id, phone, title")
       .eq("email", contactData.email)
       .single();
 
-    if (existing) {
-      return { id: existing.id, created: false };
+    if (existingByEmail) {
+      // Update missing fields if we have new data
+      const updates: Record<string, unknown> = {};
+      if (contactData.phone && !existingByEmail.phone) updates.phone = contactData.phone;
+      if (contactData.title && !existingByEmail.title) updates.title = contactData.title;
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from("contacts").update(updates).eq("id", existingByEmail.id);
+      }
+      return { id: existingByEmail.id, created: false, updated: Object.keys(updates).length > 0 };
     }
   }
 
-  // Parse name into first/last name
-  let firstName: string | null = null;
-  let lastName: string | null = null;
+  // Strategy 2: Check by phone + company (same phone at same company = same person)
+  if (contactData.phone) {
+    const normalizedPhone = normalizePhone(contactData.phone);
 
+    // Get all contacts at this company
+    const { data: companyContacts } = await supabase
+      .from("contacts")
+      .select("id, phone, email, title, name")
+      .eq("company_id", companyId);
+
+    if (companyContacts) {
+      const matchByPhone = companyContacts.find(
+        (c) => c.phone && normalizePhone(c.phone) === normalizedPhone
+      );
+
+      if (matchByPhone) {
+        // Update missing fields
+        const updates: Record<string, unknown> = {};
+        if (contactData.email && !matchByPhone.email) updates.email = contactData.email;
+        if (contactData.title && !matchByPhone.title) updates.title = contactData.title;
+        if (contactData.name && !matchByPhone.name) updates.name = contactData.name;
+
+        if (Object.keys(updates).length > 0) {
+          await supabase.from("contacts").update(updates).eq("id", matchByPhone.id);
+        }
+        return { id: matchByPhone.id, created: false, updated: Object.keys(updates).length > 0 };
+      }
+    }
+  }
+
+  // Strategy 3: Check by name + company (same name at same company = likely same person)
   if (contactData.name) {
-    const nameParts = contactData.name.trim().split(/\s+/);
-    if (nameParts.length >= 2) {
-      firstName = nameParts[0];
-      lastName = nameParts.slice(1).join(" ");
-    } else {
-      firstName = contactData.name;
+    const normalizedName = contactData.name.toLowerCase().trim();
+
+    const { data: existingByName } = await supabase
+      .from("contacts")
+      .select("id, phone, email, title")
+      .eq("company_id", companyId)
+      .ilike("name", contactData.name)
+      .single();
+
+    if (existingByName) {
+      // Update missing fields
+      const updates: Record<string, unknown> = {};
+      if (contactData.email && !existingByName.email) updates.email = contactData.email;
+      if (contactData.phone && !existingByName.phone) updates.phone = contactData.phone;
+      if (contactData.title && !existingByName.title) updates.title = contactData.title;
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from("contacts").update(updates).eq("id", existingByName.id);
+      }
+      return { id: existingByName.id, created: false, updated: Object.keys(updates).length > 0 };
     }
   }
+
+  // No match found - create new contact
+  const { firstName, lastName } = parseName(contactData.name || "");
 
   const { data: newContact, error } = await supabase
     .from("contacts")
@@ -264,7 +331,7 @@ async function createContactIfAvailable(
     return null;
   }
 
-  return newContact ? { id: newContact.id, created: true } : null;
+  return newContact ? { id: newContact.id, created: true, updated: false } : null;
 }
 
 /**
@@ -453,6 +520,7 @@ async function processVacancy(
     });
 
     result.contactCreated = contactResult?.created || false;
+    result.contactUpdated = contactResult?.updated || false;
 
     // Insert job posting
     await insertJobPosting(supabase, vacancy, companyResult.id, sourceId);
@@ -487,6 +555,7 @@ export async function scrapeDebanensite(
     companiesCreated: 0,
     companiesUpdated: 0,
     contactsCreated: 0,
+    contactsUpdated: 0,
     errorDetails: [],
   };
 
@@ -537,6 +606,7 @@ export async function scrapeDebanensite(
           if (vacancyResult.companyCreated) result.companiesCreated++;
           if (vacancyResult.companyUpdated) result.companiesUpdated++;
           if (vacancyResult.contactCreated) result.contactsCreated++;
+          if (vacancyResult.contactUpdated) result.contactsUpdated++;
           console.log(`    Inserted: ${vacancyResult.title}`);
         }
       }
@@ -556,7 +626,7 @@ export async function scrapeDebanensite(
       `Scraping complete: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors} errors`
     );
     console.log(
-      `Companies: ${result.companiesCreated} created, ${result.companiesUpdated} updated | Contacts: ${result.contactsCreated} created`
+      `Companies: ${result.companiesCreated} created, ${result.companiesUpdated} updated | Contacts: ${result.contactsCreated} created, ${result.contactsUpdated} updated`
     );
   } catch (error) {
     console.error("Scraper failed:", error);
