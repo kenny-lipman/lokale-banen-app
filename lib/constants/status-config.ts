@@ -152,6 +152,10 @@ export const INSTANTLY_EVENT_TYPES = [
   'lead_wrong_person',
   'account_error',
 
+  // Custom label events
+  'custom_label_any_positive',
+  'custom_label_any_negative',
+
   // Internal
   'lead_added',
   'backfill',
@@ -325,6 +329,24 @@ export const EVENT_CONFIG: Record<
     logActivity: false,
     updateEngagement: false,
     description: 'Email account error - system event',
+  },
+
+  // Custom label events (Interessant voor later, Reageren, Niet meer contacten)
+  custom_label_any_positive: {
+    pipedriveStatus: 'BENADEREN',
+    qualificationStatus: 'qualified',
+    addToBlocklist: false,
+    logActivity: true,
+    updateEngagement: true,
+    description: 'Lead marked with positive custom label (Interessant voor later, Reageren)',
+  },
+  custom_label_any_negative: {
+    pipedriveStatus: 'NIET_MEER_BENADEREN',
+    qualificationStatus: 'disqualified',
+    addToBlocklist: true,
+    logActivity: false,
+    updateEngagement: false,
+    description: 'Lead marked with negative custom label (Niet meer contacten)',
   },
 
   // Internal events

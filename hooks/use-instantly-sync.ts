@@ -245,6 +245,10 @@ export const EVENT_TYPE_CONFIG: Record<string, { label: string; color: string; i
   // Backfill
   backfill: { label: 'Backfill', color: 'bg-indigo-100 text-indigo-700', icon: '🔄' },
   lead_added: { label: 'Lead Added', color: 'bg-gray-100 text-gray-600', icon: '➕' },
+
+  // Custom labels
+  custom_label_any_positive: { label: 'Interessant/Reageren', color: 'bg-green-100 text-green-700', icon: '⭐' },
+  custom_label_any_negative: { label: 'Niet meer contacten', color: 'bg-red-100 text-red-700', icon: '🚫' },
 };
 
 export function getEventTypeConfig(eventType: string) {

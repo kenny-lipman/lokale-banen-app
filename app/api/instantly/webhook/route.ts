@@ -135,6 +135,10 @@ export async function POST(req: NextRequest) {
       'lead_out_of_office',
       'lead_wrong_person',
       'account_error',
+
+      // Custom label events
+      'custom_label_any_positive',
+      'custom_label_any_negative',
     ];
 
     if (!supportedEvents.includes(payload.event_type)) {
@@ -225,8 +229,9 @@ export async function GET(req: NextRequest) {
       interest: ['lead_interested', 'lead_not_interested', 'lead_neutral'],
       meeting: ['lead_meeting_booked', 'lead_meeting_completed', 'lead_closed'],
       special: ['lead_out_of_office', 'lead_wrong_person', 'account_error'],
+      customLabels: ['custom_label_any_positive', 'custom_label_any_negative'],
     },
-    totalEventTypes: 16,
+    totalEventTypes: 18,
     secretConfigured: !!INSTANTLY_WEBHOOK_SECRET
   });
 }
