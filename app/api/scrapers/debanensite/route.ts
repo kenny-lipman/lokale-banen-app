@@ -16,7 +16,7 @@ const JOB_SOURCE_NAME = "De Banensite";
  */
 function isAuthorized(request: NextRequest): boolean {
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET_KEY;
 
   // Allow if CRON_SECRET matches
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
