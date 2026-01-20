@@ -11,12 +11,15 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { parseListPage, stripHtmlTags, generateVacancyUrl, generateSlug } from "./parser";
 import { extractDataWithAI } from "./ai-parser";
+import { fetchDetailPage } from "./detail-parser";
+import { generateNormalizedName, generateContentHash, parseName } from "./utils";
 import type {
   ScraperConfig,
   ScrapeResult,
   ParsedVacancy,
   NextDataJobPosting,
   ProcessedVacancy,
+  DetailPageData,
 } from "./types";
 
 const BASE_URL = "https://debanensite.nl";
@@ -29,6 +32,8 @@ const DEFAULT_CONFIG: ScraperConfig = {
   mode: "incremental",
   delayBetweenPages: 500,
   delayBetweenAiCalls: 100,
+  fetchDetailPages: true,
+  delayBetweenDetailFetches: 200,
 };
 
 /**
@@ -124,23 +129,28 @@ async function vacancyExists(
 
 /**
  * Find or create a company
+ * Uses normalized_name for deduplication (like n8n workflow)
  */
 async function findOrCreateCompany(
   supabase: SupabaseClient,
   companyData: {
     name: string;
     city?: string | null;
+    street_address?: string | null;
+    postal_code?: string | null;
     website?: string | null;
     phone?: string | null;
     email?: string | null;
   },
   sourceId: string
 ): Promise<{ id: string; created: boolean; updated: boolean }> {
-  // Try exact match first
+  const normalizedName = generateNormalizedName(companyData.name);
+
+  // Try normalized_name match first (more reliable than ilike)
   const { data: existing } = await supabase
     .from("companies")
-    .select("id, website, phone, city")
-    .ilike("name", companyData.name)
+    .select("id, website, phone, city, street_address, postal_code")
+    .eq("normalized_name", normalizedName)
     .single();
 
   if (existing) {
@@ -149,6 +159,10 @@ async function findOrCreateCompany(
     if (companyData.website && !existing.website) updates.website = companyData.website;
     if (companyData.phone && !existing.phone) updates.phone = companyData.phone;
     if (companyData.city && !existing.city) updates.city = companyData.city;
+    if (companyData.street_address && !existing.street_address)
+      updates.street_address = companyData.street_address;
+    if (companyData.postal_code && !existing.postal_code)
+      updates.postal_code = companyData.postal_code;
 
     const wasUpdated = Object.keys(updates).length > 0;
     if (wasUpdated) {
@@ -158,12 +172,15 @@ async function findOrCreateCompany(
     return { id: existing.id, created: false, updated: wasUpdated };
   }
 
-  // Create new company
+  // Create new company with normalized_name
   const { data: newCompany, error } = await supabase
     .from("companies")
     .insert({
       name: companyData.name,
+      normalized_name: normalizedName,
       city: companyData.city || null,
+      street_address: companyData.street_address || null,
+      postal_code: companyData.postal_code || null,
       website: companyData.website || null,
       phone: companyData.phone || null,
       source: sourceId,
@@ -251,7 +268,7 @@ async function createContactIfAvailable(
 }
 
 /**
- * Insert a job posting
+ * Insert a job posting with all available data
  */
 async function insertJobPosting(
   supabase: SupabaseClient,
@@ -261,10 +278,19 @@ async function insertJobPosting(
 ): Promise<void> {
   // Parse working hours to number if possible
   let workingHoursMin: number | null = null;
+  let workingHoursMax: number | null = null;
+
   if (vacancy.working_hours) {
-    const hoursMatch = vacancy.working_hours.match(/(\d+)/);
+    const hoursMatch = vacancy.working_hours.toString().match(/(\d+)/);
     if (hoursMatch) {
       workingHoursMin = parseInt(hoursMatch[1], 10);
+    }
+  }
+
+  if (vacancy.working_hours_max) {
+    const maxMatch = vacancy.working_hours_max.toString().match(/(\d+)/);
+    if (maxMatch) {
+      workingHoursMax = parseInt(maxMatch[1], 10);
     }
   }
 
@@ -279,21 +305,36 @@ async function insertJobPosting(
     external_vacancy_id: vacancy.uuid,
     url: vacancy.url,
     description: vacancy.description,
+
+    // Location
     city: vacancy.city,
+    state: vacancy.province,
     country: "Netherlands",
     latitude,
     longitude,
+
+    // Job details
     employment:
       vacancy.employment_type === "Full-time"
         ? "Fulltime"
         : vacancy.employment_type === "Part-time"
           ? "Parttime"
           : null,
+    categories: vacancy.work_field,
+    education_level: vacancy.education_level,
     salary: vacancy.salary,
     working_hours_min: workingHoursMin,
+    working_hours_max: workingHoursMax,
+
+    // Dates
+    created_at: vacancy.date_posted || new Date().toISOString(),
+    end_date: vacancy.date_expires,
+    scraped_at: new Date().toISOString(),
+
+    // Dedup & status
+    content_hash: vacancy.content_hash,
     status: "new",
     review_status: "pending",
-    scraped_at: new Date().toISOString(),
   });
 
   if (error) {
@@ -303,6 +344,7 @@ async function insertJobPosting(
 
 /**
  * Process a single vacancy
+ * Flow: Check exists → Fetch detail page → AI extraction → DB inserts
  */
 async function processVacancy(
   supabase: SupabaseClient,
@@ -339,12 +381,24 @@ async function processVacancy(
     const slug = source?.slug || generateSlug(title, companyName, city);
     const url = generateVacancyUrl(slug, job._id);
 
+    // Fetch detail page for structured JSON-LD data (only for new vacancies)
+    let detailData: DetailPageData | null = null;
+    if (config.fetchDetailPages) {
+      await delay(config.delayBetweenDetailFetches);
+      detailData = await fetchDetailPage(url);
+    }
+
     // Extract extra data with AI
     await delay(config.delayBetweenAiCalls);
     const aiData = await extractDataWithAI(descriptionPlain);
 
-    // Combine all data
+    // Generate computed fields
+    const normalizedCompanyName = generateNormalizedName(companyName);
+    const contentHash = generateContentHash(title, companyName, city || "", url);
+
+    // Combine all data: List JSON + Detail JSON-LD + AI extraction
     const vacancy: ParsedVacancy = {
+      // From List Page JSON
       uuid: job._id,
       url,
       title: title,
@@ -354,15 +408,32 @@ async function processVacancy(
       employment_type: employmentType,
       description: descriptionHtml,
       description_plain: descriptionPlain,
+
+      // From Detail Page JSON-LD
+      date_posted: detailData?.datePosted || null,
+      date_expires: detailData?.validThrough || null,
+      province: detailData?.province || null,
+      work_field: detailData?.workField || null,
+      education_level: detailData?.educationLevel || null,
+      company_street_address: detailData?.companyAddress?.streetAddress || null,
+      company_postal_code: detailData?.companyAddress?.postalCode || null,
+
+      // From AI extraction
       ...aiData,
+
+      // Computed fields
+      normalized_company_name: normalizedCompanyName,
+      content_hash: contentHash,
     };
 
-    // Find or create company
+    // Find or create company with all available data
     const companyResult = await findOrCreateCompany(
       supabase,
       {
         name: vacancy.company_name,
         city: vacancy.city,
+        street_address: vacancy.company_street_address,
+        postal_code: vacancy.company_postal_code,
         website: vacancy.company_website,
         phone: vacancy.company_phone,
         email: vacancy.company_email,

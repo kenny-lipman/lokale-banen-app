@@ -52,6 +52,7 @@ export interface NextDataProps {
 export interface AiExtractedData {
   salary: string | null;
   working_hours: string | null;
+  working_hours_max: string | null;
   requirements: string[] | null;
   company_website: string | null;
   company_phone: string | null;
@@ -63,10 +64,26 @@ export interface AiExtractedData {
 }
 
 /**
- * Combined vacancy data (JSON + AI extracted)
+ * Data extracted from detail page JSON-LD (Schema.org)
+ */
+export interface DetailPageData {
+  datePosted: string | null;
+  validThrough: string | null;
+  province: string | null;
+  workField: string | null;
+  educationLevel: string | null;
+  companyAddress: {
+    streetAddress: string | null;
+    postalCode: string | null;
+    city: string | null;
+  } | null;
+}
+
+/**
+ * Combined vacancy data (JSON + Detail Page + AI extracted)
  */
 export interface ParsedVacancy {
-  // From JSON
+  // From List Page JSON
   uuid: string;
   url: string;
   title: string;
@@ -77,9 +94,19 @@ export interface ParsedVacancy {
   description: string;
   description_plain: string;
 
-  // From AI
+  // From Detail Page JSON-LD
+  date_posted: string | null;
+  date_expires: string | null;
+  province: string | null;
+  work_field: string | null;
+  education_level: string | null;
+  company_street_address: string | null;
+  company_postal_code: string | null;
+
+  // From AI extraction
   salary: string | null;
   working_hours: string | null;
+  working_hours_max: string | null;
   requirements: string[] | null;
   company_website: string | null;
   company_phone: string | null;
@@ -88,6 +115,10 @@ export interface ParsedVacancy {
   contact_email: string | null;
   contact_phone: string | null;
   contact_title: string | null;
+
+  // Computed fields
+  normalized_company_name: string;
+  content_hash: string;
 }
 
 /**
@@ -109,6 +140,8 @@ export interface ScraperConfig {
   mode: "full" | "incremental";
   delayBetweenPages: number;
   delayBetweenAiCalls: number;
+  fetchDetailPages: boolean;
+  delayBetweenDetailFetches: number;
 }
 
 /**
