@@ -6,7 +6,7 @@ Lokale Banen is a job posting aggregation platform that scrapes vacancies from m
 
 ## Deployment
 
-- **Production URL**: `https://lokale-banen.vercel.app`
+- **Production URL**: `https://lokale-banen-app.vercel.app`
 - **Platform**: Vercel (Next.js)
 - **Database**: Supabase (PostgreSQL)
 
@@ -16,7 +16,7 @@ All cron jobs use **UTC timezone**. Convert to Dutch time:
 - **Winter (CET)**: UTC + 1 hour
 - **Summer (CEST)**: UTC + 2 hours
 
-**Production API base URL for cron jobs**: `https://lokale-banen.vercel.app`
+**Production API base URL for cron jobs**: `https://lokale-banen-app.vercel.app`
 
 ### Active Cron Jobs
 
@@ -33,7 +33,7 @@ SELECT cron.schedule(
   '0 5 * * *',  -- 05:00 UTC = 06:00 NL winter time
   $$
   SELECT net.http_post(
-    url := 'https://lokale-banen.vercel.app/api/your-endpoint',
+    url := 'https://lokale-banen-app.vercel.app/api/your-endpoint',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || '${CRON_SECRET_KEY}'
@@ -55,6 +55,18 @@ SELECT cron.schedule(
   - Extracts company data (website, phone, email)
   - Creates contacts with name, email, phone, title
 - **API**: `POST /api/scrapers/baanindebuurt`
+
+### Debanensite.nl
+- **Source**: HTML job postings from `debanensite.nl/vacatures`
+- **Method**: Local scraper (no Apify)
+- **AI**: Mistral for extracting contact info, salary, requirements from descriptions
+- **Features**:
+  - Extracts data from `__NEXT_DATA__` JSON (Elasticsearch format)
+  - ~6,700 vacancies across 670 pages
+  - Batch-based scraping (configurable pages per run)
+  - Creates companies and contacts automatically
+- **API**: `POST /api/scrapers/debanensite`
+- **Config options**: `maxPagesPerRun`, `startPage`, `mode` (full/incremental)
 
 ### Other Scrapers (Apify-based)
 - Indeed
