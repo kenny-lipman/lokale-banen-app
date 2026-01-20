@@ -16,7 +16,8 @@ import {
   ChevronRight,
   ChevronDown,
   Bot,
-  Shield
+  Shield,
+  ArrowLeftRight,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 
@@ -34,6 +35,7 @@ const menu = [
   { href: "/companies", icon: Building2, label: "Bedrijven" },
   { href: "/contacten", icon: Users, label: "Contacten" },
   { href: "/blocklist", icon: Shield, label: "Blocklist" },
+  { href: "/instantly-sync", icon: ArrowLeftRight, label: "Instantly <> PD Sync" },
   { href: "/regios", icon: MapPin, label: "Regio's" },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
