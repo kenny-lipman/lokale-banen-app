@@ -268,6 +268,10 @@ async function insertJobPosting(
     }
   }
 
+  // Extract coordinates (format: [longitude, latitude])
+  const longitude = vacancy.coordinates?.[0]?.toString() || null;
+  const latitude = vacancy.coordinates?.[1]?.toString() || null;
+
   const { error } = await supabase.from("job_postings").insert({
     title: vacancy.title,
     company_id: companyId,
@@ -277,6 +281,8 @@ async function insertJobPosting(
     description: vacancy.description,
     city: vacancy.city,
     country: "Netherlands",
+    latitude,
+    longitude,
     employment:
       vacancy.employment_type === "Full-time"
         ? "Fulltime"
