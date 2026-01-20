@@ -26,7 +26,11 @@ async function cleanupHandler(request: NextRequest) {
     const duration = Date.now() - startTime;
 
     console.log(`✅ Instantly leads cleanup completed in ${duration}ms`);
-    console.log(`📊 Results: ${result.processed} processed, ${result.removed} removed, ${result.skipped} skipped, ${result.errors} errors`);
+    console.log(`📊 Results: ${result.processed}/${result.totalEligible} processed, ${result.removed} removed, ${result.skipped} skipped, ${result.errors} errors`);
+
+    if (result.remaining > 0) {
+      console.log(`⚠️ ${result.remaining} leads remaining for next run`);
+    }
 
     return NextResponse.json({
       success: true,

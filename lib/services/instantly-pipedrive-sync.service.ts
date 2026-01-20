@@ -1102,16 +1102,34 @@ export class InstantlyPipedriveSyncService {
    * This is called by a daily cron job to remove stale leads while giving them
    * time to reply late (default: 10 days)
    */
-  async cleanupCompletedCampaignLeads(daysDelay: number = 10): Promise<{
+  async cleanupCompletedCampaignLeads(daysDelay: number = 10, batchSize: number = 100): Promise<{
     processed: number;
     removed: number;
     errors: number;
     skipped: number;
+    totalEligible: number;
+    remaining: number;
   }> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysDelay);
 
     console.log(`🧹 Starting cleanup of completed campaign leads (cutoff: ${cutoffDate.toISOString()})`);
+
+    // First, count total eligible leads to know if there are more than we'll process
+    const { count: totalEligible, error: countError } = await this.supabase
+      .from('contacts')
+      .select('id', { count: 'exact', head: true })
+      .not('instantly_campaign_completed_at', 'is', null)
+      .is('instantly_removed_at', null)
+      .lt('instantly_campaign_completed_at', cutoffDate.toISOString())
+      .in('instantly_status', ['campaign_completed', 'backfill']);
+
+    if (countError) {
+      console.error('Error counting leads for cleanup:', countError);
+    }
+
+    const totalCount = totalEligible || 0;
+    console.log(`📊 Total eligible leads for cleanup: ${totalCount}`);
 
     // Find contacts that:
     // - Have campaign_completed_at set
@@ -1125,19 +1143,20 @@ export class InstantlyPipedriveSyncService {
       .is('instantly_removed_at', null)
       .lt('instantly_campaign_completed_at', cutoffDate.toISOString())
       .in('instantly_status', ['campaign_completed', 'backfill']) // Only those still in completed state
-      .limit(100); // Process in batches to avoid timeouts
+      .order('instantly_campaign_completed_at', { ascending: true }) // Process oldest first
+      .limit(batchSize);
 
     if (error) {
       console.error('Error fetching leads for cleanup:', error);
-      return { processed: 0, removed: 0, errors: 1, skipped: 0 };
+      return { processed: 0, removed: 0, errors: 1, skipped: 0, totalEligible: totalCount, remaining: totalCount };
     }
 
     if (!leadsToCleanup || leadsToCleanup.length === 0) {
       console.log('✅ No leads to clean up');
-      return { processed: 0, removed: 0, errors: 0, skipped: 0 };
+      return { processed: 0, removed: 0, errors: 0, skipped: 0, totalEligible: 0, remaining: 0 };
     }
 
-    console.log(`📋 Found ${leadsToCleanup.length} leads to potentially clean up`);
+    console.log(`📋 Processing ${leadsToCleanup.length} of ${totalCount} eligible leads (batch size: ${batchSize})`);
 
     let processed = 0;
     let removed = 0;
@@ -1198,9 +1217,15 @@ export class InstantlyPipedriveSyncService {
       }
     }
 
+    const remaining = Math.max(0, totalCount - processed);
+
     console.log(`✅ Cleanup complete: ${processed} processed, ${removed} removed, ${skipped} skipped, ${errors} errors`);
 
-    return { processed, removed, errors, skipped };
+    if (remaining > 0) {
+      console.log(`⚠️ ${remaining} leads remaining for next run (total eligible: ${totalCount})`);
+    }
+
+    return { processed, removed, errors, skipped, totalEligible: totalCount, remaining };
   }
 
   /**
@@ -2203,6 +2228,9 @@ export class InstantlyPipedriveSyncService {
   /**
    * Set campaign_completed_at timestamp for delayed removal from Instantly
    * After 10 days, a cron job will remove leads that haven't replied
+   *
+   * Note: instantly_status is already set by updateOtisContact() earlier in the flow,
+   * so we only set the timestamp here to avoid redundant updates.
    */
   private async setCampaignCompletedAt(
     email: string,
@@ -2216,8 +2244,7 @@ export class InstantlyPipedriveSyncService {
         const { error } = await this.supabase
           .from('contacts')
           .update({
-            instantly_campaign_completed_at: now,
-            instantly_status: 'campaign_completed'
+            instantly_campaign_completed_at: now
           })
           .eq('id', contactId);
 
@@ -2229,8 +2256,7 @@ export class InstantlyPipedriveSyncService {
         const { error } = await this.supabase
           .from('contacts')
           .update({
-            instantly_campaign_completed_at: now,
-            instantly_status: 'campaign_completed'
+            instantly_campaign_completed_at: now
           })
           .eq('email', cleanEmail);
 
