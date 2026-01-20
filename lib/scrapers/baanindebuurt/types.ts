@@ -35,6 +35,7 @@ export interface ScrapedPdf {
   companyCreated?: boolean;
   companyUpdated?: boolean;
   contactCreated?: boolean;
+  contactUpdated?: boolean;
 }
 
 export interface ScrapeResult {
@@ -47,6 +48,7 @@ export interface ScrapeResult {
   companiesCreated: number;
   companiesUpdated: number;
   contactsCreated: number;
+  contactsUpdated: number;
   details: ScrapedPdf[];
 }
 
