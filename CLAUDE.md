@@ -24,6 +24,7 @@ All cron jobs use **UTC timezone**. Convert to Dutch time:
 |-----|---------------|---------|----------|
 | Daily Automation | `0 4 * * *` | 05:00 | `/api/cron/trigger-automation` |
 | Baanindebuurt Scraper | `0 5 * * *` | 06:00 | `/api/scrapers/baanindebuurt` |
+| Debanensite Scraper | `0 6 * * *` | 07:00 | `/api/scrapers/debanensite` |
 
 ### Creating New Cron Jobs
 
