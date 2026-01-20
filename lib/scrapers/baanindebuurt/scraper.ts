@@ -10,10 +10,18 @@
  */
 
 import * as cheerio from "cheerio";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { downloadAndExtractPdf, extractPdfId } from "./pdf-parser";
 import { parseVacatureWithAI } from "./ai-parser";
 import type { PageInfo, ScrapeResult, ScrapedPdf } from "./types";
+import {
+  createSupabaseClient,
+  getOrCreateJobSource,
+  vacancyExists,
+  findOrCreateCompany,
+  findOrCreateContact,
+  delay,
+  type SupabaseClient,
+} from "../shared";
 
 const BASE_URL = "https://baanindebuurt.nl";
 const VACATURES_URL = `${BASE_URL}/vacatures.php`;
@@ -21,20 +29,6 @@ const JOB_SOURCE_NAME = "Baan in de Buurt";
 
 // Store cookies for session persistence during pagination
 let sessionCookies: string = "";
-
-/**
- * Create Supabase client with service role for server-side operations
- */
-function createSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase environment variables");
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
 
 /**
  * Fetch and parse a vacatures page to extract PDF URLs and pagination info
@@ -118,255 +112,11 @@ async function getAllPdfUrls(): Promise<string[]> {
     allUrls.push(...pageInfo.pdfUrls);
 
     // Small delay to be respectful
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await delay(500);
   }
 
   // Remove duplicates
   return Array.from(new Set(allUrls));
-}
-
-/**
- * Get the job source ID for "Baan in de Buurt"
- */
-async function getJobSourceId(supabase: SupabaseClient<any, any, any>): Promise<string> {
-  const { data, error } = await supabase
-    .from("job_sources")
-    .select("id")
-    .eq("name", JOB_SOURCE_NAME)
-    .single();
-
-  if (error || !data) {
-    throw new Error(`Job source "${JOB_SOURCE_NAME}" not found`);
-  }
-
-  return data.id;
-}
-
-/**
- * Check if a vacancy already exists (deduplication)
- */
-async function vacancyExists(
-  supabase: SupabaseClient<any, any, any>,
-  pdfId: string,
-  sourceId: string
-): Promise<boolean> {
-  const { data } = await supabase
-    .from("job_postings")
-    .select("id")
-    .eq("external_vacancy_id", pdfId)
-    .eq("source_id", sourceId)
-    .single();
-
-  return !!data;
-}
-
-/**
- * Find or create a company by name with full data
- * Returns: { id, created, updated }
- */
-async function findOrCreateCompany(
-  supabase: SupabaseClient<any, any, any>,
-  companyData: {
-    name: string;
-    location?: string | null;
-    city?: string | null;
-    website?: string | null;
-    phone?: string | null;
-    email?: string | null;
-  },
-  sourceId: string
-): Promise<{ id: string; created: boolean; updated: boolean }> {
-  // Try exact match first
-  const { data: existing } = await supabase
-    .from("companies")
-    .select("id, website, phone, city, location")
-    .ilike("name", companyData.name)
-    .single();
-
-  if (existing) {
-    // Update existing company with new data if we have more info
-    const updates: Record<string, unknown> = {};
-    if (companyData.website && !existing.website) updates.website = companyData.website;
-    if (companyData.phone && !existing.phone) updates.phone = companyData.phone;
-    if (companyData.city && !existing.city) updates.city = companyData.city;
-    if (companyData.location && !existing.location) updates.location = companyData.location;
-
-    const wasUpdated = Object.keys(updates).length > 0;
-    if (wasUpdated) {
-      await supabase.from("companies").update(updates).eq("id", existing.id);
-    }
-
-    return { id: existing.id, created: false, updated: wasUpdated };
-  }
-
-  // Create new company with all available data
-  const { data: newCompany, error } = await supabase
-    .from("companies")
-    .insert({
-      name: companyData.name,
-      location: companyData.location || null,
-      city: companyData.city || null,
-      website: companyData.website || null,
-      phone: companyData.phone || null,
-      source: sourceId,
-      status: "Prospect",
-      enrichment_status: "pending",
-      qualification_status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (error || !newCompany) {
-    throw new Error(`Failed to create company: ${error?.message || "No data returned"}`);
-  }
-
-  return { id: newCompany.id, created: true, updated: false };
-}
-
-/**
- * Normalize phone number for comparison
- * Removes all non-digits except leading +
- */
-function normalizePhone(phone: string): string {
-  const hasPlus = phone.startsWith("+");
-  const digits = phone.replace(/\D/g, "");
-  return hasPlus ? `+${digits}` : digits;
-}
-
-/**
- * Parse name into first and last name
- */
-function parseName(fullName: string): { firstName: string | null; lastName: string | null } {
-  if (!fullName || !fullName.trim()) {
-    return { firstName: null, lastName: null };
-  }
-  const nameParts = fullName.trim().split(/\s+/);
-  if (nameParts.length >= 2) {
-    return {
-      firstName: nameParts[0],
-      lastName: nameParts.slice(1).join(" "),
-    };
-  }
-  return { firstName: fullName.trim(), lastName: null };
-}
-
-/**
- * Create a contact for a company if contact info is available
- * Deduplication strategy (in order of reliability):
- * 1. Email (global) - most reliable unique identifier
- * 2. Phone + Company - same phone at same company = same person
- * 3. Name + Company - same name at same company = likely same person
- */
-async function createContactIfAvailable(
-  supabase: SupabaseClient<any, any, any>,
-  companyId: string,
-  contactData: {
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    title?: string | null;
-  }
-): Promise<{ id: string; created: boolean; updated: boolean } | null> {
-  // Need at least a name or email to create a contact
-  if (!contactData.name && !contactData.email) {
-    return null;
-  }
-
-  // Strategy 1: Check by email (global - most reliable)
-  if (contactData.email) {
-    const { data: existingByEmail } = await supabase
-      .from("contacts")
-      .select("id, phone, title")
-      .eq("email", contactData.email)
-      .single();
-
-    if (existingByEmail) {
-      const updates: Record<string, unknown> = {};
-      if (contactData.phone && !existingByEmail.phone) updates.phone = contactData.phone;
-      if (contactData.title && !existingByEmail.title) updates.title = contactData.title;
-
-      if (Object.keys(updates).length > 0) {
-        await supabase.from("contacts").update(updates).eq("id", existingByEmail.id);
-      }
-      return { id: existingByEmail.id, created: false, updated: Object.keys(updates).length > 0 };
-    }
-  }
-
-  // Strategy 2: Check by phone + company
-  if (contactData.phone) {
-    const normalizedPhone = normalizePhone(contactData.phone);
-
-    const { data: companyContacts } = await supabase
-      .from("contacts")
-      .select("id, phone, email, title, name")
-      .eq("company_id", companyId);
-
-    if (companyContacts) {
-      const matchByPhone = companyContacts.find(
-        (c) => c.phone && normalizePhone(c.phone) === normalizedPhone
-      );
-
-      if (matchByPhone) {
-        const updates: Record<string, unknown> = {};
-        if (contactData.email && !matchByPhone.email) updates.email = contactData.email;
-        if (contactData.title && !matchByPhone.title) updates.title = contactData.title;
-        if (contactData.name && !matchByPhone.name) updates.name = contactData.name;
-
-        if (Object.keys(updates).length > 0) {
-          await supabase.from("contacts").update(updates).eq("id", matchByPhone.id);
-        }
-        return { id: matchByPhone.id, created: false, updated: Object.keys(updates).length > 0 };
-      }
-    }
-  }
-
-  // Strategy 3: Check by name + company
-  if (contactData.name) {
-    const { data: existingByName } = await supabase
-      .from("contacts")
-      .select("id, phone, email, title")
-      .eq("company_id", companyId)
-      .ilike("name", contactData.name)
-      .single();
-
-    if (existingByName) {
-      const updates: Record<string, unknown> = {};
-      if (contactData.email && !existingByName.email) updates.email = contactData.email;
-      if (contactData.phone && !existingByName.phone) updates.phone = contactData.phone;
-      if (contactData.title && !existingByName.title) updates.title = contactData.title;
-
-      if (Object.keys(updates).length > 0) {
-        await supabase.from("contacts").update(updates).eq("id", existingByName.id);
-      }
-      return { id: existingByName.id, created: false, updated: Object.keys(updates).length > 0 };
-    }
-  }
-
-  // No match found - create new contact
-  const { firstName, lastName } = parseName(contactData.name || "");
-
-  const { data: newContact, error } = await supabase
-    .from("contacts")
-    .insert({
-      company_id: companyId,
-      name: contactData.name || null,
-      first_name: firstName,
-      last_name: lastName,
-      email: contactData.email || null,
-      phone: contactData.phone || null,
-      title: contactData.title || null,
-      source: "Baan in de Buurt",
-      qualification_status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    console.error(`Failed to create contact: ${error.message}`);
-    return null;
-  }
-
-  return newContact ? { id: newContact.id, created: true, updated: false } : null;
 }
 
 /**
@@ -428,7 +178,8 @@ async function processPdf(
 
   try {
     // Check if already exists
-    if (await vacancyExists(supabase, pdfId, sourceId)) {
+    const existing = await vacancyExists(supabase, pdfId, sourceId);
+    if (existing.exists) {
       result.error = "Already exists (skipped)";
       return result;
     }
@@ -462,12 +213,17 @@ async function processPdf(
     result.companyUpdated = companyResult.updated;
 
     // Create contact if contact info is available
-    const contactResult = await createContactIfAvailable(supabase, companyResult.id, {
-      name: result.parsedData.contact_name,
-      email: result.parsedData.contact_email,
-      phone: result.parsedData.contact_phone,
-      title: result.parsedData.contact_title,
-    });
+    const contactResult = await findOrCreateContact(
+      supabase,
+      companyResult.id,
+      {
+        name: result.parsedData.contact_name,
+        email: result.parsedData.contact_email,
+        phone: result.parsedData.contact_phone,
+        title: result.parsedData.contact_title,
+      },
+      JOB_SOURCE_NAME
+    );
 
     result.contactCreated = contactResult?.created || false;
     result.contactUpdated = contactResult?.updated || false;
@@ -521,7 +277,7 @@ export async function scrapeBaanindebuurt(): Promise<ScrapeResult> {
 
   try {
     const supabase = createSupabaseClient();
-    const sourceId = await getJobSourceId(supabase);
+    const sourceId = await getOrCreateJobSource(supabase, JOB_SOURCE_NAME);
 
     // Get all PDF URLs
     console.log("Fetching PDF URLs from all pages...");
@@ -553,7 +309,7 @@ export async function scrapeBaanindebuurt(): Promise<ScrapeResult> {
       }
 
       // Small delay between PDFs to avoid rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await delay(1000);
     }
 
     result.success = true;

@@ -4,15 +4,25 @@
  * Flow:
  * 1. Fetch list pages (/vacatures?page=X)
  * 2. Extract job data from __NEXT_DATA__ JSON
- * 3. For each job: extract extra fields with Mistral AI
+ * 3. For each job: fetch detail page + extract extra fields with Mistral AI
  * 4. Insert into database with deduplication
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { parseListPage, stripHtmlTags, generateVacancyUrl, generateSlug } from "./parser";
+import {
+  createSupabaseClient,
+  getOrCreateJobSource,
+  vacancyExists,
+  findOrCreateCompany,
+  findOrCreateContact,
+  delay,
+  generateNormalizedName,
+  generateContentHash,
+  stripHtmlTags,
+  type SupabaseClient,
+} from "../shared";
+import { parseListPage, generateVacancyUrl, generateSlug } from "./parser";
 import { extractDataWithAI } from "./ai-parser";
 import { fetchDetailPage } from "./detail-parser";
-import { generateNormalizedName, generateContentHash, parseName } from "./utils";
 import type {
   ScraperConfig,
   ScrapeResult,
@@ -37,27 +47,6 @@ const DEFAULT_CONFIG: ScraperConfig = {
 };
 
 /**
- * Create Supabase client with service role for server-side operations
- */
-function createSupabaseClient(): SupabaseClient {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase environment variables");
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-/**
- * Delay helper
- */
-async function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
  * Fetch a page with retry logic
  */
 async function fetchWithRetry(url: string, retries = 3): Promise<string> {
@@ -77,261 +66,6 @@ async function fetchWithRetry(url: string, retries = 3): Promise<string> {
     }
   }
   throw new Error("Fetch failed after retries");
-}
-
-/**
- * Get or create job source
- */
-async function getJobSourceId(supabase: SupabaseClient): Promise<string> {
-  const { data, error } = await supabase
-    .from("job_sources")
-    .select("id")
-    .eq("name", JOB_SOURCE_NAME)
-    .single();
-
-  if (error || !data) {
-    // Create if not exists
-    const { data: newSource, error: insertError } = await supabase
-      .from("job_sources")
-      .insert({
-        name: JOB_SOURCE_NAME,
-        active: true,
-        scraping_method: "local",
-      })
-      .select("id")
-      .single();
-
-    if (insertError) throw new Error(`Failed to create job source: ${insertError.message}`);
-    console.log(`Created job source: ${JOB_SOURCE_NAME}`);
-    return newSource!.id;
-  }
-
-  return data.id;
-}
-
-/**
- * Check if vacancy exists
- */
-async function vacancyExists(
-  supabase: SupabaseClient,
-  uuid: string,
-  sourceId: string
-): Promise<{ exists: boolean; id?: string }> {
-  const { data } = await supabase
-    .from("job_postings")
-    .select("id")
-    .eq("external_vacancy_id", uuid)
-    .eq("source_id", sourceId)
-    .single();
-
-  return { exists: !!data, id: data?.id };
-}
-
-/**
- * Find or create a company
- * Uses normalized_name for deduplication (like n8n workflow)
- */
-async function findOrCreateCompany(
-  supabase: SupabaseClient,
-  companyData: {
-    name: string;
-    city?: string | null;
-    street_address?: string | null;
-    postal_code?: string | null;
-    website?: string | null;
-    phone?: string | null;
-    email?: string | null;
-  },
-  sourceId: string
-): Promise<{ id: string; created: boolean; updated: boolean }> {
-  const normalizedName = generateNormalizedName(companyData.name);
-
-  // Try normalized_name match first (more reliable than ilike)
-  const { data: existing } = await supabase
-    .from("companies")
-    .select("id, website, phone, city, street_address, postal_code")
-    .eq("normalized_name", normalizedName)
-    .single();
-
-  if (existing) {
-    // Update existing company with new data if we have more info
-    const updates: Record<string, unknown> = {};
-    if (companyData.website && !existing.website) updates.website = companyData.website;
-    if (companyData.phone && !existing.phone) updates.phone = companyData.phone;
-    if (companyData.city && !existing.city) updates.city = companyData.city;
-    if (companyData.street_address && !existing.street_address)
-      updates.street_address = companyData.street_address;
-    if (companyData.postal_code && !existing.postal_code)
-      updates.postal_code = companyData.postal_code;
-
-    const wasUpdated = Object.keys(updates).length > 0;
-    if (wasUpdated) {
-      await supabase.from("companies").update(updates).eq("id", existing.id);
-    }
-
-    return { id: existing.id, created: false, updated: wasUpdated };
-  }
-
-  // Create new company with normalized_name
-  const { data: newCompany, error } = await supabase
-    .from("companies")
-    .insert({
-      name: companyData.name,
-      normalized_name: normalizedName,
-      city: companyData.city || null,
-      street_address: companyData.street_address || null,
-      postal_code: companyData.postal_code || null,
-      website: companyData.website || null,
-      phone: companyData.phone || null,
-      source: sourceId,
-      status: "Prospect",
-      enrichment_status: "pending",
-      qualification_status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (error || !newCompany) {
-    throw new Error(`Failed to create company: ${error?.message || "No data returned"}`);
-  }
-
-  return { id: newCompany.id, created: true, updated: false };
-}
-
-/**
- * Normalize phone number for comparison
- * Removes all non-digits except leading +
- */
-function normalizePhone(phone: string): string {
-  // Keep + at start if present, remove all other non-digits
-  const hasPlus = phone.startsWith("+");
-  const digits = phone.replace(/\D/g, "");
-  return hasPlus ? `+${digits}` : digits;
-}
-
-/**
- * Create a contact for a company if contact info is available
- * Deduplication strategy (in order of reliability):
- * 1. Email (global) - most reliable unique identifier
- * 2. Phone + Company - same phone at same company = same person
- * 3. Name + Company - same name at same company = likely same person
- */
-async function createContactIfAvailable(
-  supabase: SupabaseClient,
-  companyId: string,
-  contactData: {
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    title?: string | null;
-  }
-): Promise<{ id: string; created: boolean; updated: boolean } | null> {
-  // Need at least a name or email to create a contact
-  if (!contactData.name && !contactData.email) {
-    return null;
-  }
-
-  // Strategy 1: Check by email (global - most reliable)
-  if (contactData.email) {
-    const { data: existingByEmail } = await supabase
-      .from("contacts")
-      .select("id, phone, title")
-      .eq("email", contactData.email)
-      .single();
-
-    if (existingByEmail) {
-      // Update missing fields if we have new data
-      const updates: Record<string, unknown> = {};
-      if (contactData.phone && !existingByEmail.phone) updates.phone = contactData.phone;
-      if (contactData.title && !existingByEmail.title) updates.title = contactData.title;
-
-      if (Object.keys(updates).length > 0) {
-        await supabase.from("contacts").update(updates).eq("id", existingByEmail.id);
-      }
-      return { id: existingByEmail.id, created: false, updated: Object.keys(updates).length > 0 };
-    }
-  }
-
-  // Strategy 2: Check by phone + company (same phone at same company = same person)
-  if (contactData.phone) {
-    const normalizedPhone = normalizePhone(contactData.phone);
-
-    // Get all contacts at this company
-    const { data: companyContacts } = await supabase
-      .from("contacts")
-      .select("id, phone, email, title, name")
-      .eq("company_id", companyId);
-
-    if (companyContacts) {
-      const matchByPhone = companyContacts.find(
-        (c) => c.phone && normalizePhone(c.phone) === normalizedPhone
-      );
-
-      if (matchByPhone) {
-        // Update missing fields
-        const updates: Record<string, unknown> = {};
-        if (contactData.email && !matchByPhone.email) updates.email = contactData.email;
-        if (contactData.title && !matchByPhone.title) updates.title = contactData.title;
-        if (contactData.name && !matchByPhone.name) updates.name = contactData.name;
-
-        if (Object.keys(updates).length > 0) {
-          await supabase.from("contacts").update(updates).eq("id", matchByPhone.id);
-        }
-        return { id: matchByPhone.id, created: false, updated: Object.keys(updates).length > 0 };
-      }
-    }
-  }
-
-  // Strategy 3: Check by name + company (same name at same company = likely same person)
-  if (contactData.name) {
-    const normalizedName = contactData.name.toLowerCase().trim();
-
-    const { data: existingByName } = await supabase
-      .from("contacts")
-      .select("id, phone, email, title")
-      .eq("company_id", companyId)
-      .ilike("name", contactData.name)
-      .single();
-
-    if (existingByName) {
-      // Update missing fields
-      const updates: Record<string, unknown> = {};
-      if (contactData.email && !existingByName.email) updates.email = contactData.email;
-      if (contactData.phone && !existingByName.phone) updates.phone = contactData.phone;
-      if (contactData.title && !existingByName.title) updates.title = contactData.title;
-
-      if (Object.keys(updates).length > 0) {
-        await supabase.from("contacts").update(updates).eq("id", existingByName.id);
-      }
-      return { id: existingByName.id, created: false, updated: Object.keys(updates).length > 0 };
-    }
-  }
-
-  // No match found - create new contact
-  const { firstName, lastName } = parseName(contactData.name || "");
-
-  const { data: newContact, error } = await supabase
-    .from("contacts")
-    .insert({
-      company_id: companyId,
-      name: contactData.name || null,
-      first_name: firstName,
-      last_name: lastName,
-      email: contactData.email || null,
-      phone: contactData.phone || null,
-      title: contactData.title || null,
-      source: JOB_SOURCE_NAME,
-      qualification_status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    console.error(`Failed to create contact: ${error.message}`);
-    return null;
-  }
-
-  return newContact ? { id: newContact.id, created: true, updated: false } : null;
 }
 
 /**
@@ -512,12 +246,17 @@ async function processVacancy(
     result.companyUpdated = companyResult.updated;
 
     // Create contact if info available
-    const contactResult = await createContactIfAvailable(supabase, companyResult.id, {
-      name: vacancy.contact_name,
-      email: vacancy.contact_email,
-      phone: vacancy.contact_phone,
-      title: vacancy.contact_title,
-    });
+    const contactResult = await findOrCreateContact(
+      supabase,
+      companyResult.id,
+      {
+        name: vacancy.contact_name,
+        email: vacancy.contact_email,
+        phone: vacancy.contact_phone,
+        title: vacancy.contact_title,
+      },
+      JOB_SOURCE_NAME
+    );
 
     result.contactCreated = contactResult?.created || false;
     result.contactUpdated = contactResult?.updated || false;
@@ -561,7 +300,7 @@ export async function scrapeDebanensite(
 
   try {
     const supabase = createSupabaseClient();
-    const sourceId = await getJobSourceId(supabase);
+    const sourceId = await getOrCreateJobSource(supabase, JOB_SOURCE_NAME);
 
     let totalPages = 1;
 
