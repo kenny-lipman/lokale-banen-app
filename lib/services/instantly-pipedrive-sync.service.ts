@@ -478,13 +478,21 @@ export class InstantlyPipedriveSyncService {
       }
 
       // 15. Remove lead from Instantly after successful sync to Pipedrive
-      // This prevents the lead from being contacted again via Instantly
-      const removeResult = await this.removeLeadFromInstantly(cleanEmail, campaignId, contactData?.id);
-      if (removeResult.removed) {
-        result.instantlyLeadRemoved = true;
-        console.log(`🗑️ Removed lead ${cleanEmail} from Instantly after Pipedrive sync`);
-      } else if (removeResult.error) {
-        console.warn(`⚠️ Could not remove lead from Instantly: ${removeResult.error}`);
+      // EXCEPTION: For campaign_completed, we delay removal by 10 days to catch late replies
+      if (eventType === 'campaign_completed' || eventType === 'backfill') {
+        // Store campaign_completed_at timestamp for delayed removal (10 days)
+        await this.setCampaignCompletedAt(cleanEmail, contactData?.id);
+        console.log(`⏳ Campaign completed for ${cleanEmail} - will be removed from Instantly after 10 days`);
+        result.instantlyLeadRemoved = false;
+      } else {
+        // Immediate removal for all other events
+        const removeResult = await this.removeLeadFromInstantly(cleanEmail, campaignId, contactData?.id);
+        if (removeResult.removed) {
+          result.instantlyLeadRemoved = true;
+          console.log(`🗑️ Removed lead ${cleanEmail} from Instantly after Pipedrive sync`);
+        } else if (removeResult.error) {
+          console.warn(`⚠️ Could not remove lead from Instantly: ${removeResult.error}`);
+        }
       }
 
       console.log(`✅ Synced ${cleanEmail} to Pipedrive ${orgResult ? `org ${orgResult.id}` : '(person only)'} with status ${statusKey}`);
@@ -1083,6 +1091,116 @@ export class InstantlyPipedriveSyncService {
       errorsLast24h: errorsLast24h || 0,
       lastSyncAt: lastSyncData?.synced_at || null
     };
+  }
+
+  // ============================================================================
+  // DELAYED INSTANTLY CLEANUP
+  // ============================================================================
+
+  /**
+   * Clean up leads from Instantly that had campaign_completed more than X days ago
+   * This is called by a daily cron job to remove stale leads while giving them
+   * time to reply late (default: 10 days)
+   */
+  async cleanupCompletedCampaignLeads(daysDelay: number = 10): Promise<{
+    processed: number;
+    removed: number;
+    errors: number;
+    skipped: number;
+  }> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysDelay);
+
+    console.log(`🧹 Starting cleanup of completed campaign leads (cutoff: ${cutoffDate.toISOString()})`);
+
+    // Find contacts that:
+    // - Have campaign_completed_at set
+    // - campaign_completed_at is older than cutoff date
+    // - instantly_removed_at is NULL (not yet removed)
+    // - No reply received since campaign completed (check instantly_status)
+    const { data: leadsToCleanup, error } = await this.supabase
+      .from('contacts')
+      .select('id, email, instantly_campaign_completed_at, instantly_status, instantly_campaign_ids')
+      .not('instantly_campaign_completed_at', 'is', null)
+      .is('instantly_removed_at', null)
+      .lt('instantly_campaign_completed_at', cutoffDate.toISOString())
+      .in('instantly_status', ['campaign_completed', 'backfill']) // Only those still in completed state
+      .limit(100); // Process in batches to avoid timeouts
+
+    if (error) {
+      console.error('Error fetching leads for cleanup:', error);
+      return { processed: 0, removed: 0, errors: 1, skipped: 0 };
+    }
+
+    if (!leadsToCleanup || leadsToCleanup.length === 0) {
+      console.log('✅ No leads to clean up');
+      return { processed: 0, removed: 0, errors: 0, skipped: 0 };
+    }
+
+    console.log(`📋 Found ${leadsToCleanup.length} leads to potentially clean up`);
+
+    let processed = 0;
+    let removed = 0;
+    let errors = 0;
+    let skipped = 0;
+
+    for (const contact of leadsToCleanup) {
+      processed++;
+
+      try {
+        // Double-check: has this lead replied since campaign completed?
+        // Check if there's a newer sync event with reply for this email
+        const { data: replyCheck } = await this.supabase
+          .from('instantly_pipedrive_syncs')
+          .select('id')
+          .eq('lead_email', contact.email.toLowerCase())
+          .eq('has_reply', true)
+          .gt('created_at', contact.instantly_campaign_completed_at)
+          .limit(1);
+
+        if (replyCheck && replyCheck.length > 0) {
+          console.log(`⏭️ Skipping ${contact.email} - has replied since campaign completed`);
+          skipped++;
+          continue;
+        }
+
+        // Get campaign ID from the array (use first one if multiple)
+        const campaignId = contact.instantly_campaign_ids?.[0];
+
+        // Remove from Instantly
+        const removeResult = await this.removeLeadFromInstantly(
+          contact.email,
+          campaignId || '',
+          contact.id
+        );
+
+        if (removeResult.removed) {
+          removed++;
+          console.log(`🗑️ Cleaned up ${contact.email} from Instantly (campaign completed ${daysDelay}+ days ago)`);
+        } else {
+          // Still mark as processed even if not found in Instantly
+          console.log(`ℹ️ ${contact.email} not found in Instantly (may have been removed already)`);
+
+          // Update the contact to mark as cleaned up
+          await this.supabase
+            .from('contacts')
+            .update({
+              instantly_removed_at: new Date().toISOString(),
+              qualification_status: 'synced_to_pipedrive'
+            })
+            .eq('id', contact.id);
+
+          removed++;
+        }
+      } catch (err) {
+        console.error(`Error cleaning up ${contact.email}:`, err);
+        errors++;
+      }
+    }
+
+    console.log(`✅ Cleanup complete: ${processed} processed, ${removed} removed, ${skipped} skipped, ${errors} errors`);
+
+    return { processed, removed, errors, skipped };
   }
 
   /**
@@ -2079,6 +2197,49 @@ export class InstantlyPipedriveSyncService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Failed to remove lead ${email} from Instantly:`, error);
       return { removed: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Set campaign_completed_at timestamp for delayed removal from Instantly
+   * After 10 days, a cron job will remove leads that haven't replied
+   */
+  private async setCampaignCompletedAt(
+    email: string,
+    contactId: string | undefined
+  ): Promise<void> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+      const now = new Date().toISOString();
+
+      if (contactId) {
+        const { error } = await this.supabase
+          .from('contacts')
+          .update({
+            instantly_campaign_completed_at: now,
+            instantly_status: 'campaign_completed'
+          })
+          .eq('id', contactId);
+
+        if (error) {
+          console.warn(`Could not set campaign_completed_at for contact ${contactId}:`, error.message);
+        }
+      } else {
+        // Try to find and update by email
+        const { error } = await this.supabase
+          .from('contacts')
+          .update({
+            instantly_campaign_completed_at: now,
+            instantly_status: 'campaign_completed'
+          })
+          .eq('email', cleanEmail);
+
+        if (error) {
+          console.warn(`Could not set campaign_completed_at by email ${cleanEmail}:`, error.message);
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to set campaign_completed_at for ${email}:`, error);
     }
   }
 

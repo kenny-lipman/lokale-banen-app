@@ -1,0 +1,67 @@
+/**
+ * Cron Job: Cleanup Instantly Leads
+ *
+ * Removes leads from Instantly that had campaign_completed more than 10 days ago.
+ * This gives late responders a chance to reply before being removed.
+ *
+ * Schedule: Daily at 03:00 UTC (04:00 NL winter / 05:00 NL summer)
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { withCronAuth } from '@/lib/auth-middleware';
+import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
+
+const DAYS_DELAY = 10; // Remove leads 10 days after campaign_completed
+
+async function cleanupHandler(request: NextRequest) {
+  const startTime = Date.now();
+
+  try {
+    console.log(`🧹 Starting Instantly leads cleanup CRON job at ${new Date().toISOString()}`);
+    console.log(`⏰ Delay setting: ${DAYS_DELAY} days`);
+
+    // Call the cleanup method on the sync service
+    const result = await instantlyPipedriveSyncService.cleanupCompletedCampaignLeads(DAYS_DELAY);
+
+    const duration = Date.now() - startTime;
+
+    console.log(`✅ Instantly leads cleanup completed in ${duration}ms`);
+    console.log(`📊 Results: ${result.processed} processed, ${result.removed} removed, ${result.skipped} skipped, ${result.errors} errors`);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Instantly leads cleanup completed',
+      daysDelay: DAYS_DELAY,
+      ...result,
+      duration: `${duration}ms`
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    console.error('❌ Error in Instantly leads cleanup CRON job:', errorMessage);
+
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: errorMessage,
+        duration: `${duration}ms`
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Health check endpoint
+async function healthHandler(_request: NextRequest) {
+  return NextResponse.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    service: 'cleanup-instantly-leads',
+    daysDelay: DAYS_DELAY
+  });
+}
+
+// Export secured handlers
+export const GET = withCronAuth(healthHandler);
+export const POST = withCronAuth(cleanupHandler);
