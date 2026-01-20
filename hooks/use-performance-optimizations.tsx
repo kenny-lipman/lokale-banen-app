@@ -73,7 +73,7 @@ export function useMemoizedValue<T>(
 const pendingRequests = new Map<string, Promise<any>>()
 
 export function useRequestDeduplication() {
-  const makeRequest = useCallback(async <T>(
+  const makeRequest = useCallback(async <T,>(
     key: string,
     requestFn: () => Promise<T>
   ): Promise<T> => {

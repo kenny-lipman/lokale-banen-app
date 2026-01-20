@@ -43,7 +43,7 @@ export function usePerformanceMonitoring() {
   }, [])
 
   // Track API call performance
-  const trackApiCall = useCallback(async <T>(
+  const trackApiCall = useCallback(async <T,>(
     apiCall: () => Promise<T>,
     metadata?: Record<string, any>
   ): Promise<T> => {

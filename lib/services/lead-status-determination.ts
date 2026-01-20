@@ -114,19 +114,29 @@ export interface LeadStatusResult {
 // ============================================================================
 
 /**
+ * Custom label map type for backfill
+ * Maps interest_status values to label info
+ */
+export type CustomLabelMap = Map<number, { label: string; sentiment: 'positive' | 'negative' | 'neutral' }>;
+
+/**
  * Unified function to determine lead status from any source
  *
  * @param ctx - Context containing webhook event OR lead data
+ * @param customLabelMap - Optional map of custom labels (for backfill)
  * @returns Complete status determination result
  */
-export function determineLeadStatus(ctx: LeadStatusContext): LeadStatusResult {
+export function determineLeadStatus(
+  ctx: LeadStatusContext,
+  customLabelMap?: CustomLabelMap
+): LeadStatusResult {
   // Route to appropriate handler based on source
   if (ctx.source === 'webhook' && ctx.eventType) {
     return determineFromWebhook(ctx);
   }
 
   if (ctx.source === 'backfill') {
-    return determineFromBackfill(ctx);
+    return determineFromBackfill(ctx, customLabelMap);
   }
 
   // Manual or unknown source - return safe defaults
@@ -204,12 +214,29 @@ function determineFromWebhook(ctx: LeadStatusContext): LeadStatusResult {
  *
  * Priority order:
  * 1. Bounce/Unsubscribe (critical - blocklist)
- * 2. Meeting booked/Won (high value)
- * 3. Interested/Not interested
- * 4. Has reply
- * 5. Campaign completed (default)
+ * 2. Meeting events (meeting_booked, meeting_completed, won, no_show)
+ * 3. Interest events (interested, not_interested, wrong_person, lost)
+ * 4. Out of Office
+ * 5. Custom labels (interest_status outside standard range)
+ * 6. Has reply
+ * 7. Campaign completed (default)
+ *
+ * lt_interest_status values:
+ * - 0: Out of Office
+ * - 1: Interested
+ * - 2: Meeting Booked
+ * - 3: Meeting Completed
+ * - 4: Won
+ * - -1: Not Interested
+ * - -2: Wrong Person
+ * - -3: Lost
+ * - -4: No Show
+ * - Other values: Custom labels
  */
-function determineFromBackfill(ctx: LeadStatusContext): LeadStatusResult {
+function determineFromBackfill(
+  ctx: LeadStatusContext,
+  customLabelMap?: Map<number, { label: string; sentiment: 'positive' | 'negative' | 'neutral' }>
+): LeadStatusResult {
   // Build engagement data
   const engagementData: EngagementData = {
     opensCount: ctx.openCount ?? 0,
@@ -227,19 +254,28 @@ function determineFromBackfill(ctx: LeadStatusContext): LeadStatusResult {
     return createBackfillResult('lead_unsubscribed', false, undefined, engagementData, ctx);
   }
 
-  // PRIORITY 2: Check lt_interest_status for meeting/won (higher priority values)
+  // Get lt_interest_status (prefer over interest_status for more granular values)
   const ltStatus = ctx.ltInterestStatus ?? ctx.interestStatus;
 
+  // PRIORITY 2: Meeting events (high value)
   if (ltStatus === 2) {
     // Meeting booked
     return createBackfillResult('lead_meeting_booked', true, 'positive', engagementData, ctx);
+  }
+  if (ltStatus === 3) {
+    // Meeting completed
+    return createBackfillResult('lead_meeting_completed', true, 'positive', engagementData, ctx);
   }
   if (ltStatus === 4) {
     // Won/Closed
     return createBackfillResult('lead_closed', true, 'positive', engagementData, ctx);
   }
+  if (ltStatus === -4) {
+    // No Show - treat as meeting completed with negative outcome
+    return createBackfillResult('lead_meeting_completed', true, 'negative', engagementData, ctx);
+  }
 
-  // PRIORITY 3: Check interest status
+  // PRIORITY 3: Interest events
   if (ltStatus === 1) {
     // Interested
     return createBackfillResult('lead_interested', true, 'positive', engagementData, ctx);
@@ -248,15 +284,42 @@ function determineFromBackfill(ctx: LeadStatusContext): LeadStatusResult {
     // Not interested
     return createBackfillResult('lead_not_interested', true, 'negative', engagementData, ctx);
   }
+  if (ltStatus === -2) {
+    // Wrong person
+    return createBackfillResult('lead_wrong_person', false, 'negative', engagementData, ctx);
+  }
+  if (ltStatus === -3) {
+    // Lost - map to not_interested (no dedicated webhook event)
+    return createBackfillResult('lead_not_interested', true, 'negative', engagementData, ctx);
+  }
 
-  // PRIORITY 4: Check for replies
+  // PRIORITY 4: Out of Office
+  if (ltStatus === 0) {
+    return createBackfillResult('lead_out_of_office', false, undefined, engagementData, ctx);
+  }
+
+  // PRIORITY 5: Custom labels (interest_status outside standard range -4 to 4)
+  if (ltStatus !== undefined && ltStatus !== null && customLabelMap) {
+    const customLabel = customLabelMap.get(ltStatus);
+    if (customLabel) {
+      if (customLabel.sentiment === 'positive') {
+        return createBackfillResult('custom_label_any_positive', true, 'positive', engagementData, ctx);
+      } else if (customLabel.sentiment === 'negative') {
+        return createBackfillResult('custom_label_any_negative', true, 'negative', engagementData, ctx);
+      }
+      // Neutral custom labels - treat as reply received
+      return createBackfillResult('reply_received', true, 'neutral', engagementData, ctx);
+    }
+  }
+
+  // PRIORITY 6: Check for replies
   const hasReply = (ctx.replyCount ?? 0) > 0;
   if (hasReply) {
     // Reply but no sentiment classification yet - mark as neutral/review
     return createBackfillResult('reply_received', true, 'neutral', engagementData, ctx);
   }
 
-  // PRIORITY 5: Default - campaign completed without reply
+  // PRIORITY 7: Default - campaign completed without reply
   return createBackfillResult('backfill', false, undefined, engagementData, ctx);
 }
 

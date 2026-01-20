@@ -43,9 +43,11 @@ export interface InstantlyLead {
   company_name?: string
   website?: string
   phone?: string
-  status?: number | string  // -1 = bounced, 0 = not started, 1 = in progress, 2 = paused, 3 = completed
+  status?: number | string  // -1 = bounced, -2 = unsubscribed, -3 = skipped, 1 = active, 2 = paused, 3 = completed
   lead_status?: string
   interest_status?: number | string  // 1 = interested, -1 = not interested
+  // Extended interest status with more granular values
+  lt_interest_status?: number  // 0=OOO, 1=interested, 2=meeting_booked, 3=meeting_completed, 4=won, -1=not_interested, -2=wrong_person, -3=lost, -4=no_show
   campaign?: string
   campaign_id?: string
   list_id?: string
@@ -57,12 +59,41 @@ export interface InstantlyLead {
   email_reply_count?: number
   email_open_count?: number
   email_click_count?: number
+  // Timestamps for engagement tracking
+  timestamp_last_reply?: string
+  timestamp_last_open?: string
+  timestamp_last_click?: string
+  timestamp_last_interest_change?: string
+  // Sequence tracking
+  sequence_step?: number
+  verification_status?: number
 }
 
 export interface InstantlyLeadListResponse {
   items: InstantlyLead[]
   next_starting_after?: string
   total_count?: number
+}
+
+// ============================================================================
+// LEAD LABEL TYPES
+// ============================================================================
+
+export interface InstantlyLeadLabel {
+  id: string
+  label: string
+  interest_status: number  // Auto-generated numeric value for this label
+  interest_status_label: 'positive' | 'negative' | 'neutral'
+  description?: string | null
+  use_with_ai?: boolean | null
+  timestamp_created?: string
+  created_by?: string
+  organization_id?: string
+}
+
+export interface InstantlyLeadLabelListResponse {
+  items: InstantlyLeadLabel[]
+  next_starting_after?: string
 }
 
 // ============================================================================
@@ -632,6 +663,53 @@ export class InstantlyClient {
     } catch (error) {
       console.error('Error searching campaigns by lead email:', error)
       return []
+    }
+  }
+
+  // ============================================================================
+  // LEAD LABEL METHODS
+  // ============================================================================
+
+  /**
+   * List all lead labels for the organization
+   * Custom labels have interest_status values outside the standard range (-4 to 4)
+   * @returns Array of lead labels with their interest_status mappings
+   */
+  async listLeadLabels(): Promise<InstantlyLeadLabel[]> {
+    const allLabels: InstantlyLeadLabel[] = []
+    let startingAfter: string | undefined
+
+    do {
+      const params = new URLSearchParams()
+      params.set('limit', '100')
+      if (startingAfter) params.set('starting_after', startingAfter)
+
+      const response = await this.makeRequest<InstantlyLeadLabelListResponse>(
+        `/lead-labels?${params.toString()}`
+      )
+
+      allLabels.push(...(response.items || []))
+      startingAfter = response.next_starting_after
+
+      // Rate limiting between pagination requests
+      if (startingAfter) {
+        await this.delay(100)
+      }
+    } while (startingAfter)
+
+    return allLabels
+  }
+
+  /**
+   * Get a specific lead label by ID
+   * @param labelId - The label's unique identifier
+   */
+  async getLeadLabel(labelId: string): Promise<InstantlyLeadLabel | null> {
+    try {
+      return await this.makeRequest<InstantlyLeadLabel>(`/lead-labels/${labelId}`)
+    } catch (error) {
+      console.error('Error getting lead label:', error)
+      return null
     }
   }
 

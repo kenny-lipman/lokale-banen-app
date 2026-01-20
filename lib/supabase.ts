@@ -604,6 +604,7 @@ export type Database = {
           id: string
           instantly_bounced: boolean | null
           instantly_bounced_at: string | null
+          instantly_campaign_completed_at: string | null
           instantly_campaign_ids: string[] | null
           instantly_clicks_count: number | null
           instantly_closed_won: boolean | null
@@ -663,6 +664,7 @@ export type Database = {
           id?: string
           instantly_bounced?: boolean | null
           instantly_bounced_at?: string | null
+          instantly_campaign_completed_at?: string | null
           instantly_campaign_ids?: string[] | null
           instantly_clicks_count?: number | null
           instantly_closed_won?: boolean | null
@@ -722,6 +724,7 @@ export type Database = {
           id?: string
           instantly_bounced?: boolean | null
           instantly_bounced_at?: string | null
+          instantly_campaign_completed_at?: string | null
           instantly_campaign_ids?: string[] | null
           instantly_clicks_count?: number | null
           instantly_closed_won?: boolean | null

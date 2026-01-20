@@ -10,6 +10,7 @@
  * - Authentication-required APIs are used for user-specific operations
  */
 
+import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
@@ -23,18 +24,24 @@ export async function createServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
 
-  return createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return createSupabaseServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value
-      }
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        } catch {
+          // The `setAll` method was called from a Server Component.
+          // This can be ignored if you have middleware refreshing user sessions.
+        }
+      },
     },
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
   })
 }
 
@@ -51,15 +58,14 @@ export function createServerClientFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null
 
-  return createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return createSupabaseServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
-        return request.cookies.get(name)?.value
-      }
-    },
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll() {
+        // In API routes, we typically don't set cookies
+      },
     },
     global: {
       headers: accessToken ? {
@@ -93,7 +99,7 @@ export function createServiceRoleClient() {
  * Middleware function to authenticate users in API routes.
  * Returns the user if authenticated, throws an error if not.
  */
-export async function authenticateUser(supabase: ReturnType<typeof createSupabaseClient>) {
+export async function authenticateUser(supabase: Awaited<ReturnType<typeof createServerClient>>) {
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {

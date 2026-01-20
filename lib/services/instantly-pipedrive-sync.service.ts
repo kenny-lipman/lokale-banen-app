@@ -43,6 +43,7 @@ import {
   type LeadStatusContext,
   type LeadStatusResult,
   type EngagementData,
+  type CustomLabelMap,
 } from './lead-status-determination';
 
 // ============================================================================
@@ -689,6 +690,23 @@ export class InstantlyPipedriveSyncService {
 
     console.log(`🔄 Starting backfill for campaign ${campaignId}...`);
 
+    // Load custom labels for mapping lt_interest_status to custom label events
+    console.log(`📋 Loading custom labels...`);
+    const customLabels = await this.instantlyClient.listLeadLabels();
+    const customLabelMap: CustomLabelMap = new Map();
+
+    for (const label of customLabels) {
+      // Custom labels have interest_status values outside standard range (-4 to 4)
+      // Standard values: 0=OOO, 1=interested, 2=meeting_booked, 3=meeting_completed, 4=won, -1=not_interested, -2=wrong_person, -3=lost, -4=no_show
+      if (label.interest_status > 4 || label.interest_status < -4) {
+        customLabelMap.set(label.interest_status, {
+          label: label.label,
+          sentiment: label.interest_status_label
+        });
+      }
+    }
+    console.log(`📋 Loaded ${customLabelMap.size} custom labels`);
+
     // Get campaign info
     const campaign = await this.instantlyClient.getCampaign(campaignId);
     const campaignName = campaign?.name || 'Unknown Campaign';
@@ -703,9 +721,31 @@ export class InstantlyPipedriveSyncService {
       console.log(`Processing batch ${Math.floor(i / batchSize) + 1}...`);
 
       for (const lead of batch) {
+        // Check for auto-reply if lead has replies
+        let isAutoReply = false;
+        if ((lead.email_reply_count ?? 0) > 0) {
+          try {
+            const emails = await this.instantlyClient.listEmails({
+              lead: lead.email,
+              campaign_id: campaignId,
+              email_type: 'received',
+              limit: 10
+            });
+            const hasAutoReplyEmail = emails.items.some(email => email.is_auto_reply === 1);
+            const hasRealReply = emails.items.some(email => email.is_auto_reply !== 1);
+            isAutoReply = hasAutoReplyEmail && !hasRealReply;
+          } catch (error) {
+            console.warn(`Could not check auto-reply for ${lead.email}:`, error);
+          }
+        }
+
         // Determine event type and sentiment based on Instantly lead data
-        // Now also captures engagement data from Instantly
-        const { eventType, hasReply, replySentiment, engagementData } = this.determineBackfillEventType(lead);
+        // Now includes custom label mapping and auto-reply detection
+        const { eventType, hasReply, replySentiment, engagementData } = this.determineBackfillEventType(
+          lead,
+          customLabelMap,
+          isAutoReply
+        );
 
         // Skip if already synced for this specific event type
         if (skipExisting) {
@@ -807,9 +847,17 @@ export class InstantlyPipedriveSyncService {
    * - status: -1 = bounced, -2 = unsubscribed, -3 = skipped, 0-3 = active
    * - email_reply_count > 0: Lead has replied
    * - interest_status: 1 = interested, -1 = not interested
-   * - lt_interest_status: 1 = interested, -1 = not interested, 2 = meeting_booked, 4 = won
+   * - lt_interest_status: 0=OOO, 1=interested, 2=meeting_booked, 3=meeting_completed, 4=won, -1=not_interested, -2=wrong_person, -3=lost, -4=no_show
+   *
+   * @param lead - The Instantly lead data
+   * @param customLabelMap - Optional map of custom labels for interest_status values outside standard range
+   * @param isAutoReply - Optional flag indicating if the lead only has auto-replies
    */
-  private determineBackfillEventType(lead: InstantlyLead): {
+  private determineBackfillEventType(
+    lead: InstantlyLead,
+    customLabelMap?: CustomLabelMap,
+    isAutoReply?: boolean
+  ): {
     eventType: SyncEventType;
     hasReply: boolean;
     replySentiment?: ReplySentiment;
@@ -822,17 +870,27 @@ export class InstantlyPipedriveSyncService {
       interestStatus: typeof lead.interest_status === 'string'
         ? parseInt(lead.interest_status, 10)
         : lead.interest_status,
-      ltInterestStatus: (lead as any).lt_interest_status, // Extended field if available
+      ltInterestStatus: lead.lt_interest_status,
       replyCount: lead.email_reply_count ?? 0,
       openCount: lead.email_open_count ?? 0,
       clickCount: lead.email_click_count ?? 0,
-      timestampLastReply: (lead as any).timestamp_last_reply,
-      timestampLastOpen: (lead as any).timestamp_last_open,
-      timestampLastClick: (lead as any).timestamp_last_click,
+      timestampLastReply: lead.timestamp_last_reply,
+      timestampLastOpen: lead.timestamp_last_open,
+      timestampLastClick: lead.timestamp_last_click,
     };
 
-    // Use unified determination
-    const result = determineLeadStatus(context);
+    // Use unified determination with custom label map
+    const result = determineLeadStatus(context, customLabelMap);
+
+    // Override with auto_reply_received if lead only has auto-replies
+    if (isAutoReply && result.syncEventType === 'reply_received') {
+      return {
+        eventType: 'auto_reply_received',
+        hasReply: true,
+        replySentiment: 'neutral',
+        engagementData: result.engagementData
+      };
+    }
 
     return {
       eventType: result.syncEventType,
@@ -1169,13 +1227,14 @@ export class InstantlyPipedriveSyncService {
       try {
         // Double-check: has this lead replied since campaign completed?
         // Check if there's a newer sync event with reply for this email
-        const { data: replyCheck } = await this.supabase
+        // Note: Using 'any' cast to avoid TS2589 "Type instantiation is excessively deep" with Supabase types
+        const { data: replyCheck } = await (this.supabase as any)
           .from('instantly_pipedrive_syncs')
           .select('id')
-          .eq('lead_email', contact.email.toLowerCase())
+          .eq('lead_email', contact.email!.toLowerCase())
           .eq('has_reply', true)
-          .gt('created_at', contact.instantly_campaign_completed_at)
-          .limit(1);
+          .gt('created_at', contact.instantly_campaign_completed_at!)
+          .limit(1) as { data: { id: string }[] | null };
 
         if (replyCheck && replyCheck.length > 0) {
           console.log(`⏭️ Skipping ${contact.email} - has replied since campaign completed`);
@@ -1527,6 +1586,9 @@ export class InstantlyPipedriveSyncService {
         lead_out_of_office: 'Out of office',
         lead_wrong_person: 'Verkeerd persoon',
         account_error: 'Account error',
+        // Custom label events
+        custom_label_any_positive: 'Positief label',
+        custom_label_any_negative: 'Negatief label',
         // Internal
         lead_added: 'Toegevoegd aan campagne',
         backfill: 'Backfill sync'

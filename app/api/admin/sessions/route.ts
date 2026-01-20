@@ -19,7 +19,8 @@ async function adminSessionsHandler(request: NextRequest) {
     const offset = (page - 1) * limit
     
     // Build query
-    let query = supabase
+    // Note: Using 'any' cast because otis_workflow_sessions table is not in TypeScript types
+    let query = (supabase as any)
       .from('otis_workflow_sessions')
       .select(`
         id,
@@ -90,7 +91,8 @@ async function adminSessionsHandler(request: NextRequest) {
     })) || []
     
     // Get system-wide analytics
-    const { data: analytics, error: analyticsError } = await supabase
+    // Note: Using 'any' cast because otis_workflow_sessions table is not in TypeScript types
+    const { data: analytics, error: analyticsError } = await (supabase as any)
       .from('otis_workflow_sessions')
       .select('status, total_jobs, total_companies, total_contacts, total_campaigns')
     
