@@ -307,12 +307,12 @@ export const EVENT_CONFIG: Record<
 
   // Special events
   lead_out_of_office: {
-    pipedriveStatus: null,
+    pipedriveStatus: 'NIET_GEREAGEERD_INSTANTLY',
     qualificationStatus: null,
     addToBlocklist: false,
     logActivity: true,
-    updateEngagement: false,
-    description: 'Out of office reply detected',
+    updateEngagement: true,
+    description: 'Out of office reply detected - treat as no real response',
   },
   lead_wrong_person: {
     pipedriveStatus: 'NIET_MEER_BENADEREN',

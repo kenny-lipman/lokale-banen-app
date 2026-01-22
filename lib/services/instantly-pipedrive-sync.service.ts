@@ -68,8 +68,15 @@ export interface SyncLeadData {
   city?: string;
   streetAddress?: string;
   postalCode?: string;
-  hoofddomein?: string; // Platform name like "GroningseBanen"
+  hoofddomein?: string; // Platform name based on company postal_code (headquarters)
+  subdomeinen?: string[]; // Other platforms where company has job postings
   title?: string; // Job title/function
+  linkedinUrl?: string; // LinkedIn profile URL
+  // New enrichment fields
+  kvkNumber?: string;
+  industries?: string[];
+  employeeCount?: number;
+  jobCategories?: string[]; // Job categories from company's job postings (for branche fallback)
   // Instantly data
   replyCount?: number;
   // Engagement data from Instantly
@@ -306,7 +313,13 @@ export class InstantlyPipedriveSyncService {
 
       // 2. Enrich lead data from database (contacts, companies, platforms)
       const enrichedLead = await this.enrichLeadData(lead);
-      console.log(`📊 Lead enrichment: company=${enrichedLead.companyName}, hoofddomein=${enrichedLead.hoofddomein}`);
+
+      // 2b. Override hoofddomein with campaignName (most reliable source)
+      // The campaignName IS the hoofddomein (e.g., "ZoetermeerseBanen", "HaagseBanen")
+      if (campaignName && !enrichedLead.hoofddomein) {
+        enrichedLead.hoofddomein = campaignName;
+      }
+      console.log(`📊 Lead enrichment: company=${enrichedLead.companyName}, hoofddomein=${enrichedLead.hoofddomein} (from campaign: ${campaignName})`);
 
       // 3. Determine the status to set (using centralized config)
       const statusKey = getStatusKeyForEventLocal(
@@ -401,7 +414,7 @@ export class InstantlyPipedriveSyncService {
 
         result.statusSet = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
 
-        // 7. Set Hoofddomein if available
+        // 7. Set Hoofddomein if available (based on company postal code)
         if (enrichedLead.hoofddomein) {
           const hoofddomeinResult = await this.pipedriveClient.setOrganizationHoofddomein(
             orgResult.id,
@@ -409,6 +422,29 @@ export class InstantlyPipedriveSyncService {
           );
           if (!hoofddomeinResult.success) {
             console.warn(`⚠️ Could not set Hoofddomein: ${hoofddomeinResult.reason}`);
+          }
+        }
+
+        // 7b. Set Subdomeinen if available (other platforms where company has job postings)
+        // Also add campaign platform as subdomein if different from hoofddomein
+        const subdomeinen = [...(enrichedLead.subdomeinen || [])];
+
+        // Extract platform from campaign name (campaigns are often named after platforms like "AlmeerseBanen")
+        const campaignPlatform = campaignName?.match(/^([A-Za-z]+Banen)/)?.[1];
+        if (campaignPlatform &&
+            campaignPlatform !== enrichedLead.hoofddomein &&
+            !subdomeinen.includes(campaignPlatform)) {
+          subdomeinen.push(campaignPlatform);
+          console.log(`📍 Added campaign platform ${campaignPlatform} as subdomein (hoofddomein: ${enrichedLead.hoofddomein})`);
+        }
+
+        if (subdomeinen.length > 0) {
+          const subdomeinResult = await this.pipedriveClient.setOrganizationSubdomein(
+            orgResult.id,
+            subdomeinen
+          );
+          if (!subdomeinResult.success) {
+            console.warn(`⚠️ Could not set Subdomeinen: ${subdomeinResult.reason}`);
           }
         }
 
@@ -1354,7 +1390,8 @@ export class InstantlyPipedriveSyncService {
   /**
    * Look up enrichment data from the database for a lead by email
    * This searches the contacts table and joins with companies and platforms
-   * to get additional data like company info and the Hoofddomein (platform name)
+   * to get additional data like company info, Hoofddomein (based on postal code)
+   * and Subdomeinen (other platforms where company has job postings)
    */
   async getEnrichmentDataByEmail(email: string): Promise<{
     contact?: {
@@ -1363,6 +1400,7 @@ export class InstantlyPipedriveSyncService {
       lastName?: string;
       phone?: string;
       title?: string;
+      linkedinUrl?: string;
     };
     company?: {
       id: string;
@@ -1372,8 +1410,13 @@ export class InstantlyPipedriveSyncService {
       city?: string;
       streetAddress?: string;
       postalCode?: string;
+      kvkNumber?: string;
+      industries?: string[];
+      employeeCount?: number;
     };
     hoofddomein?: string;
+    subdomeinen?: string[];
+    jobCategories?: string[];
   } | null> {
     try {
       const cleanEmail = email.toLowerCase().trim();
@@ -1387,6 +1430,7 @@ export class InstantlyPipedriveSyncService {
           last_name,
           phone,
           title,
+          linkedin_url,
           company_id,
           companies (
             id,
@@ -1395,7 +1439,10 @@ export class InstantlyPipedriveSyncService {
             phone,
             city,
             street_address,
-            postal_code
+            postal_code,
+            kvk,
+            industries,
+            apollo_employees_estimate
           )
         `)
         .eq('email', cleanEmail)
@@ -1410,27 +1457,31 @@ export class InstantlyPipedriveSyncService {
       // Get the company data
       const company = contact.companies as any;
 
-      // Now get the Hoofddomein (platform) via job_postings
-      let hoofddomein: string | undefined;
-      if (company?.id) {
-        const { data: platformData } = await this.supabase
-          .from('job_postings')
-          .select(`
-            platform_id,
-            platforms (
-              regio_platform
-            )
-          `)
-          .eq('company_id', company.id)
-          .limit(1)
-          .single();
+      // Determine Hoofddomein and Subdomeinen using the new postal code based logic
+      const { hoofddomein, subdomeinen } = await this.determineCompanyDomeinen(
+        company?.id,
+        company?.postal_code
+      );
 
-        if (platformData?.platforms) {
-          hoofddomein = (platformData.platforms as any).regio_platform;
+      // Get job categories for branche fallback (if company doesn't have Apollo industries)
+      let jobCategories: string[] = [];
+      if (company?.id) {
+        const { data: jobCats } = await this.supabase
+          .from('job_postings')
+          .select('categories')
+          .eq('company_id', company.id)
+          .not('categories', 'is', null)
+          .neq('categories', '')
+          .neq('categories', 'Overig')
+          .limit(10);
+
+        if (jobCats && jobCats.length > 0) {
+          const allCategories = jobCats.flatMap(j => j.categories?.split(', ') || []);
+          jobCategories = [...new Set(allCategories)].filter(c => c && c !== 'Overig');
         }
       }
 
-      console.log(`✅ Found enrichment data for ${cleanEmail}: company=${company?.name}, hoofddomein=${hoofddomein}`);
+      console.log(`✅ Found enrichment data for ${cleanEmail}: company=${company?.name}, hoofddomein=${hoofddomein}, subdomeinen=[${subdomeinen.join(', ')}], jobCategories=[${jobCategories.join(', ')}]`);
 
       return {
         contact: {
@@ -1438,7 +1489,8 @@ export class InstantlyPipedriveSyncService {
           firstName: contact.first_name || undefined,
           lastName: contact.last_name || undefined,
           phone: contact.phone || undefined,
-          title: contact.title || undefined
+          title: contact.title || undefined,
+          linkedinUrl: contact.linkedin_url || undefined
         },
         company: company ? {
           id: company.id,
@@ -1447,9 +1499,14 @@ export class InstantlyPipedriveSyncService {
           phone: company.phone || undefined,
           city: company.city || undefined,
           streetAddress: company.street_address || undefined,
-          postalCode: company.postal_code || undefined
+          postalCode: company.postal_code || undefined,
+          kvkNumber: company.kvk || undefined,
+          industries: company.industries || undefined,
+          employeeCount: company.apollo_employees_estimate || undefined
         } : undefined,
-        hoofddomein
+        hoofddomein: hoofddomein || undefined,
+        subdomeinen,
+        jobCategories
       };
     } catch (error) {
       console.error(`Error getting enrichment data for ${email}:`, error);
@@ -1479,7 +1536,14 @@ export class InstantlyPipedriveSyncService {
       streetAddress: lead.streetAddress || enrichment.company?.streetAddress,
       postalCode: lead.postalCode || enrichment.company?.postalCode,
       hoofddomein: lead.hoofddomein || enrichment.hoofddomein,
+      subdomeinen: lead.subdomeinen || enrichment.subdomeinen,
       title: lead.title || enrichment.contact?.title,
+      linkedinUrl: lead.linkedinUrl || enrichment.contact?.linkedinUrl,
+      // New enrichment fields
+      kvkNumber: lead.kvkNumber || enrichment.company?.kvkNumber,
+      industries: lead.industries || enrichment.company?.industries,
+      employeeCount: lead.employeeCount || enrichment.company?.employeeCount,
+      jobCategories: lead.jobCategories || enrichment.jobCategories,
       replyCount: lead.replyCount
     };
   }
@@ -1491,11 +1555,210 @@ export class InstantlyPipedriveSyncService {
   // Pipedrive custom field IDs
   private static readonly PIPEDRIVE_FIELDS = {
     ORGANIZATION_WEBSITE: '79f6688e77fed7099077425e7f956d52aaa9defb',
-    PERSON_FUNCTIE: 'eff8a3361f8ec8bc1c3edc57b170019bdf9d99f3'
+    ORGANIZATION_PHONE: 'f249147e63f82da820824528364fe2cc8fb86482',
+    ORGANIZATION_KVK: '1e887677c33f2cd084eb85a4bf421b657e7ba154',
+    ORGANIZATION_BRANCHE: '75a7b46357970b58a7c5f9763ddcd23a5806e108',
+    ORGANIZATION_SIZE: 'f68e60517a23efa9a0d9defa762c534bb7cbfc46',
+    PERSON_FUNCTIE: 'eff8a3361f8ec8bc1c3edc57b170019bdf9d99f3',
+    PERSON_LINKEDIN: '275274fd29282c0679a1e84e7cef010dba5513b0'
   };
 
+  // Pipedrive Branche enum options
+  private static readonly BRANCHE_OPTIONS: Record<string, number> = {
+    'Automotive': 53,
+    'Bouw + gerelateerd': 54,
+    'Detailhandel, groothandel en ambachten': 55,
+    'Horeca & Toerisme': 56,
+    'Industrie & Productie': 58,
+    'Leisure': 59,
+    'Logistiek & Transport': 60,
+    'Overheid/gemeente': 61,
+    'Tuinbouw/Sierteelt': 62,
+    'Voedselbranche': 64,
+    'Zakelijke en persoonlijke dienstverlening': 66,
+    'Zorg + onderwijs': 67
+  };
+
+  // Pipedrive Bedrijfsgrootte enum options
+  private static readonly SIZE_OPTIONS = {
+    KLEIN: 222,   // < 10
+    MIDDEL: 223,  // < 100
+    GROOT: 224    // > 100
+  };
+
+  // Job category to Branche mapping (Dutch job categories from job_postings.categories)
+  private static readonly JOB_CATEGORY_TO_BRANCHE: Record<string, number> = {
+    'Medisch/Zorg': 67,
+    'Onderwijs/Onderzoek/Wetenschap': 67,
+    'Inkoop/Logistiek/Transport': 60,
+    'Techniek': 58,
+    'Productie/Uitvoerend': 58,
+    'Horeca/Detailhandel': 56,
+    'Financieel/Accounting': 66,
+    'Commercieel/Verkoop': 66,
+    'Administratief/Secretarieel': 66,
+    'Automatisering/Internet': 66,
+    'HR/Training/Opleiding': 66,
+    'Consultancy/Advies': 66,
+    'Klantenservice/Callcenter/Receptie': 66,
+    'Beleid/Bestuur/Staf': 66,
+    'Marketing/PR/Communicatie': 66,
+    'Financiele dienstverlening': 66,
+    'Juridisch': 66,
+    'Beveiliging/Defensie/Politie': 61,
+    'Design/Creatie/Journalistiek': 59,
+    'Directie/Management algemeen': 66,
+  };
+
+  // Branche options list for AI detection
+  private static readonly BRANCHE_OPTIONS_LIST = [
+    { id: 53, name: 'Automotive' },
+    { id: 54, name: 'Bouw + gerelateerd' },
+    { id: 55, name: 'Detailhandel, groothandel en ambachten' },
+    { id: 56, name: 'Horeca & Toerisme' },
+    { id: 58, name: 'Industrie & Productie' },
+    { id: 59, name: 'Leisure' },
+    { id: 60, name: 'Logistiek & Transport' },
+    { id: 61, name: 'Overheid/gemeente' },
+    { id: 62, name: 'Tuinbouw/Sierteelt' },
+    { id: 64, name: 'Voedselbranche' },
+    { id: 66, name: 'Zakelijke en persoonlijke dienstverlening' },
+    { id: 67, name: 'Zorg + onderwijs' },
+  ];
+
   /**
-   * Update organization with enrichment data (website, address)
+   * Map employee count to Pipedrive size enum
+   */
+  private static mapEmployeeCountToSize(count: number): number | null {
+    if (count < 10) return InstantlyPipedriveSyncService.SIZE_OPTIONS.KLEIN;
+    if (count < 100) return InstantlyPipedriveSyncService.SIZE_OPTIONS.MIDDEL;
+    return InstantlyPipedriveSyncService.SIZE_OPTIONS.GROOT;
+  }
+
+  /**
+   * Map industries array to Pipedrive Branche enum using keyword matching
+   * Falls back to AI mapping if no direct match found
+   */
+  private static mapIndustriesToBranche(industries: string[]): number | null {
+    if (!industries || industries.length === 0) return null;
+
+    const industriesLower = industries.map(i => i.toLowerCase()).join(' ');
+
+    // Keyword-based mapping (ordered by specificity)
+    const mappings: Array<{ keywords: string[]; branche: number }> = [
+      { keywords: ['automotive', 'car', 'vehicle', 'auto'], branche: 53 },
+      { keywords: ['construction', 'bouw', 'building', 'architect'], branche: 54 },
+      { keywords: ['retail', 'wholesale', 'detailhandel', 'groothandel', 'shop', 'store', 'winkel'], branche: 55 },
+      { keywords: ['hotel', 'restaurant', 'horeca', 'tourism', 'toerisme', 'hospitality', 'catering'], branche: 56 },
+      { keywords: ['manufacturing', 'industrial', 'productie', 'industrie', 'factory', 'fabriek'], branche: 58 },
+      { keywords: ['leisure', 'entertainment', 'recreation', 'sport', 'fitness', 'gaming'], branche: 59 },
+      { keywords: ['logistics', 'transport', 'shipping', 'freight', 'warehouse', 'logistiek', 'vervoer'], branche: 60 },
+      { keywords: ['government', 'overheid', 'gemeente', 'public sector', 'municipality'], branche: 61 },
+      { keywords: ['agriculture', 'tuinbouw', 'horticulture', 'farming', 'plants', 'greenhouse', 'sierteelt', 'kwekerij'], branche: 62 },
+      { keywords: ['food', 'voedsel', 'beverage', 'bakery', 'bakkerij', 'grocery', 'supermarket'], branche: 64 },
+      { keywords: ['consulting', 'services', 'dienstverlening', 'advisory', 'accounting', 'legal', 'hr', 'recruitment', 'staffing', 'cleaning', 'schoonmaak'], branche: 66 },
+      { keywords: ['healthcare', 'medical', 'zorg', 'hospital', 'clinic', 'education', 'onderwijs', 'school', 'university', 'training'], branche: 67 },
+    ];
+
+    for (const mapping of mappings) {
+      if (mapping.keywords.some(kw => industriesLower.includes(kw))) {
+        return mapping.branche;
+      }
+    }
+
+    return null; // No match found
+  }
+
+  /**
+   * Map job categories to Pipedrive Branche enum
+   * Uses the most common branche from the categories
+   */
+  private static mapJobCategoriesToBranche(categories: string[]): number | null {
+    if (!categories || categories.length === 0) return null;
+
+    const brancheCounts = new Map<number, number>();
+    for (const category of categories) {
+      const branche = InstantlyPipedriveSyncService.JOB_CATEGORY_TO_BRANCHE[category];
+      if (branche) {
+        brancheCounts.set(branche, (brancheCounts.get(branche) || 0) + 1);
+      }
+    }
+
+    if (brancheCounts.size === 0) return null;
+
+    // Return most common branche
+    let maxCount = 0;
+    let mostCommon: number | null = null;
+    for (const [branche, count] of brancheCounts) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommon = branche;
+      }
+    }
+    return mostCommon;
+  }
+
+  /**
+   * Determine branche using AI (Mistral) based on company name
+   * This is the third tier fallback when Apollo industries and job categories are not available
+   */
+  private async determineBrancheWithAI(companyName: string): Promise<number | null> {
+    try {
+      const brancheList = InstantlyPipedriveSyncService.BRANCHE_OPTIONS_LIST
+        .map(b => `${b.id}: ${b.name}`)
+        .join('\n');
+
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'mistral-small-latest',
+          messages: [{
+            role: 'user',
+            content: `Bepaal de branche voor dit Nederlandse bedrijf.
+
+Bedrijfsnaam: "${companyName}"
+
+Kies de BESTE match uit deze opties:
+${brancheList}
+
+Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet, antwoord "null".`
+          }],
+          max_tokens: 10,
+          temperature: 0,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(`⚠️ AI branche API error: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      const answer = data.choices?.[0]?.message?.content?.trim();
+
+      if (answer === 'null' || !answer) return null;
+
+      const brancheId = parseInt(answer, 10);
+      const validIds = InstantlyPipedriveSyncService.BRANCHE_OPTIONS_LIST.map(b => b.id);
+
+      if (validIds.includes(brancheId)) {
+        console.log(`🤖 AI determined branche ${brancheId} for "${companyName}"`);
+        return brancheId;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn(`⚠️ AI branche detection failed for "${companyName}":`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Update organization with enrichment data (website, address, phone, kvk, size, branche)
    */
   private async updateOrganizationEnrichment(
     orgId: number,
@@ -1503,22 +1766,80 @@ export class InstantlyPipedriveSyncService {
   ): Promise<void> {
     try {
       const updates: any = {};
+      const customFields: any = {};
 
-      // Add website if available
+      // Add website if available (custom field)
       if (lead.website) {
-        updates[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_WEBSITE] = lead.website;
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_WEBSITE] = lead.website;
       }
 
-      // Add address if available
+      // Add address if available (standard field - must be object with value property)
       if (lead.streetAddress || lead.city || lead.postalCode) {
-        updates.address = [lead.streetAddress, lead.postalCode, lead.city]
+        const addressValue = [lead.streetAddress, lead.postalCode, lead.city]
           .filter(Boolean)
           .join(', ');
+        updates.address = { value: addressValue };
+      }
+
+      // Add phone if available (custom field)
+      if (lead.phone) {
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_PHONE] = lead.phone;
+      }
+
+      // Add KvK number if available (custom field - must be a number)
+      if (lead.kvkNumber) {
+        const kvkNumber = typeof lead.kvkNumber === 'string'
+          ? parseInt(lead.kvkNumber, 10)
+          : lead.kvkNumber;
+        if (!isNaN(kvkNumber)) {
+          customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_KVK] = kvkNumber;
+        }
+      }
+
+      // Add company size if available (custom field)
+      if (lead.employeeCount) {
+        const sizeEnum = InstantlyPipedriveSyncService.mapEmployeeCountToSize(lead.employeeCount);
+        if (sizeEnum) {
+          customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_SIZE] = sizeEnum;
+        }
+      }
+
+      // Add branche using 3-tier fallback: Apollo industries → Job categories → AI
+      let brancheEnum: number | null = null;
+      let brancheSource = '';
+
+      // Tier 1: Try Apollo industries first
+      if (lead.industries && lead.industries.length > 0) {
+        brancheEnum = InstantlyPipedriveSyncService.mapIndustriesToBranche(lead.industries);
+        if (brancheEnum) brancheSource = 'apollo';
+      }
+
+      // Tier 2: Fallback to job categories
+      if (!brancheEnum && lead.jobCategories && lead.jobCategories.length > 0) {
+        brancheEnum = InstantlyPipedriveSyncService.mapJobCategoriesToBranche(lead.jobCategories);
+        if (brancheEnum) brancheSource = 'job_categories';
+      }
+
+      // Tier 3: Fallback to AI
+      if (!brancheEnum && lead.companyName) {
+        brancheEnum = await this.determineBrancheWithAI(lead.companyName);
+        if (brancheEnum) brancheSource = 'ai';
+      }
+
+      // Set branche if found
+      if (brancheEnum) {
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_BRANCHE] = brancheEnum;
+        console.log(`🏭 Set branche ${brancheEnum} via ${brancheSource} for "${lead.companyName}"`);
+      }
+
+      // Add custom fields to updates if any
+      if (Object.keys(customFields).length > 0) {
+        updates.custom_fields = customFields;
       }
 
       if (Object.keys(updates).length > 0) {
         await this.pipedriveClient.updateOrganization(orgId, updates);
-        console.log(`📍 Updated organization ${orgId} with enrichment data (website: ${!!lead.website}, address: ${!!updates.address})`);
+        console.log(`📍 Updated organization ${orgId} with enrichment data (website: ${!!lead.website}, address: ${!!updates.address}, phone: ${!!lead.phone}, kvk: ${!!lead.kvkNumber}, size: ${!!lead.employeeCount}, branche: ${!!lead.industries})`);
       }
     } catch (error) {
       console.warn(`Could not update organization enrichment for ${orgId}:`, error);
@@ -1526,22 +1847,30 @@ export class InstantlyPipedriveSyncService {
   }
 
   /**
-   * Update person with enrichment data (job title/functie)
+   * Update person with enrichment data (job title/functie, LinkedIn URL)
    */
   private async updatePersonEnrichment(
     personId: number,
     lead: SyncLeadData
   ): Promise<void> {
     try {
-      if (!lead.title) return;
+      // Only update if we have data to update
+      if (!lead.title && !lead.linkedinUrl) return;
 
-      // Update person with Functie field
-      const updates: any = {
-        [InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_FUNCTIE]: lead.title
-      };
+      const updates: any = {};
+
+      // Add Functie if available
+      if (lead.title) {
+        updates[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_FUNCTIE] = lead.title;
+      }
+
+      // Add LinkedIn URL if available
+      if (lead.linkedinUrl) {
+        updates[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_LINKEDIN] = lead.linkedinUrl;
+      }
 
       await this.pipedriveClient.updatePerson(personId, updates);
-      console.log(`👔 Updated person ${personId} with functie: ${lead.title}`);
+      console.log(`👔 Updated person ${personId} with enrichment (functie: ${lead.title || 'n/a'}, linkedin: ${lead.linkedinUrl ? 'yes' : 'no'})`);
     } catch (error) {
       console.warn(`Could not update person enrichment for ${personId}:`, error);
     }
@@ -2741,6 +3070,118 @@ export class InstantlyPipedriveSyncService {
     } catch (error) {
       console.warn(`Could not update company engagement aggregate:`, error);
     }
+  }
+
+  // ============================================================================
+  // HOOFDDOMEIN / SUBDOMEIN HELPERS
+  // ============================================================================
+
+  /**
+   * Look up the regio_platform (Hoofddomein) based on company's postal code.
+   * Uses the cities table to map postal codes to platforms.
+   *
+   * @param postalCode - The company's postal code (e.g., "2991 XT" or "2991")
+   * @returns The regio_platform name (e.g., "BarendrechtseBanen") or null if not found
+   */
+  async getRegioPlatformByPostalCode(postalCode: string): Promise<string | null> {
+    if (!postalCode) return null;
+
+    try {
+      // Extract first 4 digits from postal code (handles "2991 XT" → "2991")
+      const postcodePrefix = postalCode.replace(/\s+/g, '').substring(0, 4);
+
+      if (!/^\d{4}$/.test(postcodePrefix)) {
+        console.warn(`⚠️ Invalid postal code format: ${postalCode}`);
+        return null;
+      }
+
+      const { data, error } = await this.supabase
+        .from('cities')
+        .select('regio_platform')
+        .eq('postcode', postcodePrefix)
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        console.log(`📍 No platform found for postal code ${postcodePrefix}`);
+        return null;
+      }
+
+      console.log(`📍 Mapped postal code ${postcodePrefix} → ${data.regio_platform}`);
+      return data.regio_platform;
+    } catch (error) {
+      console.error(`Error looking up platform for postal code ${postalCode}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all unique regio_platforms where a company has job postings.
+   * Used to determine Subdomeinen (platforms other than the headquarters' platform).
+   *
+   * @param companyId - The company UUID
+   * @returns Array of unique platform names
+   */
+  async getAllCompanyPlatforms(companyId: string): Promise<string[]> {
+    if (!companyId) return [];
+
+    try {
+      const { data, error } = await this.supabase
+        .from('job_postings')
+        .select(`
+          platform_id,
+          platforms (
+            regio_platform
+          )
+        `)
+        .eq('company_id', companyId)
+        .not('platform_id', 'is', null);
+
+      if (error || !data || data.length === 0) {
+        console.log(`📍 No job postings found for company ${companyId}`);
+        return [];
+      }
+
+      // Extract unique platform names
+      const platforms = data
+        .map(jp => (jp.platforms as any)?.regio_platform)
+        .filter((p): p is string => !!p);
+
+      const uniquePlatforms = [...new Set(platforms)];
+      console.log(`📍 Found ${uniquePlatforms.length} unique platforms for company: ${uniquePlatforms.join(', ')}`);
+
+      return uniquePlatforms;
+    } catch (error) {
+      console.error(`Error getting platforms for company ${companyId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Determine Hoofddomein and Subdomeinen for a company.
+   * - Hoofddomein: Based on company's postal_code (headquarters location)
+   * - Subdomeinen: Other platforms where company has job postings
+   *
+   * @param companyId - The company UUID
+   * @param postalCode - The company's postal code
+   * @returns Object with hoofddomein and subdomeinen
+   */
+  async determineCompanyDomeinen(
+    companyId: string | undefined,
+    postalCode: string | undefined
+  ): Promise<{ hoofddomein: string | null; subdomeinen: string[] }> {
+    // Get hoofddomein from postal code
+    const hoofddomein = postalCode ? await this.getRegioPlatformByPostalCode(postalCode) : null;
+
+    // Get all platforms from job postings
+    const allPlatforms = companyId ? await this.getAllCompanyPlatforms(companyId) : [];
+
+    // Subdomeinen = all platforms except hoofddomein
+    const subdomeinen = allPlatforms.filter(p => p !== hoofddomein);
+
+    console.log(`📍 Company domeinen: hoofddomein=${hoofddomein || 'unknown'}, subdomeinen=[${subdomeinen.join(', ')}]`);
+
+    return { hoofddomein, subdomeinen };
   }
 }
 
