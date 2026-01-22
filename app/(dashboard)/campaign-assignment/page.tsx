@@ -191,7 +191,17 @@ export default function CampaignAssignmentPage() {
         </div>
       )}
 
-      {/* Active Batch Progress */}
+      {/* Active Batch Progress - Show loading state or active batch */}
+      {statsLoading && recentBatches.length === 0 && (
+        <Card className="border-gray-200 bg-gray-50/50">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Controleren op actieve batches...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {activeBatch && (
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader className="pb-2">
