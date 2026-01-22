@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { RateLimiter, RateLimitUtils } from '@/middleware/rate-limiting'
+import { pipedriveClient, STATUS_PROSPECT_OPTIONS } from '@/lib/pipedrive-client'
 
 const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
+
+// Klant status ID - leads with this status should NEVER be added to Instantly
+const KLANT_STATUS_ID = STATUS_PROSPECT_OPTIONS.KLANT // 303
 
 // Create rate limiter for campaign additions
 const campaignAdditionLimiter = new RateLimiter({
@@ -190,13 +194,16 @@ async function addToCampaignHandler(request: NextRequest, authResult: AuthResult
     })
 
     // Fetch company data separately for contacts that have company_id
-    let companyDataMap = {}
+    // Include pipedrive_id to check for "Klant" status
+    let companyDataMap: Record<string, any> = {}
+    let klantCompanyIds: Set<string> = new Set()
+
     if (contactIdsWithCompanyData.length > 0) {
       const { data: companiesData, error: companiesError } = await authResult.supabase
         .from('companies')
-        .select('id, name, website, category_size')
+        .select('id, name, website, category_size, pipedrive_id')
         .in('id', contacts.filter(c => c.company_id).map(c => c.company_id))
-      
+
       if (companiesError) {
         console.error('Error fetching companies data:', companiesError)
       } else {
@@ -204,6 +211,32 @@ async function addToCampaignHandler(request: NextRequest, authResult: AuthResult
           (companiesData || []).map(company => [company.id, company])
         )
         console.log('Company data map:', companyDataMap)
+
+        // Check Pipedrive status for companies that have a pipedrive_id
+        // We need to identify companies with "Klant" status to prevent adding them to Instantly
+        const companiesWithPipedriveId = (companiesData || []).filter(c => c.pipedrive_id)
+
+        if (companiesWithPipedriveId.length > 0) {
+          console.log(`🔍 Checking Pipedrive status for ${companiesWithPipedriveId.length} companies...`)
+
+          for (const company of companiesWithPipedriveId) {
+            try {
+              const pipedriveStatus = await pipedriveClient.getOrganizationStatusProspect(parseInt(company.pipedrive_id))
+
+              if (pipedriveStatus === KLANT_STATUS_ID) {
+                klantCompanyIds.add(company.id)
+                console.log(`⚠️ Company "${company.name}" (${company.id}) has Klant status in Pipedrive - will be skipped`)
+              }
+            } catch (error) {
+              console.warn(`Could not check Pipedrive status for company ${company.id}:`, error)
+              // Continue processing - don't block on Pipedrive errors
+            }
+          }
+
+          if (klantCompanyIds.size > 0) {
+            console.log(`🚫 Found ${klantCompanyIds.size} companies with "Klant" status - their contacts will be skipped`)
+          }
+        }
       }
     }
 
@@ -270,6 +303,22 @@ async function addToCampaignHandler(request: NextRequest, authResult: AuthResult
           error: `Contact is already in campaign: ${contact.campaign_name || contact.campaign_id}`,
           code: 'ALREADY_IN_CAMPAIGN',
           existingCampaign: contact.campaign_name || contact.campaign_id,
+          status: 'skipped',
+          step: 'validation'
+        })
+        continue
+      }
+
+      // Check if contact's company has "Klant" status in Pipedrive
+      // Klant companies should NEVER be added to cold email campaigns
+      if (contact.company_id && klantCompanyIds.has(contact.company_id)) {
+        const company = companyDataMap[contact.company_id]
+        results.push({
+          contactId: contact.id,
+          contactName: contact.name || contact.id,
+          error: `Company "${company?.name || contact.company_id}" has "Klant" status in Pipedrive - cannot add to Instantly`,
+          code: 'COMPANY_IS_KLANT',
+          companyName: company?.name,
           status: 'skipped',
           step: 'validation'
         })
@@ -404,6 +453,7 @@ async function addToCampaignHandler(request: NextRequest, authResult: AuthResult
     // Error categorization for better user feedback
     const errorCategories = {
       validation: results.filter(r => r.code === 'MISSING_EMAIL' || r.code === 'INVALID_EMAIL_FORMAT' || r.code === 'ALREADY_IN_CAMPAIGN').length,
+      klant: results.filter(r => r.code === 'COMPANY_IS_KLANT').length,
       creation: results.filter(r => r.code === 'INSTANTLY_API_ERROR' && r.step === 'creation').length,
       database: results.filter(r => r.code === 'DATABASE_UPDATE_FAILED').length,
       communication: results.filter(r => r.code === 'INSTANTLY_API_COMMUNICATION_ERROR').length
@@ -431,6 +481,7 @@ async function addToCampaignHandler(request: NextRequest, authResult: AuthResult
     } else if (failed > 0) {
       const errorTypes = []
       if (errorCategories.validation > 0) errorTypes.push(`${errorCategories.validation} validation error${errorCategories.validation !== 1 ? 's' : ''}`)
+      if (errorCategories.klant > 0) errorTypes.push(`${errorCategories.klant} Klant bedrijf${errorCategories.klant !== 1 ? 'en' : ''} overgeslagen`)
       if (errorCategories.creation > 0) errorTypes.push(`${errorCategories.creation} creation error${errorCategories.creation !== 1 ? 's' : ''}`)
       if (errorCategories.database > 0) errorTypes.push(`${errorCategories.database} database error${errorCategories.database !== 1 ? 's' : ''}`)
       if (errorCategories.communication > 0) errorTypes.push(`${errorCategories.communication} communication error${errorCategories.communication !== 1 ? 's' : ''}`)
@@ -441,6 +492,9 @@ async function addToCampaignHandler(request: NextRequest, authResult: AuthResult
       // Add specific retry recommendations based on error types
       if (errorCategories.validation > 0) {
         retryRecommendations.push('Please check email addresses and ensure contacts are not already in campaigns.')
+      }
+      if (errorCategories.klant > 0) {
+        retryRecommendations.push('Contacts from companies with "Klant" status in Pipedrive were automatically skipped.')
       }
       if (errorCategories.creation > 0) {
         retryRecommendations.push('Lead creation failed. Please verify contact information and try again.')

@@ -10,6 +10,9 @@ const STATUS_PROSPECT_FIELD_ID = 'e8a27f47529d2091399f063b834339316d7d852a';
 // Hoofddomein field ID for organizations (platform name like "GroningseBanen")
 const HOOFDDOMEIN_FIELD_ID = '7180a7123d1de658e8d1d642b8496802002ddc66';
 
+// Subdomein field ID for organizations (multi-select: other platforms where company has vacancies)
+const SUBDOMEIN_FIELD_ID = '2a8e7ff62fa14d0c69b48fb025d0bdf80c04a28c';
+
 // Mapping of platform names to Pipedrive enum IDs for Hoofddomein field
 const HOOFDDOMEIN_OPTIONS: Record<string, number> = {
   // Original platforms
@@ -81,8 +84,68 @@ const STATUS_PROSPECT_OPTIONS = {
   NIET_GEREAGEERD_INSTANTLY: 344 // "Niet gereageerd Instantly"
 };
 
+// Subdomein options - mapping platform names to Pipedrive enum IDs
+// Note: Subdomein is a multi-select (set) field with its own enum IDs
+// These IDs are different from HOOFDDOMEIN_OPTIONS!
+const SUBDOMEIN_OPTIONS: Record<string, number> = {
+  'AalsmeerseBanen': 109,
+  'AchterhoekseBanen': 388,
+  'AlkmaarseBanen': 395,
+  'AlmeerseBanen': 420,
+  'AlmeloseBanen': 410,
+  'AlphenseBanen': 373,
+  'AmersfoortseBanen': 411,
+  'AmsterdamseBanen': 419,
+  'ApeldoornseBanen': 414,
+  'ArnhemseBanen': 391,
+  'AssenseBanen': 412,
+  'BarendrechtseBanen': 112,
+  'BollenstreekseBanen': 114,
+  'BosscheBanen': 372,
+  'BredaseBanen': 421,
+  'DelftseBanen': 404,
+  'DeventerseBanen': 377,
+  'DrechtseBanen': 398,
+  'EindhovenseBanen': 394,
+  'EmmeloordseBanen': 402,
+  'EmmenseBanen': 393,
+  'EnschedeseBanen': 401,
+  'GoudseBanen': 416,
+  'GroningseBanen': 405,
+  'HaagseBanen': 120,
+  'HaarlemseBanen': 417,
+  'HarderwijkseBanen': 409,
+  'HeerenveenseBanen': 386,
+  'HelderseBanen': 424, // May need to be added to Pipedrive
+  'HoekscheBanen': 380,
+  'HoofddorpseBanen': 422,
+  'KerkraadseBanen': 425, // May need to be added to Pipedrive
+  'LansingerlandseBanen': 123,
+  'LeeuwardseBanen': 390,
+  'LeidseBanen': 403,
+  'MaasluisseBanen': 407,
+  'MaastrichtseBanen': 385,
+  'NijmegenseBanen': 381, // Note: using lowercase 's' variant ID
+  'Nijmegensebanen': 381,
+  'OosterhoutseBanen': 383,
+  'RotterdamseBanen': 382,
+  'SchiedamseBanen': 379,
+  'TilburgseBanen': 387,
+  'UtrechtseBanen': 374,
+  'VenloseBanen': 375,
+  'VlaardingeseBanen': 384,
+  'VoornseBanen': 406,
+  'WeerterseBanen': 415,
+  'WestlandseBanen': 126,
+  'WoerdenseBanen': 392,
+  'ZaanseBanen': 397,
+  'ZeeuwseBanen': 413,
+  'ZoetermeerseBanen': 376,
+  'ZwolseBanen': 423,
+};
+
 // Export for use in other modules
-export { STATUS_PROSPECT_FIELD_ID, STATUS_PROSPECT_OPTIONS, HOOFDDOMEIN_FIELD_ID };
+export { STATUS_PROSPECT_FIELD_ID, STATUS_PROSPECT_OPTIONS, HOOFDDOMEIN_FIELD_ID, SUBDOMEIN_FIELD_ID, HOOFDDOMEIN_OPTIONS, SUBDOMEIN_OPTIONS };
 
 // Status labels for display/logging
 export const STATUS_PROSPECT_LABELS: Record<string, string> = {
@@ -1106,6 +1169,108 @@ export class PipedriveClient {
    */
   static getSupportedHoofddomeinPlatforms(): string[] {
     return Object.keys(HOOFDDOMEIN_OPTIONS);
+  }
+
+  /**
+   * Set the Subdomein (other platforms) for an organization.
+   * Subdomein is a multi-select field containing platforms where the company
+   * has job postings, excluding the Hoofddomein (headquarters platform).
+   *
+   * @param orgId - The Pipedrive organization ID
+   * @param platformNames - Array of platform names (e.g., ["GroningseBanen", "LeeuwardseBanen"])
+   */
+  async setOrganizationSubdomein(
+    orgId: number,
+    platformNames: string[]
+  ): Promise<{ success: boolean; reason?: string }> {
+    try {
+      if (!SUBDOMEIN_FIELD_ID) {
+        console.warn(`⚠️ SUBDOMEIN_FIELD_ID is not configured, skipping Subdomein update`);
+        return {
+          success: false,
+          reason: 'SUBDOMEIN_FIELD_ID is not configured in pipedrive-client.ts'
+        };
+      }
+
+      if (!platformNames || platformNames.length === 0) {
+        console.log(`📍 No subdomeinen to set for org ${orgId}`);
+        return { success: true };
+      }
+
+      // Look up the enum IDs for each platform name
+      const enumIds: number[] = [];
+      const notFound: string[] = [];
+
+      for (const platform of platformNames) {
+        const enumId = SUBDOMEIN_OPTIONS[platform];
+        if (enumId) {
+          enumIds.push(enumId);
+        } else {
+          notFound.push(platform);
+        }
+      }
+
+      if (notFound.length > 0) {
+        console.warn(`⚠️ Platforms not found in Subdomein options: ${notFound.join(', ')}`);
+      }
+
+      if (enumIds.length === 0) {
+        return {
+          success: false,
+          reason: `None of the platforms [${platformNames.join(', ')}] are configured in Pipedrive Subdomein field`
+        };
+      }
+
+      // For multi-select fields, Pipedrive expects an array of enum IDs
+      await this.updateOrganization(orgId, {
+        custom_fields: {
+          [SUBDOMEIN_FIELD_ID]: enumIds
+        }
+      });
+
+      console.log(`✅ Set Subdomein for org ${orgId} to [${platformNames.filter(p => SUBDOMEIN_OPTIONS[p]).join(', ')}] (enum IDs: ${enumIds.join(', ')})`);
+      return { success: true };
+    } catch (error) {
+      console.error(`Error setting Subdomein for org ${orgId}:`, error);
+      return {
+        success: false,
+        reason: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Find a field by name in organization fields
+   * Useful for discovering field IDs
+   */
+  async findOrganizationFieldByName(fieldName: string): Promise<{
+    id: number;
+    key: string;
+    name: string;
+    options?: Array<{ id: number; label: string }>;
+  } | null> {
+    try {
+      const fields = await this.listOrganizationFields();
+      const field = fields.find((f: any) =>
+        f.name.toLowerCase().includes(fieldName.toLowerCase())
+      );
+
+      if (!field) {
+        console.log(`📍 Field "${fieldName}" not found in organization fields`);
+        return null;
+      }
+
+      console.log(`📍 Found field "${field.name}" (key: ${field.key}, id: ${field.id})`);
+      return {
+        id: field.id,
+        key: field.key,
+        name: field.name,
+        options: field.options
+      };
+    } catch (error) {
+      console.error(`Error finding field by name "${fieldName}":`, error);
+      return null;
+    }
   }
 
   /**

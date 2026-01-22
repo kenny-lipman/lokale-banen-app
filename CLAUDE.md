@@ -9,6 +9,7 @@ Lokale Banen is a job posting aggregation platform that scrapes vacancies from m
 - **Production URL**: `https://lokale-banen-app.vercel.app`
 - **Platform**: Vercel (Next.js)
 - **Database**: Supabase (PostgreSQL)
+- **Supabase Project ID**: `wnfhwhvrknvmidmzeclh`
 
 ## Cron Jobs (Supabase pg_cron)
 

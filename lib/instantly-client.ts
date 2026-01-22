@@ -106,7 +106,20 @@ export interface InstantlyCampaign {
   status: string
   timestamp_created?: string
   timestamp_updated?: string
+  tag_ids?: string  // Comma-separated tag IDs
 }
+
+export interface InstantlyCustomTag {
+  id: string
+  label: string
+  description?: string
+  timestamp_created?: string
+  timestamp_updated?: string
+  organization_id?: string
+}
+
+// Tag ID for "Algemene mailcampagnes" - only these campaigns should be synced
+export const ALGEMENE_MAILCAMPAGNES_TAG_ID = '61f0db9c-f337-482c-8e87-e1fa6ededa72'
 
 export interface InstantlyCampaignAnalytics {
   campaign_id: string
@@ -228,6 +241,7 @@ export class InstantlyClient {
   ): Promise<T> {
     const MAX_RETRIES = 3
     const BASE_DELAY_MS = 1000
+    const TIMEOUT_MS = 30000 // 30 second timeout
 
     const url = `${this.baseUrl}${endpoint}`
 
@@ -242,10 +256,15 @@ export class InstantlyClient {
       headers['Content-Type'] = 'application/json'
     }
 
+    // Create abort controller for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
     try {
       const response = await fetch(url, {
         ...options,
         headers,
+        signal: controller.signal,
       })
 
       // Handle rate limits with exponential backoff
@@ -275,6 +294,8 @@ export class InstantlyClient {
         return this.makeRequest<T>(endpoint, options, retryCount + 1)
       }
 
+      clearTimeout(timeoutId)
+
       if (!response.ok) {
         const errorText = await response.text()
         throw new Error(`Instantly API error: ${response.status} ${response.statusText} - ${errorText}`)
@@ -282,6 +303,21 @@ export class InstantlyClient {
 
       return response.json()
     } catch (error) {
+      clearTimeout(timeoutId)
+
+      // Handle timeout/abort errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        if (retryCount >= MAX_RETRIES) {
+          throw new Error(`Instantly API timeout after ${TIMEOUT_MS}ms (${MAX_RETRIES} retries)`)
+        }
+
+        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount)
+        console.log(`⏳ Request timeout, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`)
+        await this.delay(delayMs)
+
+        return this.makeRequest<T>(endpoint, options, retryCount + 1)
+      }
+
       // Handle network errors with retry
       if (error instanceof TypeError && error.message.includes('fetch')) {
         if (retryCount >= MAX_RETRIES) {
@@ -524,8 +560,19 @@ export class InstantlyClient {
   // ============================================================================
 
   /**
+   * Lead status filter values for Instantly API
+   * See: https://developer.instantly.ai/api/v2/lead/listleads
+   */
+  static readonly LEAD_STATUS_FILTER = {
+    ACTIVE: 'FILTER_VAL_ACTIVE',
+    PAUSED: 'FILTER_VAL_PAUSED',
+    COMPLETED: 'FILTER_VAL_COMPLETED',
+    NOT_YET_CONTACTED: 'FILTER_VAL_NOT_YET_CONTACTED',
+  } as const
+
+  /**
    * List leads with optional filters
-   * @param options - Filter options including campaign_id, limit, starting_after
+   * @param options - Filter options including campaign_id, limit, starting_after, lead_status_filter
    */
   async listLeads(options: {
     campaign_id?: string
@@ -533,6 +580,7 @@ export class InstantlyClient {
     limit?: number
     starting_after?: string
     email?: string
+    lead_status_filter?: string // e.g. 'FILTER_VAL_COMPLETED'
   } = {}): Promise<InstantlyLeadListResponse> {
     const requestBody: Record<string, any> = {}
 
@@ -541,6 +589,7 @@ export class InstantlyClient {
     if (options.limit) requestBody.limit = options.limit
     if (options.starting_after) requestBody.starting_after = options.starting_after
     if (options.email) requestBody.email = options.email
+    if (options.lead_status_filter) requestBody.lead_status_filter = options.lead_status_filter
 
     const response = await this.makeRequest<any>('/leads/list', {
       method: 'POST',
@@ -557,33 +606,122 @@ export class InstantlyClient {
   /**
    * List all leads for a specific campaign with pagination
    * @param campaignId - The campaign ID to filter by
-   * @param options - Additional options like limit
+   * @param options - Additional options like limit, lead_status_filter, maxLeads, and filter function
    */
   async listLeadsByCampaign(
     campaignId: string,
-    options: { limit?: number } = {}
+    options: {
+      limit?: number
+      lead_status_filter?: string
+      maxLeads?: number
+      filterFn?: (lead: InstantlyLead) => boolean
+    } = {}
   ): Promise<InstantlyLead[]> {
     const allLeads: InstantlyLead[] = []
     let startingAfter: string | undefined
     const limit = options.limit || 100
+    const maxLeads = options.maxLeads || Infinity
+    let pageCount = 0
+    let totalFetched = 0
 
     do {
+      pageCount++
+      console.log(`      📄 Page ${pageCount}: fetching...`)
+
       const response = await this.listLeads({
         campaign_id: campaignId,
         limit,
-        starting_after: startingAfter
+        starting_after: startingAfter,
+        lead_status_filter: options.lead_status_filter,
       })
 
-      allLeads.push(...response.items)
+      totalFetched += response.items.length
+
+      // Apply filter if provided, otherwise add all
+      if (options.filterFn) {
+        const eligibleFromPage = response.items.filter(options.filterFn)
+        console.log(`      📄 Page ${pageCount}: ${response.items.length} fetched, ${eligibleFromPage.length} eligible`)
+
+        // Only add as many as we need to reach maxLeads
+        const remainingSlots = maxLeads - allLeads.length
+        const leadsToAdd = eligibleFromPage.slice(0, remainingSlots)
+        allLeads.push(...leadsToAdd)
+      } else {
+        // Only add as many as we need to reach maxLeads
+        const remainingSlots = maxLeads - allLeads.length
+        const leadsToAdd = response.items.slice(0, remainingSlots)
+        allLeads.push(...leadsToAdd)
+      }
+
+      // Stop if we have enough leads
+      if (allLeads.length >= maxLeads) {
+        console.log(`      ✅ Reached target of ${maxLeads} eligible leads, stopping pagination`)
+        break
+      }
+
       startingAfter = response.next_starting_after
 
-      // Rate limiting between pagination requests
+      // Rate limiting: Instantly API official 100 req/10sec, 600 req/min
+      // Using 500ms delay = 2 req/sec to be safe
       if (startingAfter) {
-        await this.delay(100)
+        await this.delay(500)
       }
     } while (startingAfter)
 
+    console.log(`      ✅ Done: ${allLeads.length} eligible leads from ${totalFetched} total (${pageCount} pages)`)
     return allLeads
+  }
+
+  /**
+   * Create a new lead in Instantly
+   * @param leadData - The lead data to create
+   */
+  async createLead(leadData: {
+    campaign: string
+    email: string
+    first_name?: string
+    last_name?: string
+    company_name?: string
+    website?: string
+    phone?: string
+    linkedIn?: string
+    company_size?: string
+    jobTitle?: string
+    personalization?: string
+    lt_interest_status?: number
+    assigned_to?: string
+    skip_if_in_workspace?: boolean
+    skip_if_in_campaign?: boolean
+    skip_if_in_list?: boolean
+    custom_variables?: Record<string, string>
+  }): Promise<{ success: boolean; leadId?: string; error?: string; skipped?: boolean }> {
+    try {
+      const response = await this.makeRequest<any>('/leads', {
+        method: 'POST',
+        body: JSON.stringify(leadData),
+      })
+
+      // Check if the lead was skipped due to duplicate
+      if (response.skipped || response.status === 'skipped') {
+        return {
+          success: true,
+          skipped: true,
+          leadId: response.id || response.lead_id
+        }
+      }
+
+      return {
+        success: true,
+        leadId: response.id || response.lead_id,
+        skipped: false
+      }
+    } catch (error) {
+      console.error('Error creating lead:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
   }
 
   /**
@@ -775,6 +913,90 @@ export class InstantlyClient {
     }
   }
 
+  /**
+   * List campaigns filtered by tag ID
+   * @param tagId - The custom tag ID to filter by
+   */
+  async listCampaignsByTag(tagId: string): Promise<InstantlyCampaign[]> {
+    const allCampaigns: InstantlyCampaign[] = []
+    let startingAfter: string | undefined = undefined
+
+    do {
+      let url = `/campaigns?tag_ids=${tagId}&limit=100`
+      if (startingAfter) {
+        url += `&starting_after=${startingAfter}`
+      }
+
+      const response = await this.makeRequest<any>(url)
+      const campaigns = response.items || []
+      allCampaigns.push(...campaigns)
+
+      if (!response.next_starting_after || campaigns.length < 100) {
+        break
+      }
+      startingAfter = response.next_starting_after
+
+      // Safety limit
+      if (allCampaigns.length >= 500) {
+        console.warn('Reached maximum campaign limit of 500')
+        break
+      }
+
+      await this.delay(100)
+    } while (true)
+
+    return allCampaigns
+  }
+
+  /**
+   * List campaigns that have the "Algemene mailcampagnes" tag
+   * These are the only campaigns that should be synced to Pipedrive
+   */
+  async listAlgemeneCampagnes(): Promise<InstantlyCampaign[]> {
+    return this.listCampaignsByTag(ALGEMENE_MAILCAMPAGNES_TAG_ID)
+  }
+
+  /**
+   * Check if a campaign has the "Algemene mailcampagnes" tag
+   * @param campaignId - The campaign ID to check
+   */
+  async isCampaignAlgemene(campaignId: string): Promise<boolean> {
+    const campaign = await this.getCampaign(campaignId)
+    if (!campaign || !campaign.tag_ids) return false
+
+    // tag_ids is a comma-separated string of tag IDs
+    const tagIds = campaign.tag_ids.split(',').map(id => id.trim())
+    return tagIds.includes(ALGEMENE_MAILCAMPAGNES_TAG_ID)
+  }
+
+  /**
+   * List all custom tags in the organization
+   */
+  async listCustomTags(): Promise<InstantlyCustomTag[]> {
+    const allTags: InstantlyCustomTag[] = []
+    let startingAfter: string | undefined = undefined
+
+    do {
+      let url = `/custom-tags?limit=100`
+      if (startingAfter) {
+        url += `&starting_after=${startingAfter}`
+      }
+
+      const response = await this.makeRequest<any>(url)
+      const tags = response.items || []
+      allTags.push(...tags)
+
+      if (!response.next_starting_after || tags.length < 100) {
+        break
+      }
+      startingAfter = response.next_starting_after
+
+      await this.delay(100)
+    } while (true)
+
+    return allTags
+  }
+
   // ============================================================================
   // WEBHOOK METHODS
   // ============================================================================
@@ -946,9 +1168,10 @@ export class InstantlyClient {
       allEmails.push(...response.items)
       startingAfter = response.next_starting_after
 
-      // Rate limiting between pagination requests
+      // Rate limiting: Emails endpoint has stricter limit (20 req/min observed)
+      // Using 3.5 second delay to stay safe
       if (startingAfter) {
-        await this.delay(100)
+        await this.delay(3500)
       }
     } while (startingAfter)
 

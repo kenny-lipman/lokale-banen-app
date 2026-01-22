@@ -2,6 +2,7 @@
  * Instantly Webhook Endpoint
  *
  * Receives webhook events from Instantly and processes them to sync with Pipedrive.
+ * IMPORTANT: Only processes events from campaigns with the "Algemene mailcampagnes" tag.
  *
  * Supported events:
  * - Engagement: email_sent, email_opened, link_clicked (email_link_clicked)
@@ -18,7 +19,52 @@ import {
   instantlyPipedriveSyncService,
   type SyncEventType
 } from '@/lib/services/instantly-pipedrive-sync.service';
-import { InstantlyWebhookPayload } from '@/lib/instantly-client';
+import { InstantlyWebhookPayload, instantlyClient, ALGEMENE_MAILCAMPAGNES_TAG_ID } from '@/lib/instantly-client';
+
+// ============================================================================
+// CAMPAIGN TAG FILTER CACHE
+// ============================================================================
+
+// Cache of campaign IDs that have the "Algemene mailcampagnes" tag
+// This is refreshed every 5 minutes to avoid excessive API calls
+let algemeneCampagneIdsCache: Set<string> = new Set();
+let cacheLastUpdated = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get the cached set of "Algemene mailcampagnes" campaign IDs
+ * Refreshes the cache if it's expired
+ */
+async function getAlgemeneCampagneIds(): Promise<Set<string>> {
+  const now = Date.now();
+
+  // Refresh cache if expired or empty
+  if (algemeneCampagneIdsCache.size === 0 || now - cacheLastUpdated > CACHE_TTL_MS) {
+    try {
+      console.log('🔄 Refreshing Algemene mailcampagnes cache...');
+      const campaigns = await instantlyClient.listAlgemeneCampagnes();
+      algemeneCampagneIdsCache = new Set(campaigns.map(c => c.id));
+      cacheLastUpdated = now;
+      console.log(`✅ Cached ${algemeneCampagneIdsCache.size} Algemene mailcampagnes campaign IDs`);
+    } catch (error) {
+      console.error('❌ Failed to refresh campaign cache:', error);
+      // If cache refresh fails but we have old data, use it
+      if (algemeneCampagneIdsCache.size > 0) {
+        console.log('⚠️ Using stale cache data');
+      }
+    }
+  }
+
+  return algemeneCampagneIdsCache;
+}
+
+/**
+ * Check if a campaign is an "Algemene mailcampagnes" campaign
+ */
+async function isAlgemeneCampagne(campaignId: string): Promise<boolean> {
+  const algemeneCampagneIds = await getAlgemeneCampagneIds();
+  return algemeneCampagneIds.has(campaignId);
+}
 
 /**
  * Map Instantly API event types to our internal event types
@@ -103,9 +149,24 @@ export async function POST(req: NextRequest) {
 
     console.log(`📥 Instantly webhook received: ${payload.event_type} for campaign ${payload.campaign_name || payload.campaign_id}`);
 
-    // 4. Check if this is an event type we handle
-    // Note: auto_reply_received is handled as part of reply_received in Instantly
-    const supportedEvents = [
+    // 4. Check if campaign has "Algemene mailcampagnes" tag
+    // Only process events from campaigns with this tag
+    const isAlgemene = await isAlgemeneCampagne(payload.campaign_id);
+    if (!isAlgemene) {
+      console.log(`ℹ️ Instantly webhook: Skipping campaign ${payload.campaign_name || payload.campaign_id} - not an "Algemene mailcampagnes" campaign`);
+      return NextResponse.json({
+        success: true,
+        message: 'Campaign not tagged as "Algemene mailcampagnes" - skipped',
+        processed: false,
+        skippedReason: 'campaign_not_algemene'
+      });
+    }
+
+    // 5. Check if this is an event type we handle
+    // NOTE: reply_received is intentionally EXCLUDED because Instantly fires
+    // both reply_received AND an interest event (lead_interested/lead_not_interested/lead_neutral)
+    // when someone replies. Using only interest events prevents duplicate notes/status updates.
+    const supportedEvents: string[] = [
       // Engagement events
       'email_sent',
       'email_opened',
@@ -115,13 +176,10 @@ export async function POST(req: NextRequest) {
       'email_bounced',
       'lead_unsubscribed',
 
-      // Reply events (includes auto-replies)
-      'reply_received',
-
       // Campaign events
       'campaign_completed',
 
-      // Interest events
+      // Interest events (these replace reply_received - include sentiment)
       'lead_interested',
       'lead_not_interested',
       'lead_neutral',
@@ -157,7 +215,7 @@ export async function POST(req: NextRequest) {
       event_type: mappedEventType,
     };
 
-    // 5. Check if we have a lead email
+    // 6. Check if we have a lead email
     if (!payload.lead_email) {
       console.warn(`⚠️ Instantly webhook: No lead_email in payload for event ${payload.event_type}`);
       return NextResponse.json({
@@ -167,7 +225,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 6. Process the webhook with mapped event type
+    // 7. Process the webhook with mapped event type
     const result = await instantlyPipedriveSyncService.processWebhook(mappedPayload);
 
     const duration = Date.now() - startTime;
@@ -224,14 +282,14 @@ export async function GET(req: NextRequest) {
     supportedEvents: {
       engagement: ['email_sent', 'email_opened', 'email_link_clicked'],
       critical: ['email_bounced', 'lead_unsubscribed'],
-      reply: ['reply_received'],  // Includes auto-replies
       campaign: ['campaign_completed'],
-      interest: ['lead_interested', 'lead_not_interested', 'lead_neutral'],
+      interest: ['lead_interested', 'lead_not_interested', 'lead_neutral'],  // These handle replies with sentiment
       meeting: ['lead_meeting_booked', 'lead_meeting_completed', 'lead_closed'],
       special: ['lead_out_of_office', 'lead_wrong_person', 'account_error'],
       customLabels: ['custom_label_any_positive', 'custom_label_any_negative'],
     },
-    totalEventTypes: 18,
+    note: 'reply_received is intentionally excluded - interest events include reply info with sentiment',
+    totalEventTypes: 17,
     secretConfigured: !!INSTANTLY_WEBHOOK_SECRET
   });
 }

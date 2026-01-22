@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
+
 async function regionsGetHandler(req: NextRequest, authResult: AuthResult) {
   try {
+    // Use platforms table (regions table doesn't exist)
     const { data: regions, error } = await authResult.supabase
-      .from('regions')
-      .select('*')
+      .from('platforms')
+      .select('id, regio_platform, central_place, central_postcode, is_active, instantly_campaign_id')
       .order('regio_platform')
 
     if (error) throw error
@@ -20,38 +22,33 @@ async function regionsGetHandler(req: NextRequest, authResult: AuthResult) {
 }
 
 async function regionsPostHandler(req: NextRequest, authResult: AuthResult) {
-  const request = req
   try {
-    const body = await request.json()
-    const { plaats, postcode, regio_platform, platform_id, central_place, central_postcode, is_new_platform } = body
+    const body = await req.json()
+    const { regio_platform, central_place, central_postcode } = body
 
     // Validate required fields
-    if (!plaats || !postcode || !regio_platform) {
+    if (!regio_platform) {
       return NextResponse.json(
-        { success: false, error: "Plaats, postcode, and regio_platform are required" },
+        { success: false, error: "regio_platform is required" },
         { status: 400 }
       )
     }
 
-    // If creating new platform, validate additional fields
-    if (is_new_platform && (!central_place || !central_postcode)) {
-      return NextResponse.json(
-        { success: false, error: "Central place and central postcode are required for new platforms" },
-        { status: 400 }
-      )
-    }
+    // Create new platform
+    const { data: newPlatform, error } = await authResult.supabase
+      .from('platforms')
+      .insert({
+        regio_platform,
+        central_place: central_place || null,
+        central_postcode: central_postcode || null,
+        is_active: true
+      })
+      .select()
+      .single()
 
-    const newRegion = await supabaseService.createRegion({
-      plaats,
-      postcode,
-      regio_platform,
-      platform_id,
-      central_place: is_new_platform ? central_place : undefined,
-      central_postcode: is_new_platform ? central_postcode : undefined,
-      is_new_platform
-    })
+    if (error) throw error
 
-    return NextResponse.json({ success: true, data: newRegion })
+    return NextResponse.json({ success: true, data: newPlatform })
   } catch (error) {
     console.error("Error creating region:", error)
     return NextResponse.json(
@@ -59,6 +56,7 @@ async function regionsPostHandler(req: NextRequest, authResult: AuthResult) {
       { status: 500 }
     )
   }
-} 
+}
+
 export const GET = withAuth(regionsGetHandler)
 export const POST = withAuth(regionsPostHandler)

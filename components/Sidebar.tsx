@@ -18,6 +18,7 @@ import {
   Bot,
   Shield,
   ArrowLeftRight,
+  Mail,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 
@@ -36,6 +37,7 @@ const menu = [
   { href: "/contacten", icon: Users, label: "Contacten" },
   { href: "/blocklist", icon: Shield, label: "Blocklist" },
   { href: "/instantly-sync", icon: ArrowLeftRight, label: "Instantly <> PD Sync" },
+  { href: "/campaign-assignment", icon: Mail, label: "Campaign Assignment" },
   { href: "/regios", icon: MapPin, label: "Regio's" },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
