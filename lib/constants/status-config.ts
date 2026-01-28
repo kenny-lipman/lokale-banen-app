@@ -21,6 +21,8 @@ export const PIPEDRIVE_FIELD_IDS = {
   HOOFDDOMEIN: '7180a7123d1de658e8d1d642b8496802002ddc66',
   ORGANIZATION_WEBSITE: '79f6688e77fed7099077425e7f956d52aaa9defb',
   PERSON_FUNCTIE: 'eff8a3361f8ec8bc1c3edc57b170019bdf9d99f3',
+  /** "Einde Instantly campg. Start Pipedrive NIET AANKOMEN" - Date field for when lead moves to Pipedrive */
+  ORGANIZATION_START_PIPEDRIVE_DATE: 'ea203acb05edaece965736651111cb1aefe83f3b',
 } as const;
 
 /**

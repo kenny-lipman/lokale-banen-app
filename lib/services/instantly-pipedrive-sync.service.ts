@@ -451,6 +451,11 @@ export class InstantlyPipedriveSyncService {
         // 8. Update organization with enrichment data (website, address)
         await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
 
+        // 8b. Set "Start Pipedrive" date ONLY when we created the organization (not on updates)
+        if (orgResult.created) {
+          await this.setOrganizationStartPipedriveDate(orgResult.id);
+        }
+
         // 9. Add note to organization about the sync (including email history and reply count)
         await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount);
 
@@ -1559,6 +1564,8 @@ export class InstantlyPipedriveSyncService {
     ORGANIZATION_KVK: '1e887677c33f2cd084eb85a4bf421b657e7ba154',
     ORGANIZATION_BRANCHE: '75a7b46357970b58a7c5f9763ddcd23a5806e108',
     ORGANIZATION_SIZE: 'f68e60517a23efa9a0d9defa762c534bb7cbfc46',
+    /** "Einde Instantly campg. Start Pipedrive NIET AANKOMEN" - Date when lead moves to Pipedrive */
+    ORGANIZATION_START_PIPEDRIVE_DATE: 'ea203acb05edaece965736651111cb1aefe83f3b',
     PERSON_FUNCTIE: 'eff8a3361f8ec8bc1c3edc57b170019bdf9d99f3',
     PERSON_LINKEDIN: '275274fd29282c0679a1e84e7cef010dba5513b0'
   };
@@ -1873,6 +1880,26 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       console.log(`👔 Updated person ${personId} with enrichment (functie: ${lead.title || 'n/a'}, linkedin: ${lead.linkedinUrl ? 'yes' : 'no'})`);
     } catch (error) {
       console.warn(`Could not update person enrichment for ${personId}:`, error);
+    }
+  }
+
+  /**
+   * Set the "Einde Instantly campg. Start Pipedrive" date on an organization
+   * This is only called when we CREATE a new organization (not on updates)
+   * The date marks when the lead moved from Instantly to Pipedrive
+   */
+  private async setOrganizationStartPipedriveDate(orgId: number): Promise<void> {
+    try {
+      // Format date as YYYY-MM-DD (Pipedrive date field format)
+      const today = new Date().toISOString().split('T')[0];
+
+      await this.pipedriveClient.updateOrganization(orgId, {
+        [InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_START_PIPEDRIVE_DATE]: today
+      });
+
+      console.log(`📅 Set "Start Pipedrive" date to ${today} for organization ${orgId}`);
+    } catch (error) {
+      console.warn(`Could not set Start Pipedrive date for organization ${orgId}:`, error);
     }
   }
 
