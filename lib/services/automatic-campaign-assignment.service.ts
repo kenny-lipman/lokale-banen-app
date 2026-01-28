@@ -314,6 +314,11 @@ export class AutomaticCampaignAssignmentService {
 
   /**
    * Get candidate contacts for campaign assignment
+   *
+   * Uses an optimized RPC function that leverages:
+   * 1. A materialized view (mv_campaign_eligible_companies) for pre-filtered companies
+   * 2. Composite indexes for fast lookups
+   * 3. A 60-second statement timeout to prevent runaway queries
    */
   async getCandidateContacts(
     maxTotal: number = DEFAULT_MAX_TOTAL,
@@ -321,162 +326,48 @@ export class AutomaticCampaignAssignmentService {
   ): Promise<CandidateContact[]> {
     console.log(`📋 Fetching candidate contacts (max ${maxTotal} total, ${maxPerPlatform} per platform)...`)
 
-    // Use raw SQL for complex query with window functions
-    const { data, error } = await (this.supabase as any).rpc('get_campaign_assignment_candidates', {
-      p_max_total: maxTotal,
-      p_max_per_platform: maxPerPlatform
-    })
+    try {
+      // Use the optimized RPC function with materialized view
+      const { data, error } = await (this.supabase as any).rpc('get_campaign_assignment_candidates', {
+        p_max_total: maxTotal,
+        p_max_per_platform: maxPerPlatform
+      })
 
-    if (error) {
-      // If RPC doesn't exist, fall back to direct query
-      console.log('⚠️ RPC not found, using direct query...')
-      return this.getCandidateContactsDirect(maxTotal, maxPerPlatform)
-    }
+      if (error) {
+        console.error('❌ RPC error:', error.message)
 
-    console.log(`✅ Found ${data?.length || 0} candidate contacts`)
-    return data || []
-  }
+        // Check if it's a "function does not exist" error
+        if (error.message?.includes('does not exist') || error.code === '42883') {
+          console.log('⚠️ RPC function not found, using fallback query...')
+          return this.getCandidateContactsFallback(maxTotal, maxPerPlatform)
+        }
 
-  /**
-   * Direct SQL query for candidate contacts (EXACT n8n query)
-   *
-   * This matches the "AllBanen" node SQL query from n8n exactly.
-   */
-  private async getCandidateContactsDirect(
-    maxTotal: number,
-    maxPerPlatform: number
-  ): Promise<CandidateContact[]> {
-    // Execute the EXACT SQL query from n8n workflow
-    const { data, error } = await (this.supabase as any).rpc('exec_sql', {
-      query: `
-        WITH distinct_contacts AS (
-          SELECT DISTINCT ON (c.id, jp.platform_id)
-            c.email,
-            c.id AS contact_id,
-            c.first_name,
-            c.last_name,
-            c.title AS job_title,
-            c.linkedin_url AS linkedin,
-            co.category_size AS company_size,
-            co.pipedrive_id AS company_pipedrive_id,
-            c.phone,
-            co.location AS company_location,
-            co.industries AS sector,
-            jp.title AS job_posting_title,
-            jp.location AS job_posting_location,
-            co.name AS company_name,
-            co.id AS company_id,
-            co.description AS company_description,
-            co.website,
-            p.instantly_campaign_id,
-            p.id AS platform_id,
-            p.regio_platform AS platform_name,
-            js.name AS job_source_name,
-            jp.created_at
-          FROM
-            contacts c
-            INNER JOIN companies co ON c.company_id = co.id
-            INNER JOIN job_postings jp ON co.id = jp.company_id
-            LEFT JOIN platforms p ON jp.platform_id = p.id
-            LEFT JOIN job_sources js ON jp.source_id = js.id
-          WHERE
-            jp.platform_id IS NOT NULL
-            AND p.instantly_campaign_id IS NOT NULL
-            AND co.pipedrive_id IS NULL
-            AND c.email IS NOT NULL
-            AND c.qualification_status IN ('qualified', 'pending')
-            AND c.email LIKE '%@%.%'
-            AND c.email NOT ILIKE '%nationalevacaturebank%'
-            AND c.email NOT ILIKE '%nationale.vacaturebank%'
-            AND LENGTH(c.email) > 5
-            AND c.email NOT LIKE '%@%@%'
-            AND (co.category_size IS NULL OR co.category_size != 'Groot')
-            AND co.status = 'Prospect'
-            AND c.campaign_id IS NULL
-            AND c.campaign_name IS NULL
-            AND jp.source_id != '${EXCLUDED_SOURCE_ID}'
-            AND co.id IN (
-              SELECT company_id
-              FROM job_postings
-              WHERE platform_id IS NOT NULL
-              GROUP BY company_id
-              HAVING COUNT(*) <= 20
-            )
-            AND co.id NOT IN (
-              SELECT company_id
-              FROM contacts
-              WHERE company_id IS NOT NULL
-              GROUP BY company_id
-              HAVING COUNT(*) >= 5
-            )
-          ORDER BY c.id, jp.platform_id, jp.created_at DESC
-        ),
-        ranked_contacts AS (
-          SELECT
-            *,
-            ROW_NUMBER() OVER (PARTITION BY platform_id ORDER BY contact_id) as rn
-          FROM distinct_contacts
-        )
-        SELECT
-          email,
-          contact_id AS id,
-          first_name,
-          last_name,
-          job_title AS title,
-          linkedin AS linkedin_url,
-          company_size AS company_category_size,
-          company_pipedrive_id,
-          phone,
-          company_location,
-          sector AS company_industries,
-          job_posting_title,
-          job_posting_location,
-          company_name,
-          company_id,
-          company_description,
-          website AS company_website,
-          instantly_campaign_id,
-          platform_id,
-          platform_name
-        FROM ranked_contacts
-        WHERE rn <= ${maxPerPlatform}
-        ORDER BY platform_id, rn
-        LIMIT ${maxTotal}
-      `
-    })
+        // For other errors (timeout, etc.), try the fallback
+        console.log('⚠️ RPC failed, using fallback query...')
+        return this.getCandidateContactsFallback(maxTotal, maxPerPlatform)
+      }
 
-    if (error) {
-      console.log('⚠️ exec_sql RPC not available, using fallback query...')
+      const candidates = data || []
+      console.log(`✅ Found ${candidates.length} candidate contacts via optimized RPC`)
+
+      // Log platform distribution
+      const platformCounts: Record<string, number> = {}
+      for (const c of candidates) {
+        platformCounts[c.platform_name] = (platformCounts[c.platform_name] || 0) + 1
+      }
+      console.log('📊 Platform distribution:', platformCounts)
+
+      return candidates
+    } catch (err) {
+      console.error('❌ Unexpected error in getCandidateContacts:', err)
+      console.log('⚠️ Falling back to direct query...')
       return this.getCandidateContactsFallback(maxTotal, maxPerPlatform)
     }
-
-    // Map the result to CandidateContact interface
-    return (data || []).map((row: any) => ({
-      id: row.id,
-      email: row.email,
-      first_name: row.first_name,
-      last_name: row.last_name,
-      title: row.title,
-      phone: row.phone,
-      linkedin_url: row.linkedin_url,
-      company_id: row.company_id,
-      company_name: row.company_name,
-      company_website: row.company_website,
-      company_description: row.company_description,
-      company_category_size: row.company_category_size,
-      company_pipedrive_id: row.company_pipedrive_id,
-      company_location: row.company_location,
-      company_industries: row.company_industries,
-      platform_id: row.platform_id,
-      platform_name: row.platform_name,
-      instantly_campaign_id: row.instantly_campaign_id,
-      job_posting_title: row.job_posting_title,
-      job_posting_location: row.job_posting_location
-    }))
   }
 
   /**
    * Fallback query using Supabase client (simplified version)
+   * Used when the RPC function is not available
    */
   private async getCandidateContactsFallback(
     maxTotal: number,

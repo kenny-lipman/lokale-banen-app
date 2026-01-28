@@ -453,11 +453,9 @@ export class InstantlyPipedriveSyncService {
         // 8. Update organization with enrichment data (website, address)
         await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
 
-        // 8b. Set "Start Pipedrive" date ONLY when we created the organization (not on updates)
-        // Use the campaign completion date from Instantly (when lead left the campaign)
-        if (orgResult.created) {
-          await this.setOrganizationStartPipedriveDate(orgResult.id, enrichedLead.campaignCompletedAt);
-        }
+        // 8b. Set "Start Pipedrive" date (when lead left the Instantly campaign)
+        // Always set this, regardless of whether org is new or existing
+        await this.setOrganizationStartPipedriveDate(orgResult.id, enrichedLead.campaignCompletedAt);
 
         // 9. Add note to organization about the sync (including email history and reply count)
         await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount);
