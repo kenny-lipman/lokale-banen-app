@@ -1135,19 +1135,25 @@ Genereer de personalisatie data in JSON format.`
    * Add processed ID to batch
    */
   private async addProcessedId(batchId: string, contactId: string): Promise<void> {
-    // Use Postgres array append for atomic update
-    await (this.supabase as any).rpc('append_processed_id', {
-      p_batch_id: batchId,
-      p_contact_id: contactId
-    }).catch(async () => {
-      // Fallback if RPC doesn't exist: fetch and update
+    try {
+      // Use Postgres array append for atomic update
+      const { error } = await (this.supabase as any).rpc('append_processed_id', {
+        p_batch_id: batchId,
+        p_contact_id: contactId
+      })
+
+      if (error) {
+        throw error
+      }
+    } catch {
+      // Fallback if RPC doesn't exist or fails: fetch and update
       const processed = await this.getProcessedIds(batchId)
       processed.push(contactId)
       await (this.supabase as any)
         .from('campaign_assignment_batches')
         .update({ processed_ids: processed })
         .eq('batch_id', batchId)
-    })
+    }
   }
 
   /**
