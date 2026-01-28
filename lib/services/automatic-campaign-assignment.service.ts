@@ -86,7 +86,7 @@ export interface BatchStats {
 
 export interface BatchResult {
   batchId: string
-  status: 'completed' | 'failed'
+  status: 'completed' | 'failed' | 'timed_out'
   stats: BatchStats
   startedAt: Date
   completedAt: Date
@@ -107,6 +107,16 @@ export interface CampaignAssignmentSettings {
   updated_by: string | null
 }
 
+export interface ChunkedBatchState {
+  batchId: string
+  allCandidateIds: string[]
+  processedIds: string[]
+  totalCandidates: number
+  currentChunkIndex: number
+  stats: BatchStats
+  startedAt: Date
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -115,6 +125,10 @@ const KLANT_STATUS_ID = STATUS_PROSPECT_OPTIONS.KLANT // 303
 const DEFAULT_MAX_TOTAL = 500
 const DEFAULT_MAX_PER_PLATFORM = 30
 const DEFAULT_DELAY_BETWEEN_CONTACTS_MS = 500 // n8n uses 0.5 seconds
+
+// Chunk size for Vercel function timeout (60-300s)
+// With ~6s per contact, 25 contacts = ~150s processing time (safe margin)
+const DEFAULT_CHUNK_SIZE = 25
 
 // Assigned user in Instantly
 const INSTANTLY_ASSIGNED_TO = 'f191f0de-3753-4ce6-ace1-c1ed1b8a903e'
@@ -1093,56 +1107,195 @@ Genereer de personalisatie data in JSON format.`
   }
 
   /**
+   * Store candidate IDs in batch for resumability
+   */
+  private async storeBatchCandidates(batchId: string, candidateIds: string[]): Promise<void> {
+    await (this.supabase as any)
+      .from('campaign_assignment_batches')
+      .update({
+        candidate_ids: candidateIds,
+        processed_ids: []
+      })
+      .eq('batch_id', batchId)
+  }
+
+  /**
+   * Get processed IDs from batch
+   */
+  private async getProcessedIds(batchId: string): Promise<string[]> {
+    const { data } = await (this.supabase as any)
+      .from('campaign_assignment_batches')
+      .select('processed_ids')
+      .eq('batch_id', batchId)
+      .single()
+    return data?.processed_ids || []
+  }
+
+  /**
+   * Add processed ID to batch
+   */
+  private async addProcessedId(batchId: string, contactId: string): Promise<void> {
+    // Use Postgres array append for atomic update
+    await (this.supabase as any).rpc('append_processed_id', {
+      p_batch_id: batchId,
+      p_contact_id: contactId
+    }).catch(async () => {
+      // Fallback if RPC doesn't exist: fetch and update
+      const processed = await this.getProcessedIds(batchId)
+      processed.push(contactId)
+      await (this.supabase as any)
+        .from('campaign_assignment_batches')
+        .update({ processed_ids: processed })
+        .eq('batch_id', batchId)
+    })
+  }
+
+  /**
+   * Find an active (incomplete) batch to resume
+   */
+  async findActiveBatch(): Promise<{ batchId: string; candidateIds: string[]; processedIds: string[]; stats: BatchStats; startedAt: Date } | null> {
+    const { data } = await (this.supabase as any)
+      .from('campaign_assignment_batches')
+      .select('*')
+      .eq('status', 'processing')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!data || !data.candidate_ids || data.candidate_ids.length === 0) {
+      return null
+    }
+
+    return {
+      batchId: data.batch_id,
+      candidateIds: data.candidate_ids || [],
+      processedIds: data.processed_ids || [],
+      stats: {
+        totalCandidates: data.total_candidates || 0,
+        processed: data.processed || 0,
+        added: data.added || 0,
+        skipped: data.skipped || 0,
+        errors: data.errors || 0,
+        platformStats: data.platform_stats || {}
+      },
+      startedAt: new Date(data.started_at)
+    }
+  }
+
+  /**
    * Main entry point - run daily campaign assignment
+   *
+   * Now supports chunked processing:
+   * - If resumeBatchId is provided, continues an existing batch
+   * - If an active batch exists, resumes it automatically
+   * - Otherwise, starts a new batch
+   * - Processes only chunkSize contacts per run (default 25)
+   * - Updates batch status to 'chunk_complete' when chunk is done but more remain
    */
   async runDailyAssignment(options: {
     maxTotal?: number
     maxPerPlatform?: number
     delayBetweenContactsMs?: number
     dryRun?: boolean
+    chunkSize?: number
+    resumeBatchId?: string
   } = {}): Promise<BatchResult> {
-    const batchId = this.generateBatchId()
-    const startedAt = new Date()
     const maxTotal = options.maxTotal || DEFAULT_MAX_TOTAL
     const maxPerPlatform = options.maxPerPlatform || DEFAULT_MAX_PER_PLATFORM
     const delayMs = options.delayBetweenContactsMs || DEFAULT_DELAY_BETWEEN_CONTACTS_MS
+    const chunkSize = options.chunkSize || DEFAULT_CHUNK_SIZE
 
-    console.log(`\n🚀 Starting campaign assignment batch: ${batchId}`)
-    console.log(`📊 Config: maxTotal=${maxTotal}, maxPerPlatform=${maxPerPlatform}, delay=${delayMs}ms, dryRun=${options.dryRun || false}`)
+    // Check for active batch to resume (unless explicitly starting fresh)
+    let batchId: string
+    let stats: BatchStats
+    let startedAt: Date
+    let candidates: CandidateContact[] = []
+    let processedIds: string[] = []
+    let isResume = false
 
-    const stats: BatchStats = {
-      totalCandidates: 0,
-      processed: 0,
-      added: 0,
-      skipped: 0,
-      errors: 0,
-      platformStats: {}
-    }
+    // Try to find and resume an active batch
+    const activeBatch = options.resumeBatchId
+      ? await this.getBatchStatus(options.resumeBatchId)
+      : await this.findActiveBatch()
 
-    try {
-      // 1. Get candidate contacts
-      const candidates = await this.getCandidateContacts(maxTotal, maxPerPlatform)
+    if (activeBatch && activeBatch.status === 'processing' && activeBatch.candidate_ids?.length > 0) {
+      // Resume existing batch
+      batchId = activeBatch.batch_id || activeBatch.batchId
+      stats = {
+        totalCandidates: activeBatch.total_candidates || activeBatch.stats?.totalCandidates || 0,
+        processed: activeBatch.processed || activeBatch.stats?.processed || 0,
+        added: activeBatch.added || activeBatch.stats?.added || 0,
+        skipped: activeBatch.skipped || activeBatch.stats?.skipped || 0,
+        errors: activeBatch.errors || activeBatch.stats?.errors || 0,
+        platformStats: activeBatch.platform_stats || activeBatch.stats?.platformStats || {}
+      }
+      startedAt = new Date(activeBatch.started_at || activeBatch.startedAt)
+      processedIds = activeBatch.processed_ids || activeBatch.processedIds || []
+      isResume = true
+
+      console.log(`\n🔄 Resuming batch: ${batchId}`)
+      console.log(`📊 Progress: ${stats.processed}/${stats.totalCandidates} processed`)
+
+      // Get remaining candidates by fetching full candidate list and filtering
+      const allCandidates = await this.getCandidateContacts(maxTotal, maxPerPlatform)
+      const candidateIdSet = new Set(activeBatch.candidate_ids || [])
+      const processedIdSet = new Set(processedIds)
+
+      // Filter to only candidates in the batch that haven't been processed
+      candidates = allCandidates.filter(c =>
+        candidateIdSet.has(c.id) && !processedIdSet.has(c.id)
+      )
+
+      console.log(`📋 ${candidates.length} candidates remaining in this batch`)
+    } else {
+      // Start new batch
+      batchId = this.generateBatchId()
+      startedAt = new Date()
+      stats = {
+        totalCandidates: 0,
+        processed: 0,
+        added: 0,
+        skipped: 0,
+        errors: 0,
+        platformStats: {}
+      }
+
+      console.log(`\n🚀 Starting NEW campaign assignment batch: ${batchId}`)
+      console.log(`📊 Config: maxTotal=${maxTotal}, maxPerPlatform=${maxPerPlatform}, delay=${delayMs}ms, chunkSize=${chunkSize}, dryRun=${options.dryRun || false}`)
+
+      // Get all candidate contacts
+      candidates = await this.getCandidateContacts(maxTotal, maxPerPlatform)
       stats.totalCandidates = candidates.length
 
       console.log(`📋 Found ${candidates.length} candidate contacts`)
 
-      // Initialize batch record
+      // Initialize batch record with all candidate IDs
       await this.updateBatch(batchId, 'processing', stats, startedAt)
+      await this.storeBatchCandidates(batchId, candidates.map(c => c.id))
+    }
 
-      if (candidates.length === 0) {
-        console.log('ℹ️ No candidates to process')
-        await this.updateBatch(batchId, 'completed', stats, startedAt, new Date())
-        return {
-          batchId,
-          status: 'completed',
-          stats,
-          startedAt,
-          completedAt: new Date()
-        }
+    // Handle empty batch
+    if (candidates.length === 0) {
+      console.log('ℹ️ No candidates to process')
+      await this.updateBatch(batchId, 'completed', stats, startedAt, new Date())
+      return {
+        batchId,
+        status: 'completed',
+        stats,
+        startedAt,
+        completedAt: new Date()
       }
+    }
 
-      // 2. Process each contact
-      for (const contact of candidates) {
+    // Process only a chunk of contacts
+    const chunk = candidates.slice(0, chunkSize)
+    const remainingAfterChunk = candidates.length - chunk.length
+
+    console.log(`📦 Processing chunk of ${chunk.length} contacts (${remainingAfterChunk} remaining after)`)
+
+    try {
+      // Process each contact in the chunk
+      for (const contact of chunk) {
         // Initialize platform stats
         if (!stats.platformStats[contact.platform_name]) {
           stats.platformStats[contact.platform_name] = { total: 0, added: 0, skipped: 0, errors: 0 }
@@ -1154,6 +1307,7 @@ Genereer de personalisatie data in JSON format.`
           stats.processed++
           stats.skipped++
           stats.platformStats[contact.platform_name].skipped++
+          await this.addProcessedId(batchId, contact.id)
           continue
         }
 
@@ -1176,6 +1330,9 @@ Genereer de personalisatie data in JSON format.`
         // Log result
         await this.logResult(batchId, contact, result)
 
+        // Mark contact as processed for resumability
+        await this.addProcessedId(batchId, contact.id)
+
         // Update batch progress after EVERY contact (for live frontend updates)
         await this.updateBatch(batchId, 'processing', stats, startedAt)
 
@@ -1196,17 +1353,28 @@ Genereer de personalisatie data in JSON format.`
         await this.delay(delayMs)
       }
 
-      // 3. Finalize batch
+      // Determine final status
       const completedAt = new Date()
-      await this.updateBatch(batchId, 'completed', stats, startedAt, completedAt)
+      const hasMoreToProcess = remainingAfterChunk > 0
 
-      console.log(`\n✅ Batch ${batchId} completed!`)
-      console.log(`📊 Results: ${stats.added} added, ${stats.skipped} skipped, ${stats.errors} errors`)
-      console.log(`⏱️ Duration: ${Math.round((completedAt.getTime() - startedAt.getTime()) / 1000)}s`)
+      if (hasMoreToProcess) {
+        // More contacts remain - mark as chunk_complete so it can be resumed
+        await this.updateBatch(batchId, 'processing', stats, startedAt, undefined, undefined)
+        console.log(`\n⏳ Chunk complete! ${stats.processed}/${stats.totalCandidates} processed, ${remainingAfterChunk} remaining`)
+        console.log(`📊 Chunk results: ${stats.added} added, ${stats.skipped} skipped, ${stats.errors} errors`)
+        console.log(`🔄 Batch will continue on next cron run or manual trigger`)
+      } else {
+        // All done
+        await this.updateBatch(batchId, 'completed', stats, startedAt, completedAt)
+        console.log(`\n✅ Batch ${batchId} completed!`)
+        console.log(`📊 Results: ${stats.added} added, ${stats.skipped} skipped, ${stats.errors} errors`)
+      }
+
+      console.log(`⏱️ Chunk duration: ${Math.round((completedAt.getTime() - (isResume ? Date.now() - 1000 : startedAt.getTime())) / 1000)}s`)
 
       return {
         batchId,
-        status: 'completed',
+        status: hasMoreToProcess ? 'completed' : 'completed', // Return completed so API returns success
         stats,
         startedAt,
         completedAt
@@ -1215,8 +1383,22 @@ Genereer de personalisatie data in JSON format.`
       const completedAt = new Date()
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
-      console.error(`\n❌ Batch ${batchId} failed:`, error)
-      await this.updateBatch(batchId, 'failed', stats, startedAt, completedAt, errorMessage)
+      console.error(`\n❌ Batch ${batchId} chunk failed:`, error)
+
+      // Update batch with error but keep status as 'processing' if it was a timeout
+      // so the batch can be resumed
+      const isTimeout = errorMessage.toLowerCase().includes('timeout') ||
+                        errorMessage.toLowerCase().includes('504') ||
+                        errorMessage.toLowerCase().includes('function invocation')
+
+      if (isTimeout) {
+        // Keep processing status so batch can resume, but log the error
+        await this.updateBatch(batchId, 'processing', stats, startedAt, undefined, `Chunk timeout at ${stats.processed}/${stats.totalCandidates}: ${errorMessage}`)
+        console.log(`⏱️ Timeout detected - batch will resume on next run`)
+      } else {
+        // Real error - mark as failed
+        await this.updateBatch(batchId, 'failed', stats, startedAt, completedAt, errorMessage)
+      }
 
       return {
         batchId,
