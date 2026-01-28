@@ -1894,7 +1894,9 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       const today = new Date().toISOString().split('T')[0];
 
       await this.pipedriveClient.updateOrganization(orgId, {
-        [InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_START_PIPEDRIVE_DATE]: today
+        custom_fields: {
+          [InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_START_PIPEDRIVE_DATE]: today
+        }
       });
 
       console.log(`📅 Set "Start Pipedrive" date to ${today} for organization ${orgId}`);
