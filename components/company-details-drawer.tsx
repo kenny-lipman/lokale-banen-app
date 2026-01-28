@@ -97,6 +97,8 @@ interface CompanyDetails {
   qualification_status?: 'pending' | 'qualified' | 'disqualified' | 'review' | 'enriched'
   qualification_timestamp?: string
   qualification_notes?: string
+  hoofddomein?: string | null
+  subdomeinen?: string[] | null
   enrichment_status?: 'idle' | 'processing' | 'completed' | 'failed'
   enrichment_started_at?: string
   enrichment_completed_at?: string
@@ -555,6 +557,34 @@ export function CompanyDetailsDrawer({
                       <div className="flex items-center space-x-2 text-sm">
                         <MapPin className="w-4 h-4 text-gray-500" />
                         <span className="text-gray-700">{company.location}</span>
+                      </div>
+                    )}
+
+                    {/* Hoofddomein & Subdomeinen */}
+                    {(company.hoofddomein || (company.subdomeinen && company.subdomeinen.length > 0)) && (
+                      <div className="space-y-2">
+                        {company.hoofddomein && (
+                          <div className="flex items-center space-x-2 text-sm">
+                            <Globe className="w-4 h-4 text-orange-500" />
+                            <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                              {company.hoofddomein}
+                            </Badge>
+                            <span className="text-xs text-gray-400">Hoofddomein</span>
+                          </div>
+                        )}
+                        {company.subdomeinen && company.subdomeinen.length > 0 && (
+                          <div className="flex items-start space-x-2 text-sm">
+                            <Globe className="w-4 h-4 text-blue-500 mt-0.5" />
+                            <div className="flex flex-wrap gap-1">
+                              {company.subdomeinen.map((subdomein, index) => (
+                                <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                                  {subdomein}
+                                </Badge>
+                              ))}
+                            </div>
+                            <span className="text-xs text-gray-400 mt-0.5">Subdomeinen</span>
+                          </div>
+                        )}
                       </div>
                     )}
 
