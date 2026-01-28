@@ -473,3 +473,109 @@ export async function deactivateBlocklistEntry(entryId: string): Promise<void> {
     throw new Error(`Failed to deactivate blocklist entry: ${updateError.message}`)
   }
 }
+
+/**
+ * Re-sync Pipedrive organization statuses for already-synced blocklist entries
+ * This is useful for entries that were synced before the blockOrganization logic was added
+ */
+export async function resyncPipedriveStatuses(): Promise<{
+  processed: number
+  updated: number
+  failed: number
+  errors: Array<{ email: string; error: string }>
+}> {
+  const supabase = createServiceRoleClient()
+
+  console.log('🔄 Starting Pipedrive status re-sync for already-synced blocklist entries...')
+
+  // Get all active entries that are already marked as pipedrive_synced
+  const { data: entries, error } = await supabase
+    .from('blocklist_entries')
+    .select('id, type, value, reason, blocklist_level, company_id, contact_id')
+    .eq('is_active', true)
+    .eq('pipedrive_synced', true)
+
+  if (error) {
+    throw new Error(`Failed to fetch blocklist entries: ${error.message}`)
+  }
+
+  const result = {
+    processed: 0,
+    updated: 0,
+    failed: 0,
+    errors: [] as Array<{ email: string; error: string }>
+  }
+
+  if (!entries || entries.length === 0) {
+    console.log('No entries to re-sync')
+    return result
+  }
+
+  console.log(`Found ${entries.length} entries to re-sync`)
+
+  for (const entry of entries) {
+    result.processed++
+
+    try {
+      // Helper function to check if a value is a valid email
+      const isValidEmail = (email: string): boolean => {
+        const parts = email.split('@')
+        return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0
+      }
+
+      // Handle email entries
+      if (isValidEmail(entry.value)) {
+        const emailDomain = entry.value.split('@')[1]
+        let orgId: number | null = null
+
+        // Try to find organization by email domain
+        if (emailDomain) {
+          const existingOrgs = await pipedriveClient.searchOrganizationByDomain(emailDomain)
+          if (existingOrgs.length > 0) {
+            orgId = existingOrgs[0].id
+          }
+        }
+
+        // If no org found by domain, try to find person and get their org
+        if (!orgId) {
+          const persons = await pipedriveClient.searchPersonByEmail(entry.value)
+          if (persons.length > 0 && persons[0].item?.organization?.id) {
+            orgId = persons[0].item.organization.id
+          }
+        }
+
+        if (orgId) {
+          await pipedriveClient.blockOrganization(orgId)
+          console.log(`🚫 Re-synced: Set organization ${orgId} status to "Niet meer benaderen" for ${entry.value}`)
+          result.updated++
+        } else {
+          console.log(`⚠️ No organization found for email ${entry.value}`)
+        }
+      }
+      // Handle domain entries
+      else if (entry.blocklist_level === 'organization' || entry.blocklist_level === 'domain') {
+        const domain = entry.value.replace('@', '').toLowerCase()
+        const existingOrgs = await pipedriveClient.searchOrganizationByDomain(domain)
+
+        if (existingOrgs.length > 0) {
+          const orgId = existingOrgs[0].id
+          await pipedriveClient.blockOrganization(orgId)
+          console.log(`🚫 Re-synced: Set organization ${orgId} status to "Niet meer benaderen" for domain ${domain}`)
+          result.updated++
+        } else {
+          console.log(`⚠️ No organization found for domain ${domain}`)
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to re-sync entry ${entry.id}:`, err)
+      result.failed++
+      result.errors.push({
+        email: entry.value,
+        error: err instanceof Error ? err.message : 'Unknown error'
+      })
+    }
+  }
+
+  console.log('🏁 Pipedrive status re-sync completed:', result)
+  return result
+}
