@@ -135,6 +135,8 @@ export interface SyncResult {
   engagementUpdated?: boolean;
   blocklistAdded?: boolean;
   qualificationStatus?: QualificationStatus;
+  // Blocklist status - if true, lead was already on blocklist and should not be deleted from Instantly
+  isBlocklisted?: boolean;
   // Event logged to instantly_email_events
   eventLogged?: boolean;
 }
@@ -323,12 +325,25 @@ export class InstantlyPipedriveSyncService {
       }
       console.log(`📊 Lead enrichment: company=${enrichedLead.companyName}, hoofddomein=${enrichedLead.hoofddomein} (from campaign: ${campaignName})`);
 
+      // 2c. Check if email is blocklisted (in our database or Instantly)
+      // If blocklisted, we still sync to Pipedrive but force status to NIET_MEER_BENADEREN
+      const blocklistCheck = await this.isEmailBlocklisted(cleanEmail);
+      const isBlocklisted = blocklistCheck.isBlocked;
+      result.isBlocklisted = isBlocklisted;
+
       // 3. Determine the status to set (using centralized config)
-      const statusKey = getStatusKeyForEventLocal(
-        eventType,
-        options.hasReply || false,
-        options.replySentiment
-      );
+      // If blocklisted, always use NIET_MEER_BENADEREN regardless of event type
+      let statusKey: StatusKey | null;
+      if (isBlocklisted) {
+        statusKey = 'NIET_MEER_BENADEREN';
+        console.log(`🚫 Email ${cleanEmail} is blocklisted (${blocklistCheck.source}: ${blocklistCheck.reason}) - forcing status to NIET_MEER_BENADEREN`);
+      } else {
+        statusKey = getStatusKeyForEventLocal(
+          eventType,
+          options.hasReply || false,
+          options.replySentiment
+        );
+      }
 
       // Get qualification status for this event
       const qualificationStatus = getQualificationStatusForEvent(eventType);
@@ -521,8 +536,15 @@ export class InstantlyPipedriveSyncService {
       }
 
       // 15. Remove lead from Instantly after successful sync to Pipedrive
-      // EXCEPTION: For campaign_completed, we delay removal by 10 days to catch late replies
-      if (eventType === 'campaign_completed' || eventType === 'backfill') {
+      // EXCEPTIONS:
+      // - For campaign_completed/backfill: delay removal by 10 days to catch late replies
+      // - For blocklisted emails: DO NOT remove from Instantly (they should stay on blocklist there)
+      if (isBlocklisted) {
+        // Blocklisted email: do NOT remove from Instantly
+        // The email is already on blocklist (either in our DB or Instantly) and should stay there
+        console.log(`🚫 Blocklisted email ${cleanEmail} - NOT removing from Instantly (keeping on blocklist)`);
+        result.instantlyLeadRemoved = false;
+      } else if (eventType === 'campaign_completed' || eventType === 'backfill') {
         // Store campaign_completed_at timestamp for delayed removal (10 days)
         await this.setCampaignCompletedAt(cleanEmail, contactData?.id);
         console.log(`⏳ Campaign completed for ${cleanEmail} - will be removed from Instantly after 10 days`);
@@ -2795,6 +2817,64 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.warn(`Could not create blocklist entry for ${email}:`, errorMessage);
       return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Check if an email is blocklisted in our database or Instantly
+   * Returns the blocklist entry if found, null otherwise
+   */
+  private async isEmailBlocklisted(email: string): Promise<{
+    isBlocked: boolean;
+    source: 'database' | 'instantly' | null;
+    reason?: string;
+  }> {
+    const cleanEmail = email.toLowerCase().trim();
+
+    try {
+      // 1. Check our database first (faster)
+      const { data: dbEntry } = await this.supabase
+        .from('blocklist_entries')
+        .select('id, reason, value')
+        .eq('value', cleanEmail)
+        .eq('type', 'email')
+        .eq('is_active', true)
+        .single();
+
+      if (dbEntry) {
+        console.log(`🚫 Email ${cleanEmail} found in database blocklist (reason: ${dbEntry.reason})`);
+        return { isBlocked: true, source: 'database', reason: dbEntry.reason || undefined };
+      }
+
+      // 2. Also check the domain in our blocklist
+      const domain = cleanEmail.split('@')[1];
+      if (domain) {
+        const { data: domainEntry } = await this.supabase
+          .from('blocklist_entries')
+          .select('id, reason, value')
+          .eq('value', domain)
+          .eq('type', 'domain')
+          .eq('is_active', true)
+          .single();
+
+        if (domainEntry) {
+          console.log(`🚫 Domain ${domain} found in database blocklist (reason: ${domainEntry.reason})`);
+          return { isBlocked: true, source: 'database', reason: domainEntry.reason || undefined };
+        }
+      }
+
+      // 3. Check Instantly blocklist
+      const isBlockedInInstantly = await this.instantlyClient.isBlocked(cleanEmail);
+      if (isBlockedInInstantly) {
+        console.log(`🚫 Email ${cleanEmail} found in Instantly blocklist`);
+        return { isBlocked: true, source: 'instantly', reason: 'Found in Instantly blocklist' };
+      }
+
+      return { isBlocked: false, source: null };
+    } catch (error) {
+      console.warn(`⚠️ Error checking blocklist for ${cleanEmail}:`, error);
+      // In case of error, don't block the sync but log it
+      return { isBlocked: false, source: null };
     }
   }
 

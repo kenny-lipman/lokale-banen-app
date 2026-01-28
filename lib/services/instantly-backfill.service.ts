@@ -527,21 +527,26 @@ class InstantlyBackfillService {
             console.log(`   ✅ Synced to Pipedrive (Org: ${syncResult.pipedriveOrgId}, Person: ${syncResult.pipedrivePersonId})`);
 
             // Delete lead from Instantly after successful sync
-            try {
-              console.log(`   🗑️ Deleting from Instantly...`);
-              const instantlyData = lead.instantly_data as InstantlyLead;
-              if (instantlyData?.id) {
-                await instantlyClient.deleteLead(instantlyData.id);
-                console.log(`   ✅ Deleted from Instantly`);
-              } else {
-                // Try delete by email if no ID
-                await instantlyClient.deleteLeadByEmail(lead.lead_email, lead.campaign_id);
-                console.log(`   ✅ Deleted from Instantly (by email)`);
+            // EXCEPTION: If email is blocklisted, do NOT delete (keep on blocklist)
+            if (syncResult.isBlocklisted) {
+              console.log(`   🚫 Blocklisted email - NOT deleting from Instantly (keeping on blocklist)`);
+            } else {
+              try {
+                console.log(`   🗑️ Deleting from Instantly...`);
+                const instantlyData = lead.instantly_data as InstantlyLead;
+                if (instantlyData?.id) {
+                  await instantlyClient.deleteLead(instantlyData.id);
+                  console.log(`   ✅ Deleted from Instantly`);
+                } else {
+                  // Try delete by email if no ID
+                  await instantlyClient.deleteLeadByEmail(lead.lead_email, lead.campaign_id);
+                  console.log(`   ✅ Deleted from Instantly (by email)`);
+                }
+              } catch (deleteError) {
+                // Log but don't fail the sync - lead is already synced to Pipedrive
+                const deleteErrMsg = deleteError instanceof Error ? deleteError.message : String(deleteError);
+                console.warn(`   ⚠️ Could not delete from Instantly: ${deleteErrMsg}`);
               }
-            } catch (deleteError) {
-              // Log but don't fail the sync - lead is already synced to Pipedrive
-              const deleteErrMsg = deleteError instanceof Error ? deleteError.message : String(deleteError);
-              console.warn(`   ⚠️ Could not delete from Instantly: ${deleteErrMsg}`);
             }
 
             await this.updateLeadResult(lead.id, batch.id, 'synced', null, {
