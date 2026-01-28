@@ -98,6 +98,16 @@ export async function requireAdmin(req: NextRequest): Promise<AuthResult> {
  * API key validation for system endpoints
  */
 export function validateApiKey(req: NextRequest, expectedKey: string): boolean {
+  // Check Authorization header (Bearer token format)
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    if (token === expectedKey) {
+      return true
+    }
+  }
+
+  // Fallback to other methods
   const providedKey = req.headers.get('x-api-key') ||
                      req.nextUrl.searchParams.get('api_key') ||
                      req.nextUrl.searchParams.get('secret')

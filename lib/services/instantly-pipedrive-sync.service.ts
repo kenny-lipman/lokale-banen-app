@@ -45,6 +45,7 @@ import {
   type EngagementData,
   type CustomLabelMap,
 } from './lead-status-determination';
+import { postcodeBackfillService } from './postcode-backfill.service';
 
 // ============================================================================
 // TYPES
@@ -77,6 +78,8 @@ export interface SyncLeadData {
   industries?: string[];
   employeeCount?: number;
   jobCategories?: string[]; // Job categories from company's job postings (for branche fallback)
+  // Company ID for postcode backfill
+  companyId?: string;
   // Instantly data
   replyCount?: number;
   // Engagement data from Instantly
@@ -330,6 +333,35 @@ export class InstantlyPipedriveSyncService {
       const blocklistCheck = await this.isEmailBlocklisted(cleanEmail);
       const isBlocklisted = blocklistCheck.isBlocked;
       result.isBlocklisted = isBlocklisted;
+
+      // 2d. GATEKEEPER: Ensure postal code exists before Pipedrive sync
+      // If no postal code, try on-demand enrichment via Nominatim
+      if (!enrichedLead.postalCode && enrichedLead.companyId) {
+        console.log(`📍 No postal code for company ${enrichedLead.companyName || enrichedLead.companyId}, attempting on-demand geocoding...`);
+        const enrichment = await postcodeBackfillService.enrichCompanyPostcode(enrichedLead.companyId);
+
+        if (enrichment.success && enrichment.postcode) {
+          enrichedLead.postalCode = enrichment.postcode;
+          console.log(`✅ On-demand geocoding successful: ${enrichment.postcode} (source: ${enrichment.source})`);
+
+          // Re-determine hoofddomein with new postal code
+          const newHoofddomein = await this.getRegioPlatformByPostalCode(enrichment.postcode);
+          if (newHoofddomein) {
+            enrichedLead.hoofddomein = newHoofddomein;
+            console.log(`📍 Updated hoofddomein to: ${newHoofddomein}`);
+          }
+        } else {
+          // HARD BLOCK: Cannot sync to Pipedrive without postal code
+          console.log(`🚫 Cannot sync to Pipedrive: No postal code for ${cleanEmail} (company: ${enrichedLead.companyName || enrichedLead.companyId})`);
+          result.skipped = true;
+          result.skipReason = 'no_postal_code';
+          result.error = 'Company has no postal code - queued for geocoding';
+          return result;
+        }
+      } else if (!enrichedLead.postalCode && !enrichedLead.companyId) {
+        // No company ID means we can't geocode - but still allow sync with campaign-based hoofddomein
+        console.log(`⚠️ No company ID for ${cleanEmail}, using campaign-based hoofddomein: ${enrichedLead.hoofddomein}`);
+      }
 
       // 3. Determine the status to set (using centralized config)
       // If blocklisted, always use NIET_MEER_BENADEREN regardless of event type
@@ -1577,6 +1609,8 @@ export class InstantlyPipedriveSyncService {
       industries: lead.industries || enrichment.company?.industries,
       employeeCount: lead.employeeCount || enrichment.company?.employeeCount,
       jobCategories: lead.jobCategories || enrichment.jobCategories,
+      // Company ID for postcode backfill
+      companyId: lead.companyId || enrichment.company?.id,
       replyCount: lead.replyCount
     };
   }
@@ -3223,6 +3257,7 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
         return null;
       }
 
+      // First try: exact match
       const { data, error } = await this.supabase
         .from('cities')
         .select('regio_platform')
@@ -3230,13 +3265,53 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
         .limit(1)
         .single();
 
-      if (error || !data) {
-        console.log(`📍 No platform found for postal code ${postcodePrefix}`);
-        return null;
+      if (data?.regio_platform) {
+        console.log(`📍 Mapped postal code ${postcodePrefix} → ${data.regio_platform}`);
+        return data.regio_platform;
       }
 
-      console.log(`📍 Mapped postal code ${postcodePrefix} → ${data.regio_platform}`);
-      return data.regio_platform;
+      // Second try: find nearest postcode in the same range
+      // The cities table doesn't have every postcode, just representative ones per city
+      // So we look for the closest postcode that IS in the table
+      const postcodeNum = parseInt(postcodePrefix, 10);
+
+      // Search within ±50 range for nearest match
+      const { data: nearbyData } = await this.supabase
+        .from('cities')
+        .select('postcode, regio_platform')
+        .gte('postcode', String(postcodeNum - 50).padStart(4, '0'))
+        .lte('postcode', String(postcodeNum + 50).padStart(4, '0'))
+        .not('postcode', 'like', '%XX%') // Exclude non-numeric postcodes
+        .order('postcode');
+
+      if (nearbyData && nearbyData.length > 0) {
+        // Find the closest postcode
+        let closest = nearbyData[0];
+        let minDistance = Math.abs(parseInt(closest.postcode, 10) - postcodeNum);
+
+        for (const city of nearbyData) {
+          const distance = Math.abs(parseInt(city.postcode, 10) - postcodeNum);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closest = city;
+          }
+        }
+
+        // Safety check: Only use nearby match if it's within 20 postcode units
+        // Dutch postcodes are geographically ordered, but a difference of >20
+        // likely means we're in a different region entirely
+        const MAX_POSTCODE_DISTANCE = 20;
+        if (minDistance > MAX_POSTCODE_DISTANCE) {
+          console.log(`📍 No platform found for postal code ${postcodePrefix} - nearest ${closest.postcode} is too far (distance: ${minDistance})`);
+          return null;
+        }
+
+        console.log(`📍 Mapped postal code ${postcodePrefix} → ${closest.regio_platform} (via nearby ${closest.postcode}, distance: ${minDistance})`);
+        return closest.regio_platform;
+      }
+
+      console.log(`📍 No platform found for postal code ${postcodePrefix} (even with nearby search)`);
+      return null;
     } catch (error) {
       console.error(`Error looking up platform for postal code ${postalCode}:`, error);
       return null;
