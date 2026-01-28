@@ -94,10 +94,18 @@ async function syncToPipedrive(entries: BlockedEntry[]): Promise<void> {
           const pipedrivePersonId = await pipedriveClient.syncContactToPipedrive(entry.contact_id)
 
           if (pipedrivePersonId) {
-            try {
-              await pipedriveClient.blockPerson(pipedrivePersonId)
-            } catch (blockError) {
-              // Continue with note even if blocking fails
+            // Get person details to find organization
+            const personDetails = await pipedriveClient.getPerson(pipedrivePersonId)
+            const orgId = personDetails?.org_id
+
+            // Set organization status to "Niet meer benaderen" if organization exists
+            if (orgId) {
+              try {
+                await pipedriveClient.blockOrganization(orgId)
+                console.log(`🚫 Set organization ${orgId} status to "Niet meer benaderen" for blocked email ${entry.value}`)
+              } catch (blockError) {
+                console.warn(`⚠️ Could not block organization ${orgId}:`, blockError)
+              }
             }
 
             const noteContent = `Person blocked via blocklist. Email: ${entry.value}. Reason: ${entry.reason || 'No reason specified'}. Blocked on: ${new Date().toISOString()}`
@@ -114,13 +122,36 @@ async function syncToPipedrive(entries: BlockedEntry[]): Promise<void> {
           }
         } else {
           // Handle standalone email (no linked contact)
-          const pipedrivePersonId = await pipedriveClient.findOrCreatePersonByEmail(entry.value)
+          // First try to find existing person or organization by email domain
+          const emailDomain = entry.value.split('@')[1]
+          let orgId: number | null = null
+
+          // Try to find organization by email domain first
+          if (emailDomain) {
+            const existingOrgs = await pipedriveClient.searchOrganizationByDomain(emailDomain)
+            if (existingOrgs.length > 0) {
+              orgId = existingOrgs[0].id
+            }
+          }
+
+          // Find or create person (linked to organization if found)
+          const pipedrivePersonId = await pipedriveClient.findOrCreatePersonByEmail(entry.value, orgId || undefined)
 
           if (pipedrivePersonId) {
-            try {
-              await pipedriveClient.blockPerson(pipedrivePersonId)
-            } catch (blockError) {
-              // Continue with note even if blocking fails
+            // If we didn't find org before, try to get it from the person
+            if (!orgId) {
+              const personDetails = await pipedriveClient.getPerson(pipedrivePersonId)
+              orgId = personDetails?.org_id || null
+            }
+
+            // Set organization status to "Niet meer benaderen" if organization exists
+            if (orgId) {
+              try {
+                await pipedriveClient.blockOrganization(orgId)
+                console.log(`🚫 Set organization ${orgId} status to "Niet meer benaderen" for blocked email ${entry.value}`)
+              } catch (blockError) {
+                console.warn(`⚠️ Could not block organization ${orgId}:`, blockError)
+              }
             }
 
             const noteContent = `Person blocked via blocklist. Email: ${entry.value}. Reason: ${entry.reason || 'No reason specified'}. Blocked on: ${new Date().toISOString()}`

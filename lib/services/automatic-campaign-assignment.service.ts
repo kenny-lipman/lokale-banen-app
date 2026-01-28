@@ -632,6 +632,61 @@ Genereer de personalisatie data in JSON format.`
   }
 
   /**
+   * Check if an email is blocklisted in our database or Instantly
+   */
+  async isEmailBlocklisted(email: string): Promise<{
+    isBlocked: boolean
+    source: 'database' | 'instantly' | null
+    reason?: string
+  }> {
+    const cleanEmail = email.toLowerCase().trim()
+    const supabase = createServiceRoleClient()
+
+    try {
+      // 1. Check our database first (faster)
+      const { data: dbEntry } = await supabase
+        .from('blocklist_entries')
+        .select('id, reason, value')
+        .eq('value', cleanEmail)
+        .eq('type', 'email')
+        .eq('is_active', true)
+        .single()
+
+      if (dbEntry) {
+        return { isBlocked: true, source: 'database', reason: dbEntry.reason || undefined }
+      }
+
+      // 2. Also check the domain in our blocklist
+      const domain = cleanEmail.split('@')[1]
+      if (domain) {
+        const { data: domainEntry } = await supabase
+          .from('blocklist_entries')
+          .select('id, reason, value')
+          .eq('value', domain)
+          .eq('type', 'domain')
+          .eq('is_active', true)
+          .single()
+
+        if (domainEntry) {
+          return { isBlocked: true, source: 'database', reason: domainEntry.reason || undefined }
+        }
+      }
+
+      // 3. Check Instantly blocklist
+      const isBlockedInInstantly = await instantlyClient.isBlocked(cleanEmail)
+      if (isBlockedInInstantly) {
+        return { isBlocked: true, source: 'instantly', reason: 'Found in Instantly blocklist' }
+      }
+
+      return { isBlocked: false, source: null }
+    } catch (error) {
+      console.warn(`⚠️ Error checking blocklist for ${cleanEmail}:`, error)
+      // In case of error, don't block the process but log it
+      return { isBlocked: false, source: null }
+    }
+  }
+
+  /**
    * Add lead to Instantly campaign
    */
   async addToInstantly(
@@ -956,6 +1011,15 @@ Genereer de personalisatie data in JSON format.`
           console.log(`⏭️ Skipping ${contact.email} - company is Klant in Pipedrive`)
           return result
         }
+      }
+
+      // 4b. Check if email is blocklisted before adding to Instantly
+      const blocklistCheck = await this.isEmailBlocklisted(contact.email)
+      if (blocklistCheck.isBlocked) {
+        result.status = 'skipped_blocklisted'
+        result.skipReason = `Email is blocklisted (${blocklistCheck.source}: ${blocklistCheck.reason})`
+        console.log(`🚫 Skipping ${contact.email} - blocklisted (${blocklistCheck.source})`)
+        return result
       }
 
       // 5. Add to Instantly
