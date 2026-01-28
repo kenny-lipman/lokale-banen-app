@@ -91,6 +91,8 @@ export interface SyncLeadData {
   leadStatus?: number; // -1=bounced, -2=unsubscribed, -3=skipped, 0-3=active
   interestStatus?: number;
   ltInterestStatus?: number; // Extended interest status (2=meeting_booked, 4=won)
+  // Campaign completion timestamp (when lead finished/left the campaign in Instantly)
+  campaignCompletedAt?: string; // ISO date string from Instantly's timestamp_updated
 }
 
 export interface SyncOptions {
@@ -452,8 +454,9 @@ export class InstantlyPipedriveSyncService {
         await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
 
         // 8b. Set "Start Pipedrive" date ONLY when we created the organization (not on updates)
+        // Use the campaign completion date from Instantly (when lead left the campaign)
         if (orgResult.created) {
-          await this.setOrganizationStartPipedriveDate(orgResult.id);
+          await this.setOrganizationStartPipedriveDate(orgResult.id, enrichedLead.campaignCompletedAt);
         }
 
         // 9. Add note to organization about the sync (including email history and reply count)
@@ -655,7 +658,12 @@ export class InstantlyPipedriveSyncService {
     }
 
     return this.syncLeadToPipedrive(
-      { email: lead_email },
+      {
+        email: lead_email,
+        // Use the webhook timestamp as campaign completion date
+        // For campaign_completed events, this is when the lead left the campaign
+        campaignCompletedAt: payload.timestamp,
+      },
       campaign_id,
       campaign_name,
       syncEventType,
@@ -1886,20 +1894,33 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
   /**
    * Set the "Einde Instantly campg. Start Pipedrive" date on an organization
    * This is only called when we CREATE a new organization (not on updates)
-   * The date marks when the lead moved from Instantly to Pipedrive
+   * The date marks when the lead left the Instantly campaign (not today's date)
+   *
+   * @param orgId - Pipedrive organization ID
+   * @param campaignCompletedAt - ISO date string from Instantly's timestamp_updated (when lead left campaign)
    */
-  private async setOrganizationStartPipedriveDate(orgId: number): Promise<void> {
+  private async setOrganizationStartPipedriveDate(orgId: number, campaignCompletedAt?: string): Promise<void> {
     try {
-      // Format date as YYYY-MM-DD (Pipedrive date field format)
-      const today = new Date().toISOString().split('T')[0];
+      // Use the campaign completion date from Instantly, or fallback to today
+      // The campaignCompletedAt is when the lead finished/left the Instantly campaign
+      let dateToSet: string;
+
+      if (campaignCompletedAt) {
+        // Parse the ISO string and format as YYYY-MM-DD
+        dateToSet = new Date(campaignCompletedAt).toISOString().split('T')[0];
+      } else {
+        // Fallback to today if no campaign completion date available
+        dateToSet = new Date().toISOString().split('T')[0];
+        console.log(`⚠️ No campaignCompletedAt provided, using today's date as fallback`);
+      }
 
       await this.pipedriveClient.updateOrganization(orgId, {
         custom_fields: {
-          [InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_START_PIPEDRIVE_DATE]: today
+          [InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_START_PIPEDRIVE_DATE]: dateToSet
         }
       });
 
-      console.log(`📅 Set "Start Pipedrive" date to ${today} for organization ${orgId}`);
+      console.log(`📅 Set "Einde Instantly / Start Pipedrive" date to ${dateToSet} for organization ${orgId}`);
     } catch (error) {
       console.warn(`Could not set Start Pipedrive date for organization ${orgId}:`, error);
     }

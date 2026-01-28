@@ -510,6 +510,8 @@ class InstantlyBackfillService {
               replyCount: instantlyData?.email_reply_count || 0,
               opensCount: instantlyData?.email_open_count || 0,
               clicksCount: instantlyData?.email_click_count || 0,
+              // Use timestamp_updated as the campaign completion date (when lead left Instantly campaign)
+              campaignCompletedAt: instantlyData?.timestamp_updated,
             },
             lead.campaign_id,
             lead.campaign_name || 'Unknown Campaign',
