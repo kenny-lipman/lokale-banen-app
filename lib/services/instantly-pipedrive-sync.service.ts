@@ -814,9 +814,34 @@ export class InstantlyPipedriveSyncService {
     });
     console.log(`📊 Found ${leads.length} leads in campaign${maxLeads ? ` (limited to ${maxLeads})` : ''}`);
 
+    // Pre-load all already-synced emails into memory for instant skip checks.
+    // This avoids 2 DB queries per lead during the processing loop.
+    const alreadySyncedEmails = new Set<string>();
+    if (skipExisting) {
+      const { data: existingSyncs } = await this.supabase
+        .from('instantly_pipedrive_syncs')
+        .select('instantly_lead_email')
+        .in('instantly_lead_email', leads.map(l => l.email.toLowerCase().trim()));
+
+      if (existingSyncs) {
+        for (const sync of existingSyncs) {
+          alreadySyncedEmails.add(sync.instantly_lead_email);
+        }
+      }
+      console.log(`⚡ Pre-loaded ${alreadySyncedEmails.size} already-synced emails (instant skip)`);
+    }
+
+    // Filter out already-synced leads BEFORE processing to avoid wasting time
+    const leadsToProcess = skipExisting
+      ? leads.filter(l => !alreadySyncedEmails.has(l.email.toLowerCase().trim()))
+      : leads;
+
+    console.log(`📋 ${leadsToProcess.length} leads to process (${leads.length - leadsToProcess.length} pre-skipped)`);
+    skipped = leads.length - leadsToProcess.length;
+
     // Process leads in batches
-    for (let i = 0; i < leads.length && !stoppedEarly; i += batchSize) {
-      const batch = leads.slice(i, i + batchSize);
+    for (let i = 0; i < leadsToProcess.length && !stoppedEarly; i += batchSize) {
+      const batch = leadsToProcess.slice(i, i + batchSize);
       console.log(`Processing batch ${Math.floor(i / batchSize) + 1}...`);
 
       for (const lead of batch) {
@@ -855,48 +880,6 @@ export class InstantlyPipedriveSyncService {
           customLabelMap,
           isAutoReply
         );
-
-        // Skip if already synced — check both exact match AND cross-campaign
-        if (skipExisting) {
-          // First: exact match (same email + campaign + event type)
-          const existing = await this.getExistingSync(
-            lead.email,
-            campaignId,
-            eventType
-          );
-          if (existing) {
-            skipped++;
-            results.push({
-              success: false,
-              leadEmail: lead.email,
-              campaignId,
-              campaignName,
-              orgCreated: false,
-              personCreated: false,
-              skipped: true,
-              skipReason: `Already synced for event ${eventType}`
-            });
-            continue;
-          }
-
-          // Second: cross-campaign check — prevent duplicate Pipedrive entries
-          // when the same email was already synced via a different campaign
-          const previousSync = await this.hasEverBeenSynced(lead.email);
-          if (previousSync) {
-            skipped++;
-            results.push({
-              success: false,
-              leadEmail: lead.email,
-              campaignId,
-              campaignName,
-              orgCreated: false,
-              personCreated: false,
-              skipped: true,
-              skipReason: `Already synced via campaign "${previousSync.campaignName}"`
-            });
-            continue;
-          }
-        }
 
         if (dryRun) {
           console.log(`[DRY RUN] Would sync: ${lead.email} as ${eventType} (hasReply: ${hasReply}, sentiment: ${replySentiment}, engagement: opens=${engagementData?.opensCount || 0}, clicks=${engagementData?.clicksCount || 0})`);
