@@ -674,6 +674,54 @@ export class PipedriveClient {
   }
 
   /**
+   * List notes for an organization (V1 API)
+   */
+  async listOrganizationNotes(organizationId: number): Promise<any[]> {
+    const v1BaseUrl = 'https://api.pipedrive.com/v1';
+    const url = `${v1BaseUrl}/organizations/${organizationId}/notes?api_token=${this.apiKey}&sort=add_time DESC&start=0&limit=50`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ V1 Notes List API Error:`, errorText.substring(0, 500));
+      throw new Error(`Notes List API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  }
+
+  /**
+   * Update a note's content (V1 API)
+   */
+  async updateNote(noteId: number, content: string): Promise<any> {
+    const v1BaseUrl = 'https://api.pipedrive.com/v1';
+    const url = `${v1BaseUrl}/notes/${noteId}?api_token=${this.apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ content })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ V1 Notes Update API Error:`, errorText.substring(0, 500));
+      throw new Error(`Notes Update API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
    * Add an activity (email, call, meeting, etc.) to Pipedrive
    * @param activity - The activity data
    */
