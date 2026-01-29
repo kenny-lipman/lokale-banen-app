@@ -124,14 +124,20 @@ export const ALGEMENE_MAILCAMPAGNES_TAG_ID = '61f0db9c-f337-482c-8e87-e1fa6ededa
 export interface InstantlyCampaignAnalytics {
   campaign_id: string
   campaign_name: string
+  campaign_status: number
   leads_count: number
   contacted_count: number
   emails_sent_count: number
+  new_leads_contacted_count: number
   open_count: number
+  open_count_unique: number
   reply_count: number
+  reply_count_unique: number
+  link_click_count: number
   bounced_count: number
   unsubscribed_count: number
   completed_count: number
+  total_opportunities: number
 }
 
 // ============================================================================
@@ -584,12 +590,14 @@ export class InstantlyClient {
   } = {}): Promise<InstantlyLeadListResponse> {
     const requestBody: Record<string, any> = {}
 
-    if (options.campaign_id) requestBody.campaign_id = options.campaign_id
+    // Instantly API v2 uses 'campaign' (not 'campaign_id') for filtering leads by campaign
+    if (options.campaign_id) requestBody.campaign = options.campaign_id
     if (options.list_id) requestBody.list_id = options.list_id
     if (options.limit) requestBody.limit = options.limit
     if (options.starting_after) requestBody.starting_after = options.starting_after
-    if (options.email) requestBody.email = options.email
-    if (options.lead_status_filter) requestBody.lead_status_filter = options.lead_status_filter
+    // Instantly API v2 uses 'search' (not 'email') for searching by email/name
+    if (options.email) requestBody.search = options.email
+    if (options.lead_status_filter) requestBody.filter = options.lead_status_filter
 
     const response = await this.makeRequest<any>('/leads/list', {
       method: 'POST',
@@ -905,11 +913,25 @@ export class InstantlyClient {
    */
   async getCampaignAnalytics(campaignId: string): Promise<InstantlyCampaignAnalytics | null> {
     try {
-      const response = await this.makeRequest<any>(`/campaigns/${campaignId}/analytics`)
-      return response
+      const response = await this.makeRequest<InstantlyCampaignAnalytics[]>(`/campaigns/analytics?id=${campaignId}`)
+      // Response is an array, return first element
+      return Array.isArray(response) && response.length > 0 ? response[0] : null
     } catch (error) {
       console.error('Error getting campaign analytics:', error)
       return null
+    }
+  }
+
+  /**
+   * Get analytics for all campaigns in a single API call
+   */
+  async getAllCampaignsAnalytics(): Promise<InstantlyCampaignAnalytics[]> {
+    try {
+      const response = await this.makeRequest<InstantlyCampaignAnalytics[]>('/campaigns/analytics')
+      return Array.isArray(response) ? response : []
+    } catch (error) {
+      console.error('Error getting all campaigns analytics:', error)
+      return []
     }
   }
 
