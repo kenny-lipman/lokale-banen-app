@@ -1992,19 +1992,20 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       // Only update if we have data to update
       if (!lead.title && !lead.linkedinUrl) return;
 
-      const updates: any = {};
+      const customFields: Record<string, string> = {};
 
       // Add Functie if available
       if (lead.title) {
-        updates[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_FUNCTIE] = lead.title;
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_FUNCTIE] = lead.title;
       }
 
       // Add LinkedIn URL if available
       if (lead.linkedinUrl) {
-        updates[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_LINKEDIN] = lead.linkedinUrl;
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.PERSON_LINKEDIN] = lead.linkedinUrl;
       }
 
-      await this.pipedriveClient.updatePerson(personId, updates);
+      // V2 API requires custom fields nested under custom_fields
+      await this.pipedriveClient.updatePerson(personId, { custom_fields: customFields } as any);
       console.log(`👔 Updated person ${personId} with enrichment (functie: ${lead.title || 'n/a'}, linkedin: ${lead.linkedinUrl ? 'yes' : 'no'})`);
     } catch (error) {
       console.warn(`Could not update person enrichment for ${personId}:`, error);
