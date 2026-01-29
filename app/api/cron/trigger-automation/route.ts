@@ -98,13 +98,13 @@ async function cronTriggerHandler(request: NextRequest) {
 
     console.log(`🕐 Starting daily scrape CRON job at ${new Date().toISOString()}`)
 
-    // Fetch all enabled platforms for all users (simplified query)
+    // Fetch all enabled and active platforms with their central places
     const { data: enabledPlatforms, error } = await supabase
-      .from('user_platform_automation_preferences')
-      .select(`
-        regio_platform
-      `)
+      .from('platforms')
+      .select('id, regio_platform, central_place')
       .eq('automation_enabled', true)
+      .eq('is_active', true)
+      .not('central_place', 'is', null)
 
     if (error) {
       console.error('❌ Error fetching enabled platforms:', error)
@@ -126,66 +126,12 @@ async function cronTriggerHandler(request: NextRequest) {
 
     console.log(`📊 Found ${enabledPlatforms.length} enabled platforms for automation`)
 
-    // Fetch central places data for all platforms (simplified query)
-    const { data: centralPlaces, error: centralPlacesError } = await supabase
-      .from('regio_platform_central_places')
-      .select('regio_platform, central_place')
-      .eq('is_active', true)
-      .not('central_place', 'is', null)
-
-    if (centralPlacesError) {
-      console.error('❌ Error fetching central places:', centralPlacesError)
-      return NextResponse.json(
-        { error: 'Failed to fetch central places' },
-        { status: 500 }
-      )
-    }
-
-    // Fetch region IDs for all platforms
-    const { data: regions, error: regionsError } = await supabase
-      .from('regions')
-      .select('id, regio_platform')
-      .not('regio_platform', 'is', null)
-
-    if (regionsError) {
-      console.error('❌ Error fetching regions:', regionsError)
-      return NextResponse.json(
-        { error: 'Failed to fetch regions' },
-        { status: 500 }
-      )
-    }
-
-    // Create central places lookup map (simplified)
-    const centralPlacesMap = new Map<string, string>()
-    centralPlaces?.forEach(cp => {
-      centralPlacesMap.set(cp.regio_platform, cp.central_place)
-    })
-
-    // Create regions lookup map
-    const regionsMap = new Map<string, string>()
-    regions?.forEach(region => {
-      regionsMap.set(region.regio_platform, region.id)
-    })
-
-    // Prepare daily scrape platforms for each enabled platform
-    const dailyScrapePlatforms: DailyScrapePlatform[] = enabledPlatforms
-      .filter(platform => {
-        const centralPlace = centralPlacesMap.get(platform.regio_platform)
-        if (!centralPlace) {
-          console.warn(`⚠️ No central place found for platform: ${platform.regio_platform}`)
-          return false
-        }
-        return true
-      })
-      .map(platform => {
-        const centralPlace = centralPlacesMap.get(platform.regio_platform)!
-        const regionId = regionsMap.get(platform.regio_platform)
-        return {
-          regio_platform: platform.regio_platform,
-          central_place: centralPlace,
-          region_id: regionId
-        }
-      })
+    // Map platforms to the expected format
+    const dailyScrapePlatforms: DailyScrapePlatform[] = enabledPlatforms.map(platform => ({
+      regio_platform: platform.regio_platform,
+      central_place: platform.central_place,
+      region_id: platform.id
+    }))
 
     // Process all daily scrape platforms
     const results = await processDailyScrapeTriggers(dailyScrapePlatforms)
@@ -211,7 +157,7 @@ async function cronTriggerHandler(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.error('❌ Unexpected error in daily scrape CRON job:', errorMessage)
-    
+
     return NextResponse.json(
       {
         error: 'Internal server error',
@@ -231,6 +177,6 @@ async function cronHealthHandler(_request: NextRequest) {
   })
 }
 
-// Export secured handlers
-export const GET = withCronAuth(cronTriggerHandler)
-export const POST = withCronAuth(cronHealthHandler) 
+// Export secured handlers - POST for cron job trigger, GET for health check
+export const POST = withCronAuth(cronTriggerHandler)
+export const GET = withCronAuth(cronHealthHandler)

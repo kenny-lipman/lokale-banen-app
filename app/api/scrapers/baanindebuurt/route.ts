@@ -9,12 +9,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeBaanindebuurt } from "@/lib/scrapers/baanindebuurt/scraper";
 import { createClient } from "@supabase/supabase-js";
 
-// Simple auth check - can be expanded with proper auth
+// Auth check - accepts both CRON_SECRET_KEY and legacy CRON_SECRET
 function isAuthorized(request: NextRequest): boolean {
   const authHeader = request.headers.get("authorization");
+  const cronSecretKey = process.env.CRON_SECRET_KEY;
   const cronSecret = process.env.CRON_SECRET;
 
-  // Allow if CRON_SECRET matches
+  // Allow if CRON_SECRET_KEY matches (preferred)
+  if (cronSecretKey && authHeader === `Bearer ${cronSecretKey}`) {
+    return true;
+  }
+
+  // Allow if legacy CRON_SECRET matches
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
     return true;
   }
