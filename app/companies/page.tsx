@@ -73,6 +73,7 @@ export default function CompaniesPage() {
   const [apolloEnrichedFilter, setApolloEnrichedFilter] = useState("all")
   const [hasContactsFilter, setHasContactsFilter] = useState("all")
   const [regioPlatformFilter, setRegioPlatformFilter] = useState<string[]>([])
+  const [subdomeinenFilter, setSubdomeinenFilter] = useState<string[]>([])
   const [pipedriveFilter, setPipedriveFilter] = useState("all")
   const [instantlyFilter, setInstantlyFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState<string | null>(null)
@@ -146,6 +147,8 @@ export default function CompaniesPage() {
           setHasContactsFilter={setHasContactsFilter}
           regioPlatformFilter={regioPlatformFilter}
           setRegioPlatformFilter={setRegioPlatformFilter}
+          subdomeinenFilter={subdomeinenFilter}
+          setSubdomeinenFilter={setSubdomeinenFilter}
           pipedriveFilter={pipedriveFilter}
           setPipedriveFilter={setPipedriveFilter}
           instantlyFilter={instantlyFilter}
@@ -171,6 +174,7 @@ export default function CompaniesPage() {
         apolloEnrichedFilter={apolloEnrichedFilter}
         hasContactsFilter={hasContactsFilter}
         regioPlatformFilter={regioPlatformFilter}
+        subdomeinenFilter={subdomeinenFilter}
         pipedriveFilter={pipedriveFilter}
         instantlyFilter={instantlyFilter}
         dateFrom={dateFrom}

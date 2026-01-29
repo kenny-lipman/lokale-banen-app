@@ -676,8 +676,8 @@ function FullOtisDashboard() {
             companyCategorySize: company.category_size,
             companyQualification: company.qualification_status,
             companyLocation: company.location,
-            region_plaats: company.region_plaats,
-            region_platform: company.region_platform
+            hoofddomein: company.hoofddomein,
+            subdomeinen: company.subdomeinen
           }))
         )
 
@@ -2073,8 +2073,8 @@ function FullOtisDashboard() {
           website: contact.companyWebsite,
           category_size: contact.companyCategorySize || contact.category_size,
           location: contact.companyLocation || contact.location,
-          region_plaats: contact.region_plaats,
-          region_platform: contact.region_platform,
+          hoofddomein: contact.hoofddomein,
+          subdomeinen: contact.subdomeinen,
           contacts: []
         }
       }
@@ -2231,8 +2231,7 @@ function FullOtisDashboard() {
                         {companyGroup.website} • {companyGroup.contacts.length} contacts
                         {companyGroup.category_size && ` • ${companyGroup.category_size}`}
                         {companyGroup.location && ` • 📍 ${companyGroup.location}`}
-                        {companyGroup.region_plaats && ` • 🏢 ${companyGroup.region_plaats}`}
-                        {companyGroup.region_platform && ` • 🌐 ${companyGroup.region_platform}`}
+                        {companyGroup.hoofddomein && ` • 🌐 ${companyGroup.hoofddomein}`}
                       </p>
                     </div>
                   </div>

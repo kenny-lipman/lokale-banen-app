@@ -48,7 +48,9 @@ interface Company {
   apollo_contacts_count?: number | null; // Number of contacts found
   apollo_enrichment_data?: any; // Apollo enrichment data
   last_enrichment_batch_id?: string | null; // Last enrichment batch
-  company_region?: string | null; // Added for Hoofddomein column
+  company_region?: string | null; // Added for Hoofddomein column (table display)
+  hoofddomein?: string | null; // For drawer component
+  subdomeinen?: string[]; // Other platforms where company has job postings
   enrichment_status?: string | null; // Added for Verrijkt column
   qualification_status?: string | null; // Added for qualification workflow
   qualification_timestamp?: string | null; // Added for qualification workflow
@@ -1007,7 +1009,16 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                       <span className="text-gray-400 text-sm">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{company.company_region || "-"}</TableCell>
+                  <TableCell className="text-sm">
+                    <div>
+                      {company.company_region || "-"}
+                      {company.subdomeinen && company.subdomeinen.length > 0 && (
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          +{company.subdomeinen.length} sub
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {getEnrichmentStatusBadge(company.enrichment_status)}
                   </TableCell>

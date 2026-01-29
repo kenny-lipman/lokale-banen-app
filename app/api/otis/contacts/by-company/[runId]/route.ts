@@ -75,7 +75,9 @@ export async function GET(
           enrichment_status,
           apollo_contacts_count,
           apollo_enriched_at,
-          created_at
+          created_at,
+          hoofddomein,
+          subdomeinen
         ),
         platform_id,
         location

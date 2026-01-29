@@ -7,19 +7,20 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useWebhookRateLimit } from '@/hooks/use-webhook-rate-limit'
-import { 
-  Building2, 
-  CheckCircle, 
-  AlertCircle, 
-  RefreshCw, 
-  Clock, 
+import {
+  Building2,
+  CheckCircle,
+  AlertCircle,
+  RefreshCw,
+  Clock,
   Sparkles,
   Zap,
   MapPin,
   BarChart3,
   ExternalLink,
   User,
-  Crown
+  Crown,
+  Globe
 } from 'lucide-react'
 import { supabaseService } from '@/lib/supabase-service'
 import { authFetch } from '@/lib/authenticated-fetch'
@@ -39,6 +40,8 @@ interface Company {
   is_customer?: boolean | null
   pipedrive_synced?: boolean | null
   pipedrive_synced_at?: string | null
+  hoofddomein?: string | null
+  subdomeinen?: string[] | null
 }
 
 interface CompaniesTabContainerProps {
@@ -52,6 +55,7 @@ interface CompaniesTabContainerProps {
   apolloEnrichedFilter?: string
   hasContactsFilter?: string
   regioPlatformFilter?: string[]
+  subdomeinenFilter?: string[]
   pipedriveFilter?: string
   instantlyFilter?: string
   dateFrom?: string | null
@@ -77,6 +81,7 @@ export function CompaniesTabContainer({
   apolloEnrichedFilter = "all",
   hasContactsFilter = "all",
   regioPlatformFilter = [],
+  subdomeinenFilter = [],
   pipedriveFilter = "all",
   instantlyFilter = "all",
   dateFrom = null,
@@ -106,6 +111,7 @@ export function CompaniesTabContainer({
     apolloEnriched: apolloEnrichedFilter !== "all" ? apolloEnrichedFilter : undefined,
     hasContacts: hasContactsFilter !== "all" ? hasContactsFilter : undefined,
     regioPlatformFilter: regioPlatformFilter.length > 0 ? regioPlatformFilter.join(',') : undefined,
+    subdomeinenFilter: subdomeinenFilter.length > 0 ? subdomeinenFilter.join(',') : undefined,
     pipedriveFilter: pipedriveFilter !== "all" ? pipedriveFilter : undefined,
     instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined,
     dateFrom: dateFrom || undefined,
@@ -176,7 +182,7 @@ export function CompaniesTabContainer({
   useEffect(() => {
     loadTabData(activeTab)
     loadCounts()
-  }, [JSON.stringify(statusFilter), JSON.stringify(sourceFilter), customerFilter, websiteFilter, JSON.stringify(categorySizeFilter), apolloEnrichedFilter, hasContactsFilter, JSON.stringify(regioPlatformFilter), pipedriveFilter, instantlyFilter, dateFrom, dateTo])
+  }, [JSON.stringify(statusFilter), JSON.stringify(sourceFilter), customerFilter, websiteFilter, JSON.stringify(categorySizeFilter), apolloEnrichedFilter, hasContactsFilter, JSON.stringify(regioPlatformFilter), JSON.stringify(subdomeinenFilter), pipedriveFilter, instantlyFilter, dateFrom, dateTo])
 
   // Refresh all data
   const refreshData = async () => {
@@ -790,7 +796,7 @@ export function CompaniesTabContainer({
             </div>
             
             {/* Company Details */}
-            <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
               {company.location && (
                 <div className="flex items-center gap-1">
                   <MapPin className="w-3 h-3" />
@@ -801,6 +807,17 @@ export function CompaniesTabContainer({
                 <div className="flex items-center gap-1">
                   <BarChart3 className="w-3 h-3" />
                   {company.category_size}
+                </div>
+              )}
+              {company.hoofddomein && (
+                <div className="flex items-center gap-1 text-orange-600">
+                  <Globe className="w-3 h-3" />
+                  <span>{company.hoofddomein}</span>
+                  {company.subdomeinen && company.subdomeinen.length > 0 && (
+                    <span className="text-gray-400 text-xs">
+                      (+{company.subdomeinen.length})
+                    </span>
+                  )}
                 </div>
               )}
               {company.website && (

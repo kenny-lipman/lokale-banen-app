@@ -53,7 +53,9 @@ export async function GET(
         industries,
         city,
         status,
-        start
+        start,
+        hoofddomein,
+        subdomeinen
       `)
       .eq('id', companyId)
       .single()

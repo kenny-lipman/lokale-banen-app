@@ -28,6 +28,8 @@ interface CompaniesFiltersProps {
   setHasContactsFilter: (value: string) => void
   regioPlatformFilter: string[]
   setRegioPlatformFilter: (value: string[]) => void
+  subdomeinenFilter: string[]
+  setSubdomeinenFilter: (value: string[]) => void
   pipedriveFilter: string
   setPipedriveFilter: (value: string) => void
   instantlyFilter: string
@@ -61,6 +63,8 @@ export function CompaniesFilters({
   setHasContactsFilter,
   regioPlatformFilter,
   setRegioPlatformFilter,
+  subdomeinenFilter,
+  setSubdomeinenFilter,
   pipedriveFilter,
   setPipedriveFilter,
   instantlyFilter,
@@ -85,6 +89,7 @@ export function CompaniesFilters({
     setApolloEnrichedFilter("all")
     setHasContactsFilter("all")
     setRegioPlatformFilter([])
+    setSubdomeinenFilter([])
     setPipedriveFilter("all")
     setInstantlyFilter("all")
     setDateFrom(null)
@@ -104,6 +109,7 @@ export function CompaniesFilters({
     if (apolloEnrichedFilter !== "all") count++
     if (hasContactsFilter !== "all") count++
     if (regioPlatformFilter.length > 0) count++
+    if (subdomeinenFilter.length > 0) count++
     if (pipedriveFilter !== "all") count++
     if (instantlyFilter !== "all") count++
     if (dateFrom || dateTo) count++
@@ -179,6 +185,15 @@ export function CompaniesFilters({
                     <X
                       className="h-3 w-3 cursor-pointer ml-1"
                       onClick={() => setRegioPlatformFilter([])}
+                    />
+                  </Badge>
+                )}
+                {subdomeinenFilter.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    Subdomeinen: {subdomeinenFilter.length} geselecteerd
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => setSubdomeinenFilter([])}
                     />
                   </Badge>
                 )}
@@ -355,6 +370,17 @@ export function CompaniesFilters({
             selected={regioPlatformFilter}
             onChange={setRegioPlatformFilter}
             placeholder="Hoofddomein"
+          />
+
+          {/* Subdomeinen Filter - Multi-select */}
+          <MultiSelect
+            options={[
+              { value: "none", label: "Geen subdomeinen" },
+              ...allRegioPlatformOptions.map(p => ({ value: p.value, label: p.label }))
+            ]}
+            selected={subdomeinenFilter}
+            onChange={setSubdomeinenFilter}
+            placeholder="Subdomeinen"
           />
 
           {/* Pipedrive Filter */}
