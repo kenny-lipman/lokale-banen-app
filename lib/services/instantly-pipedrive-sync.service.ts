@@ -856,8 +856,9 @@ export class InstantlyPipedriveSyncService {
           isAutoReply
         );
 
-        // Skip if already synced for this specific event type
+        // Skip if already synced — check both exact match AND cross-campaign
         if (skipExisting) {
+          // First: exact match (same email + campaign + event type)
           const existing = await this.getExistingSync(
             lead.email,
             campaignId,
@@ -874,6 +875,24 @@ export class InstantlyPipedriveSyncService {
               personCreated: false,
               skipped: true,
               skipReason: `Already synced for event ${eventType}`
+            });
+            continue;
+          }
+
+          // Second: cross-campaign check — prevent duplicate Pipedrive entries
+          // when the same email was already synced via a different campaign
+          const previousSync = await this.hasEverBeenSynced(lead.email);
+          if (previousSync) {
+            skipped++;
+            results.push({
+              success: false,
+              leadEmail: lead.email,
+              campaignId,
+              campaignName,
+              orgCreated: false,
+              personCreated: false,
+              skipped: true,
+              skipReason: `Already synced via campaign "${previousSync.campaignName}"`
             });
             continue;
           }
@@ -1113,6 +1132,25 @@ export class InstantlyPipedriveSyncService {
 
     if (error || !data) return null;
     return data;
+  }
+
+  /**
+   * Check if a lead email has EVER been synced to Pipedrive (any campaign, any event type).
+   * Used during backfill to prevent duplicate Pipedrive entries when the same email
+   * exists in multiple campaigns or was previously synced under a different campaign_id.
+   */
+  async hasEverBeenSynced(
+    email: string
+  ): Promise<{ id: string; campaignName: string } | null> {
+    const { data, error } = await this.supabase
+      .from('instantly_pipedrive_syncs')
+      .select('id, instantly_campaign_name')
+      .eq('instantly_lead_email', email.toLowerCase().trim())
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+    return { id: data.id, campaignName: data.instantly_campaign_name };
   }
 
   /**
@@ -1752,7 +1790,11 @@ export class InstantlyPipedriveSyncService {
   private static mapIndustriesToBranche(industries: string[]): number | null {
     if (!industries || industries.length === 0) return null;
 
-    const industriesLower = industries.map(i => i.toLowerCase()).join(' ');
+    // Filter out null/undefined values that may come from enrichment data
+    const validIndustries = industries.filter((i): i is string => typeof i === 'string');
+    if (validIndustries.length === 0) return null;
+
+    const industriesLower = validIndustries.map(i => i.toLowerCase()).join(' ');
 
     // Keyword-based mapping (ordered by specificity)
     const mappings: Array<{ keywords: string[]; branche: number }> = [
