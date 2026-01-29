@@ -57,6 +57,7 @@ interface BackfillRequestBody {
   batch_size?: number;
   max_leads?: number;
   status_filter?: string;
+  time_limit_ms?: number;
 }
 
 /**
@@ -100,15 +101,22 @@ export async function POST(req: NextRequest) {
       dry_run = false,
       batch_size = 50,
       max_leads,
-      status_filter
+      status_filter,
+      time_limit_ms
     } = options;
+
+    // Use custom time limit if provided, otherwise use default
+    const effectiveTimeLimit = time_limit_ms && time_limit_ms > 0
+      ? Math.min(time_limit_ms, PROCESSING_TIME_LIMIT_MS)
+      : PROCESSING_TIME_LIMIT_MS;
 
     console.log(`🔄 Starting backfill operation...`, {
       campaignIds: campaign_ids?.length || 'all',
       dryRun: dry_run,
       batchSize: batch_size,
       maxLeads: max_leads || 'all',
-      statusFilter: status_filter
+      statusFilter: status_filter,
+      timeLimitMs: effectiveTimeLimit,
     });
 
     // 3. Run the backfill
@@ -120,7 +128,7 @@ export async function POST(req: NextRequest) {
         dryRun: dry_run,
         batchSize: batch_size,
         maxLeads: max_leads,
-        timeLimitMs: PROCESSING_TIME_LIMIT_MS,
+        timeLimitMs: effectiveTimeLimit,
         timeLimitStartedAt: startTime,
       });
 
@@ -145,7 +153,7 @@ export async function POST(req: NextRequest) {
         campaignIds: campaign_ids,
         statusFilter: status_filter,
         maxLeadsPerCampaign: max_leads,
-        timeLimitMs: PROCESSING_TIME_LIMIT_MS,
+        timeLimitMs: effectiveTimeLimit,
         timeLimitStartedAt: startTime,
       });
 

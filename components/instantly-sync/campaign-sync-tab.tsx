@@ -127,7 +127,9 @@ export function CampaignSyncTab() {
   // Sync state
   const [syncing, setSyncing] = useState(false)
   const [progress, setProgress] = useState<SyncProgress | null>(null)
+  const [elapsed, setElapsed] = useState(0)
   const cancelRef = useRef(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Fetch campaigns
   const fetchCampaigns = async () => {
@@ -219,6 +221,26 @@ export function CampaignSyncTab() {
     }
   }
 
+  // Start/stop elapsed timer
+  const startTimer = useCallback((startedAt: number) => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      setElapsed(Date.now() - startedAt)
+    }, 1000)
+  }, [])
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => stopTimer()
+  }, [stopTimer])
+
   // Chunked sync handler
   const handleSync = useCallback(async () => {
     if (selectedIds.size === 0) return
@@ -226,6 +248,7 @@ export function CampaignSyncTab() {
     setSyncing(true)
     cancelRef.current = false
 
+    const startedAt = Date.now()
     const syncProgress: SyncProgress = {
       totalSynced: 0,
       totalSkipped: 0,
@@ -233,10 +256,12 @@ export function CampaignSyncTab() {
       totalLeads: 0,
       chunksCompleted: 0,
       done: false,
-      startedAt: Date.now(),
+      startedAt,
       cancelled: false,
     }
     setProgress({ ...syncProgress })
+    setElapsed(0)
+    startTimer(startedAt)
 
     try {
       let isDone = false
@@ -250,6 +275,7 @@ export function CampaignSyncTab() {
             dry_run: dryRun,
             batch_size: 25,
             max_leads: maxLeads || undefined,
+            time_limit_ms: 30_000, // 30s chunks for responsive progress updates
           }),
         })
 
@@ -298,9 +324,10 @@ export function CampaignSyncTab() {
         variant: "destructive",
       })
     } finally {
+      stopTimer()
       setSyncing(false)
     }
-  }, [selectedIds, dryRun, maxLeads, toast])
+  }, [selectedIds, dryRun, maxLeads, toast, startTimer, stopTimer])
 
   const handleCancel = () => {
     cancelRef.current = true
@@ -624,7 +651,7 @@ export function CampaignSyncTab() {
             </CardTitle>
             <CardDescription className="flex items-center gap-2">
               <Clock className="h-3 w-3" />
-              Verstreken: {formatDuration(Date.now() - progress.startedAt)}
+              Verstreken: {formatDuration(elapsed)}
               {progress.totalLeads > 0 && (
                 <span className="ml-2">
                   — {progressPercent}% verwerkt
@@ -739,7 +766,7 @@ export function CampaignSyncTab() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground mt-4">
-              Totale duur: {formatDuration(Date.now() - progress.startedAt)}
+              Totale duur: {formatDuration(elapsed)}
             </p>
           </CardContent>
         </Card>
