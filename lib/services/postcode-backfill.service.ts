@@ -17,6 +17,7 @@
 import { createServiceRoleClient } from '../supabase-server';
 import { GeocodingService } from '../geocoding-service';
 import { pipedriveClient } from '../pipedrive-client';
+import { companyEnrichmentService } from './company-enrichment.service';
 
 // ============================================================================
 // TYPES
@@ -392,6 +393,9 @@ export class PostcodeBackfillService {
 
           console.log(`✅ Enriched company ${company.name || companyId}: postcode=${geocodeResult.postcode}, source=${source}, location="${locationDesc}"`);
 
+          // Update hoofddomein + subdomeinen via single source of truth
+          await companyEnrichmentService.updateCompanyPlatforms(companyId);
+
           return {
             success: true,
             postcode: geocodeResult.postcode,
@@ -419,6 +423,9 @@ export class PostcodeBackfillService {
             .eq('id', companyId);
 
           console.log(`✅ Enriched company ${company.name} via Nominatim business search: postcode=${nominatimResult.postcode}`);
+
+          // Update hoofddomein + subdomeinen via single source of truth
+          await companyEnrichmentService.updateCompanyPlatforms(companyId);
 
           return {
             success: true,
@@ -460,7 +467,8 @@ export class PostcodeBackfillService {
   // ============================================================================
 
   /**
-   * Fix Pipedrive organization's hoofddomein and subdomeinen after postcode enrichment
+   * Fix Pipedrive organization's hoofddomein and subdomeinen after postcode enrichment.
+   * Uses CompanyEnrichmentService as single source of truth for platform determination.
    */
   async fixPipedriveHoofddomein(
     companyId: string,
@@ -468,33 +476,27 @@ export class PostcodeBackfillService {
     newPostcode: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Import sync service dynamically to avoid circular dependency
-      const { instantlyPipedriveSyncService } = await import('./instantly-pipedrive-sync.service');
+      // Use CompanyEnrichmentService to determine + store hoofddomein/subdomeinen
+      const platformResult = await companyEnrichmentService.updateCompanyPlatforms(companyId);
 
-      // Get correct hoofddomein based on new postcode
-      const hoofddomein = await instantlyPipedriveSyncService.getRegioPlatformByPostalCode(newPostcode);
-
-      if (!hoofddomein) {
+      if (!platformResult.hoofddomein) {
         console.log(`⚠️ Could not determine hoofddomein for postcode ${newPostcode}`);
         return { success: false, error: `No region found for postcode ${newPostcode}` };
       }
 
-      // Get all platforms from job postings for subdomeinen
-      const subdomeinen = await instantlyPipedriveSyncService.getAllCompanyPlatforms(companyId);
+      // IMPORTANT: Always filter out hoofddomein from subdomeinen to prevent duplicates
+      const subdomeinen = platformResult.subdomeinen.filter(s => s !== platformResult.hoofddomein);
 
-      // Filter out hoofddomein from subdomeinen
-      const filteredSubdomeinen = subdomeinen.filter(p => p !== hoofddomein);
-
-      console.log(`📍 Fixing Pipedrive org ${pipedriveId}: hoofddomein=${hoofddomein}, subdomeinen=[${filteredSubdomeinen.join(', ')}]`);
+      console.log(`📍 Fixing Pipedrive org ${pipedriveId}: hoofddomein=${platformResult.hoofddomein}, subdomeinen=[${subdomeinen.join(', ')}]`);
 
       // Update Pipedrive organization
-      await pipedriveClient.setOrganizationHoofddomein(pipedriveId, hoofddomein);
+      await pipedriveClient.setOrganizationHoofddomein(pipedriveId, platformResult.hoofddomein);
 
-      if (filteredSubdomeinen.length > 0) {
-        await pipedriveClient.setOrganizationSubdomein(pipedriveId, filteredSubdomeinen);
+      if (subdomeinen.length > 0) {
+        await pipedriveClient.setOrganizationSubdomein(pipedriveId, subdomeinen);
       }
 
-      console.log(`✅ Fixed Pipedrive org ${pipedriveId} with hoofddomein=${hoofddomein}`);
+      console.log(`✅ Fixed Pipedrive org ${pipedriveId} with hoofddomein=${platformResult.hoofddomein}`);
 
       return { success: true };
 

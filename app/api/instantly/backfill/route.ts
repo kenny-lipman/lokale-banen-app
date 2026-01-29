@@ -3,22 +3,40 @@
  *
  * Backfills leads from Instantly campaigns to Pipedrive.
  * Use this for initial setup or to sync historical data.
+ *
+ * Supports chunked processing: when processing large batches,
+ * the endpoint stops after ~240s and returns done: false.
+ * The frontend can send subsequent requests to continue —
+ * skipExisting ensures already-synced leads are quickly skipped.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
 import { instantlyClient } from '@/lib/instantly-client';
 
+// Allow up to 300s on Vercel Pro
+export const maxDuration = 300;
+
 // Secret for protecting the backfill endpoint
 const BACKFILL_SECRET = process.env.INSTANTLY_BACKFILL_SECRET || process.env.CRON_SECRET_KEY;
 
+// Stop processing after this many ms to leave room for response
+const PROCESSING_TIME_LIMIT_MS = 240_000;
+
 /**
- * Validate the request has proper authorization
+ * Validate the request has proper authorization.
+ * Accepts: secret key (cron/external) OR browser session cookie (dashboard).
  */
 function validateRequest(req: NextRequest): boolean {
+  // Allow browser/dashboard requests (have Supabase session cookie)
+  const cookies = req.headers.get('cookie') || '';
+  if (cookies.includes('sb-') && cookies.includes('auth-token')) {
+    return true;
+  }
+
   if (!BACKFILL_SECRET) {
     console.warn('⚠️ No INSTANTLY_BACKFILL_SECRET configured');
-    return true; // Allow if no secret is configured (not recommended for production)
+    return true;
   }
 
   const url = new URL(req.url);
@@ -37,19 +55,25 @@ interface BackfillRequestBody {
   campaign_ids?: string[];
   dry_run?: boolean;
   batch_size?: number;
+  max_leads?: number;
   status_filter?: string;
 }
 
 /**
  * POST /api/instantly/backfill
  *
- * Runs a backfill operation for specified campaigns or all campaigns
+ * Runs a backfill operation for specified campaigns or all campaigns.
+ * Supports chunked processing for large batches (500+ leads).
  *
  * Request body:
  * - campaign_ids: Array of campaign IDs to backfill (optional, defaults to all)
  * - dry_run: If true, just report what would be synced without actually syncing
  * - batch_size: Number of leads to process in each batch (default: 50)
+ * - max_leads: Maximum leads per campaign to fetch from Instantly
  * - status_filter: Only process campaigns with this status (e.g., 'completed')
+ *
+ * Response includes `done: boolean` — if false, send another request to continue processing.
+ * skipExisting (default: true) ensures already-synced leads are quickly skipped (~1ms each).
  */
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -75,6 +99,7 @@ export async function POST(req: NextRequest) {
       campaign_ids,
       dry_run = false,
       batch_size = 50,
+      max_leads,
       status_filter
     } = options;
 
@@ -82,6 +107,7 @@ export async function POST(req: NextRequest) {
       campaignIds: campaign_ids?.length || 'all',
       dryRun: dry_run,
       batchSize: batch_size,
+      maxLeads: max_leads || 'all',
       statusFilter: status_filter
     });
 
@@ -92,13 +118,17 @@ export async function POST(req: NextRequest) {
       // Single campaign backfill
       result = await instantlyPipedriveSyncService.backfillCampaign(campaign_ids[0], {
         dryRun: dry_run,
-        batchSize: batch_size
+        batchSize: batch_size,
+        maxLeads: max_leads,
+        timeLimitMs: PROCESSING_TIME_LIMIT_MS,
+        timeLimitStartedAt: startTime,
       });
 
       const duration = Date.now() - startTime;
 
       return NextResponse.json({
         success: true,
+        done: !result.stoppedEarly,
         dryRun: dry_run,
         campaignId: campaign_ids[0],
         total: result.total,
@@ -113,13 +143,17 @@ export async function POST(req: NextRequest) {
       result = await instantlyPipedriveSyncService.backfillAllCampaigns({
         dryRun: dry_run,
         campaignIds: campaign_ids,
-        statusFilter: status_filter
+        statusFilter: status_filter,
+        maxLeadsPerCampaign: max_leads,
+        timeLimitMs: PROCESSING_TIME_LIMIT_MS,
+        timeLimitStartedAt: startTime,
       });
 
       const duration = Date.now() - startTime;
 
       return NextResponse.json({
         success: true,
+        done: !result.stoppedEarly,
         dryRun: dry_run,
         campaigns: result.campaigns,
         totalLeads: result.totalLeads,

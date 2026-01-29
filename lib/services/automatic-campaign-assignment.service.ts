@@ -387,7 +387,7 @@ export class AutomaticCampaignAssignmentService {
     maxTotal: number,
     maxPerPlatform: number
   ): Promise<CandidateContact[]> {
-    // First, get contacts with all required joins
+    // Get contacts whose company has a hoofddomein (single source of truth for platform assignment)
     const { data: rawContacts, error } = await this.supabase
       .from('contacts')
       .select(`
@@ -411,7 +411,8 @@ export class AutomaticCampaignAssignmentService {
           pipedrive_id,
           location,
           industries,
-          status
+          status,
+          hoofddomein
         )
       `)
       .in('qualification_status', ['qualified', 'pending'])
@@ -429,67 +430,84 @@ export class AutomaticCampaignAssignmentService {
       return []
     }
 
-    // Filter contacts according to n8n rules
+    // Filter contacts according to rules
     const filteredContacts = rawContacts.filter((c: any) => {
       const email = c.email?.toLowerCase() || ''
       const company = c.companies
 
-      // Email validation (from n8n)
+      // Email validation
       if (email.length <= 5) return false
       if (!email.includes('@') || !email.includes('.')) return false
       if (email.includes('@@')) return false
       if (email.includes('nationalevacaturebank')) return false
       if (email.includes('nationale.vacaturebank')) return false
 
-      // Company filters (from n8n)
+      // Company filters
       if (!company) return false
       if (company.pipedrive_id) return false // Must NOT be in Pipedrive
       if (company.category_size === 'Groot') return false
       if (company.status !== 'Prospect') return false
+      if (!company.hoofddomein) return false // Must have hoofddomein (postal code based)
 
       return true
     })
 
-    // Get platform info for each contact via job_postings
+    // Collect unique hoofddomeinen to look up platforms in one query
+    const uniqueHoofddomeinen = [...new Set(
+      filteredContacts.map((c: any) => c.companies.hoofddomein).filter(Boolean)
+    )]
+
+    // Look up platforms for all hoofddomeinen at once
+    const { data: platforms } = await this.supabase
+      .from('platforms')
+      .select('id, regio_platform, instantly_campaign_id')
+      .in('regio_platform', uniqueHoofddomeinen)
+      .not('instantly_campaign_id', 'is', null)
+
+    if (!platforms || platforms.length === 0) {
+      console.log('📋 No platforms with instantly_campaign_id found for hoofddomeinen')
+      return []
+    }
+
+    // Create lookup map: hoofddomein → platform
+    const platformMap = new Map<string, { id: string; regio_platform: string; instantly_campaign_id: string }>()
+    for (const p of platforms) {
+      platformMap.set(p.regio_platform, p as any)
+    }
+
+    // Build candidate list using hoofddomein → platform mapping
     const contactsWithPlatforms: CandidateContact[] = []
     const platformCounts: Record<string, number> = {}
 
     for (const contact of filteredContacts) {
       if (contactsWithPlatforms.length >= maxTotal) break
 
-      // Get platform from job_postings with n8n filters
-      const { data: jobPostings } = await this.supabase
-        .from('job_postings')
-        .select(`
-          title,
-          location,
-          zipcode,
-          platform_id,
-          source_id,
-          platforms!inner (
-            id,
-            regio_platform,
-            instantly_campaign_id
-          )
-        `)
-        .eq('company_id', contact.company_id as string)
-        .not('platform_id', 'is', null)
-        .neq('source_id', EXCLUDED_SOURCE_ID)
-        .limit(1)
+      const company = (contact as any).companies
+      const platform = platformMap.get(company.hoofddomein)
+      if (!platform) continue
 
-      if (!jobPostings || jobPostings.length === 0) continue
-
-      const jp = jobPostings[0] as any
-      const platform = jp.platforms
-
-      if (!platform?.instantly_campaign_id) continue
-
-      // Check platform limit (max 30 per platform like n8n)
+      // Check platform limit
       const platformKey = platform.id
       if (!platformCounts[platformKey]) platformCounts[platformKey] = 0
       if (platformCounts[platformKey] >= maxPerPlatform) continue
 
       platformCounts[platformKey]++
+
+      // Get a representative job posting for context (optional)
+      let jobTitle: string | null = null
+      let jobLocation: string | null = null
+      if (contact.company_id) {
+        const { data: jp } = await this.supabase
+          .from('job_postings')
+          .select('title, location')
+          .eq('company_id', contact.company_id as string)
+          .limit(1)
+          .single()
+        if (jp) {
+          jobTitle = jp.title
+          jobLocation = jp.location
+        }
+      }
 
       contactsWithPlatforms.push({
         id: contact.id as string,
@@ -500,18 +518,18 @@ export class AutomaticCampaignAssignmentService {
         phone: contact.phone,
         linkedin_url: contact.linkedin_url,
         company_id: contact.company_id as string,
-        company_name: contact.companies.name,
-        company_website: contact.companies.website,
-        company_description: contact.companies.description,
-        company_category_size: contact.companies.category_size,
-        company_pipedrive_id: contact.companies.pipedrive_id,
-        company_location: contact.companies.location,
-        company_industries: contact.companies.industries,
+        company_name: company.name,
+        company_website: company.website,
+        company_description: company.description,
+        company_category_size: company.category_size,
+        company_pipedrive_id: company.pipedrive_id,
+        company_location: company.location,
+        company_industries: company.industries,
         platform_id: platform.id,
         platform_name: platform.regio_platform,
         instantly_campaign_id: platform.instantly_campaign_id,
-        job_posting_title: jp.title,
-        job_posting_location: jp.location
+        job_posting_title: jobTitle,
+        job_posting_location: jobLocation
       })
     }
 

@@ -246,6 +246,7 @@ export class SupabaseService {
       apolloEnriched?: 'all' | 'enriched' | 'not_enriched'
       hasContacts?: 'all' | 'with_contacts' | 'no_contacts'
       regioPlatformFilter?: string
+      subdomeinenFilter?: string
       pipedriveFilter?: 'all' | 'synced' | 'not_synced'
       instantlyFilter?: 'all' | 'synced' | 'not_synced'
       qualification_status?: 'pending' | 'qualified' | 'disqualified' | 'review' | 'all'
@@ -253,7 +254,7 @@ export class SupabaseService {
       dateTo?: string
     } = {},
   ) {
-    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts, regioPlatformFilter, pipedriveFilter, instantlyFilter, qualification_status, dateFrom, dateTo } = options
+    const { page = 1, limit = 50, search = "", is_customer, source, orderBy = 'created_at', orderDirection = 'desc', sizeRange, unknownSize, regionIds, status, websiteFilter, categorySize, apolloEnriched, hasContacts, regioPlatformFilter, subdomeinenFilter, pipedriveFilter, instantlyFilter, qualification_status, dateFrom, dateTo } = options
 
     try {
       console.log("getCompanies: Starting with params:", options)
@@ -449,95 +450,50 @@ export class SupabaseService {
         }
       }
 
-      // Handle regio_platform filter (hoofddomein) - supports multi-select
-      let regioPlatformFilteredCompanyIds: string[] | null = null
+      // Handle regio_platform filter (hoofddomein) - uses companies.hoofddomein directly
       if (regioPlatformFilter && regioPlatformFilter !== 'all') {
-        // Parse multi-select values (comma-separated)
         const selectedPlatforms = regioPlatformFilter.split(',').map(p => p.trim()).filter(p => p)
-        console.log("getCompanies: Applying regio_platform filter:", selectedPlatforms)
+        console.log("getCompanies: Applying hoofddomein filter:", selectedPlatforms)
 
-        try {
-          const hasNoneFilter = selectedPlatforms.includes('none')
-          const specificPlatforms = selectedPlatforms.filter(p => p !== 'none')
+        const hasNoneFilter = selectedPlatforms.includes('none')
+        const specificPlatforms = selectedPlatforms.filter(p => p !== 'none')
 
-          let companiesWithSpecificPlatforms: string[] = []
-          let companiesWithoutPlatform: string[] = []
-
-          // Handle specific platform selections
-          if (specificPlatforms.length > 0) {
-            // First get the platform IDs for the selected regio_platforms
-            const { data: platformsData, error: platformsError } = await this.client
-              .from("platforms")
-              .select("id")
-              .in("regio_platform", specificPlatforms)
-
-            if (platformsError) {
-              console.warn("getCompanies: Error fetching platform IDs:", platformsError)
-            } else if (platformsData && platformsData.length > 0) {
-              const platformIds = platformsData.map(p => p.id)
-
-              // Now get company IDs that have job_postings with these platform_ids
-              const { data: companiesWithRegioPlatform, error: regioPlatformError } = await this.client
-                .from("job_postings")
-                .select("company_id")
-                .in("platform_id", platformIds)
-                .not("company_id", "is", null)
-
-              if (regioPlatformError) {
-                console.warn("getCompanies: RegioPlatform filter error:", regioPlatformError)
-              } else {
-                companiesWithSpecificPlatforms = [...new Set(companiesWithRegioPlatform.map(c => c.company_id))]
-                console.log("getCompanies: Found", companiesWithSpecificPlatforms.length, "companies with selected platforms:", specificPlatforms)
-              }
-            }
-          }
-
-          // Handle "none" filter (companies without any hoofddomein)
-          if (hasNoneFilter) {
-            // Get companies that have job_postings with a valid platform_id
-            const { data: companiesWithAnyPlatform, error: anyPlatformError } = await this.client
-              .from("job_postings")
-              .select("company_id")
-              .not("platform_id", "is", null)
-              .not("company_id", "is", null)
-
-            if (anyPlatformError) {
-              console.warn("getCompanies: RegioPlatform 'none' filter error:", anyPlatformError)
-            } else {
-              const companiesWithPlatformIds = new Set(companiesWithAnyPlatform.map(c => c.company_id))
-
-              // Get all company IDs, then filter out those with any platform
-              const { data: allCompanies, error: allError } = await this.client
-                .from("companies")
-                .select("id")
-
-              if (allError) {
-                console.warn("getCompanies: Error getting all companies for none filter:", allError)
-              } else {
-                companiesWithoutPlatform = allCompanies
-                  .map(c => c.id)
-                  .filter(id => !companiesWithPlatformIds.has(id))
-                console.log("getCompanies: Found", companiesWithoutPlatform.length, "companies without any platform")
-              }
-            }
-          }
-
-          // Combine results (OR logic for multi-select)
-          regioPlatformFilteredCompanyIds = [...new Set([...companiesWithSpecificPlatforms, ...companiesWithoutPlatform])]
-
-          // Apply the regio_platform filter using IN clause
-          if (regioPlatformFilteredCompanyIds.length > 0) {
-            query = query.in('id', regioPlatformFilteredCompanyIds)
-            console.log("getCompanies: Applying regio_platform filter for", regioPlatformFilteredCompanyIds.length, "companies")
-          } else {
-            // No matching companies found, return empty result
-            console.log("getCompanies: No companies match regio_platform filter, returning empty result")
-            return { data: [], count: 0, totalPages: 0 }
-          }
-        } catch (error) {
-          console.error("getCompanies: Error applying regio_platform filter:", error)
-          // Continue without regio_platform filter rather than failing completely
+        if (hasNoneFilter && specificPlatforms.length > 0) {
+          // OR logic: hoofddomein IN specificPlatforms OR hoofddomein IS NULL
+          query = query.or(`hoofddomein.in.(${specificPlatforms.join(',')}),hoofddomein.is.null`)
+        } else if (hasNoneFilter) {
+          // Only "none" selected: companies without hoofddomein
+          query = query.is('hoofddomein', null)
+        } else if (specificPlatforms.length > 0) {
+          // Only specific platforms selected
+          query = query.in('hoofddomein', specificPlatforms)
         }
+
+        console.log("getCompanies: Applied hoofddomein filter directly on companies table")
+      }
+
+      // Handle subdomeinen filter - filter on companies that have specific subdomeinen (array column)
+      if (subdomeinenFilter && subdomeinenFilter !== 'all') {
+        const selectedSubdomeinen = subdomeinenFilter.split(',').map(p => p.trim()).filter(p => p)
+        console.log("getCompanies: Applying subdomeinen filter:", selectedSubdomeinen)
+
+        const hasNoneFilter = selectedSubdomeinen.includes('none')
+        const specificSubdomeinen = selectedSubdomeinen.filter(p => p !== 'none')
+
+        if (hasNoneFilter && specificSubdomeinen.length > 0) {
+          // OR logic: subdomeinen overlaps specificSubdomeinen OR subdomeinen IS NULL/empty
+          // Using .or() with array overlap operator (&&) for PostgreSQL arrays
+          query = query.or(`subdomeinen.ov.{${specificSubdomeinen.join(',')}},subdomeinen.is.null,subdomeinen.eq.{}`)
+        } else if (hasNoneFilter) {
+          // Only "none" selected: companies without subdomeinen
+          query = query.or('subdomeinen.is.null,subdomeinen.eq.{}')
+        } else if (specificSubdomeinen.length > 0) {
+          // Only specific subdomeinen selected - use overlap operator (&&) for PostgreSQL arrays
+          // This will match companies that have ANY of the selected subdomeinen
+          query = query.overlaps('subdomeinen', specificSubdomeinen)
+        }
+
+        console.log("getCompanies: Applied subdomeinen filter directly on companies table")
       }
 
       // Add pagination
@@ -630,48 +586,8 @@ export class SupabaseService {
         }
       }
 
-      // Get platforms data for company_platform mapping
-      const { data: platforms } = await this.client.from("platforms").select("*")
-      
-      // Get recent job postings for each company to determine their platform
-      const companyIdsForPlatforms = (data || []).map(c => c.id)
-      const companyPlatforms: Record<string, string | null> = {}
-      
-      if (companyIdsForPlatforms.length > 0) {
-        try {
-          // Get the most recent job posting for each company to determine platform
-          const { data: recentJobPostings } = await this.client
-            .from("job_postings")
-            .select("company_id, platform_id")
-            .in("company_id", companyIdsForPlatforms)
-            .not("company_id", "is", null)
-            .order("created_at", { ascending: false })
-          
-          // Create a map of company_id to platform_id (using the most recent posting)
-          const companyToPlatformMap = new Map<string, string>()
-          if (recentJobPostings) {
-            recentJobPostings.forEach((posting: any) => {
-              if (posting.company_id && !companyToPlatformMap.has(posting.company_id)) {
-                companyToPlatformMap.set(posting.company_id, posting.platform_id)
-              }
-            })
-          }
-          
-          // Map platform_id to regio_platform
-          companyIdsForPlatforms.forEach(companyId => {
-            const platformId = companyToPlatformMap.get(companyId)
-            if (platformId && platforms) {
-              const platform = platforms.find((p: any) => p.id === platformId)
-              companyPlatforms[companyId] = platform ? platform.regio_platform : null
-            } else {
-              companyPlatforms[companyId] = null
-            }
-          })
-        } catch (error) {
-          console.warn("getCompanies: Error fetching company platforms:", error)
-          // Continue without platform data
-        }
-      }
+      // Hoofddomein is now directly available on companies table (single source of truth)
+      // No need for job_postings → platforms lookup anymore
 
       // Transform data: combine all information
       const transformedData = (data || []).map((company: any) => {
@@ -686,7 +602,9 @@ export class SupabaseService {
           contact_count: contactCounts[company.id] || 0,
           source_name: source_name,
           source_id: company.source,
-          company_region: companyPlatforms[company.id] || null,
+          company_region: company.hoofddomein || null, // For table display
+          hoofddomein: company.hoofddomein || null, // For drawer component
+          subdomeinen: company.subdomeinen || [],
           enrichment_status: company.enrichment_status || null,
           pipedrive_synced: company.pipedrive_synced || false,
           pipedrive_synced_at: company.pipedrive_synced_at || null,
@@ -1244,9 +1162,18 @@ export class SupabaseService {
       )
     }
 
-    // Apply region filter (hoofddomein)
+    // Apply region filter (hoofddomein) - uses companies.hoofddomein via contacts_optimized view
     if (filters.hoofddomein && filters.hoofddomein.length > 0) {
-      query = query.in('company_region', filters.hoofddomein)
+      const hasNone = filters.hoofddomein.includes('none')
+      const specific = filters.hoofddomein.filter(h => h !== 'none')
+
+      if (hasNone && specific.length > 0) {
+        query = query.or(`hoofddomein.in.(${specific.join(',')}),hoofddomein.is.null`)
+      } else if (hasNone) {
+        query = query.is('hoofddomein', null)
+      } else {
+        query = query.in('hoofddomein', specific)
+      }
     }
 
     // Apply campaign filter

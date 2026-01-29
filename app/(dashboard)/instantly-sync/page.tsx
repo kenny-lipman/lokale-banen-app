@@ -13,6 +13,7 @@ import { SyncStatsCards } from "@/components/instantly-sync/sync-stats-cards"
 import { SyncEventsTable } from "@/components/instantly-sync/sync-events-table"
 import { SyncEventDrawer } from "@/components/instantly-sync/sync-event-drawer"
 import { BackfillTab } from "@/components/instantly-sync/backfill-tab"
+import { CampaignSyncTab } from "@/components/instantly-sync/campaign-sync-tab"
 import { useInstantlySync, EVENT_TYPE_CONFIG } from "@/hooks/use-instantly-sync"
 import { SyncEvent } from "@/app/api/instantly/sync-events/route"
 import { TablePagination } from "@/components/ui/table-filters"
@@ -25,6 +26,7 @@ import {
   ArrowLeftRight,
   Radio,
   Database,
+  Send,
 } from "lucide-react"
 
 export default function InstantlySyncPage() {
@@ -111,10 +113,14 @@ export default function InstantlySyncPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="live-events" className="flex items-center gap-2">
             <Radio className="h-4 w-4" />
             Live Events
+          </TabsTrigger>
+          <TabsTrigger value="campaigns" className="flex items-center gap-2">
+            <Send className="h-4 w-4" />
+            Campagnes
           </TabsTrigger>
           <TabsTrigger value="backfill" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
@@ -253,6 +259,11 @@ export default function InstantlySyncPage() {
             open={!!selectedEvent}
             onClose={() => setSelectedEvent(null)}
           />
+        </TabsContent>
+
+        {/* Campaigns Tab */}
+        <TabsContent value="campaigns">
+          <CampaignSyncTab />
         </TabsContent>
 
         {/* Backfill Tab */}

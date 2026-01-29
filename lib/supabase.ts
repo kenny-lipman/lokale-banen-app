@@ -354,6 +354,8 @@ export type Database = {
           enrichment_status: string | null
           geocoded_at: string | null
           geocoding_source: string | null
+          hoofddomein: string | null
+          hoofddomein_updated_at: string | null
           id: string
           indeed_url: string | null
           industries: string[] | null
@@ -402,6 +404,7 @@ export type Database = {
           state: string | null
           status: string | null
           street_address: string | null
+          subdomeinen: string[] | null
           website: string | null
           WeTarget: string | null
         }
@@ -426,6 +429,8 @@ export type Database = {
           enrichment_status?: string | null
           geocoded_at?: string | null
           geocoding_source?: string | null
+          hoofddomein?: string | null
+          hoofddomein_updated_at?: string | null
           id?: string
           indeed_url?: string | null
           industries?: string[] | null
@@ -474,6 +479,7 @@ export type Database = {
           state?: string | null
           status?: string | null
           street_address?: string | null
+          subdomeinen?: string[] | null
           website?: string | null
           WeTarget?: string | null
         }
@@ -498,6 +504,8 @@ export type Database = {
           enrichment_status?: string | null
           geocoded_at?: string | null
           geocoding_source?: string | null
+          hoofddomein?: string | null
+          hoofddomein_updated_at?: string | null
           id?: string
           indeed_url?: string | null
           industries?: string[] | null
@@ -546,6 +554,7 @@ export type Database = {
           state?: string | null
           status?: string | null
           street_address?: string | null
+          subdomeinen?: string[] | null
           website?: string | null
           WeTarget?: string | null
         }
@@ -1417,6 +1426,69 @@ export type Database = {
         }
         Relationships: []
       }
+      postcode_geocode_queue: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          processed_at: string | null
+          request_id: number | null
+          search_query: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          processed_at?: string | null
+          request_id?: number | null
+          search_query?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          processed_at?: string | null
+          request_id?: number | null
+          search_query?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postcode_geocode_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postcode_geocode_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "mv_campaign_eligible_companies"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      postcode_platform_lookup: {
+        Row: {
+          created_at: string | null
+          distance: number
+          postcode: string
+          regio_platform: string
+          source_postcode: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          distance?: number
+          postcode: string
+          regio_platform: string
+          source_postcode?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          distance?: number
+          postcode?: string
+          regio_platform?: string
+          source_postcode?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -1595,6 +1667,7 @@ export type Database = {
           enrichment_status: string | null
           first_name: string | null
           found_at: string | null
+          hoofddomein: string | null
           id: string | null
           instantly_id: string | null
           "Klant Status company field": string | null

@@ -46,6 +46,7 @@ import {
   type CustomLabelMap,
 } from './lead-status-determination';
 import { postcodeBackfillService } from './postcode-backfill.service';
+import { companyEnrichmentService } from './company-enrichment.service';
 
 // ============================================================================
 // TYPES
@@ -321,12 +322,9 @@ export class InstantlyPipedriveSyncService {
       // 2. Enrich lead data from database (contacts, companies, platforms)
       const enrichedLead = await this.enrichLeadData(lead);
 
-      // 2b. Override hoofddomein with campaignName (most reliable source)
-      // The campaignName IS the hoofddomein (e.g., "ZoetermeerseBanen", "HaagseBanen")
-      if (campaignName && !enrichedLead.hoofddomein) {
-        enrichedLead.hoofddomein = campaignName;
-      }
-      console.log(`📊 Lead enrichment: company=${enrichedLead.companyName}, hoofddomein=${enrichedLead.hoofddomein} (from campaign: ${campaignName})`);
+      // 2b. Hoofddomein comes from companies table (single source of truth via CompanyEnrichmentService)
+      // Campaign name is NOT used as hoofddomein override — it's historical context only
+      console.log(`📊 Lead enrichment: company=${enrichedLead.companyName}, hoofddomein=${enrichedLead.hoofddomein}, campaign=${campaignName}`);
 
       // 2c. Check if email is blocklisted (in our database or Instantly)
       // If blocklisted, we still sync to Pipedrive but force status to NIET_MEER_BENADEREN
@@ -344,12 +342,11 @@ export class InstantlyPipedriveSyncService {
           enrichedLead.postalCode = enrichment.postcode;
           console.log(`✅ On-demand geocoding successful: ${enrichment.postcode} (source: ${enrichment.source})`);
 
-          // Re-determine hoofddomein with new postal code
-          const newHoofddomein = await this.getRegioPlatformByPostalCode(enrichment.postcode);
-          if (newHoofddomein) {
-            enrichedLead.hoofddomein = newHoofddomein;
-            console.log(`📍 Updated hoofddomein to: ${newHoofddomein}`);
-          }
+          // Update hoofddomein + subdomeinen via CompanyEnrichmentService (single source of truth)
+          const platformResult = await companyEnrichmentService.updateCompanyPlatforms(enrichedLead.companyId!);
+          enrichedLead.hoofddomein = platformResult.hoofddomein || undefined;
+          enrichedLead.subdomeinen = platformResult.subdomeinen;
+          console.log(`📍 Updated platforms: hoofddomein=${platformResult.hoofddomein}, subdomeinen=[${platformResult.subdomeinen.join(', ')}]`);
         } else {
           // HARD BLOCK: Cannot sync to Pipedrive without postal code
           console.log(`🚫 Cannot sync to Pipedrive: No postal code for ${cleanEmail} (company: ${enrichedLead.companyName || enrichedLead.companyId})`);
@@ -359,8 +356,8 @@ export class InstantlyPipedriveSyncService {
           return result;
         }
       } else if (!enrichedLead.postalCode && !enrichedLead.companyId) {
-        // No company ID means we can't geocode - but still allow sync with campaign-based hoofddomein
-        console.log(`⚠️ No company ID for ${cleanEmail}, using campaign-based hoofddomein: ${enrichedLead.hoofddomein}`);
+        // No company ID means we can't geocode — allow sync but hoofddomein may be null
+        console.log(`⚠️ No company ID for ${cleanEmail}, hoofddomein: ${enrichedLead.hoofddomein || 'unknown'}`);
       }
 
       // 3. Determine the status to set (using centralized config)
@@ -474,18 +471,12 @@ export class InstantlyPipedriveSyncService {
           }
         }
 
-        // 7b. Set Subdomeinen if available (other platforms where company has job postings)
-        // Also add campaign platform as subdomein if different from hoofddomein
-        const subdomeinen = [...(enrichedLead.subdomeinen || [])];
-
-        // Extract platform from campaign name (campaigns are often named after platforms like "AlmeerseBanen")
-        const campaignPlatform = campaignName?.match(/^([A-Za-z]+Banen)/)?.[1];
-        if (campaignPlatform &&
-            campaignPlatform !== enrichedLead.hoofddomein &&
-            !subdomeinen.includes(campaignPlatform)) {
-          subdomeinen.push(campaignPlatform);
-          console.log(`📍 Added campaign platform ${campaignPlatform} as subdomein (hoofddomein: ${enrichedLead.hoofddomein})`);
-        }
+        // 7b. Set Subdomeinen if available (from companies table, single source of truth)
+        // IMPORTANT: Always filter out hoofddomein from subdomeinen to prevent duplicates
+        const rawSubdomeinen = enrichedLead.subdomeinen || [];
+        const subdomeinen = enrichedLead.hoofddomein
+          ? rawSubdomeinen.filter(s => s !== enrichedLead.hoofddomein)
+          : rawSubdomeinen;
 
         if (subdomeinen.length > 0) {
           const subdomeinResult = await this.pipedriveClient.setOrganizationSubdomein(
@@ -775,6 +766,9 @@ export class InstantlyPipedriveSyncService {
       dryRun?: boolean;
       batchSize?: number;
       skipExisting?: boolean;
+      maxLeads?: number;
+      timeLimitMs?: number;
+      timeLimitStartedAt?: number;
     } = {}
   ): Promise<{
     total: number;
@@ -782,12 +776,14 @@ export class InstantlyPipedriveSyncService {
     skipped: number;
     errors: number;
     results: SyncResult[];
+    stoppedEarly: boolean;
   }> {
-    const { dryRun = false, batchSize = 50, skipExisting = true } = options;
+    const { dryRun = false, batchSize = 50, skipExisting = true, maxLeads, timeLimitMs, timeLimitStartedAt } = options;
     const results: SyncResult[] = [];
     let synced = 0;
     let skipped = 0;
     let errors = 0;
+    let stoppedEarly = false;
 
     console.log(`🔄 Starting backfill for campaign ${campaignId}...`);
 
@@ -812,16 +808,28 @@ export class InstantlyPipedriveSyncService {
     const campaign = await this.instantlyClient.getCampaign(campaignId);
     const campaignName = campaign?.name || 'Unknown Campaign';
 
-    // Get all leads for the campaign
-    const leads = await this.instantlyClient.listLeadsByCampaign(campaignId);
-    console.log(`📊 Found ${leads.length} leads in campaign`);
+    // Get leads for the campaign (optionally limited)
+    const leads = await this.instantlyClient.listLeadsByCampaign(campaignId, {
+      ...(maxLeads ? { maxLeads } : {})
+    });
+    console.log(`📊 Found ${leads.length} leads in campaign${maxLeads ? ` (limited to ${maxLeads})` : ''}`);
 
     // Process leads in batches
-    for (let i = 0; i < leads.length; i += batchSize) {
+    for (let i = 0; i < leads.length && !stoppedEarly; i += batchSize) {
       const batch = leads.slice(i, i + batchSize);
       console.log(`Processing batch ${Math.floor(i / batchSize) + 1}...`);
 
       for (const lead of batch) {
+        // Check time limit before processing each lead
+        if (timeLimitMs && timeLimitStartedAt) {
+          const elapsed = Date.now() - timeLimitStartedAt;
+          if (elapsed >= timeLimitMs) {
+            stoppedEarly = true;
+            console.log(`⏱️ Time limit reached (${Math.round(elapsed / 1000)}s). Stopping early — ${synced} synced, ${skipped} skipped so far.`);
+            break;
+          }
+        }
+
         // Check for auto-reply if lead has replies
         let isAutoReply = false;
         if ((lead.email_reply_count ?? 0) > 0) {
@@ -929,14 +937,15 @@ export class InstantlyPipedriveSyncService {
       }
     }
 
-    console.log(`✅ Backfill complete: ${synced} synced, ${skipped} skipped, ${errors} errors`);
+    console.log(`${stoppedEarly ? '⏱️' : '✅'} Backfill ${stoppedEarly ? 'paused (time limit)' : 'complete'}: ${synced} synced, ${skipped} skipped, ${errors} errors`);
 
     return {
       total: leads.length,
       synced,
       skipped,
       errors,
-      results
+      results,
+      stoppedEarly,
     };
   }
 
@@ -1009,6 +1018,9 @@ export class InstantlyPipedriveSyncService {
       dryRun?: boolean;
       campaignIds?: string[];
       statusFilter?: string;
+      maxLeadsPerCampaign?: number;
+      timeLimitMs?: number;
+      timeLimitStartedAt?: number;
     } = {}
   ): Promise<{
     campaigns: number;
@@ -1016,11 +1028,13 @@ export class InstantlyPipedriveSyncService {
     synced: number;
     skipped: number;
     errors: number;
+    stoppedEarly: boolean;
   }> {
     let totalLeads = 0;
     let synced = 0;
     let skipped = 0;
     let errors = 0;
+    let stoppedEarly = false;
 
     // Get campaigns to process
     let campaigns = await this.instantlyClient.listCampaigns();
@@ -1036,17 +1050,35 @@ export class InstantlyPipedriveSyncService {
     console.log(`🔄 Starting backfill for ${campaigns.length} campaigns...`);
 
     for (const campaign of campaigns) {
+      // Check time limit before starting next campaign
+      if (options.timeLimitMs && options.timeLimitStartedAt) {
+        const elapsed = Date.now() - options.timeLimitStartedAt;
+        if (elapsed >= options.timeLimitMs) {
+          stoppedEarly = true;
+          console.log(`⏱️ Time limit reached before campaign ${campaign.name}. Stopping.`);
+          break;
+        }
+      }
+
       console.log(`\n📧 Processing campaign: ${campaign.name}`);
 
       const result = await this.backfillCampaign(campaign.id, {
         dryRun: options.dryRun,
-        skipExisting: true
+        skipExisting: true,
+        maxLeads: options.maxLeadsPerCampaign,
+        timeLimitMs: options.timeLimitMs,
+        timeLimitStartedAt: options.timeLimitStartedAt,
       });
 
       totalLeads += result.total;
       synced += result.synced;
       skipped += result.skipped;
       errors += result.errors;
+
+      if (result.stoppedEarly) {
+        stoppedEarly = true;
+        break;
+      }
     }
 
     return {
@@ -1054,7 +1086,8 @@ export class InstantlyPipedriveSyncService {
       totalLeads,
       synced,
       skipped,
-      errors
+      errors,
+      stoppedEarly,
     };
   }
 
@@ -1507,7 +1540,9 @@ export class InstantlyPipedriveSyncService {
             postal_code,
             kvk,
             industries,
-            apollo_employees_estimate
+            apollo_employees_estimate,
+            hoofddomein,
+            subdomeinen
           )
         `)
         .eq('email', cleanEmail)
@@ -1522,11 +1557,17 @@ export class InstantlyPipedriveSyncService {
       // Get the company data
       const company = contact.companies as any;
 
-      // Determine Hoofddomein and Subdomeinen using the new postal code based logic
-      const { hoofddomein, subdomeinen } = await this.determineCompanyDomeinen(
-        company?.id,
-        company?.postal_code
-      );
+      // Read Hoofddomein and Subdomeinen from companies table (single source of truth)
+      // If hoofddomein is null but postal_code exists, CompanyEnrichmentService will compute it
+      let hoofddomein: string | null = company?.hoofddomein || null;
+      let subdomeinen: string[] = company?.subdomeinen || [];
+
+      if (!hoofddomein && company?.id && company?.postal_code) {
+        // Auto-compute missing hoofddomein
+        const platforms = await companyEnrichmentService.getCompanyPlatforms(company.id);
+        hoofddomein = platforms.hoofddomein;
+        subdomeinen = platforms.subdomeinen;
+      }
 
       // Get job categories for branche fallback (if company doesn't have Apollo industries)
       let jobCategories: string[] = [];
@@ -3239,11 +3280,12 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
   // ============================================================================
 
   /**
+   * @deprecated Use companyEnrichmentService.getHoofddomeinByPostalCode() instead.
+   * This method is kept for backwards compatibility but all new code should use
+   * CompanyEnrichmentService (single source of truth for hoofddomein).
+   *
    * Look up the regio_platform (Hoofddomein) based on company's postal code.
    * Uses the cities table to map postal codes to platforms.
-   *
-   * @param postalCode - The company's postal code (e.g., "2991 XT" or "2991")
-   * @returns The regio_platform name (e.g., "BarendrechtseBanen") or null if not found
    */
   async getRegioPlatformByPostalCode(postalCode: string): Promise<string | null> {
     if (!postalCode) return null;
@@ -3319,11 +3361,11 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
   }
 
   /**
-   * Get all unique regio_platforms where a company has job postings.
-   * Used to determine Subdomeinen (platforms other than the headquarters' platform).
+   * @deprecated Use companyEnrichmentService.getSubdomeinen() instead.
+   * This method is kept for backwards compatibility but all new code should use
+   * CompanyEnrichmentService (single source of truth for subdomeinen).
    *
-   * @param companyId - The company UUID
-   * @returns Array of unique platform names
+   * Get all unique regio_platforms where a company has job postings.
    */
   async getAllCompanyPlatforms(companyId: string): Promise<string[]> {
     if (!companyId) return [];
@@ -3361,13 +3403,11 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
   }
 
   /**
-   * Determine Hoofddomein and Subdomeinen for a company.
-   * - Hoofddomein: Based on company's postal_code (headquarters location)
-   * - Subdomeinen: Other platforms where company has job postings
+   * @deprecated Use companyEnrichmentService.getCompanyPlatforms() instead.
+   * This method is kept for backwards compatibility but all new code should use
+   * CompanyEnrichmentService (single source of truth for hoofddomein + subdomeinen).
    *
-   * @param companyId - The company UUID
-   * @param postalCode - The company's postal code
-   * @returns Object with hoofddomein and subdomeinen
+   * Determine Hoofddomein and Subdomeinen for a company.
    */
   async determineCompanyDomeinen(
     companyId: string | undefined,
