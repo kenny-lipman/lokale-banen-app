@@ -13,43 +13,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
 import { instantlyClient } from '@/lib/instantly-client';
+import { validateDashboardRequest } from '@/lib/api-auth';
 
 // Allow up to 300s on Vercel Pro
 export const maxDuration = 300;
 
-// Secret for protecting the backfill endpoint
-const BACKFILL_SECRET = process.env.INSTANTLY_BACKFILL_SECRET || process.env.CRON_SECRET_KEY;
-
 // Stop processing after this many ms to leave room for response
 const PROCESSING_TIME_LIMIT_MS = 240_000;
-
-/**
- * Validate the request has proper authorization.
- * Accepts: secret key (cron/external) OR browser session cookie (dashboard).
- */
-function validateRequest(req: NextRequest): boolean {
-  // Allow browser/dashboard requests (have Supabase session cookie)
-  const cookies = req.headers.get('cookie') || '';
-  if (cookies.includes('sb-') && cookies.includes('auth-token')) {
-    return true;
-  }
-
-  if (!BACKFILL_SECRET) {
-    console.warn('⚠️ No INSTANTLY_BACKFILL_SECRET configured');
-    return true;
-  }
-
-  const url = new URL(req.url);
-  const secretParam = url.searchParams.get('secret');
-  const secretHeader = req.headers.get('x-backfill-secret');
-  const authHeader = req.headers.get('authorization');
-
-  return (
-    secretParam === BACKFILL_SECRET ||
-    secretHeader === BACKFILL_SECRET ||
-    authHeader === `Bearer ${BACKFILL_SECRET}`
-  );
-}
 
 interface BackfillRequestBody {
   campaign_ids?: string[];
@@ -80,8 +50,8 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // 1. Validate authorization
-    if (!validateRequest(req)) {
+    // 1. Validate authorization (accepts secret or Supabase session)
+    if (!(await validateDashboardRequest(req, { secretHeader: 'x-backfill-secret' }))) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Invalid or missing secret' },
         { status: 401 }
@@ -194,7 +164,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     // Validate authorization for listing
-    if (!validateRequest(req)) {
+    if (!(await validateDashboardRequest(req, { secretHeader: 'x-backfill-secret' }))) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Invalid or missing secret' },
         { status: 401 }

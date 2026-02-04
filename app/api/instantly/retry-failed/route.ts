@@ -6,29 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
-
-// Secret for protecting the retry endpoint
-const RETRY_SECRET = process.env.INSTANTLY_BACKFILL_SECRET || process.env.CRON_SECRET_KEY;
-
-/**
- * Validate the request has proper authorization
- */
-function validateRequest(req: NextRequest): boolean {
-  if (!RETRY_SECRET) {
-    return true; // Allow if no secret is configured
-  }
-
-  const url = new URL(req.url);
-  const secretParam = url.searchParams.get('secret');
-  const secretHeader = req.headers.get('x-retry-secret');
-  const authHeader = req.headers.get('authorization');
-
-  return (
-    secretParam === RETRY_SECRET ||
-    secretHeader === RETRY_SECRET ||
-    authHeader === `Bearer ${RETRY_SECRET}`
-  );
-}
+import { validateDashboardRequest } from '@/lib/api-auth';
 
 /**
  * POST /api/instantly/retry-failed
@@ -39,8 +17,8 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Validate authorization
-    if (!validateRequest(req)) {
+    // Validate authorization (accepts secret or Supabase session)
+    if (!(await validateDashboardRequest(req, { secretHeader: 'x-retry-secret' }))) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Invalid or missing secret' },
         { status: 401 }
@@ -84,8 +62,8 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    // Validate authorization
-    if (!validateRequest(req)) {
+    // Validate authorization (accepts secret or Supabase session)
+    if (!(await validateDashboardRequest(req, { secretHeader: 'x-retry-secret' }))) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Invalid or missing secret' },
         { status: 401 }

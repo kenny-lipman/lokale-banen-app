@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyBackfillService } from '@/lib/services/instantly-backfill.service';
+import { validateDashboardRequest } from '@/lib/api-auth';
 
 export const maxDuration = 300; // Allow up to 5 minutes for collection + processing
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate authorization (accepts secret or Supabase session)
+    if (!(await validateDashboardRequest(request))) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
 
     const { campaignIds, dryRun = false, batchSize = 25, delayMs = 200, maxLeadsToCollect } = body;
