@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withCronAuth } from '@/lib/auth-middleware';
+import { withCronMonitoring } from '@/lib/cron-monitor';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
 
 const DAYS_DELAY = 10; // Remove leads 10 days after campaign_completed
@@ -57,5 +57,6 @@ async function cleanupHandler(request: NextRequest) {
 }
 
 // Export secured handlers — GET for Vercel Cron, POST for manual triggers
-export const GET = withCronAuth(cleanupHandler);
-export const POST = withCronAuth(cleanupHandler);
+const monitored = withCronMonitoring('cleanup-instantly-leads', '/api/cron/cleanup-instantly-leads');
+export const GET = monitored(cleanupHandler);
+export const POST = monitored(cleanupHandler);

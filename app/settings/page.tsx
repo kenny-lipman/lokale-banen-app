@@ -2,6 +2,7 @@
 
 import { PlatformAutomationSection } from "@/components/PlatformAutomationSection"
 import { ActiveRegionsSection } from "@/components/ActiveRegionsSection"
+import { CronJobMonitor } from "@/components/CronJobMonitor"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 export default function SettingsPage() {
@@ -28,7 +29,7 @@ export default function SettingsPage() {
             }}
           />
           
-          {/* Future settings sections can be added here */}
+          <CronJobMonitor />
         </div>
       </ErrorBoundary>
     </div>

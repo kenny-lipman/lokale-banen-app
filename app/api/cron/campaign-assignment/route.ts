@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withCronAuth } from '@/lib/auth-middleware'
+import { withCronMonitoring } from '@/lib/cron-monitor'
 import { automaticCampaignAssignmentService } from '@/lib/services/automatic-campaign-assignment.service'
 
 async function campaignAssignmentHandler(request: NextRequest) {
@@ -114,5 +114,6 @@ async function campaignAssignmentHandler(request: NextRequest) {
 }
 
 // Export secured handlers — GET for Vercel Cron, POST for manual triggers with body params
-export const POST = withCronAuth(campaignAssignmentHandler)
-export const GET = withCronAuth(campaignAssignmentHandler)
+const monitored = withCronMonitoring('campaign-assignment', '/api/cron/campaign-assignment')
+export const POST = monitored(campaignAssignmentHandler)
+export const GET = monitored(campaignAssignmentHandler)

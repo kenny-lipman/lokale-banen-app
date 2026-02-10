@@ -15,7 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { withCronAuth } from '@/lib/auth-middleware'
+import { withCronMonitoring } from '@/lib/cron-monitor'
 import { postcodeBackfillService } from '@/lib/services/postcode-backfill.service'
 
 // Batch size - 50 companies per run to stay within Vercel timeout
@@ -99,5 +99,6 @@ async function healthCheckHandler(_request: NextRequest) {
 }
 
 // GET for Vercel Cron, POST for manual triggers
-export const POST = withCronAuth(postcodeBackfillHandler)
-export const GET = withCronAuth(postcodeBackfillHandler)
+const monitored = withCronMonitoring('postcode-backfill', '/api/cron/postcode-backfill')
+export const POST = monitored(postcodeBackfillHandler)
+export const GET = monitored(postcodeBackfillHandler)

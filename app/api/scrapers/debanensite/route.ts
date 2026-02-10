@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { withCronAuth } from "@/lib/auth-middleware";
+import { withCronMonitoring } from "@/lib/cron-monitor";
 import { scrapeDebanensite } from "@/lib/scrapers/debanensite/scraper";
 
 const DEFAULT_CONFIG = {
@@ -83,5 +83,6 @@ async function postHandler(request: NextRequest) {
 }
 
 // GET for Vercel Cron, POST for manual triggers with custom config
-export const GET = withCronAuth(getHandler);
-export const POST = withCronAuth(postHandler);
+const monitored = withCronMonitoring('debanensite-scraper', '/api/scrapers/debanensite');
+export const GET = monitored(getHandler);
+export const POST = monitored(postHandler);

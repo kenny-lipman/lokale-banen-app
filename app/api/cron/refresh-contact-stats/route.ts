@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { withCronAuth } from '@/lib/auth-middleware'
+import { withCronMonitoring } from '@/lib/cron-monitor'
 import { createClient } from '@supabase/supabase-js'
 
 async function refreshHandler(_request: NextRequest) {
@@ -47,5 +47,6 @@ async function refreshHandler(_request: NextRequest) {
 }
 
 // GET for Vercel Cron, POST for manual triggers
-export const GET = withCronAuth(refreshHandler)
-export const POST = withCronAuth(refreshHandler)
+const monitored = withCronMonitoring('refresh-contact-stats', '/api/cron/refresh-contact-stats')
+export const GET = monitored(refreshHandler)
+export const POST = monitored(refreshHandler)

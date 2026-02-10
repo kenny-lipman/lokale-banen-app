@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { withCronAuth } from "@/lib/auth-middleware";
+import { withCronMonitoring } from "@/lib/cron-monitor";
 import { scrapeBaanindebuurt } from "@/lib/scrapers/baanindebuurt/scraper";
 
 async function scrapeHandler(_request: NextRequest) {
@@ -44,5 +44,6 @@ async function scrapeHandler(_request: NextRequest) {
 }
 
 // GET for Vercel Cron, POST for manual triggers
-export const GET = withCronAuth(scrapeHandler);
-export const POST = withCronAuth(scrapeHandler);
+const monitored = withCronMonitoring('baanindebuurt-scraper', '/api/scrapers/baanindebuurt');
+export const GET = monitored(scrapeHandler);
+export const POST = monitored(scrapeHandler);
