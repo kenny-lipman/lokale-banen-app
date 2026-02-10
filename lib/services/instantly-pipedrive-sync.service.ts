@@ -773,15 +773,21 @@ export class InstantlyPipedriveSyncService {
   ): Promise<{
     total: number;
     synced: number;
-    skipped: number;
+    skipped: {
+      alreadySynced: number;
+      duringProcessing: number;
+      total: number;
+    };
     errors: number;
+    leadsProcessed: number;
     results: SyncResult[];
     stoppedEarly: boolean;
   }> {
     const { dryRun = false, batchSize = 50, skipExisting = true, maxLeads, timeLimitMs, timeLimitStartedAt } = options;
     const results: SyncResult[] = [];
     let synced = 0;
-    let skipped = 0;
+    let skippedAlreadySynced = 0;
+    let skippedDuringProcessing = 0;
     let errors = 0;
     let stoppedEarly = false;
 
@@ -837,7 +843,7 @@ export class InstantlyPipedriveSyncService {
       : leads;
 
     console.log(`📋 ${leadsToProcess.length} leads to process (${leads.length - leadsToProcess.length} pre-skipped)`);
-    skipped = leads.length - leadsToProcess.length;
+    skippedAlreadySynced = leads.length - leadsToProcess.length;
 
     // Process leads in batches
     for (let i = 0; i < leadsToProcess.length && !stoppedEarly; i += batchSize) {
@@ -850,7 +856,7 @@ export class InstantlyPipedriveSyncService {
           const elapsed = Date.now() - timeLimitStartedAt;
           if (elapsed >= timeLimitMs) {
             stoppedEarly = true;
-            console.log(`⏱️ Time limit reached (${Math.round(elapsed / 1000)}s). Stopping early — ${synced} synced, ${skipped} skipped so far.`);
+            console.log(`⏱️ Time limit reached (${Math.round(elapsed / 1000)}s). Stopping early — ${synced} synced, ${skippedAlreadySynced + skippedDuringProcessing} skipped so far.`);
             break;
           }
         }
@@ -929,7 +935,7 @@ export class InstantlyPipedriveSyncService {
         if (result.success) {
           synced++;
         } else if (result.skipped) {
-          skipped++;
+          skippedDuringProcessing++;
         } else {
           errors++;
         }
@@ -939,13 +945,19 @@ export class InstantlyPipedriveSyncService {
       }
     }
 
-    console.log(`${stoppedEarly ? '⏱️' : '✅'} Backfill ${stoppedEarly ? 'paused (time limit)' : 'complete'}: ${synced} synced, ${skipped} skipped, ${errors} errors`);
+    const totalSkipped = skippedAlreadySynced + skippedDuringProcessing;
+    console.log(`${stoppedEarly ? '⏱️' : '✅'} Backfill ${stoppedEarly ? 'paused (time limit)' : 'complete'}: ${synced} synced, ${totalSkipped} skipped (${skippedAlreadySynced} already synced, ${skippedDuringProcessing} during processing), ${errors} errors`);
 
     return {
       total: leads.length,
       synced,
-      skipped,
+      skipped: {
+        alreadySynced: skippedAlreadySynced,
+        duringProcessing: skippedDuringProcessing,
+        total: totalSkipped,
+      },
       errors,
+      leadsProcessed: leadsToProcess.length,
       results,
       stoppedEarly,
     };
@@ -1028,14 +1040,21 @@ export class InstantlyPipedriveSyncService {
     campaigns: number;
     totalLeads: number;
     synced: number;
-    skipped: number;
+    skipped: {
+      alreadySynced: number;
+      duringProcessing: number;
+      total: number;
+    };
     errors: number;
+    leadsProcessed: number;
     stoppedEarly: boolean;
   }> {
     let totalLeads = 0;
     let synced = 0;
-    let skipped = 0;
+    let skippedAlreadySynced = 0;
+    let skippedDuringProcessing = 0;
     let errors = 0;
+    let leadsProcessed = 0;
     let stoppedEarly = false;
 
     // Get campaigns to process
@@ -1074,8 +1093,10 @@ export class InstantlyPipedriveSyncService {
 
       totalLeads += result.total;
       synced += result.synced;
-      skipped += result.skipped;
+      skippedAlreadySynced += result.skipped.alreadySynced;
+      skippedDuringProcessing += result.skipped.duringProcessing;
       errors += result.errors;
+      leadsProcessed += result.leadsProcessed;
 
       if (result.stoppedEarly) {
         stoppedEarly = true;
@@ -1087,8 +1108,13 @@ export class InstantlyPipedriveSyncService {
       campaigns: campaigns.length,
       totalLeads,
       synced,
-      skipped,
+      skipped: {
+        alreadySynced: skippedAlreadySynced,
+        duringProcessing: skippedDuringProcessing,
+        total: skippedAlreadySynced + skippedDuringProcessing,
+      },
       errors,
+      leadsProcessed,
       stoppedEarly,
     };
   }

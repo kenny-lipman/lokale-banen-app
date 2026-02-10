@@ -110,8 +110,9 @@ export async function POST(req: NextRequest) {
         dryRun: dry_run,
         campaignId: campaign_ids[0],
         total: result.total,
+        leadsProcessed: result.leadsProcessed,
         synced: result.synced,
-        skipped: result.skipped,
+        skipped: result.skipped, // Now an object: { alreadySynced, duringProcessing, total }
         errors: result.errors,
         duration: `${duration}ms`,
         details: result.results.slice(0, 100) // Limit details to first 100
@@ -135,8 +136,9 @@ export async function POST(req: NextRequest) {
         dryRun: dry_run,
         campaigns: result.campaigns,
         totalLeads: result.totalLeads,
+        leadsProcessed: result.leadsProcessed,
         synced: result.synced,
-        skipped: result.skipped,
+        skipped: result.skipped, // Now an object: { alreadySynced, duringProcessing, total }
         errors: result.errors,
         duration: `${duration}ms`
       });

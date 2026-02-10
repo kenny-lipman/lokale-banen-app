@@ -29,6 +29,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 import {
   RefreshCw,
@@ -45,6 +51,7 @@ import {
   Eye,
   Square,
   Clock,
+  Info,
 } from "lucide-react"
 
 interface CampaignWithStats {
@@ -60,6 +67,12 @@ interface CampaignWithStats {
   completedCount: number
 }
 
+interface SkippedBreakdown {
+  alreadySynced: number
+  duringProcessing: number
+  total: number
+}
+
 interface ChunkResult {
   success: boolean
   done: boolean
@@ -67,8 +80,9 @@ interface ChunkResult {
   campaigns?: number
   total?: number
   totalLeads?: number
+  leadsProcessed?: number
   synced?: number
-  skipped?: number
+  skipped?: SkippedBreakdown | number // Support both old and new format
   errors?: number
   dryRun?: boolean
   duration?: string
@@ -76,9 +90,10 @@ interface ChunkResult {
 
 interface SyncProgress {
   totalSynced: number
-  totalSkipped: number
+  skipped: SkippedBreakdown
   totalErrors: number
   totalLeads: number
+  leadsProcessed: number
   chunksCompleted: number
   done: boolean
   startedAt: number
@@ -241,6 +256,16 @@ export function CampaignSyncTab() {
     return () => stopTimer()
   }, [stopTimer])
 
+  // Helper to extract skip breakdown from response (supports old and new format)
+  const extractSkipped = (data: ChunkResult): SkippedBreakdown => {
+    if (typeof data.skipped === 'object' && data.skipped !== null) {
+      return data.skipped as SkippedBreakdown
+    }
+    // Legacy format: treat all as alreadySynced
+    const total = (data.skipped as number) ?? 0
+    return { alreadySynced: total, duringProcessing: 0, total }
+  }
+
   // Chunked sync handler
   const handleSync = useCallback(async () => {
     if (selectedIds.size === 0) return
@@ -251,9 +276,10 @@ export function CampaignSyncTab() {
     const startedAt = Date.now()
     const syncProgress: SyncProgress = {
       totalSynced: 0,
-      totalSkipped: 0,
+      skipped: { alreadySynced: 0, duringProcessing: 0, total: 0 },
       totalErrors: 0,
       totalLeads: 0,
+      leadsProcessed: 0,
       chunksCompleted: 0,
       done: false,
       startedAt,
@@ -285,11 +311,17 @@ export function CampaignSyncTab() {
           throw new Error((data as any).error || (data as any).message || "Sync failed")
         }
 
+        // Extract skip breakdown
+        const chunkSkipped = extractSkipped(data)
+
         // Accumulate progress
         syncProgress.totalSynced += data.synced ?? 0
-        syncProgress.totalSkipped += data.skipped ?? 0
+        syncProgress.skipped.alreadySynced += chunkSkipped.alreadySynced
+        syncProgress.skipped.duringProcessing += chunkSkipped.duringProcessing
+        syncProgress.skipped.total += chunkSkipped.total
         syncProgress.totalErrors += data.errors ?? 0
         syncProgress.totalLeads = data.total ?? data.totalLeads ?? syncProgress.totalLeads
+        syncProgress.leadsProcessed += data.leadsProcessed ?? 0
         syncProgress.chunksCompleted += 1
         isDone = data.done
 
@@ -298,7 +330,7 @@ export function CampaignSyncTab() {
         // If not done, the backend stopped early due to time limit.
         // On the next request, skipExisting will quickly skip already-synced leads.
         if (!isDone && !cancelRef.current) {
-          console.log(`Chunk ${syncProgress.chunksCompleted} done: ${data.synced} synced, ${data.skipped} skipped. Continuing...`)
+          console.log(`Chunk ${syncProgress.chunksCompleted} done: ${data.synced} synced, ${chunkSkipped.total} skipped. Continuing...`)
         }
       }
 
@@ -314,7 +346,7 @@ export function CampaignSyncTab() {
         setProgress({ ...syncProgress })
         toast({
           title: dryRun ? "Dry run voltooid" : "Sync voltooid",
-          description: `${syncProgress.totalSynced} leads gesynchroniseerd, ${syncProgress.totalSkipped} overgeslagen, ${syncProgress.totalErrors} fouten (${formatDuration(Date.now() - syncProgress.startedAt)})`,
+          description: `${syncProgress.totalSynced} leads gesynchroniseerd, ${syncProgress.skipped.total} overgeslagen, ${syncProgress.totalErrors} fouten (${formatDuration(Date.now() - syncProgress.startedAt)})`,
         })
       }
     } catch (err) {
@@ -345,7 +377,7 @@ export function CampaignSyncTab() {
 
   // Progress percentage (estimate based on synced + skipped vs total)
   const progressPercent = progress && progress.totalLeads > 0
-    ? Math.min(100, Math.round(((progress.totalSynced + progress.totalSkipped + progress.totalErrors) / progress.totalLeads) * 100))
+    ? Math.min(100, Math.round(((progress.totalSynced + progress.skipped.total + progress.totalErrors) / progress.totalLeads) * 100))
     : 0
 
   return (
@@ -546,7 +578,19 @@ export function CampaignSyncTab() {
             <div className="flex items-center gap-6 flex-wrap">
               {/* Max leads per campaign */}
               <div className="flex items-center gap-2">
-                <Label htmlFor="max-leads-sync">Max leads per campagne:</Label>
+                <Label htmlFor="max-leads-sync" className="flex items-center gap-1">
+                  Max leads per campagne:
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Dit is het maximum aantal leads dat per campagne wordt opgehaald van Instantly. Leads die al eerder gesynchroniseerd zijn worden snel overgeslagen.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
                 <Input
                   id="max-leads-sync"
                   type="number"
@@ -685,8 +729,18 @@ export function CampaignSyncTab() {
                   Overgeslagen
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-yellow-600">
-                  {progress.totalSkipped.toLocaleString()}
+                  {progress.skipped.total.toLocaleString()}
                 </p>
+                {progress.skipped.total > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {progress.skipped.alreadySynced > 0 && (
+                      <span className="block">{progress.skipped.alreadySynced.toLocaleString()} al gesynchroniseerd</span>
+                    )}
+                    {progress.skipped.duringProcessing > 0 && (
+                      <span className="block">{progress.skipped.duringProcessing.toLocaleString()} ongeldige data</span>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -752,8 +806,18 @@ export function CampaignSyncTab() {
                   Overgeslagen
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-yellow-600">
-                  {progress.totalSkipped.toLocaleString()}
+                  {progress.skipped.total.toLocaleString()}
                 </p>
+                {progress.skipped.total > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {progress.skipped.alreadySynced > 0 && (
+                      <span className="block">{progress.skipped.alreadySynced.toLocaleString()} al gesynchroniseerd</span>
+                    )}
+                    {progress.skipped.duringProcessing > 0 && (
+                      <span className="block">{progress.skipped.duringProcessing.toLocaleString()} ongeldige data</span>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
