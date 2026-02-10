@@ -43,7 +43,7 @@ async function platformsHandler(request: NextRequest, authResult: AuthResult) {
       // Return all platforms with automation and active status
       const { data: platforms, error } = await supabase
         .from('platforms')
-        .select('id, regio_platform, central_place, central_postcode, automation_enabled, is_active')
+        .select('id, regio_platform, central_place, central_postcode, automation_enabled, is_active, instantly_campaign_id')
         .order('regio_platform', { ascending: true })
 
       if (error) {

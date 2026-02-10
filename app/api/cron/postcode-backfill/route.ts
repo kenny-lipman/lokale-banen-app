@@ -98,8 +98,6 @@ async function healthCheckHandler(_request: NextRequest) {
   }
 }
 
-// POST triggers the backfill batch
+// GET for Vercel Cron, POST for manual triggers
 export const POST = withCronAuth(postcodeBackfillHandler)
-
-// GET returns health check and statistics
-export const GET = withCronAuth(healthCheckHandler)
+export const GET = withCronAuth(postcodeBackfillHandler)

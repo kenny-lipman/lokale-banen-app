@@ -113,15 +113,6 @@ async function campaignAssignmentHandler(request: NextRequest) {
   }
 }
 
-// Health check endpoint
-async function healthHandler(_request: NextRequest) {
-  return NextResponse.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    service: 'campaign-assignment-cron'
-  })
-}
-
-// Export secured handlers
+// Export secured handlers — GET for Vercel Cron, POST for manual triggers with body params
 export const POST = withCronAuth(campaignAssignmentHandler)
-export const GET = withCronAuth(healthHandler)
+export const GET = withCronAuth(campaignAssignmentHandler)

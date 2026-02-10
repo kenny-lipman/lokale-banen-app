@@ -119,7 +119,7 @@ export function validateApiKey(req: NextRequest, expectedKey: string): boolean {
  * CRON job authentication using secret key
  */
 export function requireCronAuth(req: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET_KEY
+  const cronSecret = process.env.CRON_SECRET || process.env.CRON_SECRET_KEY
   if (!cronSecret) {
     throw new AuthenticationError('CRON secret key not configured')
   }

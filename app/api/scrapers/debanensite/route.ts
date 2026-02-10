@@ -1,55 +1,26 @@
 /**
  * API Route for debanensite.nl scraper
  *
- * POST /api/scrapers/debanensite - Trigger scraper
- * GET /api/scrapers/debanensite - Get last run status
+ * GET /api/scrapers/debanensite - Trigger scraper with defaults (Vercel Cron)
+ * POST /api/scrapers/debanensite - Trigger scraper with custom config (manual)
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { withCronAuth } from "@/lib/auth-middleware";
 import { scrapeDebanensite } from "@/lib/scrapers/debanensite/scraper";
-import { createClient } from "@supabase/supabase-js";
 
-const JOB_SOURCE_NAME = "De Banensite";
+const DEFAULT_CONFIG = {
+  startPage: 1,
+  maxPagesPerRun: 50,
+  mode: "incremental" as const,
+  delayBetweenPages: 500,
+  delayBetweenAiCalls: 100,
+};
 
-/**
- * Auth check - allows CRON_SECRET or development mode
- */
-function isAuthorized(request: NextRequest): boolean {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET_KEY;
-
-  // Allow if CRON_SECRET matches
-  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-    return true;
-  }
-
-  // Allow from localhost in development
-  if (process.env.NODE_ENV === "development") {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * POST - Trigger the scraper
- */
-export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+async function scrapeWithConfig(config: typeof DEFAULT_CONFIG) {
+  const startTime = Date.now();
 
   try {
-    // Parse optional config from body
-    const body = await request.json().catch(() => ({}));
-    const config = {
-      startPage: body.startPage || 1,
-      maxPagesPerRun: body.maxPagesPerRun || 50,
-      mode: body.mode || "incremental",
-      delayBetweenPages: body.delayBetweenPages || 500,
-      delayBetweenAiCalls: body.delayBetweenAiCalls || 100,
-    };
-
     console.log("De Banensite scraper triggered via API", config);
 
     const result = await scrapeDebanensite(config);
@@ -70,7 +41,8 @@ export async function POST(request: NextRequest) {
         contactsCreated: result.contactsCreated,
         resumeFromPage: result.resumeFromPage,
       },
-      errorDetails: result.errorDetails.slice(0, 10), // Limit error details
+      errorDetails: result.errorDetails.slice(0, 10),
+      duration: Date.now() - startTime,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -79,6 +51,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
+        duration: Date.now() - startTime,
         timestamp: new Date().toISOString(),
       },
       { status: 500 }
@@ -87,73 +60,28 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET - Get last scrape info
+ * GET - Trigger scraper with default config (Vercel Cron)
  */
-export async function GET(request: NextRequest) {
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get job source
-    const { data: source } = await supabase
-      .from("job_sources")
-      .select("id, name, active")
-      .eq("name", JOB_SOURCE_NAME)
-      .single();
-
-    if (!source) {
-      return NextResponse.json({
-        source: null,
-        message: `Job source '${JOB_SOURCE_NAME}' not yet created. Run POST to create it.`,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Get count and last scraped
-    const { count } = await supabase
-      .from("job_postings")
-      .select("*", { count: "exact", head: true })
-      .eq("source_id", source.id);
-
-    const { data: lastJob } = await supabase
-      .from("job_postings")
-      .select("scraped_at, title")
-      .eq("source_id", source.id)
-      .order("scraped_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    // Get company count for this source
-    const { count: companyCount } = await supabase
-      .from("companies")
-      .select("*", { count: "exact", head: true })
-      .eq("source", source.id);
-
-    return NextResponse.json({
-      source: {
-        id: source.id,
-        name: source.name,
-        active: source.active,
-      },
-      stats: {
-        totalVacatures: count || 0,
-        totalCompanies: companyCount || 0,
-        lastScrapedAt: lastJob?.scraped_at || null,
-        lastVacatureTitle: lastJob?.title || null,
-      },
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("GET scraper status error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
-  }
+async function getHandler(_request: NextRequest) {
+  return scrapeWithConfig(DEFAULT_CONFIG);
 }
+
+/**
+ * POST - Trigger scraper with custom config (manual triggers)
+ */
+async function postHandler(request: NextRequest) {
+  const body = await request.json().catch(() => ({}));
+  const config = {
+    startPage: body.startPage || DEFAULT_CONFIG.startPage,
+    maxPagesPerRun: body.maxPagesPerRun || DEFAULT_CONFIG.maxPagesPerRun,
+    mode: body.mode || DEFAULT_CONFIG.mode,
+    delayBetweenPages: body.delayBetweenPages || DEFAULT_CONFIG.delayBetweenPages,
+    delayBetweenAiCalls: body.delayBetweenAiCalls || DEFAULT_CONFIG.delayBetweenAiCalls,
+  };
+
+  return scrapeWithConfig(config);
+}
+
+// GET for Vercel Cron, POST for manual triggers with custom config
+export const GET = withCronAuth(getHandler);
+export const POST = withCronAuth(postHandler);

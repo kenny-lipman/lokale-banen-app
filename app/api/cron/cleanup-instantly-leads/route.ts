@@ -56,16 +56,6 @@ async function cleanupHandler(request: NextRequest) {
   }
 }
 
-// Health check endpoint
-async function healthHandler(_request: NextRequest) {
-  return NextResponse.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    service: 'cleanup-instantly-leads',
-    daysDelay: DAYS_DELAY
-  });
-}
-
-// Export secured handlers
-export const GET = withCronAuth(healthHandler);
+// Export secured handlers — GET for Vercel Cron, POST for manual triggers
+export const GET = withCronAuth(cleanupHandler);
 export const POST = withCronAuth(cleanupHandler);
