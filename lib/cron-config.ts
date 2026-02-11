@@ -9,8 +9,8 @@
 export const CRON_JOBS_CONFIG: Record<string, { path: string; schedule: string; description: string }> = {
   'campaign-assignment': {
     path: '/api/cron/campaign-assignment',
-    schedule: '0 7 * * *',
-    description: 'Assigns companies to Instantly campaigns',
+    schedule: '0 7,13,19 * * *',
+    description: 'Assigns companies to Instantly campaigns (3x/day)',
   },
   'cleanup-instantly-leads': {
     path: '/api/cron/cleanup-instantly-leads',
@@ -51,7 +51,7 @@ export const CRON_JOBS_CONFIG: Record<string, { path: string; schedule: string; 
 
 /** Expected run interval per job in ms — used by watchdog and dashboard for overdue detection */
 export const EXPECTED_INTERVAL_MS: Record<string, number> = {
-  'campaign-assignment': 24 * 3_600_000,
+  'campaign-assignment': 6 * 3_600_000,
   'cleanup-instantly-leads': 24 * 3_600_000,
   'postcode-backfill': 2 * 60_000,
   'refresh-campaign-eligible': 24 * 3_600_000,

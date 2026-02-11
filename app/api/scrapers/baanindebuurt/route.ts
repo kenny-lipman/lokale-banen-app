@@ -15,6 +15,16 @@ async function scrapeHandler(_request: NextRequest) {
 
     const result = await scrapeBaanindebuurt();
 
+    // Collect per-PDF error details for debugging
+    const errorDetails = result.details
+      .filter((d) => d.error && !d.error.includes("Already exists"))
+      .map((d) => ({
+        pdfId: d.pdfId,
+        pdfUrl: d.pdfUrl,
+        error: d.error,
+        textLength: d.rawText?.length ?? 0,
+      }));
+
     return NextResponse.json({
       success: result.success,
       message: result.success ? "Scraping completed" : "Scraping failed",
@@ -27,6 +37,7 @@ async function scrapeHandler(_request: NextRequest) {
         companiesCreated: result.companiesCreated,
         companiesUpdated: result.companiesUpdated,
         contactsCreated: result.contactsCreated,
+        errorDetails: errorDetails.length > 0 ? errorDetails : undefined,
       },
       timestamp: new Date().toISOString(),
     });
