@@ -21,7 +21,7 @@ import {
   type SupabaseClient,
 } from "../shared";
 import { parseListPage, generateVacancyUrl, generateSlug } from "./parser";
-import { extractDataWithAI } from "./ai-parser";
+import { extractDataWithAI, getEmptyResult } from "./ai-parser";
 import { fetchDetailPage } from "./detail-parser";
 import type {
   ScraperConfig,
@@ -49,7 +49,7 @@ const DEFAULT_CONFIG: ScraperConfig = {
 /**
  * Fetch a page with retry logic
  */
-async function fetchWithRetry(url: string, retries = 3): Promise<string> {
+export async function fetchWithRetry(url: string, retries = 3): Promise<string> {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, {
@@ -191,9 +191,10 @@ async function processVacancy(
       detailData = await fetchDetailPage(url);
     }
 
-    // Extract extra data with AI
-    await delay(config.delayBetweenAiCalls);
-    const aiData = await extractDataWithAI(descriptionPlain);
+    // Extract extra data with AI (or skip if configured)
+    const aiData = config.skipAI
+      ? getEmptyResult()
+      : (await delay(config.delayBetweenAiCalls), await extractDataWithAI(descriptionPlain));
 
     // Generate computed fields
     const normalizedCompanyName = generateNormalizedName(companyName);
@@ -319,10 +320,22 @@ export async function scrapeDebanensite(
     const sourceId = await getOrCreateJobSource(supabase, JOB_SOURCE_NAME);
 
     let totalPages = 1;
+    let consecutiveSkips = 0;
+    const startTime = Date.now();
+    const consecutiveSkipLimit = cfg.consecutiveSkipLimit ?? 0;
+    const timeoutMs = cfg.timeoutMs ?? 0;
 
     // Process pages
     for (let page = cfg.startPage; page < cfg.startPage + cfg.maxPagesPerRun; page++) {
       if (page > totalPages && totalPages > 1) break;
+
+      // Timeout check: exit if less than 20s remaining
+      if (timeoutMs > 0 && Date.now() - startTime > timeoutMs - 20_000) {
+        console.log(`Timeout approaching (${Math.round((Date.now() - startTime) / 1000)}s elapsed), stopping gracefully`);
+        result.earlyExitReason = "timeout";
+        result.resumeFromPage = page;
+        break;
+      }
 
       const url = page === 1 ? VACATURES_URL : `${VACATURES_URL}?page=${page}`;
       console.log(`Fetching page ${page}...`);
@@ -339,6 +352,7 @@ export async function scrapeDebanensite(
       result.totalFound += pageInfo.jobPostings.length;
 
       // Process each vacancy on the page
+      let pageExited = false;
       for (const job of pageInfo.jobPostings) {
         console.log(`  Processing: ${job._source?.title || job._id}`);
         const vacancyResult = await processVacancy(supabase, job, sourceId, cfg);
@@ -347,8 +361,19 @@ export async function scrapeDebanensite(
         if (vacancyResult.error) {
           if (vacancyResult.error.includes("Already exists")) {
             result.skipped++;
+            consecutiveSkips++;
+
+            // Early exit on consecutive skips
+            if (consecutiveSkipLimit > 0 && consecutiveSkips >= consecutiveSkipLimit) {
+              console.log(`Hit ${consecutiveSkips} consecutive skips, stopping early`);
+              result.earlyExitReason = "consecutive_skips";
+              result.resumeFromPage = page + 1;
+              pageExited = true;
+              break;
+            }
           } else {
             result.errors++;
+            consecutiveSkips = 0; // Reset on non-skip errors
             result.errorDetails.push({
               uuid: vacancyResult.uuid,
               title: vacancyResult.title,
@@ -358,6 +383,7 @@ export async function scrapeDebanensite(
           }
         } else {
           result.inserted++;
+          consecutiveSkips = 0; // Reset on successful insert
           if (vacancyResult.companyCreated) result.companiesCreated++;
           if (vacancyResult.companyUpdated) result.companiesUpdated++;
           if (vacancyResult.contactCreated) result.contactsCreated++;
@@ -366,19 +392,24 @@ export async function scrapeDebanensite(
         }
       }
 
+      if (pageExited) break;
+
       // Delay between pages
       await delay(cfg.delayBetweenPages);
     }
 
-    // Set resume point for next run
-    const nextPage = cfg.startPage + cfg.maxPagesPerRun;
-    if (nextPage <= totalPages) {
-      result.resumeFromPage = nextPage;
+    // Set resume point for next run (only if not already set by early exit)
+    if (!result.resumeFromPage) {
+      const nextPage = cfg.startPage + result.pagesProcessed;
+      if (nextPage <= totalPages) {
+        result.resumeFromPage = nextPage;
+      }
     }
 
     result.success = true;
+    const exitInfo = result.earlyExitReason ? ` (early exit: ${result.earlyExitReason})` : "";
     console.log(
-      `Scraping complete: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors} errors`
+      `Scraping complete${exitInfo}: ${result.inserted} inserted, ${result.skipped} skipped, ${result.errors} errors`
     );
     console.log(
       `Companies: ${result.companiesCreated} created, ${result.companiesUpdated} updated | Contacts: ${result.contactsCreated} created, ${result.contactsUpdated} updated`

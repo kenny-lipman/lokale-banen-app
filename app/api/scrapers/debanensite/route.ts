@@ -11,12 +11,14 @@ import { scrapeDebanensite } from "@/lib/scrapers/debanensite/scraper";
 
 const DEFAULT_CONFIG = {
   startPage: 1,
-  maxPagesPerRun: 50,
+  maxPagesPerRun: 100,
   mode: "incremental" as const,
   delayBetweenPages: 500,
   delayBetweenAiCalls: 100,
   fetchDetailPages: true,
   delayBetweenDetailFetches: 200,
+  consecutiveSkipLimit: 30,
+  timeoutMs: 280_000,
 };
 
 async function scrapeWithConfig(config: typeof DEFAULT_CONFIG) {
@@ -42,6 +44,7 @@ async function scrapeWithConfig(config: typeof DEFAULT_CONFIG) {
         companiesUpdated: result.companiesUpdated,
         contactsCreated: result.contactsCreated,
         resumeFromPage: result.resumeFromPage,
+        earlyExitReason: result.earlyExitReason,
       },
       errorDetails: result.errorDetails.slice(0, 10),
       duration: Date.now() - startTime,
@@ -81,6 +84,9 @@ async function postHandler(request: NextRequest) {
     delayBetweenAiCalls: body.delayBetweenAiCalls || DEFAULT_CONFIG.delayBetweenAiCalls,
     fetchDetailPages: body.fetchDetailPages ?? DEFAULT_CONFIG.fetchDetailPages,
     delayBetweenDetailFetches: body.delayBetweenDetailFetches || DEFAULT_CONFIG.delayBetweenDetailFetches,
+    consecutiveSkipLimit: body.consecutiveSkipLimit ?? DEFAULT_CONFIG.consecutiveSkipLimit,
+    timeoutMs: body.timeoutMs ?? DEFAULT_CONFIG.timeoutMs,
+    skipAI: body.skipAI ?? false,
   };
 
   return scrapeWithConfig(config);

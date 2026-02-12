@@ -16,6 +16,7 @@
     "app/api/cron/cleanup-instantly-leads/route.ts": { "maxDuration": 300 },
     "app/api/cron/postcode-backfill/route.ts": { "maxDuration": 300 },
     "app/api/cron/refresh-campaign-eligible/route.ts": { "maxDuration": 300 },
-    "app/api/cron/refresh-contact-stats/route.ts": { "maxDuration": 300 }
+    "app/api/cron/refresh-contact-stats/route.ts": { "maxDuration": 300 },
+    "app/api/scrapers/debanensite/backfill/route.ts": { "maxDuration": 300 }
   }
 }

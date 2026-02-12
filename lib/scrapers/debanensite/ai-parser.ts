@@ -48,7 +48,7 @@ interface MistralResponse {
 /**
  * Default empty result when AI parsing fails or is skipped
  */
-function getEmptyResult(): AiExtractedData {
+export function getEmptyResult(): AiExtractedData {
   return {
     salary: null,
     working_hours: null,

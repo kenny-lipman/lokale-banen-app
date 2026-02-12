@@ -147,6 +147,9 @@ export interface ScraperConfig {
   delayBetweenAiCalls: number;
   fetchDetailPages: boolean;
   delayBetweenDetailFetches: number;
+  skipAI?: boolean;
+  consecutiveSkipLimit?: number;
+  timeoutMs?: number;
 }
 
 /**
@@ -180,4 +183,5 @@ export interface ScrapeResult {
   contactsUpdated: number;
   errorDetails: Array<{ uuid: string; title: string; error: string }>;
   resumeFromPage?: number;
+  earlyExitReason?: string;
 }
