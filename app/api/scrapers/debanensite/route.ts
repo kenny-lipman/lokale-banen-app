@@ -15,6 +15,8 @@ const DEFAULT_CONFIG = {
   mode: "incremental" as const,
   delayBetweenPages: 500,
   delayBetweenAiCalls: 100,
+  fetchDetailPages: true,
+  delayBetweenDetailFetches: 200,
 };
 
 async function scrapeWithConfig(config: typeof DEFAULT_CONFIG) {
@@ -77,6 +79,8 @@ async function postHandler(request: NextRequest) {
     mode: body.mode || DEFAULT_CONFIG.mode,
     delayBetweenPages: body.delayBetweenPages || DEFAULT_CONFIG.delayBetweenPages,
     delayBetweenAiCalls: body.delayBetweenAiCalls || DEFAULT_CONFIG.delayBetweenAiCalls,
+    fetchDetailPages: body.fetchDetailPages ?? DEFAULT_CONFIG.fetchDetailPages,
+    delayBetweenDetailFetches: body.delayBetweenDetailFetches || DEFAULT_CONFIG.delayBetweenDetailFetches,
   };
 
   return scrapeWithConfig(config);

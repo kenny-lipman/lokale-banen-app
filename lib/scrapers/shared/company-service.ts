@@ -26,7 +26,7 @@ export async function findOrCreateCompany(
   // Try normalized_name match first (more reliable than ilike)
   const { data: existing } = await supabase
     .from("companies")
-    .select("id, website, phone, city, location, street_address, postal_code")
+    .select("id, website, phone, city, location, street_address, postal_code, logo_url")
     .eq("normalized_name", normalizedName)
     .single();
 
@@ -42,6 +42,8 @@ export async function findOrCreateCompany(
       updates.street_address = companyData.street_address;
     if (companyData.postal_code && !existing.postal_code)
       updates.postal_code = companyData.postal_code;
+    if (companyData.logo_url && !existing.logo_url)
+      updates.logo_url = companyData.logo_url;
 
     const wasUpdated = Object.keys(updates).length > 0;
     if (wasUpdated) {
@@ -63,6 +65,7 @@ export async function findOrCreateCompany(
       postal_code: companyData.postal_code || null,
       website: companyData.website || null,
       phone: companyData.phone || null,
+      logo_url: companyData.logo_url || null,
       source: sourceId,
       status: "Prospect",
       enrichment_status: "pending",

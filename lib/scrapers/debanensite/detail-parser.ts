@@ -17,6 +17,10 @@ export function parseDetailPage(html: string): DetailPageData {
     workField: null,
     educationLevel: null,
     companyAddress: null,
+    salaryMin: null,
+    salaryMax: null,
+    salaryPeriod: null,
+    logoUrl: null,
   };
 
   try {
@@ -41,10 +45,10 @@ export function parseDetailPage(html: string): DetailPageData {
       return emptyResult;
     }
 
-    // Extract company address
+    // Extract company address - primary: jobLocation.address, fallback: hiringOrganization.address
     let companyAddress: DetailPageData["companyAddress"] = null;
-    if (jobPosting.hiringOrganization?.address) {
-      const addr = jobPosting.hiringOrganization.address;
+    const addr = jobPosting.jobLocation?.address || jobPosting.hiringOrganization?.address;
+    if (addr) {
       companyAddress = {
         streetAddress: addr.streetAddress || null,
         postalCode: addr.postalCode || null,
@@ -52,15 +56,31 @@ export function parseDetailPage(html: string): DetailPageData {
       };
     }
 
-    // Extract education level - can be string or object
+    // Extract education level - primary: qualifications.educationalLevel, fallback: educationRequirements
     let educationLevel: string | null = null;
-    if (jobPosting.educationRequirements) {
+    if (jobPosting.qualifications?.educationalLevel) {
+      educationLevel = jobPosting.qualifications.educationalLevel;
+    } else if (jobPosting.educationRequirements) {
       if (typeof jobPosting.educationRequirements === "string") {
         educationLevel = jobPosting.educationRequirements;
       } else if (jobPosting.educationRequirements.credentialCategory) {
         educationLevel = jobPosting.educationRequirements.credentialCategory;
       }
     }
+
+    // Extract salary from baseSalary
+    let salaryMin: number | null = null;
+    let salaryMax: number | null = null;
+    let salaryPeriod: string | null = null;
+    if (jobPosting.baseSalary?.value) {
+      const salaryValue = jobPosting.baseSalary.value;
+      salaryMin = salaryValue.minValue ?? salaryValue.value ?? null;
+      salaryMax = salaryValue.maxValue ?? null;
+      salaryPeriod = salaryValue.unitText || jobPosting.baseSalary.unitText || null;
+    }
+
+    // Extract company logo
+    const logoUrl = jobPosting.hiringOrganization?.logo || null;
 
     return {
       datePosted: jobPosting.datePosted || null,
@@ -69,6 +89,10 @@ export function parseDetailPage(html: string): DetailPageData {
       workField: jobPosting.occupationalCategory || null,
       educationLevel,
       companyAddress,
+      salaryMin,
+      salaryMax,
+      salaryPeriod,
+      logoUrl,
     };
   } catch (error) {
     console.error("Failed to parse detail page JSON-LD:", error);

@@ -111,6 +111,8 @@ async function insertJobPosting(
     city: vacancy.city,
     state: vacancy.province,
     country: "Netherlands",
+    zipcode: vacancy.company_postal_code,
+    street: vacancy.company_street_address,
     latitude,
     longitude,
 
@@ -197,6 +199,17 @@ async function processVacancy(
     const normalizedCompanyName = generateNormalizedName(companyName);
     const contentHash = generateContentHash(title, companyName, city || "", url);
 
+    // Build salary string: prefer structured JSON-LD data, fallback to AI extraction
+    let salary = aiData.salary;
+    if (detailData?.salaryMin != null) {
+      const fmt = (n: number) => n.toLocaleString("nl-NL", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      const periodMap: Record<string, string> = { MONTH: "per maand", YEAR: "per jaar", HOUR: "per uur" };
+      const period = detailData.salaryPeriod ? periodMap[detailData.salaryPeriod] || detailData.salaryPeriod.toLowerCase() : "";
+      salary = detailData.salaryMax != null
+        ? `${fmt(detailData.salaryMin)} - ${fmt(detailData.salaryMax)}${period ? ` ${period}` : ""}`
+        : `${fmt(detailData.salaryMin)}${period ? ` ${period}` : ""}`;
+    }
+
     // Combine all data: List JSON + Detail JSON-LD + AI extraction
     const vacancy: ParsedVacancy = {
       // From List Page JSON
@@ -218,9 +231,11 @@ async function processVacancy(
       education_level: detailData?.educationLevel || null,
       company_street_address: detailData?.companyAddress?.streetAddress || null,
       company_postal_code: detailData?.companyAddress?.postalCode || null,
+      company_logo_url: detailData?.logoUrl || null,
 
-      // From AI extraction
+      // From AI extraction (salary overridden by JSON-LD above)
       ...aiData,
+      salary,
 
       // Computed fields
       normalized_company_name: normalizedCompanyName,
@@ -238,6 +253,7 @@ async function processVacancy(
         website: vacancy.company_website,
         phone: vacancy.company_phone,
         email: vacancy.company_email,
+        logo_url: vacancy.company_logo_url,
       },
       sourceId
     );

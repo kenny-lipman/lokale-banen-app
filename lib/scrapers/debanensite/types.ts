@@ -77,6 +77,10 @@ export interface DetailPageData {
     postalCode: string | null;
     city: string | null;
   } | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryPeriod: string | null;
+  logoUrl: string | null;
 }
 
 /**
@@ -102,6 +106,7 @@ export interface ParsedVacancy {
   education_level: string | null;
   company_street_address: string | null;
   company_postal_code: string | null;
+  company_logo_url: string | null;
 
   // From AI extraction
   salary: string | null;

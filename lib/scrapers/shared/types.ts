@@ -15,6 +15,7 @@ export interface CompanyData {
   website?: string | null;
   phone?: string | null;
   email?: string | null;
+  logo_url?: string | null;
 }
 
 /**
