@@ -1668,6 +1668,183 @@ export class InstantlyPipedriveSyncService {
   }
 
   // ============================================================================
+  // PIPEDRIVE BACKFILL FOR UNSYNCED CONTACTS
+  // ============================================================================
+
+  /**
+   * Sync contacts that have Instantly data but no Pipedrive person yet.
+   * Uses the full syncLeadToPipedrive() flow, processing sequentially to respect Pipedrive rate limits.
+   *
+   * Eligible contacts:
+   * - instantly_synced = true (has Instantly data)
+   * - pipedrive_person_id IS NULL (not yet in Pipedrive)
+   * - instantly_status NOT IN ('email_bounced') (bounced leads skip Pipedrive)
+   * - email IS NOT NULL
+   */
+  async syncUnprocessedContactsToPipedrive(batchSize: number = 50): Promise<{
+    processed: number;
+    synced: number;
+    skipped: number;
+    errors: number;
+    totalEligible: number;
+    remaining: number;
+    details: Array<{ email: string; success: boolean; skipReason?: string; error?: string }>;
+  }> {
+    console.log(`🔄 Starting Pipedrive backfill for unsynced contacts (batch: ${batchSize})`);
+
+    // Count total eligible
+    const { count: totalEligible } = await this.supabase
+      .from('contacts')
+      .select('id', { count: 'exact', head: true })
+      .eq('instantly_synced', true)
+      .is('pipedrive_person_id', null)
+      .not('email', 'is', null)
+      .not('instantly_status', 'eq', 'email_bounced');
+
+    console.log(`📊 Total eligible contacts: ${totalEligible || 0}`);
+
+    if (!totalEligible || totalEligible === 0) {
+      return { processed: 0, synced: 0, skipped: 0, errors: 0, totalEligible: 0, remaining: 0, details: [] };
+    }
+
+    // Fetch batch of contacts with company data
+    const { data: contacts, error: fetchError } = await this.supabase
+      .from('contacts')
+      .select(`
+        id, email, name, first_name, last_name, phone, title,
+        instantly_status, instantly_campaign_ids,
+        instantly_opens_count, instantly_clicks_count,
+        reply_count, instantly_last_open_at,
+        company_id,
+        companies (id, name)
+      `)
+      .eq('instantly_synced', true)
+      .is('pipedrive_person_id', null)
+      .not('email', 'is', null)
+      .not('instantly_status', 'eq', 'email_bounced')
+      .order('instantly_synced_at', { ascending: true })
+      .limit(batchSize);
+
+    if (fetchError || !contacts || contacts.length === 0) {
+      if (fetchError) console.error('❌ Error fetching contacts:', fetchError.message);
+      return { processed: 0, synced: 0, skipped: 0, errors: 0, totalEligible: totalEligible || 0, remaining: totalEligible || 0, details: [] };
+    }
+
+    console.log(`📦 Processing ${contacts.length} contacts`);
+
+    let synced = 0;
+    let skipped = 0;
+    let errors = 0;
+    const details: Array<{ email: string; success: boolean; skipReason?: string; error?: string }> = [];
+
+    for (const contact of contacts) {
+      const email = contact.email!;
+      try {
+        // Build SyncLeadData from contact
+        const leadData: SyncLeadData = {
+          email,
+          firstName: contact.first_name || undefined,
+          lastName: contact.last_name || undefined,
+          companyName: (contact.companies as any)?.name || undefined,
+          phone: contact.phone || undefined,
+          companyId: contact.company_id || undefined,
+          opensCount: contact.instantly_opens_count || undefined,
+          clicksCount: contact.instantly_clicks_count || undefined,
+          replyCount: contact.reply_count || undefined,
+          lastOpenAt: contact.instantly_last_open_at || undefined,
+        };
+
+        // If no first/last name but has name, split it
+        if (!leadData.firstName && !leadData.lastName && contact.name) {
+          const parts = contact.name.trim().split(/\s+/);
+          leadData.firstName = parts[0];
+          leadData.lastName = parts.slice(1).join(' ') || undefined;
+        }
+
+        // Map instantly_status to eventType and options
+        const { eventType, hasReply, replySentiment } = this.mapInstantlyStatusToEvent(contact.instantly_status || 'campaign_completed');
+
+        // Use first campaign ID, or 'backfill' as fallback
+        const campaignId = contact.instantly_campaign_ids?.[0] || 'backfill';
+
+        console.log(`  🔄 Syncing ${email} (status: ${contact.instantly_status}, event: ${eventType})`);
+
+        const result = await this.syncLeadToPipedrive(
+          leadData,
+          campaignId,
+          'Backfill', // campaign name
+          eventType,
+          'backfill',
+          { hasReply, replySentiment }
+        );
+
+        if (result.success) {
+          synced++;
+          details.push({ email, success: true });
+          console.log(`  ✅ ${email} synced to Pipedrive (org: ${result.pipedriveOrgId}, person: ${result.pipedrivePersonId})`);
+        } else if (result.skipped) {
+          skipped++;
+          details.push({ email, success: false, skipReason: result.skipReason });
+          console.log(`  ⏭️ ${email} skipped: ${result.skipReason}`);
+        } else {
+          errors++;
+          details.push({ email, success: false, error: result.error });
+          console.error(`  ❌ ${email} failed: ${result.error}`);
+        }
+
+        // Respect Pipedrive rate limits (100 req/10s → ~100ms between leads, but each lead does 7-11 calls)
+        await this.delay(200);
+      } catch (error) {
+        errors++;
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        details.push({ email, success: false, error: errorMsg });
+        console.error(`  ❌ ${email} error: ${errorMsg}`);
+      }
+    }
+
+    const remaining = (totalEligible || 0) - contacts.length;
+    console.log(`\n✅ Pipedrive backfill complete: ${synced} synced, ${skipped} skipped, ${errors} errors (${remaining} remaining)`);
+
+    return {
+      processed: contacts.length,
+      synced,
+      skipped,
+      errors,
+      totalEligible: totalEligible || 0,
+      remaining: Math.max(0, remaining),
+      details,
+    };
+  }
+
+  /**
+   * Map instantly_status to event type and reply data for syncLeadToPipedrive
+   */
+  private mapInstantlyStatusToEvent(instantlyStatus: string): {
+    eventType: SyncEventType;
+    hasReply: boolean;
+    replySentiment?: ReplySentiment;
+  } {
+    switch (instantlyStatus) {
+      case 'lead_interested':
+        return { eventType: 'lead_interested' as SyncEventType, hasReply: true, replySentiment: 'positive' };
+      case 'lead_not_interested':
+        return { eventType: 'lead_not_interested' as SyncEventType, hasReply: true, replySentiment: 'negative' };
+      case 'lead_neutral':
+        return { eventType: 'lead_neutral' as SyncEventType, hasReply: true, replySentiment: 'neutral' };
+      case 'lead_out_of_office':
+        return { eventType: 'lead_out_of_office' as SyncEventType, hasReply: false };
+      case 'lead_wrong_person':
+        return { eventType: 'lead_wrong_person' as SyncEventType, hasReply: false };
+      case 'lead_meeting_booked':
+        return { eventType: 'lead_meeting_booked' as SyncEventType, hasReply: true, replySentiment: 'positive' };
+      case 'campaign_completed':
+      case 'backfill':
+      default:
+        return { eventType: 'campaign_completed' as SyncEventType, hasReply: false };
+    }
+  }
+
+  // ============================================================================
   // INSTANTLY API BULK CLEANUP
   // ============================================================================
 
