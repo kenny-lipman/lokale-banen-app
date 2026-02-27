@@ -1379,10 +1379,13 @@ Genereer de personalisatie data in JSON format.`
       // Filter on platformId when running as parallel worker
       if (options.platformId) {
         candidates = candidates.filter(c => c.platform_id === options.platformId)
-        console.log(`🎯 Filtered to platform ${options.platformId}: ${candidates.length} candidates`)
-        if (candidates.length > 35) {
-          console.warn(`⚠️ Platform has ${candidates.length} candidates (>35), may risk timeout`)
+        // Hard cap at 30 for platform workers — 30 × ~8s = 240s, safe within 300s timeout
+        const PLATFORM_WORKER_MAX = 30
+        if (candidates.length > PLATFORM_WORKER_MAX) {
+          console.warn(`⚠️ Platform has ${candidates.length} candidates, capping to ${PLATFORM_WORKER_MAX} for timeout safety`)
+          candidates = candidates.slice(0, PLATFORM_WORKER_MAX)
         }
+        console.log(`🎯 Filtered to platform ${options.platformId}: ${candidates.length} candidates`)
       }
 
       stats.totalCandidates = candidates.length
