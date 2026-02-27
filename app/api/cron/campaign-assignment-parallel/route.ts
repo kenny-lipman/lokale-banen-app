@@ -90,8 +90,9 @@ async function parallelAssignmentHandler(request: NextRequest) {
             httpStatus: response.status
           }
         } catch (err) {
-          // AbortError = timeout, expected (worker takes >10s) — request WAS sent
-          const isTimeout = err instanceof DOMException && err.name === 'AbortError'
+          // AbortSignal.timeout() throws TimeoutError (DOMException), AbortController throws AbortError
+          // Both are expected — worker takes >10s, request WAS sent
+          const isTimeout = err instanceof DOMException && (err.name === 'TimeoutError' || err.name === 'AbortError')
           if (isTimeout) {
             return {
               platformId: platform.platformId,
