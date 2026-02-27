@@ -65,7 +65,7 @@ export interface ProcessingResult {
   contactEmail: string
   companyName: string
   platformName: string
-  status: 'added' | 'skipped_klant' | 'skipped_no_campaign' | 'skipped_ai_error' | 'skipped_duplicate' | 'error'
+  status: 'added' | 'skipped_klant' | 'skipped_no_campaign' | 'skipped_ai_error' | 'skipped_duplicate' | 'skipped_blocklisted' | 'skipped_lead_limit' | 'error'
   instantlyLeadId?: string
   skipReason?: string
   error?: string
@@ -91,6 +91,7 @@ export interface BatchResult {
   startedAt: Date
   completedAt: Date
   error?: string
+  leadLimitReached?: boolean
 }
 
 // ============================================================================
@@ -982,6 +983,27 @@ Genereer de personalisatie data in JSON format.`
   }
 
   /**
+   * Check if error is an Instantly lead limit error (account-level limit reached)
+   */
+  private isLeadLimitError(errorMsg: string): boolean {
+    return errorMsg.toLowerCase().includes('lead limit reached')
+  }
+
+  /**
+   * Get the most recent batch that hit the lead limit (for circuit breaker)
+   */
+  private async getLastLeadLimitBatch(): Promise<{ batch_id: string; status: string; updated_at: string } | null> {
+    const { data } = await (this.supabase as any)
+      .from('campaign_assignment_batches')
+      .select('batch_id, status, updated_at')
+      .eq('status', 'lead_limit_reached')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return data
+  }
+
+  /**
    * Process a single contact (EXACT n8n workflow logic)
    *
    * n8n Flow:
@@ -1010,22 +1032,7 @@ Genereer de personalisatie data in JSON format.`
         return result
       }
 
-      // 2. Generate AI personalization FIRST (like n8n)
-      const aiStartTime = Date.now()
-      const personalization = await this.generatePersonalization(contact)
-      result.aiProcessingTimeMs = Date.now() - aiStartTime
-
-      if (!personalization) {
-        result.status = 'skipped_ai_error'
-        result.skipReason = 'Failed to generate AI personalization'
-        // n8n continues to next item on AI error, doesn't disqualify
-        return result
-      }
-
-      result.personalization = personalization
-
-      // 3. Search Pipedrive by company NAME (n8n logic)
-      // This is different from just checking if pipedrive_id exists
+      // 2. Search Pipedrive by company NAME (cheap check before AI)
       const pipedriveResult = await this.searchPipedriveByName(contact.company_name)
 
       if (pipedriveResult.found && pipedriveResult.orgId) {
@@ -1036,7 +1043,7 @@ Genereer de personalisatie data in JSON format.`
         await this.updateCompanyWithPipedrive(contact.company_name, pipedriveResult.orgId)
         console.log(`📝 Updated company "${contact.company_name}" with Pipedrive ID: ${pipedriveResult.orgId}`)
 
-        // 4. If Klant status -> skip (like n8n filter)
+        // 3. If Klant status -> skip (like n8n filter)
         if (pipedriveResult.isKlant) {
           result.status = 'skipped_klant'
           result.skipReason = 'Company has "Klant" status in Pipedrive'
@@ -1045,7 +1052,7 @@ Genereer de personalisatie data in JSON format.`
         }
       }
 
-      // 4b. Check if email is blocklisted before adding to Instantly
+      // 4. Check if email is blocklisted (cheap check before AI)
       const blocklistCheck = await this.isEmailBlocklisted(contact.email)
       if (blocklistCheck.isBlocked) {
         result.status = 'skipped_blocklisted'
@@ -1054,7 +1061,20 @@ Genereer de personalisatie data in JSON format.`
         return result
       }
 
-      // 5. Add to Instantly
+      // 5. Generate AI personalization (after all cheap checks pass)
+      const aiStartTime = Date.now()
+      const personalization = await this.generatePersonalization(contact)
+      result.aiProcessingTimeMs = Date.now() - aiStartTime
+
+      if (!personalization) {
+        result.status = 'skipped_ai_error'
+        result.skipReason = 'Failed to generate AI personalization'
+        return result
+      }
+
+      result.personalization = personalization
+
+      // 6. Add to Instantly
       const instantlyResult = await this.addToInstantly(contact, personalization)
 
       if (!instantlyResult.success) {
@@ -1229,6 +1249,26 @@ Genereer de personalisatie data in JSON format.`
     const delayMs = options.delayBetweenContactsMs || DEFAULT_DELAY_BETWEEN_CONTACTS_MS
     const chunkSize = options.chunkSize || DEFAULT_CHUNK_SIZE
 
+    // Circuit breaker: skip run if lead limit was hit recently
+    const LEAD_LIMIT_COOLDOWN_HOURS = 4
+    const lastLeadLimitBatch = await this.getLastLeadLimitBatch()
+    if (lastLeadLimitBatch) {
+      const hoursSince = (Date.now() - new Date(lastLeadLimitBatch.updated_at).getTime()) / (1000 * 60 * 60)
+      if (hoursSince < LEAD_LIMIT_COOLDOWN_HOURS) {
+        console.log(`⚡ Circuit breaker: lead limit hit ${hoursSince.toFixed(1)}h ago, skipping run`)
+        const now = new Date()
+        return {
+          batchId: `skipped_circuit_breaker_${now.toISOString()}`,
+          status: 'completed',
+          stats: { totalCandidates: 0, processed: 0, added: 0, skipped: 0, errors: 0, platformStats: {} },
+          startedAt: now,
+          completedAt: now,
+          leadLimitReached: true
+        }
+      }
+      console.log(`🔄 Circuit breaker half-open: retrying after ${hoursSince.toFixed(1)}h`)
+    }
+
     // Check for active batch to resume (unless explicitly starting fresh)
     let batchId: string
     let stats: BatchStats
@@ -1319,7 +1359,9 @@ Genereer de personalisatie data in JSON format.`
 
     try {
       // Process each contact in the chunk
-      for (const contact of chunk) {
+      for (let i = 0; i < chunk.length; i++) {
+        const contact = chunk[i]
+
         // Initialize platform stats
         if (!stats.platformStats[contact.platform_name]) {
           stats.platformStats[contact.platform_name] = { total: 0, added: 0, skipped: 0, errors: 0 }
@@ -1337,6 +1379,27 @@ Genereer de personalisatie data in JSON format.`
 
         // Process contact
         const result = await this.processContact(contact, batchId)
+
+        // Fast-fail on lead limit — stop entire batch immediately
+        if (result.error && this.isLeadLimitError(result.error)) {
+          const skippedCount = chunk.length - i - 1
+          console.log(`⚡ Lead limit reached! Stopping batch, ${skippedCount} contacts skipped`)
+          stats.processed++
+          stats.errors++
+          stats.platformStats[contact.platform_name].errors++
+          await this.logResult(batchId, contact, result)
+          await this.addProcessedId(batchId, contact.id)
+          await this.updateBatch(batchId, 'lead_limit_reached', stats, startedAt, new Date(),
+            'Instantly lead limit reached')
+          return {
+            batchId,
+            status: 'completed',
+            stats,
+            startedAt,
+            completedAt: new Date(),
+            leadLimitReached: true
+          }
+        }
 
         // Update stats
         stats.processed++

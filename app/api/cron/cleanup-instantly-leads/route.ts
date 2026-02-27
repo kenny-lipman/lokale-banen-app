@@ -11,17 +11,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withCronMonitoring } from '@/lib/cron-monitor';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
 
-const DAYS_DELAY = 10; // Remove leads 10 days after campaign_completed
+const DEFAULT_DAYS_DELAY = 10; // Remove leads 10 days after campaign_completed
 
 async function cleanupHandler(request: NextRequest) {
   const startTime = Date.now();
 
   try {
+    // Allow override via request body (for manual triggers)
+    let daysDelay = DEFAULT_DAYS_DELAY;
+    try {
+      const body = await request.json();
+      if (body.daysDelay && typeof body.daysDelay === 'number' && body.daysDelay >= 1) {
+        daysDelay = body.daysDelay;
+      }
+    } catch {
+      // No body provided, use default
+    }
+
     console.log(`🧹 Starting Instantly leads cleanup CRON job at ${new Date().toISOString()}`);
-    console.log(`⏰ Delay setting: ${DAYS_DELAY} days`);
+    console.log(`⏰ Delay setting: ${daysDelay} days${daysDelay !== DEFAULT_DAYS_DELAY ? ` (override from default ${DEFAULT_DAYS_DELAY})` : ''}`);
 
     // Call the cleanup method on the sync service
-    const result = await instantlyPipedriveSyncService.cleanupCompletedCampaignLeads(DAYS_DELAY);
+    const result = await instantlyPipedriveSyncService.cleanupCompletedCampaignLeads(daysDelay);
 
     const duration = Date.now() - startTime;
 
@@ -35,7 +46,7 @@ async function cleanupHandler(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Instantly leads cleanup completed',
-      daysDelay: DAYS_DELAY,
+      daysDelay,
       ...result,
       duration: `${duration}ms`
     });

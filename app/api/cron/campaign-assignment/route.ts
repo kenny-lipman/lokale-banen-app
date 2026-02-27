@@ -70,12 +70,15 @@ async function campaignAssignmentHandler(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: hasMoreToProcess
-        ? `Chunk completed (${result.stats.processed}/${result.stats.totalCandidates}). Run again to continue.`
-        : 'Campaign assignment completed',
+      message: result.leadLimitReached
+        ? 'Stopped: Instantly lead limit reached'
+        : hasMoreToProcess
+          ? `Chunk completed (${result.stats.processed}/${result.stats.totalCandidates}). Run again to continue.`
+          : 'Campaign assignment completed',
       batchId: result.batchId,
       isResume,
       hasMoreToProcess,
+      leadLimitReached: result.leadLimitReached || false,
       stats: {
         totalCandidates: result.stats.totalCandidates,
         processed: result.stats.processed,
