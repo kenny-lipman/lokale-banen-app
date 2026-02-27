@@ -27,6 +27,8 @@ async function campaignAssignmentHandler(request: NextRequest) {
     let dryRun = false
     let chunkSize = 25 // Default chunk size for Vercel timeout safety
     let resumeBatchId: string | undefined
+    let platformId: string | undefined
+    let orchestrationId: string | undefined
 
     try {
       const body = await request.json()
@@ -36,15 +38,20 @@ async function campaignAssignmentHandler(request: NextRequest) {
       if (body.dryRun !== undefined) dryRun = body.dryRun
       if (body.chunkSize) chunkSize = body.chunkSize
       if (body.resumeBatchId) resumeBatchId = body.resumeBatchId
+      if (body.platformId) platformId = body.platformId
+      if (body.orchestrationId) orchestrationId = body.orchestrationId
     } catch {
       // No body provided, use settings from database
     }
 
-    // Check for active batch to resume
-    const activeBatch = await automaticCampaignAssignmentService.findActiveBatch()
+    // Check for active batch to resume (skipped in platform worker mode)
+    const activeBatch = platformId ? null : await automaticCampaignAssignmentService.findActiveBatch()
     const isResume = !!activeBatch || !!resumeBatchId
 
     console.log(`📊 Configuration: maxTotal=${maxTotal}, maxPerPlatform=${maxPerPlatform}, delay=${delayBetweenContactsMs}ms, chunkSize=${chunkSize}, dryRun=${dryRun}`)
+    if (platformId) {
+      console.log(`🎯 Platform worker mode: platformId=${platformId}, orchestrationId=${orchestrationId || 'none'}`)
+    }
     if (isResume) {
       console.log(`🔄 Resuming active batch: ${activeBatch?.batchId || resumeBatchId}`)
     }
@@ -56,7 +63,9 @@ async function campaignAssignmentHandler(request: NextRequest) {
       delayBetweenContactsMs,
       dryRun,
       chunkSize,
-      resumeBatchId
+      resumeBatchId,
+      platformId,
+      orchestrationId
     })
 
     const duration = Date.now() - startTime

@@ -538,8 +538,31 @@ export class AutomaticCampaignAssignmentService {
   }
 
   /**
-   * Generate AI personalization using Mistral
+   * Get candidates grouped by platform (for orchestrator)
    */
+  async getGroupedCandidatesByPlatform(
+    maxTotal: number = DEFAULT_MAX_TOTAL,
+    maxPerPlatform: number = DEFAULT_MAX_PER_PLATFORM
+  ): Promise<Array<{ platformId: string; platformName: string; candidateCount: number }>> {
+    const candidates = await this.getCandidateContacts(maxTotal, maxPerPlatform)
+
+    const grouped = new Map<string, { platformName: string; count: number }>()
+    for (const c of candidates) {
+      const existing = grouped.get(c.platform_id)
+      if (existing) {
+        existing.count++
+      } else {
+        grouped.set(c.platform_id, { platformName: c.platform_name, count: 1 })
+      }
+    }
+
+    return Array.from(grouped.entries()).map(([platformId, data]) => ({
+      platformId,
+      platformName: data.platformName,
+      candidateCount: data.count
+    }))
+  }
+
   /**
    * Fetch with retry and exponential backoff
    */
@@ -1158,6 +1181,16 @@ Genereer de personalisatie data in JSON format.`
   }
 
   /**
+   * Update batch with orchestration ID (for parallel run grouping)
+   */
+  private async updateBatchOrchestrationId(batchId: string, orchestrationId: string): Promise<void> {
+    await (this.supabase as any)
+      .from('campaign_assignment_batches')
+      .update({ orchestration_id: orchestrationId })
+      .eq('batch_id', batchId)
+  }
+
+  /**
    * Get processed IDs from batch
    */
   private async getProcessedIds(batchId: string): Promise<string[]> {
@@ -1243,6 +1276,8 @@ Genereer de personalisatie data in JSON format.`
     dryRun?: boolean
     chunkSize?: number
     resumeBatchId?: string
+    platformId?: string
+    orchestrationId?: string
   } = {}): Promise<BatchResult> {
     const maxTotal = options.maxTotal || DEFAULT_MAX_TOTAL
     const maxPerPlatform = options.maxPerPlatform || DEFAULT_MAX_PER_PLATFORM
@@ -1277,10 +1312,14 @@ Genereer de personalisatie data in JSON format.`
     let processedIds: string[] = []
     let isResume = false
 
+    // When platformId is set (parallel worker mode), always start a fresh batch
+    // — 30 contacts fits in 300s, no need for resume complexity
+    const skipResume = !!options.platformId
+
     // Try to find and resume an active batch
-    const activeBatch = options.resumeBatchId
+    const activeBatch = skipResume ? null : (options.resumeBatchId
       ? await this.getBatchStatus(options.resumeBatchId)
-      : await this.findActiveBatch()
+      : await this.findActiveBatch())
 
     if (activeBatch && activeBatch.status === 'processing' && activeBatch.candidate_ids?.length > 0) {
       // Resume existing batch
@@ -1329,13 +1368,26 @@ Genereer de personalisatie data in JSON format.`
 
       // Get all candidate contacts
       candidates = await this.getCandidateContacts(maxTotal, maxPerPlatform)
+
+      // Filter on platformId when running as parallel worker
+      if (options.platformId) {
+        candidates = candidates.filter(c => c.platform_id === options.platformId)
+        console.log(`🎯 Filtered to platform ${options.platformId}: ${candidates.length} candidates`)
+        if (candidates.length > 35) {
+          console.warn(`⚠️ Platform has ${candidates.length} candidates (>35), may risk timeout`)
+        }
+      }
+
       stats.totalCandidates = candidates.length
 
       console.log(`📋 Found ${candidates.length} candidate contacts`)
 
-      // Initialize batch record with all candidate IDs
+      // Initialize batch record with all candidate IDs and optional orchestration_id
       await this.updateBatch(batchId, 'processing', stats, startedAt)
       await this.storeBatchCandidates(batchId, candidates.map(c => c.id))
+      if (options.orchestrationId) {
+        await this.updateBatchOrchestrationId(batchId, options.orchestrationId)
+      }
     }
 
     // Handle empty batch
@@ -1351,8 +1403,11 @@ Genereer de personalisatie data in JSON format.`
       }
     }
 
+    // When platformId is set, process all candidates in one go (max ~30, fits in 300s)
+    const effectiveChunkSize = options.platformId ? candidates.length : chunkSize
+
     // Process only a chunk of contacts
-    const chunk = candidates.slice(0, chunkSize)
+    const chunk = candidates.slice(0, effectiveChunkSize)
     const remainingAfterChunk = candidates.length - chunk.length
 
     console.log(`📦 Processing chunk of ${chunk.length} contacts (${remainingAfterChunk} remaining after)`)
