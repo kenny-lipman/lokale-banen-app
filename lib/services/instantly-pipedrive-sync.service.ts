@@ -55,7 +55,7 @@ import { companyEnrichmentService } from './company-enrichment.service';
 // Use the centralized InstantlyEventType as SyncEventType
 export type SyncEventType = InstantlyEventType;
 
-export type SyncSource = 'webhook' | 'backfill' | 'manual';
+export type SyncSource = 'webhook' | 'backfill' | 'manual' | 'webhook_post_deletion';
 
 export type ReplySentiment = 'positive' | 'negative' | 'neutral';
 
@@ -1333,15 +1333,146 @@ export class InstantlyPipedriveSyncService {
   }
 
   // ============================================================================
+  // POST-DELETION REPLY HANDLING
+  // ============================================================================
+
+  /**
+   * Handle a webhook reply event for a lead that has already been removed from Instantly.
+   * Instead of running a full sync (which would create duplicate Pipedrive records),
+   * this does a lightweight update: adds a note to the existing Pipedrive person
+   * and updates the contact's reply tracking.
+   *
+   * Instantly webhooks continue to fire after lead deletion (replies appear in
+   * "Others" folder in Unibox), so we don't lose data — we just need to handle
+   * the processing cleanly without re-syncing.
+   */
+  async handlePostDeletionReply(
+    payload: InstantlyWebhookPayload,
+    contact: { id: string; email: string; instantly_removed_at: string }
+  ): Promise<SyncResult> {
+    const { event_type, campaign_id, campaign_name, lead_email } = payload;
+    const email = lead_email || contact.email;
+
+    console.log(`📨 Handling post-deletion reply for ${email} (event: ${event_type}, removed at: ${contact.instantly_removed_at})`);
+
+    const result: SyncResult = {
+      success: false,
+      leadEmail: email,
+      campaignId: campaign_id,
+      campaignName: campaign_name,
+      orgCreated: false,
+      personCreated: false,
+      skipped: false
+    };
+
+    try {
+      // 1. Find existing Pipedrive person via syncs table
+      const { data: existingSync } = await (this.supabase as any)
+        .from('instantly_pipedrive_syncs')
+        .select('pipedrive_person_id, pipedrive_org_id, pipedrive_org_name')
+        .eq('instantly_lead_email', email.toLowerCase().trim())
+        .not('pipedrive_person_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single() as { data: { pipedrive_person_id: number; pipedrive_org_id: number; pipedrive_org_name: string } | null };
+
+      // 2. Add note to Pipedrive person if we have one
+      if (existingSync?.pipedrive_person_id) {
+        const sentimentMap: Record<string, string> = {
+          'lead_interested': 'Positief / Geinteresseerd',
+          'lead_not_interested': 'Negatief / Niet geinteresseerd',
+          'lead_neutral': 'Neutraal'
+        };
+        const sentiment = sentimentMap[event_type] || event_type;
+        const replyText = payload.reply_text || payload.email_body || '(geen tekst beschikbaar)';
+
+        const noteContent = [
+          `<b>Late reply ontvangen (na verwijdering uit Instantly)</b>`,
+          `<br><br>`,
+          `<b>Sentiment:</b> ${sentiment}`,
+          `<br>`,
+          `<b>Campaign:</b> ${campaign_name || campaign_id}`,
+          `<br>`,
+          `<b>Verwijderd uit Instantly op:</b> ${new Date(contact.instantly_removed_at).toLocaleDateString('nl-NL')}`,
+          `<br><br>`,
+          `<b>Reply:</b><br>${replyText.substring(0, 1000)}`,
+        ].join('');
+
+        try {
+          await this.pipedriveClient.addPersonNote(existingSync.pipedrive_person_id, noteContent);
+          console.log(`📝 Added post-deletion reply note to Pipedrive person ${existingSync.pipedrive_person_id}`);
+        } catch (noteError) {
+          console.warn(`⚠️ Could not add note to Pipedrive person ${existingSync.pipedrive_person_id}:`, noteError);
+        }
+
+        result.pipedrivePersonId = existingSync.pipedrive_person_id;
+        result.pipedriveOrgId = existingSync.pipedrive_org_id;
+      } else {
+        console.log(`ℹ️ No existing Pipedrive person found for ${email}, skipping note`);
+      }
+
+      // 3. Update contact reply tracking
+      const { data: contactData } = await this.supabase
+        .from('contacts')
+        .select('reply_count')
+        .eq('id', contact.id)
+        .single();
+
+      const newReplyCount = ((contactData?.reply_count as number) || 0) + 1;
+
+      await this.supabase
+        .from('contacts')
+        .update({
+          reply_count: newReplyCount,
+          last_reply_at: new Date().toISOString(),
+          instantly_status: event_type === 'lead_not_interested' ? 'not_interested' : 'interested',
+        })
+        .eq('id', contact.id);
+
+      // 4. Log the event
+      await this.logInstantlyEvent(email, campaign_id, campaign_name, event_type as SyncEventType, payload);
+
+      // 5. Log sync record with post-deletion source
+      await this.supabase
+        .from('instantly_pipedrive_syncs')
+        .insert({
+          instantly_lead_email: email.toLowerCase().trim(),
+          instantly_campaign_id: campaign_id,
+          instantly_campaign_name: campaign_name,
+          pipedrive_person_id: existingSync?.pipedrive_person_id || null,
+          pipedrive_org_id: existingSync?.pipedrive_org_id || null,
+          event_type: event_type,
+          sync_source: 'webhook_post_deletion',
+          has_reply: true,
+          reply_sentiment: event_type === 'lead_not_interested' ? 'negative' : event_type === 'lead_interested' ? 'positive' : 'neutral',
+          raw_webhook_payload: payload,
+          sync_success: true,
+          org_created: false,
+          person_created: false,
+          status_skipped: false,
+        });
+
+      result.success = true;
+      console.log(`✅ Post-deletion reply handled for ${email} (Pipedrive person: ${existingSync?.pipedrive_person_id || 'none'})`);
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`❌ Error handling post-deletion reply for ${email}:`, error);
+      result.error = errorMessage;
+      return result;
+    }
+  }
+
+  // ============================================================================
   // DELAYED INSTANTLY CLEANUP
   // ============================================================================
 
   /**
    * Clean up leads from Instantly that had campaign_completed more than X days ago
    * This is called by a daily cron job to remove stale leads while giving them
-   * time to reply late (default: 10 days)
+   * time to reply late (default: 3 days, webhooks still work after deletion)
    */
-  async cleanupCompletedCampaignLeads(daysDelay: number = 10, batchSize: number = 100): Promise<{
+  async cleanupCompletedCampaignLeads(daysDelay: number = 3, batchSize: number = 100): Promise<{
     processed: number;
     removed: number;
     errors: number;
@@ -1402,58 +1533,27 @@ export class InstantlyPipedriveSyncService {
     let errors = 0;
     let skipped = 0;
 
-    for (const contact of leadsToCleanup) {
-      processed++;
+    // Process in parallel chunks of 10 (Instantly rate limit is 100 req/sec, safe margin)
+    const PARALLEL_CHUNK_SIZE = 10;
 
-      try {
-        // Double-check: has this lead replied since campaign completed?
-        // Check if there's a newer sync event with reply for this email
-        // Note: Using 'any' cast to avoid TS2589 "Type instantiation is excessively deep" with Supabase types
-        const { data: replyCheck } = await (this.supabase as any)
-          .from('instantly_pipedrive_syncs')
-          .select('id')
-          .eq('lead_email', contact.email!.toLowerCase())
-          .eq('has_reply', true)
-          .gt('created_at', contact.instantly_campaign_completed_at!)
-          .limit(1) as { data: { id: string }[] | null };
+    for (let i = 0; i < leadsToCleanup.length; i += PARALLEL_CHUNK_SIZE) {
+      const chunk = leadsToCleanup.slice(i, i + PARALLEL_CHUNK_SIZE);
+      const results = await Promise.allSettled(
+        chunk.map(contact => this.processCleanupContact(contact, daysDelay))
+      );
 
-        if (replyCheck && replyCheck.length > 0) {
-          console.log(`⏭️ Skipping ${contact.email} - has replied since campaign completed`);
-          skipped++;
-          continue;
-        }
-
-        // Get campaign ID from the array (use first one if multiple)
-        const campaignId = contact.instantly_campaign_ids?.[0];
-
-        // Remove from Instantly
-        const removeResult = await this.removeLeadFromInstantly(
-          contact.email,
-          campaignId || '',
-          contact.id
-        );
-
-        if (removeResult.removed) {
-          removed++;
-          console.log(`🗑️ Cleaned up ${contact.email} from Instantly (campaign completed ${daysDelay}+ days ago)`);
+      for (const result of results) {
+        processed++;
+        if (result.status === 'fulfilled') {
+          if (result.value === 'removed') {
+            removed++;
+          } else if (result.value === 'skipped') {
+            skipped++;
+          }
         } else {
-          // Still mark as processed even if not found in Instantly
-          console.log(`ℹ️ ${contact.email} not found in Instantly (may have been removed already)`);
-
-          // Update the contact to mark as cleaned up
-          await this.supabase
-            .from('contacts')
-            .update({
-              instantly_removed_at: new Date().toISOString(),
-              qualification_status: 'synced_to_pipedrive'
-            })
-            .eq('id', contact.id);
-
-          removed++;
+          errors++;
+          console.error(`Error in cleanup chunk:`, result.reason);
         }
-      } catch (err) {
-        console.error(`Error cleaning up ${contact.email}:`, err);
-        errors++;
       }
     }
 
@@ -1466,6 +1566,57 @@ export class InstantlyPipedriveSyncService {
     }
 
     return { processed, removed, errors, skipped, totalEligible: totalCount, remaining };
+  }
+
+  /**
+   * Process a single contact for cleanup — extracted for parallel execution
+   */
+  private async processCleanupContact(
+    contact: { id: string; email: string; instantly_campaign_completed_at: string | null; instantly_status: string | null; instantly_campaign_ids: string[] | null },
+    daysDelay: number
+  ): Promise<'removed' | 'skipped'> {
+    // Double-check: has this lead replied since campaign completed?
+    // Note: Using 'any' cast to avoid TS2589 "Type instantiation is excessively deep" with Supabase types
+    const { data: replyCheck } = await (this.supabase as any)
+      .from('instantly_pipedrive_syncs')
+      .select('id')
+      .eq('lead_email', contact.email!.toLowerCase())
+      .eq('has_reply', true)
+      .gt('created_at', contact.instantly_campaign_completed_at!)
+      .limit(1) as { data: { id: string }[] | null };
+
+    if (replyCheck && replyCheck.length > 0) {
+      console.log(`⏭️ Skipping ${contact.email} - has replied since campaign completed`);
+      return 'skipped';
+    }
+
+    // Get campaign ID from the array (use first one if multiple)
+    const campaignId = contact.instantly_campaign_ids?.[0];
+
+    // Remove from Instantly
+    const removeResult = await this.removeLeadFromInstantly(
+      contact.email,
+      campaignId || '',
+      contact.id
+    );
+
+    if (removeResult.removed) {
+      console.log(`🗑️ Cleaned up ${contact.email} from Instantly (campaign completed ${daysDelay}+ days ago)`);
+    } else {
+      // Still mark as processed even if not found in Instantly
+      console.log(`ℹ️ ${contact.email} not found in Instantly (may have been removed already)`);
+
+      // Update the contact to mark as cleaned up
+      await this.supabase
+        .from('contacts')
+        .update({
+          instantly_removed_at: new Date().toISOString(),
+          qualification_status: 'synced_to_pipedrive'
+        })
+        .eq('id', contact.id);
+    }
+
+    return 'removed';
   }
 
   /**

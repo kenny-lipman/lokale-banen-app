@@ -20,6 +20,7 @@ import {
   type SyncEventType
 } from '@/lib/services/instantly-pipedrive-sync.service';
 import { InstantlyWebhookPayload, instantlyClient, ALGEMENE_MAILCAMPAGNES_TAG_ID } from '@/lib/instantly-client';
+import { createServiceRoleClient } from '@/lib/supabase-server';
 
 // ============================================================================
 // CAMPAIGN TAG FILTER CACHE
@@ -225,7 +226,58 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 7. Process the webhook with mapped event type
+    // 7. Post-deletion guard: check if this lead was already removed from Instantly
+    // If so, handle reply events lightweight (note in Pipedrive) instead of full re-sync
+    const replyEvents = ['lead_interested', 'lead_not_interested', 'lead_neutral'];
+    const supabase = createServiceRoleClient();
+    const { data: contactForGuard } = await supabase
+      .from('contacts')
+      .select('id, email, instantly_removed_at')
+      .eq('email', payload.lead_email.toLowerCase().trim())
+      .not('instantly_removed_at', 'is', null)
+      .single();
+
+    if (contactForGuard?.instantly_removed_at) {
+      // Lead was already deleted from Instantly
+      if (replyEvents.includes(payload.event_type)) {
+        // Reply event after deletion → lightweight handling
+        console.log(`📨 Post-deletion reply detected for ${payload.lead_email} (removed at: ${contactForGuard.instantly_removed_at})`);
+        const postDeletionResult = await instantlyPipedriveSyncService.handlePostDeletionReply(
+          mappedPayload,
+          {
+            id: contactForGuard.id,
+            email: contactForGuard.email,
+            instantly_removed_at: contactForGuard.instantly_removed_at,
+          }
+        );
+
+        const duration = Date.now() - startTime;
+        return NextResponse.json({
+          success: true,
+          processed: true,
+          postDeletion: true,
+          result: {
+            leadEmail: postDeletionResult.leadEmail,
+            campaignId: postDeletionResult.campaignId,
+            pipedrivePersonId: postDeletionResult.pipedrivePersonId,
+            pipedriveOrgId: postDeletionResult.pipedriveOrgId,
+            skipped: false,
+          },
+          duration: `${duration}ms`
+        });
+      } else {
+        // Non-reply event after deletion (opens, clicks, bounces) → skip entirely
+        console.log(`ℹ️ Skipping post-deletion event ${payload.event_type} for ${payload.lead_email} (removed at: ${contactForGuard.instantly_removed_at})`);
+        return NextResponse.json({
+          success: true,
+          processed: false,
+          postDeletion: true,
+          message: `Lead already removed from Instantly, non-reply event ${payload.event_type} skipped`,
+        });
+      }
+    }
+
+    // 8. Process the webhook with mapped event type (normal flow)
     const result = await instantlyPipedriveSyncService.processWebhook(mappedPayload);
 
     const duration = Date.now() - startTime;

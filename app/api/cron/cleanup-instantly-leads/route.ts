@@ -1,8 +1,9 @@
 /**
  * Cron Job: Cleanup Instantly Leads
  *
- * Removes leads from Instantly that had campaign_completed more than 10 days ago.
+ * Removes leads from Instantly that had campaign_completed more than 3 days ago.
  * This gives late responders a chance to reply before being removed.
+ * Webhooks still fire after deletion, so replies are not lost.
  *
  * Schedule: Daily at 03:00 UTC (04:00 NL winter / 05:00 NL summer)
  */
@@ -11,7 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withCronMonitoring } from '@/lib/cron-monitor';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
 
-const DEFAULT_DAYS_DELAY = 10; // Remove leads 10 days after campaign_completed
+const DEFAULT_DAYS_DELAY = 3; // Remove leads 3 days after campaign_completed (webhooks still work after deletion)
+const MAX_BATCH_SIZE = 1000; // Max leads per run (Vercel timeout ~300s, ~0.2s/lead = 200s for 1000)
 
 async function cleanupHandler(request: NextRequest) {
   const startTime = Date.now();
@@ -19,20 +21,25 @@ async function cleanupHandler(request: NextRequest) {
   try {
     // Allow override via request body (for manual triggers)
     let daysDelay = DEFAULT_DAYS_DELAY;
+    let batchSize = 100; // Default batch size
     try {
       const body = await request.json();
       if (body.daysDelay && typeof body.daysDelay === 'number' && body.daysDelay >= 1) {
         daysDelay = body.daysDelay;
       }
+      if (body.batchSize && typeof body.batchSize === 'number' && body.batchSize >= 1 && body.batchSize <= MAX_BATCH_SIZE) {
+        batchSize = body.batchSize;
+      }
     } catch {
-      // No body provided, use default
+      // No body provided, use defaults
     }
 
     console.log(`🧹 Starting Instantly leads cleanup CRON job at ${new Date().toISOString()}`);
     console.log(`⏰ Delay setting: ${daysDelay} days${daysDelay !== DEFAULT_DAYS_DELAY ? ` (override from default ${DEFAULT_DAYS_DELAY})` : ''}`);
+    console.log(`📦 Batch size: ${batchSize}${batchSize !== 100 ? ' (custom)' : ' (default)'}`);
 
     // Call the cleanup method on the sync service
-    const result = await instantlyPipedriveSyncService.cleanupCompletedCampaignLeads(daysDelay);
+    const result = await instantlyPipedriveSyncService.cleanupCompletedCampaignLeads(daysDelay, batchSize);
 
     const duration = Date.now() - startTime;
 
