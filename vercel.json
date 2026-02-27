@@ -4,7 +4,7 @@
     { "path": "/api/scrapers/baanindebuurt", "schedule": "0 5 * * *" },
     { "path": "/api/scrapers/debanensite", "schedule": "0 6 * * *" },
     { "path": "/api/cron/refresh-campaign-eligible", "schedule": "30 6 * * *" },
-    { "path": "/api/cron/campaign-assignment-parallel", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/campaign-assignment-parallel", "schedule": "0 7,13 * * *" },
     { "path": "/api/cron/postcode-backfill", "schedule": "*/2 * * * *" },
     { "path": "/api/cron/refresh-contact-stats", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/watchdog", "schedule": "*/15 * * * *" }
