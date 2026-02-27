@@ -16,12 +16,14 @@ async function parallelAssignmentHandler(request: NextRequest) {
       })
     }
 
-    // 2. Parse options
+    // 2. Parse options (POST body only)
     let dryRun = false
-    try {
-      const body = await request.json()
-      if (body.dryRun !== undefined) dryRun = body.dryRun
-    } catch { /* No body provided */ }
+    if (request.method === 'POST') {
+      try {
+        const body = await request.json()
+        if (body.dryRun !== undefined) dryRun = body.dryRun
+      } catch { /* No body provided */ }
+    }
 
     // 3. Get candidates grouped by platform
     const platforms = await automaticCampaignAssignmentService.getGroupedCandidatesByPlatform(
@@ -40,25 +42,32 @@ async function parallelAssignmentHandler(request: NextRequest) {
     // 4. Generate orchestration ID for grouping batches
     const orchestrationId = `orch_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}_${Math.random().toString(36).slice(2, 8)}`
 
-    // 5. Determine worker URL
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // 5. Determine worker URL — prefer stable production URL over deployment-specific VERCEL_URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     const workerUrl = `${baseUrl}/api/cron/campaign-assignment`
 
     // 6. Auth header (same CRON_SECRET)
     const cronSecret = process.env.CRON_SECRET || process.env.CRON_SECRET_KEY
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(cronSecret ? { 'x-api-key': cronSecret } : {})
+      ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {})
     }
 
     const totalCandidates = platforms.reduce((sum, p) => sum + p.candidateCount, 0)
     console.log(`🚀 Orchestrating parallel campaign assignment: ${platforms.length} platforms, ${totalCandidates} candidates, orchestrationId=${orchestrationId}`)
 
     // 7. Trigger workers per platform (fire-and-forget with short timeout)
-    const results = await Promise.allSettled(
-      platforms.map(async (platform) => {
+    type TriggerResult = {
+      platformId: string
+      platformName: string
+      status: 'triggered' | 'trigger_failed'
+      httpStatus?: number
+      error?: string
+    }
+
+    const results = await Promise.all(
+      platforms.map(async (platform): Promise<TriggerResult> => {
         try {
           const response = await fetch(workerUrl, {
             method: 'POST',
@@ -75,15 +84,27 @@ async function parallelAssignmentHandler(request: NextRequest) {
           return {
             platformId: platform.platformId,
             platformName: platform.platformName,
-            status: 'triggered' as const,
+            status: 'triggered',
             httpStatus: response.status
           }
-        } catch {
-          // Timeout expected (worker takes >10s) — request WAS sent
+        } catch (err) {
+          // AbortError = timeout, expected (worker takes >10s) — request WAS sent
+          const isTimeout = err instanceof DOMException && err.name === 'AbortError'
+          if (isTimeout) {
+            return {
+              platformId: platform.platformId,
+              platformName: platform.platformName,
+              status: 'triggered'
+            }
+          }
+          // Real error — request may not have been sent
+          const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+          console.error(`❌ Failed to trigger worker for platform ${platform.platformId}:`, errorMsg)
           return {
             platformId: platform.platformId,
             platformName: platform.platformName,
-            status: 'triggered' as const
+            status: 'trigger_failed',
+            error: errorMsg
           }
         }
       })
@@ -91,16 +112,19 @@ async function parallelAssignmentHandler(request: NextRequest) {
 
     const triggered = results.map((r, i) => ({
       ...platforms[i],
-      ...(r.status === 'fulfilled' ? r.value : { status: 'trigger_failed' as const })
+      ...r,
     }))
 
+    const failedCount = triggered.filter(t => t.status === 'trigger_failed').length
     const duration = Date.now() - startTime
 
-    console.log(`✅ Orchestrator completed in ${duration}ms: ${platforms.length} workers triggered`)
+    console.log(`✅ Orchestrator completed in ${duration}ms: ${platforms.length - failedCount} triggered, ${failedCount} failed`)
 
     return NextResponse.json({
-      success: true,
-      message: `Triggered ${platforms.length} platform workers`,
+      success: failedCount < platforms.length, // false only if ALL workers failed
+      message: failedCount === 0
+        ? `Triggered ${platforms.length} platform workers`
+        : `Triggered ${platforms.length - failedCount}/${platforms.length} workers (${failedCount} failed)`,
       orchestrationId,
       dryRun,
       totalCandidates,
@@ -123,3 +147,4 @@ async function parallelAssignmentHandler(request: NextRequest) {
 
 const monitored = withCronMonitoring('campaign-assignment-parallel', '/api/cron/campaign-assignment-parallel')
 export const POST = monitored(parallelAssignmentHandler)
+export const GET = monitored(parallelAssignmentHandler)

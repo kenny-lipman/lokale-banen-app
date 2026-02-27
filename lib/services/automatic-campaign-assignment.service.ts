@@ -1184,10 +1184,14 @@ Genereer de personalisatie data in JSON format.`
    * Update batch with orchestration ID (for parallel run grouping)
    */
   private async updateBatchOrchestrationId(batchId: string, orchestrationId: string): Promise<void> {
-    await (this.supabase as any)
+    const { error } = await (this.supabase as any)
       .from('campaign_assignment_batches')
       .update({ orchestration_id: orchestrationId })
       .eq('batch_id', batchId)
+
+    if (error) {
+      console.error(`❌ Failed to set orchestration_id on batch ${batchId}:`, error)
+    }
   }
 
   /**
@@ -1231,13 +1235,16 @@ Genereer de personalisatie data in JSON format.`
    * Find an active (incomplete) batch to resume
    */
   async findActiveBatch(): Promise<{ batchId: string; candidateIds: string[]; processedIds: string[]; stats: BatchStats; startedAt: Date } | null> {
+    // Only resume non-orchestrated (sequential) batches — orchestrated batches
+    // belong to parallel workers and should not be resumed by the sequential cron
     const { data } = await (this.supabase as any)
       .from('campaign_assignment_batches')
       .select('*')
       .eq('status', 'processing')
+      .is('orchestration_id', null)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (!data || !data.candidate_ids || data.candidate_ids.length === 0) {
       return null
