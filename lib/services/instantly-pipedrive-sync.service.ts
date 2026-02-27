@@ -1468,9 +1468,13 @@ export class InstantlyPipedriveSyncService {
   // ============================================================================
 
   /**
-   * Clean up leads from Instantly that had campaign_completed more than X days ago
-   * This is called by a daily cron job to remove stale leads while giving them
-   * time to reply late (default: 3 days, webhooks still work after deletion)
+   * Clean up leads from Instantly that are eligible for removal.
+   *
+   * Two categories of leads are cleaned up:
+   * 1. Campaign-completed leads: campaign_completed_at older than daysDelay (default 3 days)
+   * 2. Terminal-status leads: bounced, not_interested, unsubscribed, wrong_person — these
+   *    are already synced to Pipedrive and don't need to stay in Instantly. Cleaned up after
+   *    1 day (grace period for any in-flight webhooks).
    */
   async cleanupCompletedCampaignLeads(daysDelay: number = 3, batchSize: number = 100): Promise<{
     processed: number;
@@ -1483,10 +1487,18 @@ export class InstantlyPipedriveSyncService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysDelay);
 
-    console.log(`🧹 Starting cleanup of completed campaign leads (cutoff: ${cutoffDate.toISOString()})`);
+    // Terminal statuses: these leads are done, no reason to keep them in Instantly
+    // Use 1-day grace period for any in-flight webhooks
+    const terminalCutoffDate = new Date();
+    terminalCutoffDate.setDate(terminalCutoffDate.getDate() - 1);
+    const TERMINAL_STATUSES = ['email_bounced', 'lead_not_interested', 'lead_unsubscribed', 'lead_wrong_person'];
 
-    // First, count total eligible leads to know if there are more than we'll process
-    const { count: totalEligible, error: countError } = await this.supabase
+    console.log(`🧹 Starting cleanup of Instantly leads`);
+    console.log(`  Campaign-completed cutoff: ${cutoffDate.toISOString()} (${daysDelay} days)`);
+    console.log(`  Terminal-status cutoff: ${terminalCutoffDate.toISOString()} (1 day)`);
+
+    // Count eligible leads for both categories
+    const { count: completedCount, error: countError1 } = await this.supabase
       .from('contacts')
       .select('id', { count: 'exact', head: true })
       .not('instantly_campaign_completed_at', 'is', null)
@@ -1494,39 +1506,68 @@ export class InstantlyPipedriveSyncService {
       .lt('instantly_campaign_completed_at', cutoffDate.toISOString())
       .in('instantly_status', ['campaign_completed', 'backfill']);
 
-    if (countError) {
-      console.error('Error counting leads for cleanup:', countError);
-    }
+    const { count: terminalCount, error: countError2 } = await this.supabase
+      .from('contacts')
+      .select('id', { count: 'exact', head: true })
+      .is('instantly_removed_at', null)
+      .eq('instantly_synced', true)
+      .in('instantly_status', TERMINAL_STATUSES)
+      .lt('instantly_synced_at', terminalCutoffDate.toISOString());
 
-    const totalCount = totalEligible || 0;
-    console.log(`📊 Total eligible leads for cleanup: ${totalCount}`);
+    if (countError1) console.error('Error counting completed leads:', countError1);
+    if (countError2) console.error('Error counting terminal leads:', countError2);
 
-    // Find contacts that:
-    // - Have campaign_completed_at set
-    // - campaign_completed_at is older than cutoff date
-    // - instantly_removed_at is NULL (not yet removed)
-    // - No reply received since campaign completed (check instantly_status)
-    const { data: leadsToCleanup, error } = await this.supabase
+    const completedTotal = completedCount || 0;
+    const terminalTotal = terminalCount || 0;
+    const totalCount = completedTotal + terminalTotal;
+    console.log(`📊 Eligible: ${completedTotal} completed + ${terminalTotal} terminal = ${totalCount} total`);
+
+    // Fetch campaign-completed leads
+    const { data: completedLeads, error: err1 } = await this.supabase
       .from('contacts')
       .select('id, email, instantly_campaign_completed_at, instantly_status, instantly_campaign_ids')
       .not('instantly_campaign_completed_at', 'is', null)
       .is('instantly_removed_at', null)
       .lt('instantly_campaign_completed_at', cutoffDate.toISOString())
-      .in('instantly_status', ['campaign_completed', 'backfill']) // Only those still in completed state
-      .order('instantly_campaign_completed_at', { ascending: true }) // Process oldest first
+      .in('instantly_status', ['campaign_completed', 'backfill'])
+      .order('instantly_campaign_completed_at', { ascending: true })
       .limit(batchSize);
 
-    if (error) {
-      console.error('Error fetching leads for cleanup:', error);
+    // Fetch terminal-status leads (remaining batch space)
+    const completedFetched = completedLeads?.length || 0;
+    const terminalBatchSize = Math.max(0, batchSize - completedFetched);
+
+    let terminalLeads: typeof completedLeads = [];
+    if (terminalBatchSize > 0) {
+      const { data, error: err2 } = await this.supabase
+        .from('contacts')
+        .select('id, email, instantly_campaign_completed_at, instantly_status, instantly_campaign_ids')
+        .is('instantly_removed_at', null)
+        .eq('instantly_synced', true)
+        .in('instantly_status', TERMINAL_STATUSES)
+        .lt('instantly_synced_at', terminalCutoffDate.toISOString())
+        .order('instantly_synced_at', { ascending: true })
+        .limit(terminalBatchSize);
+
+      if (err2) {
+        console.error('Error fetching terminal leads for cleanup:', err2);
+      }
+      terminalLeads = data || [];
+    }
+
+    if (err1) {
+      console.error('Error fetching completed leads for cleanup:', err1);
       return { processed: 0, removed: 0, errors: 1, skipped: 0, totalEligible: totalCount, remaining: totalCount };
     }
 
-    if (!leadsToCleanup || leadsToCleanup.length === 0) {
+    const leadsToCleanup = [...(completedLeads || []), ...(terminalLeads || [])];
+
+    if (leadsToCleanup.length === 0) {
       console.log('✅ No leads to clean up');
       return { processed: 0, removed: 0, errors: 0, skipped: 0, totalEligible: 0, remaining: 0 };
     }
 
-    console.log(`📋 Processing ${leadsToCleanup.length} of ${totalCount} eligible leads (batch size: ${batchSize})`);
+    console.log(`📋 Processing ${leadsToCleanup.length} leads (${completedFetched} completed + ${terminalLeads?.length || 0} terminal, batch: ${batchSize})`);
 
     let processed = 0;
     let removed = 0;
@@ -1575,19 +1616,24 @@ export class InstantlyPipedriveSyncService {
     contact: { id: string; email: string; instantly_campaign_completed_at: string | null; instantly_status: string | null; instantly_campaign_ids: string[] | null },
     daysDelay: number
   ): Promise<'removed' | 'skipped'> {
-    // Double-check: has this lead replied since campaign completed?
-    // Note: Using 'any' cast to avoid TS2589 "Type instantiation is excessively deep" with Supabase types
-    const { data: replyCheck } = await (this.supabase as any)
-      .from('instantly_pipedrive_syncs')
-      .select('id')
-      .eq('lead_email', contact.email!.toLowerCase())
-      .eq('has_reply', true)
-      .gt('created_at', contact.instantly_campaign_completed_at!)
-      .limit(1) as { data: { id: string }[] | null };
+    // Terminal statuses don't need reply-check — they're already in a final state
+    const isTerminalStatus = ['email_bounced', 'lead_not_interested', 'lead_unsubscribed', 'lead_wrong_person'].includes(contact.instantly_status || '');
 
-    if (replyCheck && replyCheck.length > 0) {
-      console.log(`⏭️ Skipping ${contact.email} - has replied since campaign completed`);
-      return 'skipped';
+    if (!isTerminalStatus && contact.instantly_campaign_completed_at) {
+      // For campaign-completed leads: check if they replied since completion
+      // Note: Using 'any' cast to avoid TS2589 "Type instantiation is excessively deep" with Supabase types
+      const { data: replyCheck } = await (this.supabase as any)
+        .from('instantly_pipedrive_syncs')
+        .select('id')
+        .eq('lead_email', contact.email!.toLowerCase())
+        .eq('has_reply', true)
+        .gt('created_at', contact.instantly_campaign_completed_at!)
+        .limit(1) as { data: { id: string }[] | null };
+
+      if (replyCheck && replyCheck.length > 0) {
+        console.log(`⏭️ Skipping ${contact.email} - has replied since campaign completed`);
+        return 'skipped';
+      }
     }
 
     // Get campaign ID from the array (use first one if multiple)
@@ -1600,8 +1646,10 @@ export class InstantlyPipedriveSyncService {
       contact.id
     );
 
+    const reason = isTerminalStatus ? `terminal status: ${contact.instantly_status}` : `campaign completed ${daysDelay}+ days ago`;
+
     if (removeResult.removed) {
-      console.log(`🗑️ Cleaned up ${contact.email} from Instantly (campaign completed ${daysDelay}+ days ago)`);
+      console.log(`🗑️ Cleaned up ${contact.email} from Instantly (${reason})`);
     } else {
       // Still mark as processed even if not found in Instantly
       console.log(`ℹ️ ${contact.email} not found in Instantly (may have been removed already)`);
