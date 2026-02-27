@@ -42,8 +42,10 @@ async function parallelAssignmentHandler(request: NextRequest) {
     // 4. Generate orchestration ID for grouping batches
     const orchestrationId = `orch_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}_${Math.random().toString(36).slice(2, 8)}`
 
-    // 5. Determine worker URL — prefer stable production URL over deployment-specific VERCEL_URL
+    // 5. Determine worker URL — use production domain, NOT deployment-specific VERCEL_URL
+    //    (VERCEL_URL points to deployment-specific URL which may have Deployment Protection)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     const workerUrl = `${baseUrl}/api/cron/campaign-assignment`
 
