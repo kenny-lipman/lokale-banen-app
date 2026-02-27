@@ -3,16 +3,67 @@ import { createServiceRoleClient } from '@/lib/supabase-server'
 
 /**
  * POST /api/campaign-assignment/cancel
- * Cancel an active campaign assignment batch
+ * Cancel active campaign assignment batch(es)
+ * Supports: { batchId } for single batch, { orchestrationId } for all batches in orchestration
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { batchId } = body
+    const { batchId, orchestrationId } = body
 
     const supabase = createServiceRoleClient()
 
-    // If no batchId provided, cancel the most recent active batch
+    // Cancel by orchestration ID — cancels all batches in the orchestration
+    if (orchestrationId) {
+      const { data: batches, error: fetchError } = await (supabase as any)
+        .from('campaign_assignment_batches')
+        .select('batch_id, status')
+        .eq('orchestration_id', orchestrationId)
+        .in('status', ['processing', 'pending'])
+
+      if (fetchError) {
+        console.error('Error fetching orchestration batches:', fetchError)
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to fetch orchestration batches'
+        }, { status: 500 })
+      }
+
+      if (!batches || batches.length === 0) {
+        return NextResponse.json({
+          success: false,
+          error: 'No active batches found for this orchestration'
+        }, { status: 404 })
+      }
+
+      const batchIds = batches.map((b: { batch_id: string }) => b.batch_id)
+      const { error } = await (supabase as any)
+        .from('campaign_assignment_batches')
+        .update({
+          status: 'cancelled',
+          completed_at: new Date().toISOString()
+        })
+        .in('batch_id', batchIds)
+
+      if (error) {
+        console.error('Error cancelling orchestration batches:', error)
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to cancel batches'
+        }, { status: 500 })
+      }
+
+      console.log(`⏹️ Cancelled ${batchIds.length} batches for orchestration ${orchestrationId}`)
+
+      return NextResponse.json({
+        success: true,
+        orchestrationId,
+        cancelledCount: batchIds.length,
+        message: `${batchIds.length} batches cancelled`
+      })
+    }
+
+    // Cancel by batch ID or find most recent active batch
     let targetBatchId = batchId
 
     if (!targetBatchId) {

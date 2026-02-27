@@ -79,12 +79,12 @@ export async function GET(request: NextRequest) {
       stats.successRate = Math.round((stats.added / stats.total) * 100)
     }
 
-    // Get recent batches
+    // Get recent batches (50 to cover multiple orchestrated runs with ~17 platforms each)
     const { data: batches, error: batchesError } = await supabase
       .from('campaign_assignment_batches')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(50)
 
     if (batchesError) {
       console.error('Error fetching batches:', batchesError)

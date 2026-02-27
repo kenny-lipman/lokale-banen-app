@@ -15,7 +15,7 @@ import { CampaignAssignmentLogsTable } from "@/components/campaign-assignment/lo
 import { CampaignAssignmentLogDrawer } from "@/components/campaign-assignment/log-drawer"
 import { CampaignAssignmentBatchesTable } from "@/components/campaign-assignment/batches-table"
 import { CampaignAssignmentSettingsCard } from "@/components/campaign-assignment/settings-card"
-import { useCampaignAssignment, CampaignAssignmentLog, STATUS_CONFIG } from "@/hooks/use-campaign-assignment"
+import { useCampaignAssignment, CampaignAssignmentLog, STATUS_CONFIG, ActiveOrchestration } from "@/hooks/use-campaign-assignment"
 import { TablePagination } from "@/components/ui/table-filters"
 import {
   RefreshCw,
@@ -49,6 +49,7 @@ export default function CampaignAssignmentPage() {
     recentBatches,
     dailyTrend,
     activeBatch,
+    activeOrchestration,
     loading,
     statsLoading,
     error,
@@ -107,13 +108,13 @@ export default function CampaignAssignmentPage() {
     label: `${config.icon} ${config.label}`,
   }))
 
-  // Handle run assignment
+  // Handle run assignment (parallel orchestrator)
   const handleRunAssignment = async () => {
     const result = await runAssignment(currentSettings.max_total_contacts, currentSettings.max_per_platform)
     if (result.success) {
       toast({
-        title: "Campaign Assignment Gestart",
-        description: `Batch ${result.batchId} is gestart met max ${currentSettings.max_total_contacts} contacten (${currentSettings.max_per_platform} per platform).`,
+        title: "Parallel Assignment Gestart",
+        description: `${result.platformCount || '?'} platforms getriggerd met ${result.totalCandidates || '?'} candidates.`,
       })
     } else {
       toast({
@@ -191,7 +192,7 @@ export default function CampaignAssignmentPage() {
         </div>
       )}
 
-      {/* Active Batch Progress - Show loading state or active batch */}
+      {/* Active Progress - Show loading state, orchestration, or legacy batch */}
       {statsLoading && recentBatches.length === 0 && (
         <Card className="border-gray-200 bg-gray-50/50">
           <CardContent className="py-4">
@@ -202,7 +203,103 @@ export default function CampaignAssignmentPage() {
           </CardContent>
         </Card>
       )}
-      {activeBatch && (
+      {activeOrchestration && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <CardTitle className="text-lg">Parallel Assignment Actief</CardTitle>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                  {activeOrchestration.platformCount} platforms
+                </Badge>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={async () => {
+                  const result = await cancelAssignment({ orchestrationId: activeOrchestration.orchestrationId })
+                  if (result.success) {
+                    toast({
+                      title: "Orchestratie Geannuleerd",
+                      description: "Alle platform workers zijn gestopt.",
+                    })
+                  } else {
+                    toast({
+                      title: "Error",
+                      description: result.error || "Kon orchestratie niet annuleren",
+                      variant: "destructive",
+                    })
+                  }
+                }}
+              >
+                <Square className="h-4 w-4 mr-1" />
+                Stop Alles
+              </Button>
+            </div>
+            <CardDescription>
+              Verwerkt contacten parallel over {activeOrchestration.platformCount} platforms (auto-refresh elke 3 seconden)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Overall progress */}
+              <div className="flex items-center gap-4">
+                <Progress
+                  value={activeOrchestration.totalCandidates > 0
+                    ? (activeOrchestration.totalProcessed / activeOrchestration.totalCandidates) * 100
+                    : 0
+                  }
+                  className="flex-1 h-3"
+                />
+                <span className="text-sm font-medium min-w-[80px] text-right">
+                  {activeOrchestration.totalProcessed} / {activeOrchestration.totalCandidates}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-green-600 font-medium">
+                  ✓ {activeOrchestration.totalAdded} toegevoegd
+                </span>
+                <span className="text-yellow-600 font-medium">
+                  ⊘ {activeOrchestration.totalSkipped} overgeslagen
+                </span>
+                {activeOrchestration.totalErrors > 0 && (
+                  <span className="text-red-600 font-medium">
+                    ✗ {activeOrchestration.totalErrors} fouten
+                  </span>
+                )}
+                <span className="text-muted-foreground ml-auto">
+                  {activeOrchestration.completedPlatforms}/{activeOrchestration.platformCount} platforms klaar
+                </span>
+              </div>
+              {/* Per-platform progress */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-2 border-t">
+                {activeOrchestration.batches.map((batch) => {
+                  const progress = batch.total_candidates > 0
+                    ? Math.round((batch.processed / batch.total_candidates) * 100)
+                    : 0
+                  return (
+                    <div key={batch.batch_id} className="flex items-center gap-2 text-xs">
+                      {batch.status === 'completed' ? (
+                        <span className="text-green-500">✓</span>
+                      ) : batch.status === 'failed' ? (
+                        <span className="text-red-500">✗</span>
+                      ) : (
+                        <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                      )}
+                      <span className="truncate flex-1" title={batch.platform_name || batch.batch_id}>
+                        {batch.platform_name || batch.batch_id.slice(0, 15)}
+                      </span>
+                      <span className="text-muted-foreground">{progress}%</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {activeBatch && !activeOrchestration && (
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -217,7 +314,7 @@ export default function CampaignAssignmentPage() {
                 variant="destructive"
                 size="sm"
                 onClick={async () => {
-                  const result = await cancelAssignment(activeBatch.batch_id)
+                  const result = await cancelAssignment({ batchId: activeBatch.batch_id })
                   if (result.success) {
                     toast({
                       title: "Batch Geannuleerd",
@@ -466,19 +563,22 @@ export default function CampaignAssignmentPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
-                  <p className="font-medium">Dagelijkse automatische run</p>
+                  <p className="font-medium">Parallel Assignment (2x per dag)</p>
                   <p className="text-sm text-muted-foreground">
-                    Elke dag om 06:00 (NL tijd) wordt de campaign assignment automatisch uitgevoerd
+                    Elke dag om 08:00 en 14:00 (NL tijd) worden alle platforms parallel verwerkt
                   </p>
                 </div>
                 <Badge variant={currentSettings.is_enabled ? "default" : "secondary"}>
                   {currentSettings.is_enabled ? "Actief" : "Uitgeschakeld"}
                 </Badge>
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground space-y-1">
                 <p>
                   <strong>Huidige configuratie:</strong> Max {currentSettings.max_total_contacts} contacten per run,{" "}
-                  {currentSettings.max_per_platform} per platform
+                  {currentSettings.max_per_platform} per platform (hard cap: 30 per worker)
+                </p>
+                <p>
+                  <strong>Architectuur:</strong> Orchestrator triggert 1 worker per platform parallel. Elke worker verwerkt max 30 contacts in eigen Vercel function (300s timeout).
                 </p>
               </div>
             </CardContent>

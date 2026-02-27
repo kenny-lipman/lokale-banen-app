@@ -45,6 +45,23 @@ export interface CampaignAssignmentBatch {
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
+  orchestration_id: string | null;
+  platform_id: string | null;
+  platform_name: string | null;
+}
+
+export interface ActiveOrchestration {
+  orchestrationId: string;
+  batches: CampaignAssignmentBatch[];
+  totalCandidates: number;
+  totalProcessed: number;
+  totalAdded: number;
+  totalSkipped: number;
+  totalErrors: number;
+  platformCount: number;
+  completedPlatforms: number;
+  failedPlatforms: number;
+  status: 'processing' | 'completed' | 'partial_failure';
 }
 
 export interface CampaignAssignmentStats {
@@ -90,6 +107,7 @@ export interface UseCampaignAssignmentReturn {
   recentBatches: CampaignAssignmentBatch[];
   dailyTrend: Record<string, { added: number; skipped: number; errors: number }>;
   activeBatch: CampaignAssignmentBatch | undefined;
+  activeOrchestration: ActiveOrchestration | undefined;
 
   // State
   loading: boolean;
@@ -106,8 +124,8 @@ export interface UseCampaignAssignmentReturn {
   refetch: () => Promise<void>;
   refetchStats: () => Promise<void>;
   toggleAutoRefresh: () => void;
-  runAssignment: (maxTotal?: number, maxPerPlatform?: number) => Promise<{ success: boolean; batchId?: string; error?: string }>;
-  cancelAssignment: (batchId?: string) => Promise<{ success: boolean; error?: string }>;
+  runAssignment: (maxTotal?: number, maxPerPlatform?: number) => Promise<{ success: boolean; orchestrationId?: string; platformCount?: number; totalCandidates?: number; error?: string }>;
+  cancelAssignment: (options?: { batchId?: string; orchestrationId?: string }) => Promise<{ success: boolean; error?: string }>;
   previewCandidates: (maxTotal?: number, maxPerPlatform?: number) => Promise<{ success: boolean; candidates?: unknown[]; error?: string }>;
 }
 
@@ -241,14 +259,61 @@ export function useCampaignAssignment(options: UseCampaignAssignmentOptions = {}
     fetchStats();
   }, [fetchStats]);
 
-  // Check if there's an active batch
-  const activeBatch = recentBatches.find(b => b.status === 'processing' || b.status === 'pending');
+  // Check if there's an active batch (legacy non-orchestrated)
+  const activeBatch = recentBatches.find(b =>
+    (b.status === 'processing' || b.status === 'pending') && !b.orchestration_id
+  );
 
-  // Auto-refresh - faster when there's an active batch
+  // Check if there's an active orchestration (parallel run)
+  const activeOrchestration = (() => {
+    // Find all batches with an orchestration_id that are still processing
+    const orchestratedBatches = recentBatches.filter(b => b.orchestration_id);
+    if (orchestratedBatches.length === 0) return undefined;
+
+    // Group by orchestration_id, find one with any active batches
+    const byOrch = new Map<string, CampaignAssignmentBatch[]>();
+    for (const b of orchestratedBatches) {
+      const key = b.orchestration_id!;
+      const arr = byOrch.get(key) || [];
+      arr.push(b);
+      byOrch.set(key, arr);
+    }
+
+    for (const [orchId, batches] of byOrch) {
+      const hasActive = batches.some(b => b.status === 'processing' || b.status === 'pending');
+      if (!hasActive) continue;
+
+      const totalCandidates = batches.reduce((s, b) => s + b.total_candidates, 0);
+      const totalProcessed = batches.reduce((s, b) => s + b.processed, 0);
+      const totalAdded = batches.reduce((s, b) => s + b.added, 0);
+      const totalSkipped = batches.reduce((s, b) => s + b.skipped, 0);
+      const totalErrors = batches.reduce((s, b) => s + b.errors, 0);
+      const completedPlatforms = batches.filter(b => b.status === 'completed').length;
+      const failedPlatforms = batches.filter(b => b.status === 'failed').length;
+
+      return {
+        orchestrationId: orchId,
+        batches,
+        totalCandidates,
+        totalProcessed,
+        totalAdded,
+        totalSkipped,
+        totalErrors,
+        platformCount: batches.length,
+        completedPlatforms,
+        failedPlatforms,
+        status: failedPlatforms > 0 ? 'partial_failure' as const : 'processing' as const,
+      };
+    }
+    return undefined;
+  })();
+
+  const isActive = !!activeBatch || !!activeOrchestration;
+
+  // Auto-refresh - faster when there's an active batch/orchestration
   useEffect(() => {
     if (autoRefreshEnabled) {
-      // Poll every 3 seconds when batch is active, otherwise use normal interval
-      const interval = activeBatch ? 3000 : refreshInterval;
+      const interval = isActive ? 3000 : refreshInterval;
 
       intervalRef.current = setInterval(() => {
         fetchLogs(true);
@@ -262,7 +327,7 @@ export function useCampaignAssignment(options: UseCampaignAssignmentOptions = {}
         intervalRef.current = null;
       }
     };
-  }, [autoRefreshEnabled, refreshInterval, fetchLogs, fetchStats, activeBatch?.id]);
+  }, [autoRefreshEnabled, refreshInterval, fetchLogs, fetchStats, isActive]);
 
   // Actions
   const changePage = useCallback((page: number) => {
@@ -313,7 +378,12 @@ export function useCampaignAssignment(options: UseCampaignAssignmentOptions = {}
       // Refetch data after run
       await Promise.all([fetchLogs(), fetchStats()]);
 
-      return { success: true, batchId: data.batchId };
+      return {
+        success: true,
+        orchestrationId: data.orchestrationId,
+        platformCount: data.platforms?.length,
+        totalCandidates: data.totalCandidates,
+      };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       return { success: false, error: errorMessage };
@@ -322,12 +392,12 @@ export function useCampaignAssignment(options: UseCampaignAssignmentOptions = {}
     }
   }, [fetchLogs, fetchStats]);
 
-  const cancelAssignment = useCallback(async (batchId?: string) => {
+  const cancelAssignment = useCallback(async (options?: { batchId?: string; orchestrationId?: string }) => {
     try {
       const response = await fetch('/api/campaign-assignment/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ batchId }),
+        body: JSON.stringify(options || {}),
       });
 
       const data = await response.json();
@@ -375,6 +445,7 @@ export function useCampaignAssignment(options: UseCampaignAssignmentOptions = {}
     recentBatches,
     dailyTrend,
     activeBatch,
+    activeOrchestration,
     loading,
     statsLoading,
     error,
