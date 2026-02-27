@@ -25,7 +25,7 @@ All cron jobs run via **Vercel Cron** (configured in `vercel.json`). Auth via `C
 | Baanindebuurt Scraper | `0 5 * * *` | 06:00 | `/api/scrapers/baanindebuurt` |
 | Debanensite Scraper | `0 6 * * *` | 07:00 | `/api/scrapers/debanensite` |
 | Refresh Campaign Eligible | `30 6 * * *` | 07:30 | `/api/cron/refresh-campaign-eligible` |
-| Campaign Assignment | `0 7,13,19 * * *` | 08:00, 14:00, 20:00 | `/api/cron/campaign-assignment` |
+| Campaign Assignment (parallel) | `0 7,13 * * *` | 08:00, 14:00 | `/api/cron/campaign-assignment-parallel` |
 | Postcode Backfill | `*/2 * * * *` | Elke 2 min | `/api/cron/postcode-backfill` |
 | Refresh Contact Stats | `*/5 * * * *` | Elke 5 min | `/api/cron/refresh-contact-stats` |
 | Watchdog | `*/15 * * * *` | Elke 15 min | `/api/cron/watchdog` |
@@ -79,9 +79,22 @@ Key variables needed:
 - `MISTRAL_API_KEY` - For AI parsing in baanindebuurt scraper
 - `SUPABASE_SERVICE_ROLE_KEY` - For server-side Supabase operations
 
+## Campaign Assignment Architecture
+
+Campaign assignment uses a **parallel orchestrator + worker** pattern:
+
+- **Orchestrator** (`/api/cron/campaign-assignment-parallel`): Fetches all candidates, groups by platform, triggers a separate worker per platform via HTTP
+- **Worker** (`/api/cron/campaign-assignment`): Processes up to 30 contacts for a single platform (hard cap for 300s timeout safety)
+- Each worker: Pipedrive search → blocklist check → Mistral AI personalization → Instantly lead creation
+- ~500 contacts across ~10-17 platforms in ~5 min wall time (parallel) vs ~160 min (old sequential)
+- Batches grouped by `orchestration_id` in `campaign_assignment_batches` table
+- Worker endpoint still accepts manual triggers without `platformId` (sequential fallback mode)
+
 ## Database Key Tables
 
 - `job_postings` - All scraped vacancies
 - `companies` - Company records with enrichment data
 - `contacts` - Contact persons linked to companies
 - `job_sources` - Scraper sources (Indeed, LinkedIn, Baan in de Buurt, etc.)
+- `campaign_assignment_batches` - Campaign assignment run tracking (with `orchestration_id` for parallel grouping)
+- `campaign_assignment_logs` - Per-contact processing logs
