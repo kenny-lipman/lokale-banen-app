@@ -1667,6 +1667,228 @@ export class InstantlyPipedriveSyncService {
     return 'removed';
   }
 
+  // ============================================================================
+  // INSTANTLY API BULK CLEANUP
+  // ============================================================================
+
+  /**
+   * Bulk cleanup: iterate through Instantly campaigns via API and remove completed/bounced leads.
+   * This handles the ~23,000 leads that exist in Instantly but may not be tracked in our contacts table.
+   *
+   * For each lead removed:
+   * - If a matching contact exists in our DB: update instantly_removed_at + sync data
+   * - If no contact exists: just remove from Instantly (frees the slot)
+   *
+   * @param options.campaignIds - Specific campaigns to clean (default: all Algemene campaigns)
+   * @param options.maxLeadsPerCampaign - Max leads to process per campaign (for gradual cleanup)
+   * @param options.dryRun - If true, only count without deleting
+   * @param options.includeCompleted - Remove completed leads (default: true)
+   * @param options.includeBounced - Remove bounced leads (default: true)
+   */
+  async bulkCleanupFromInstantly(options: {
+    campaignIds?: string[];
+    maxLeadsPerCampaign?: number;
+    dryRun?: boolean;
+    includeCompleted?: boolean;
+    includeBounced?: boolean;
+  } = {}): Promise<{
+    campaignsProcessed: number;
+    totalLeadsScanned: number;
+    removed: number;
+    contactsUpdated: number;
+    errors: number;
+    skipped: number;
+    dryRun: boolean;
+    perCampaign: Array<{ campaignId: string; campaignName: string; scanned: number; removed: number; errors: number }>;
+  }> {
+    const {
+      maxLeadsPerCampaign = 500,
+      dryRun = false,
+      includeCompleted = true,
+      includeBounced = true,
+    } = options;
+
+    console.log(`🧹 Starting Instantly API bulk cleanup (dryRun: ${dryRun})`);
+    console.log(`  Filters: completed=${includeCompleted}, bounced=${includeBounced}, maxPerCampaign=${maxLeadsPerCampaign}`);
+
+    // Get campaigns to process
+    let campaigns: { id: string; name: string }[];
+    if (options.campaignIds && options.campaignIds.length > 0) {
+      campaigns = options.campaignIds.map(id => ({ id, name: id }));
+    } else {
+      const algemeneCampaigns = await this.instantlyClient.listAlgemeneCampagnes();
+      campaigns = algemeneCampaigns.map(c => ({ id: c.id, name: c.name || c.id }));
+    }
+
+    console.log(`📋 Processing ${campaigns.length} campaigns`);
+
+    let totalScanned = 0;
+    let totalRemoved = 0;
+    let totalContactsUpdated = 0;
+    let totalErrors = 0;
+    let totalSkipped = 0;
+    const perCampaign: Array<{ campaignId: string; campaignName: string; scanned: number; removed: number; errors: number }> = [];
+
+    for (const campaign of campaigns) {
+      console.log(`\n🔄 Campaign: ${campaign.name} (${campaign.id})`);
+
+      let campaignScanned = 0;
+      let campaignRemoved = 0;
+      let campaignErrors = 0;
+
+      try {
+        // Fetch completed leads
+        const leadsToRemove: InstantlyLead[] = [];
+
+        if (includeCompleted) {
+          const completedLeads = await this.instantlyClient.listLeadsByCampaign(campaign.id, {
+            lead_status_filter: 'FILTER_VAL_COMPLETED',
+            maxLeads: maxLeadsPerCampaign,
+          });
+          leadsToRemove.push(...completedLeads);
+          console.log(`  Completed leads found: ${completedLeads.length}`);
+        }
+
+        // For bounced leads, fetch all and filter by status
+        if (includeBounced) {
+          const remainingSlots = maxLeadsPerCampaign - leadsToRemove.length;
+          if (remainingSlots > 0) {
+            const allLeads = await this.instantlyClient.listLeadsByCampaign(campaign.id, {
+              maxLeads: remainingSlots,
+              filterFn: (lead) => lead.status === -1 || lead.status === '-1', // bounced
+            });
+            // Deduplicate by email (a lead might appear in both queries)
+            const existingEmails = new Set(leadsToRemove.map(l => l.email.toLowerCase()));
+            const newBounced = allLeads.filter(l => !existingEmails.has(l.email.toLowerCase()));
+            leadsToRemove.push(...newBounced);
+            console.log(`  Bounced leads found: ${newBounced.length}`);
+          }
+        }
+
+        campaignScanned = leadsToRemove.length;
+        totalScanned += campaignScanned;
+
+        if (leadsToRemove.length === 0) {
+          console.log(`  ✅ No leads to remove`);
+          perCampaign.push({ campaignId: campaign.id, campaignName: campaign.name, scanned: 0, removed: 0, errors: 0 });
+          continue;
+        }
+
+        if (dryRun) {
+          console.log(`  🔍 [DRY RUN] Would remove ${leadsToRemove.length} leads`);
+          totalRemoved += leadsToRemove.length;
+          campaignRemoved = leadsToRemove.length;
+          perCampaign.push({ campaignId: campaign.id, campaignName: campaign.name, scanned: campaignScanned, removed: campaignRemoved, errors: 0 });
+          continue;
+        }
+
+        // Process in parallel chunks of 10
+        const CHUNK_SIZE = 10;
+        for (let i = 0; i < leadsToRemove.length; i += CHUNK_SIZE) {
+          const chunk = leadsToRemove.slice(i, i + CHUNK_SIZE);
+          const results = await Promise.allSettled(
+            chunk.map(lead => this.processInstantlyLeadCleanup(lead, campaign.id, campaign.name))
+          );
+
+          for (const result of results) {
+            if (result.status === 'fulfilled') {
+              if (result.value.removed) campaignRemoved++;
+              if (result.value.contactUpdated) totalContactsUpdated++;
+              if (result.value.skipped) totalSkipped++;
+            } else {
+              campaignErrors++;
+              console.error(`  Error removing lead:`, result.reason);
+            }
+          }
+        }
+
+        totalRemoved += campaignRemoved;
+        totalErrors += campaignErrors;
+
+        console.log(`  ✅ Removed ${campaignRemoved}/${campaignScanned} (${campaignErrors} errors)`);
+      } catch (error) {
+        console.error(`  ❌ Error processing campaign ${campaign.name}:`, error);
+        totalErrors++;
+        campaignErrors++;
+      }
+
+      perCampaign.push({ campaignId: campaign.id, campaignName: campaign.name, scanned: campaignScanned, removed: campaignRemoved, errors: campaignErrors });
+    }
+
+    console.log(`\n✅ Bulk cleanup complete: ${totalRemoved}/${totalScanned} removed across ${campaigns.length} campaigns (${totalErrors} errors, ${totalContactsUpdated} contacts updated)`);
+
+    return {
+      campaignsProcessed: campaigns.length,
+      totalLeadsScanned: totalScanned,
+      removed: totalRemoved,
+      contactsUpdated: totalContactsUpdated,
+      errors: totalErrors,
+      skipped: totalSkipped,
+      dryRun,
+      perCampaign,
+    };
+  }
+
+  /**
+   * Process a single Instantly lead for bulk cleanup:
+   * - Delete from Instantly
+   * - If contact exists in DB: update instantly_removed_at and sync data
+   */
+  private async processInstantlyLeadCleanup(
+    lead: InstantlyLead,
+    campaignId: string,
+    campaignName: string
+  ): Promise<{ removed: boolean; contactUpdated: boolean; skipped: boolean }> {
+    const email = lead.email.toLowerCase().trim();
+
+    try {
+      // Delete from Instantly
+      await this.instantlyClient.deleteLead(lead.id);
+
+      // Try to find and update matching contact in our DB
+      const { data: contact } = await this.supabase
+        .from('contacts')
+        .select('id, instantly_synced, instantly_campaign_ids, pipedrive_person_id')
+        .eq('email', email)
+        .single();
+
+      if (contact) {
+        // Determine status based on Instantly data
+        let instantlyStatus = 'campaign_completed';
+        if (lead.status === -1 || lead.status === '-1') instantlyStatus = 'email_bounced';
+        if (lead.interest_status === 1 || lead.interest_status === '1') instantlyStatus = 'lead_interested';
+        if (lead.interest_status === -1 || lead.interest_status === '-1') instantlyStatus = 'lead_not_interested';
+
+        // Build campaign IDs array
+        let campaignIds = contact.instantly_campaign_ids || [];
+        if (!campaignIds.includes(campaignId)) {
+          campaignIds = [...campaignIds, campaignId];
+        }
+
+        await this.supabase
+          .from('contacts')
+          .update({
+            instantly_removed_at: new Date().toISOString(),
+            instantly_synced: true,
+            instantly_synced_at: new Date().toISOString(),
+            instantly_status: instantlyStatus,
+            instantly_campaign_ids: campaignIds,
+            // Only update qualification_status if it was in_campaign (don't overwrite higher-priority statuses)
+            ...((!contact.pipedrive_person_id) ? {} : { qualification_status: 'synced_to_pipedrive' }),
+          })
+          .eq('id', contact.id);
+
+        return { removed: true, contactUpdated: true, skipped: false };
+      }
+
+      // No contact in DB — just freed an Instantly slot
+      return { removed: true, contactUpdated: false, skipped: false };
+    } catch (error) {
+      console.error(`  Failed to clean up ${email}:`, error instanceof Error ? error.message : error);
+      return { removed: false, contactUpdated: false, skipped: false };
+    }
+  }
+
   /**
    * Get failed syncs for retry
    */
