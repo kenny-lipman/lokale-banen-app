@@ -1858,6 +1858,9 @@ export class InstantlyPipedriveSyncService {
         if (lead.status === -1 || lead.status === '-1') instantlyStatus = 'email_bounced';
         if (lead.interest_status === 1 || lead.interest_status === '1') instantlyStatus = 'lead_interested';
         if (lead.interest_status === -1 || lead.interest_status === '-1') instantlyStatus = 'lead_not_interested';
+        if (lead.lt_interest_status === 0) instantlyStatus = 'lead_out_of_office';
+        if (lead.lt_interest_status === -2) instantlyStatus = 'lead_wrong_person';
+        if (lead.lt_interest_status === 2) instantlyStatus = 'lead_meeting_booked';
 
         // Build campaign IDs array
         let campaignIds = contact.instantly_campaign_ids || [];
@@ -1865,16 +1868,36 @@ export class InstantlyPipedriveSyncService {
           campaignIds = [...campaignIds, campaignId];
         }
 
+        const now = new Date().toISOString();
+        const replyCount = lead.email_reply_count || 0;
+
         await this.supabase
           .from('contacts')
           .update({
-            instantly_removed_at: new Date().toISOString(),
+            // Core Instantly tracking
+            instantly_id: lead.id,
+            instantly_removed_at: now,
             instantly_synced: true,
-            instantly_synced_at: new Date().toISOString(),
+            instantly_synced_at: now,
             instantly_status: instantlyStatus,
             instantly_campaign_ids: campaignIds,
-            // Only update qualification_status if it was in_campaign (don't overwrite higher-priority statuses)
-            ...((!contact.pipedrive_person_id) ? {} : { qualification_status: 'synced_to_pipedrive' }),
+            // Engagement data from Instantly
+            ...(lead.email_open_count ? { instantly_opens_count: lead.email_open_count } : {}),
+            ...(lead.email_click_count ? { instantly_clicks_count: lead.email_click_count } : {}),
+            ...(lead.timestamp_last_open ? { instantly_last_open_at: lead.timestamp_last_open } : {}),
+            ...(lead.timestamp_last_click ? { instantly_last_click_at: lead.timestamp_last_click } : {}),
+            // Reply tracking
+            ...(replyCount > 0 ? {
+              reply_count: replyCount,
+              last_reply_at: lead.timestamp_last_reply || now,
+            } : {}),
+            // Bounce tracking
+            ...(instantlyStatus === 'email_bounced' ? {
+              instantly_bounced: true,
+              instantly_bounced_at: lead.timestamp_updated || now,
+            } : {}),
+            // Qualification status
+            ...(contact.pipedrive_person_id ? { qualification_status: 'synced_to_pipedrive' } : {}),
           })
           .eq('id', contact.id);
 
