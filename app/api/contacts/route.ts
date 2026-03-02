@@ -497,20 +497,12 @@ export async function POST(req: NextRequest) {
                 instantlyId
               })
             } else {
-              // Send to Pipedrive webhook after successful Instantly sync
+              // Sync contact + company to Pipedrive (direct API, no n8n webhook)
+              // Supabase updates (pipedrive_synced, pipedrive_person_id) happen inside sendToPipedriveWebhook
               const webhookResult = await sendToPipedriveWebhook(contact, campaignName || "")
-              
-              // Update contact with Pipedrive sync status
+
               if (webhookResult.success) {
-                await supabaseService.serviceClient
-                  .from('contacts')
-                  .update({
-                    pipedrive_synced: true,
-                    pipedrive_synced_at: new Date().toISOString()
-                  })
-                  .eq('id', contact.id)
-                
-                console.log(`[Pipedrive] Contact ${contact.email} synced successfully`)
+                console.log(`[Pipedrive] Contact ${contact.email} synced successfully (org=${webhookResult.organizationId}, person=${webhookResult.personId})`)
               } else {
                 console.log(`[Pipedrive] Failed to sync contact ${contact.email}:`, webhookResult.error)
               }
