@@ -1,8 +1,8 @@
 /**
  * Cron Job: Daily Campaign Report
  *
- * Fetches all campaign analytics from Instantly and sends a summary email
- * to kenny@bespokeautomation.ai via Resend.
+ * Fetches all campaign analytics from Instantly (cumulative + today) and sends
+ * a summary email to kenny@bespokeautomation.ai via Resend.
  *
  * Schedule: Daily at 08:00 UTC (09:00 NL winter / 10:00 NL summer)
  */
@@ -15,13 +15,22 @@ import { buildCampaignReportHtml, buildCampaignReportSubject } from '@/lib/email
 
 const REPORT_RECIPIENT = 'kenny@bespokeautomation.ai'
 
+function toDateString(date: Date): string {
+  return date.toISOString().slice(0, 10) // YYYY-MM-DD
+}
+
 async function handler(_request: NextRequest) {
   const startTime = Date.now()
 
   console.log(`📊 Starting daily campaign report at ${new Date().toISOString()}`)
 
-  // 1. Fetch all campaign analytics from Instantly
-  const analytics = await instantlyClient.getAllCampaignsAnalytics()
+  const todayStr = toDateString(new Date())
+
+  // 1. Fetch cumulative + today's analytics in parallel
+  const [analytics, todayAnalytics] = await Promise.all([
+    instantlyClient.getAllCampaignsAnalytics(),
+    instantlyClient.getAllCampaignsAnalyticsByDate(todayStr, todayStr),
+  ])
 
   if (!analytics || analytics.length === 0) {
     console.log('⚠️ No campaign analytics found')
@@ -32,25 +41,32 @@ async function handler(_request: NextRequest) {
     })
   }
 
-  console.log(`📈 Fetched analytics for ${analytics.length} campaigns`)
+  console.log(`📈 Fetched analytics for ${analytics.length} campaigns (${todayAnalytics.length} with activity today)`)
 
-  // 2. Calculate totals
-  const totals = analytics.reduce(
-    (acc, c) => ({
-      sent: acc.sent + c.emails_sent_count,
-      opens: acc.opens + c.open_count,
-      opensUnique: acc.opensUnique + c.open_count_unique,
-      replies: acc.replies + c.reply_count,
-      repliesUnique: acc.repliesUnique + c.reply_count_unique,
-      clicks: acc.clicks + c.link_click_count,
-      bounces: acc.bounces + c.bounced_count,
-      unsubscribes: acc.unsubscribes + c.unsubscribed_count,
-      leads: acc.leads + c.leads_count,
-    }),
-    { sent: 0, opens: 0, opensUnique: 0, replies: 0, repliesUnique: 0, clicks: 0, bounces: 0, unsubscribes: 0, leads: 0 }
-  )
+  // 2. Build today lookup by campaign_id
+  const todayMap = new Map(todayAnalytics.map(c => [c.campaign_id, c]))
 
-  // 3. Format date for report
+  // 3. Calculate totals
+  const calcTotals = (data: typeof analytics) =>
+    data.reduce(
+      (acc, c) => ({
+        sent: acc.sent + c.emails_sent_count,
+        opens: acc.opens + c.open_count,
+        opensUnique: acc.opensUnique + c.open_count_unique,
+        replies: acc.replies + c.reply_count,
+        repliesUnique: acc.repliesUnique + c.reply_count_unique,
+        clicks: acc.clicks + c.link_click_count,
+        bounces: acc.bounces + c.bounced_count,
+        unsubscribes: acc.unsubscribes + c.unsubscribed_count,
+        leads: acc.leads + c.leads_count,
+      }),
+      { sent: 0, opens: 0, opensUnique: 0, replies: 0, repliesUnique: 0, clicks: 0, bounces: 0, unsubscribes: 0, leads: 0 }
+    )
+
+  const totals = calcTotals(analytics)
+  const todayTotals = calcTotals(todayAnalytics)
+
+  // 4. Format date for report
   const today = new Date()
   const dateStr = today.toLocaleDateString('nl-NL', {
     weekday: 'long',
@@ -59,9 +75,9 @@ async function handler(_request: NextRequest) {
     day: 'numeric',
   })
 
-  const reportData = { date: dateStr, campaigns: analytics, totals }
+  const reportData = { date: dateStr, campaigns: analytics, todayMap, totals, todayTotals }
 
-  // 4. Build and send email
+  // 5. Build and send email
   const html = buildCampaignReportHtml(reportData)
   const subject = buildCampaignReportSubject(reportData)
 
@@ -92,8 +108,11 @@ async function handler(_request: NextRequest) {
       campaigns: analytics.length,
       activeCampaigns,
       totalSent: totals.sent,
+      todaySent: todayTotals.sent,
       totalOpens: totals.opensUnique,
+      todayOpens: todayTotals.opensUnique,
       totalReplies: totals.replies,
+      todayReplies: todayTotals.replies,
       totalBounces: totals.bounces,
     },
     duration,

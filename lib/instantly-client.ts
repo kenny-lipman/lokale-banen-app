@@ -936,6 +936,23 @@ export class InstantlyClient {
   }
 
   /**
+   * Get analytics for all campaigns filtered by date range
+   * @param startDate - Start date in YYYY-MM-DD format
+   * @param endDate - End date in YYYY-MM-DD format
+   */
+  async getAllCampaignsAnalyticsByDate(startDate: string, endDate: string): Promise<InstantlyCampaignAnalytics[]> {
+    try {
+      const response = await this.makeRequest<InstantlyCampaignAnalytics[]>(
+        `/campaigns/analytics?start_date=${startDate}&end_date=${endDate}`
+      )
+      return Array.isArray(response) ? response : []
+    } catch (error) {
+      console.error('Error getting campaigns analytics by date:', error)
+      return []
+    }
+  }
+
+  /**
    * List campaigns filtered by tag ID
    * @param tagId - The custom tag ID to filter by
    */
