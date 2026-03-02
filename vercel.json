@@ -7,7 +7,8 @@
     { "path": "/api/cron/campaign-assignment-parallel", "schedule": "0 7,13 * * *" },
     { "path": "/api/cron/postcode-backfill", "schedule": "*/2 * * * *" },
     { "path": "/api/cron/refresh-contact-stats", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/watchdog", "schedule": "*/15 * * * *" }
+    { "path": "/api/cron/watchdog", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/daily-campaign-report", "schedule": "0 8 * * *" }
   ],
   "functions": {
     "app/api/cron/campaign-assignment/route.ts": { "maxDuration": 300 },
