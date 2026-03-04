@@ -2345,7 +2345,8 @@ export class InstantlyPipedriveSyncService {
       jobCategories: lead.jobCategories || enrichment.jobCategories,
       // Company ID for postcode backfill
       companyId: lead.companyId || enrichment.company?.id,
-      replyCount: lead.replyCount
+      replyCount: lead.replyCount,
+      campaignCompletedAt: lead.campaignCompletedAt,
     };
   }
 
