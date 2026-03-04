@@ -499,10 +499,16 @@ export class InstantlyPipedriveSyncService {
         await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount);
 
         // 10. Log email activities to Pipedrive (sent/received emails from Instantly)
-        const emailActivityResult = await this.logEmailActivities(orgResult.id, personResult.id, cleanEmail, campaignId);
-        result.emailActivitiesSynced = emailActivityResult.success;
-        result.emailActivitiesCount = emailActivityResult.count;
-        result.emailActivitiesError = emailActivityResult.error;
+        // Skip for backfill: leads are already removed from Instantly, API calls would fail
+        if (syncSource === 'backfill') {
+          result.emailActivitiesSynced = true;
+          result.emailActivitiesCount = 0;
+        } else {
+          const emailActivityResult = await this.logEmailActivities(orgResult.id, personResult.id, cleanEmail, campaignId);
+          result.emailActivitiesSynced = emailActivityResult.success;
+          result.emailActivitiesCount = emailActivityResult.count;
+          result.emailActivitiesError = emailActivityResult.error;
+        }
       } else {
         // Freemail without organization - still mark as success
         console.log(`📧 Freemail lead ${cleanEmail} synced as person only (no organization)`);
