@@ -13,6 +13,7 @@
  * Body: {
  *   batchSize?: number (default: 50, max: 100)
  *   includeBounced?: boolean (default: false) - include email_bounced contacts
+ *   requirePostalCode?: boolean (default: false) - only process contacts with postal code
  * }
  */
 
@@ -29,6 +30,7 @@ async function syncHandler(request: NextRequest) {
   try {
     let batchSize = DEFAULT_BATCH_SIZE;
     let includeBounced = false;
+    let requirePostalCode = false;
 
     try {
       const body = await request.json();
@@ -38,13 +40,16 @@ async function syncHandler(request: NextRequest) {
       if (body.includeBounced === true) {
         includeBounced = true;
       }
+      if (body.requirePostalCode === true) {
+        requirePostalCode = true;
+      }
     } catch {
       // No body provided, use defaults
     }
 
-    console.log(`🔄 Starting Pipedrive sync for unprocessed contacts (batch: ${batchSize}, includeBounced: ${includeBounced})`);
+    console.log(`🔄 Starting Pipedrive sync for unprocessed contacts (batch: ${batchSize}, includeBounced: ${includeBounced}, requirePostalCode: ${requirePostalCode})`);
 
-    const result = await instantlyPipedriveSyncService.syncUnprocessedContactsToPipedrive(batchSize, { includeBounced });
+    const result = await instantlyPipedriveSyncService.syncUnprocessedContactsToPipedrive(batchSize, { includeBounced, requirePostalCode });
 
     const duration = Date.now() - startTime;
 

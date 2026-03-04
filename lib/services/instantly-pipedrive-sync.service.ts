@@ -1681,7 +1681,7 @@ export class InstantlyPipedriveSyncService {
    * - instantly_status NOT IN ('email_bounced') unless includeBounced=true
    * - email IS NOT NULL
    */
-  async syncUnprocessedContactsToPipedrive(batchSize: number = 50, options: { includeBounced?: boolean } = {}): Promise<{
+  async syncUnprocessedContactsToPipedrive(batchSize: number = 50, options: { includeBounced?: boolean; requirePostalCode?: boolean } = {}): Promise<{
     processed: number;
     synced: number;
     skipped: number;
@@ -1690,18 +1690,24 @@ export class InstantlyPipedriveSyncService {
     remaining: number;
     details: Array<{ email: string; success: boolean; skipReason?: string; error?: string }>;
   }> {
-    const { includeBounced = false } = options;
-    console.log(`🔄 Starting Pipedrive backfill for unsynced contacts (batch: ${batchSize}, includeBounced: ${includeBounced})`);
+    const { includeBounced = false, requirePostalCode = false } = options;
+    console.log(`🔄 Starting Pipedrive backfill for unsynced contacts (batch: ${batchSize}, includeBounced: ${includeBounced}, requirePostalCode: ${requirePostalCode})`);
+
+    // Use inner join when filtering by postal code to skip contacts without postal code at query level
+    const companiesJoin = requirePostalCode ? 'companies!inner(id, name)' : 'companies(id, name)';
 
     // Count total eligible
     let countQuery = this.supabase
       .from('contacts')
-      .select('id', { count: 'exact', head: true })
+      .select(requirePostalCode ? 'id, companies!inner(id)' : 'id', { count: 'exact', head: true })
       .eq('instantly_synced', true)
       .is('pipedrive_person_id', null)
       .not('email', 'is', null);
     if (!includeBounced) {
       countQuery = countQuery.not('instantly_status', 'eq', 'email_bounced');
+    }
+    if (requirePostalCode) {
+      countQuery = countQuery.not('companies.postal_code', 'is', null);
     }
     const { count: totalEligible } = await countQuery;
 
@@ -1721,13 +1727,16 @@ export class InstantlyPipedriveSyncService {
         reply_count, instantly_last_open_at,
         instantly_campaign_completed_at, instantly_removed_at,
         company_id,
-        companies (id, name)
+        ${companiesJoin}
       `)
       .eq('instantly_synced', true)
       .is('pipedrive_person_id', null)
       .not('email', 'is', null);
     if (!includeBounced) {
       fetchQuery = fetchQuery.not('instantly_status', 'eq', 'email_bounced');
+    }
+    if (requirePostalCode) {
+      fetchQuery = fetchQuery.not('companies.postal_code', 'is', null);
     }
     const { data: contacts, error: fetchError } = await fetchQuery
       .order('instantly_synced_at', { ascending: true })
