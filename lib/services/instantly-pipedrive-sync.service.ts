@@ -1678,10 +1678,10 @@ export class InstantlyPipedriveSyncService {
    * Eligible contacts:
    * - instantly_synced = true (has Instantly data)
    * - pipedrive_person_id IS NULL (not yet in Pipedrive)
-   * - instantly_status NOT IN ('email_bounced') (bounced leads skip Pipedrive)
+   * - instantly_status NOT IN ('email_bounced') unless includeBounced=true
    * - email IS NOT NULL
    */
-  async syncUnprocessedContactsToPipedrive(batchSize: number = 50): Promise<{
+  async syncUnprocessedContactsToPipedrive(batchSize: number = 50, options: { includeBounced?: boolean } = {}): Promise<{
     processed: number;
     synced: number;
     skipped: number;
@@ -1690,16 +1690,20 @@ export class InstantlyPipedriveSyncService {
     remaining: number;
     details: Array<{ email: string; success: boolean; skipReason?: string; error?: string }>;
   }> {
-    console.log(`🔄 Starting Pipedrive backfill for unsynced contacts (batch: ${batchSize})`);
+    const { includeBounced = false } = options;
+    console.log(`🔄 Starting Pipedrive backfill for unsynced contacts (batch: ${batchSize}, includeBounced: ${includeBounced})`);
 
     // Count total eligible
-    const { count: totalEligible } = await this.supabase
+    let countQuery = this.supabase
       .from('contacts')
       .select('id', { count: 'exact', head: true })
       .eq('instantly_synced', true)
       .is('pipedrive_person_id', null)
-      .not('email', 'is', null)
-      .not('instantly_status', 'eq', 'email_bounced');
+      .not('email', 'is', null);
+    if (!includeBounced) {
+      countQuery = countQuery.not('instantly_status', 'eq', 'email_bounced');
+    }
+    const { count: totalEligible } = await countQuery;
 
     console.log(`📊 Total eligible contacts: ${totalEligible || 0}`);
 
@@ -1708,20 +1712,24 @@ export class InstantlyPipedriveSyncService {
     }
 
     // Fetch batch of contacts with company data
-    const { data: contacts, error: fetchError } = await this.supabase
+    let fetchQuery = this.supabase
       .from('contacts')
       .select(`
         id, email, name, first_name, last_name, phone, title,
         instantly_status, instantly_campaign_ids,
         instantly_opens_count, instantly_clicks_count,
         reply_count, instantly_last_open_at,
+        instantly_campaign_completed_at, instantly_removed_at,
         company_id,
         companies (id, name)
       `)
       .eq('instantly_synced', true)
       .is('pipedrive_person_id', null)
-      .not('email', 'is', null)
-      .not('instantly_status', 'eq', 'email_bounced')
+      .not('email', 'is', null);
+    if (!includeBounced) {
+      fetchQuery = fetchQuery.not('instantly_status', 'eq', 'email_bounced');
+    }
+    const { data: contacts, error: fetchError } = await fetchQuery
       .order('instantly_synced_at', { ascending: true })
       .limit(batchSize);
 
@@ -1741,6 +1749,11 @@ export class InstantlyPipedriveSyncService {
       const email = contact.email!;
       try {
         // Build SyncLeadData from contact
+        // Use instantly_campaign_completed_at if available, otherwise instantly_removed_at as fallback
+        const campaignCompletedAt = contact.instantly_campaign_completed_at
+          || contact.instantly_removed_at
+          || undefined;
+
         const leadData: SyncLeadData = {
           email,
           firstName: contact.first_name || undefined,
@@ -1752,6 +1765,7 @@ export class InstantlyPipedriveSyncService {
           clicksCount: contact.instantly_clicks_count || undefined,
           replyCount: contact.reply_count || undefined,
           lastOpenAt: contact.instantly_last_open_at || undefined,
+          campaignCompletedAt,
         };
 
         // If no first/last name but has name, split it
@@ -1837,6 +1851,8 @@ export class InstantlyPipedriveSyncService {
         return { eventType: 'lead_wrong_person' as SyncEventType, hasReply: false };
       case 'lead_meeting_booked':
         return { eventType: 'lead_meeting_booked' as SyncEventType, hasReply: true, replySentiment: 'positive' };
+      case 'email_bounced':
+        return { eventType: 'email_bounced' as SyncEventType, hasReply: false };
       case 'campaign_completed':
       case 'backfill':
       default:

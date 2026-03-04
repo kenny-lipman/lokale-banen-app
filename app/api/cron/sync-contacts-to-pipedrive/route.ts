@@ -12,6 +12,7 @@
  * POST /api/cron/sync-contacts-to-pipedrive
  * Body: {
  *   batchSize?: number (default: 50, max: 100)
+ *   includeBounced?: boolean (default: false) - include email_bounced contacts
  * }
  */
 
@@ -27,19 +28,23 @@ async function syncHandler(request: NextRequest) {
 
   try {
     let batchSize = DEFAULT_BATCH_SIZE;
+    let includeBounced = false;
 
     try {
       const body = await request.json();
       if (typeof body.batchSize === 'number' && body.batchSize >= 1 && body.batchSize <= MAX_BATCH_SIZE) {
         batchSize = body.batchSize;
       }
+      if (body.includeBounced === true) {
+        includeBounced = true;
+      }
     } catch {
       // No body provided, use defaults
     }
 
-    console.log(`🔄 Starting Pipedrive sync for unprocessed contacts (batch: ${batchSize})`);
+    console.log(`🔄 Starting Pipedrive sync for unprocessed contacts (batch: ${batchSize}, includeBounced: ${includeBounced})`);
 
-    const result = await instantlyPipedriveSyncService.syncUnprocessedContactsToPipedrive(batchSize);
+    const result = await instantlyPipedriveSyncService.syncUnprocessedContactsToPipedrive(batchSize, { includeBounced });
 
     const duration = Date.now() - startTime;
 
