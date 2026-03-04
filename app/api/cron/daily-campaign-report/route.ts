@@ -1,7 +1,7 @@
 /**
  * Cron Job: Daily Campaign Report
  *
- * Fetches all campaign analytics from Instantly (cumulative + today) and sends
+ * Fetches all campaign analytics from Instantly (cumulative + yesterday) and sends
  * a summary email to kenny@bespokeautomation.ai via Resend.
  *
  * Schedule: Daily at 08:00 UTC (09:00 NL winter / 10:00 NL summer)
@@ -24,12 +24,14 @@ async function handler(_request: NextRequest) {
 
   console.log(`📊 Starting daily campaign report at ${new Date().toISOString()}`)
 
-  const todayStr = toDateString(new Date())
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = toDateString(yesterday)
 
-  // 1. Fetch cumulative + today's analytics in parallel
-  const [analytics, todayAnalytics] = await Promise.all([
+  // 1. Fetch cumulative + yesterday's analytics in parallel
+  const [analytics, yesterdayAnalytics] = await Promise.all([
     instantlyClient.getAllCampaignsAnalytics(),
-    instantlyClient.getAllCampaignsAnalyticsByDate(todayStr, todayStr),
+    instantlyClient.getAllCampaignsAnalyticsByDate(yesterdayStr, yesterdayStr),
   ])
 
   if (!analytics || analytics.length === 0) {
@@ -41,10 +43,10 @@ async function handler(_request: NextRequest) {
     })
   }
 
-  console.log(`📈 Fetched analytics for ${analytics.length} campaigns (${todayAnalytics.length} with activity today)`)
+  console.log(`📈 Fetched analytics for ${analytics.length} campaigns (${yesterdayAnalytics.length} with activity yesterday)`)
 
-  // 2. Build today lookup by campaign_id
-  const todayMap = new Map(todayAnalytics.map(c => [c.campaign_id, c]))
+  // 2. Build yesterday lookup by campaign_id
+  const yesterdayMap = new Map(yesterdayAnalytics.map(c => [c.campaign_id, c]))
 
   // 3. Calculate totals
   const calcTotals = (data: typeof analytics) =>
@@ -59,23 +61,27 @@ async function handler(_request: NextRequest) {
         bounces: acc.bounces + c.bounced_count,
         unsubscribes: acc.unsubscribes + c.unsubscribed_count,
         leads: acc.leads + c.leads_count,
+        contacted: acc.contacted + c.contacted_count,
+        newContacted: acc.newContacted + c.new_leads_contacted_count,
+        completed: acc.completed + c.completed_count,
+        opportunities: acc.opportunities + c.total_opportunities,
+        interested: acc.interested + (c.total_interested || 0),
       }),
-      { sent: 0, opens: 0, opensUnique: 0, replies: 0, repliesUnique: 0, clicks: 0, bounces: 0, unsubscribes: 0, leads: 0 }
+      { sent: 0, opens: 0, opensUnique: 0, replies: 0, repliesUnique: 0, clicks: 0, bounces: 0, unsubscribes: 0, leads: 0, contacted: 0, newContacted: 0, completed: 0, opportunities: 0, interested: 0 }
     )
 
   const totals = calcTotals(analytics)
-  const todayTotals = calcTotals(todayAnalytics)
+  const yesterdayTotals = calcTotals(yesterdayAnalytics)
 
-  // 4. Format date for report
-  const today = new Date()
-  const dateStr = today.toLocaleDateString('nl-NL', {
+  // 4. Format date for report (show yesterday's date)
+  const dateStr = yesterday.toLocaleDateString('nl-NL', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
 
-  const reportData = { date: dateStr, campaigns: analytics, todayMap, totals, todayTotals }
+  const reportData = { date: dateStr, campaigns: analytics, yesterdayMap, totals, yesterdayTotals }
 
   // 5. Build and send email
   const html = buildCampaignReportHtml(reportData)
@@ -108,11 +114,11 @@ async function handler(_request: NextRequest) {
       campaigns: analytics.length,
       activeCampaigns,
       totalSent: totals.sent,
-      todaySent: todayTotals.sent,
+      yesterdaySent: yesterdayTotals.sent,
       totalOpens: totals.opensUnique,
-      todayOpens: todayTotals.opensUnique,
-      totalReplies: totals.replies,
-      todayReplies: todayTotals.replies,
+      yesterdayOpens: yesterdayTotals.opensUnique,
+      totalReplies: totals.repliesUnique,
+      yesterdayReplies: yesterdayTotals.repliesUnique,
       totalBounces: totals.bounces,
     },
     duration,

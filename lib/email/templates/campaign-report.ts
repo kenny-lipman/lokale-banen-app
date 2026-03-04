@@ -10,14 +10,19 @@ interface Totals {
   bounces: number
   unsubscribes: number
   leads: number
+  contacted: number
+  newContacted: number
+  completed: number
+  opportunities: number
+  interested: number
 }
 
 interface CampaignReportData {
   date: string
   campaigns: InstantlyCampaignAnalytics[]
-  todayMap: Map<string, InstantlyCampaignAnalytics>
+  yesterdayMap: Map<string, InstantlyCampaignAnalytics>
   totals: Totals
-  todayTotals: Totals
+  yesterdayTotals: Totals
 }
 
 const STATUS_LABELS: Record<number, string> = {
@@ -48,23 +53,23 @@ function num(n: number): string {
   return n.toLocaleString('nl-NL')
 }
 
-function todayCell(value: number): string {
+function yesterdayCell(value: number): string {
   if (value === 0) return '<span style="color:#9ca3af;">0</span>'
   return `<span style="color:#1e3a5f;font-weight:600;">${num(value)}</span>`
 }
 
 export function buildCampaignReportHtml(data: CampaignReportData): string {
-  const { date, campaigns, todayMap, totals, todayTotals } = data
+  const { date, campaigns, yesterdayMap, totals, yesterdayTotals } = data
 
-  // Sort: active first, then by today's sent desc, then cumulative sent desc
+  // Sort: active first, then by yesterday's sent desc, then cumulative sent desc
   const sorted = [...campaigns].sort((a, b) => {
     if (a.campaign_status !== b.campaign_status) {
       if (a.campaign_status === 1) return -1
       if (b.campaign_status === 1) return 1
     }
-    const aSentToday = todayMap.get(a.campaign_id)?.emails_sent_count || 0
-    const bSentToday = todayMap.get(b.campaign_id)?.emails_sent_count || 0
-    if (aSentToday !== bSentToday) return bSentToday - aSentToday
+    const aSent = yesterdayMap.get(a.campaign_id)?.emails_sent_count || 0
+    const bSent = yesterdayMap.get(b.campaign_id)?.emails_sent_count || 0
+    if (aSent !== bSent) return bSent - aSent
     return b.emails_sent_count - a.emails_sent_count
   })
 
@@ -85,27 +90,42 @@ export function buildCampaignReportHtml(data: CampaignReportData): string {
   const highBounce = withActivity.filter(c => (c.bounced_count / c.emails_sent_count) > 0.05)
 
   const campaignRows = sorted.map(c => {
-    const t = todayMap.get(c.campaign_id)
-    const tSent = t?.emails_sent_count || 0
-    const tOpens = t?.open_count_unique || 0
-    const tReplies = t?.reply_count || 0
-    const tBounces = t?.bounced_count || 0
+    const y = yesterdayMap.get(c.campaign_id)
+    const ySent = y?.emails_sent_count || 0
+    const yOpens = y?.open_count_unique || 0
+    const yReplies = y?.reply_count_unique || 0
+    const yBounces = y?.bounced_count || 0
+    const yContacted = y?.contacted_count || 0
+    const yNewContacted = y?.new_leads_contacted_count || 0
+    const yCompleted = y?.completed_count || 0
+    const yOpportunities = y?.total_opportunities || 0
+    const yInterested = y?.total_interested || 0
 
     return `
     <tr style="border-bottom:1px solid #e5e7eb;">
       <td style="padding:8px 6px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${c.campaign_name}</td>
       <td style="padding:8px 4px;text-align:center;">${statusBadge(c.campaign_status)}</td>
       <td style="padding:8px 4px;text-align:right;font-size:12px;">${num(c.leads_count)}</td>
-      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${todayCell(tSent)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(ySent)}</td>
       <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.emails_sent_count)}</td>
-      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${todayCell(tOpens)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(yContacted)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.contacted_count)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(yNewContacted)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.new_leads_contacted_count)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(yOpens)}</td>
       <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.open_count_unique)}</td>
       <td style="padding:8px 4px;text-align:right;font-size:12px;color:${c.emails_sent_count > 0 && (c.open_count_unique / c.emails_sent_count) > 0.3 ? '#16a34a' : '#374151'};">${pct(c.open_count_unique, c.emails_sent_count)}</td>
-      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${todayCell(tReplies)}</td>
-      <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.reply_count)}</td>
-      <td style="padding:8px 4px;text-align:right;font-size:12px;color:${c.emails_sent_count > 0 && (c.reply_count / c.emails_sent_count) > 0.03 ? '#16a34a' : '#374151'};">${pct(c.reply_count, c.emails_sent_count)}</td>
-      <td style="padding:8px 4px;text-align:right;font-size:12px;color:${tBounces > 0 ? '#dc2626' : '#6b7280'};background:${tBounces > 0 ? '#fef2f2' : '#f0f9ff'};">${todayCell(tBounces)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(yReplies)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.reply_count_unique)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:${c.emails_sent_count > 0 && (c.reply_count_unique / c.emails_sent_count) > 0.03 ? '#16a34a' : '#374151'};">${pct(c.reply_count_unique, c.emails_sent_count)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:${yBounces > 0 ? '#dc2626' : '#6b7280'};background:${yBounces > 0 ? '#fef2f2' : '#f0f9ff'};">${yesterdayCell(yBounces)}</td>
       <td style="padding:8px 4px;text-align:right;font-size:12px;color:${c.emails_sent_count > 0 && (c.bounced_count / c.emails_sent_count) > 0.05 ? '#dc2626' : '#6b7280'};">${num(c.bounced_count)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(yCompleted)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.completed_count)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(yOpportunities)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.total_opportunities)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;background:#f0f9ff;">${yesterdayCell(yInterested)}</td>
+      <td style="padding:8px 4px;text-align:right;font-size:12px;color:#6b7280;">${num(c.total_interested || 0)}</td>
     </tr>`
   }).join('')
 
@@ -117,7 +137,7 @@ export function buildCampaignReportHtml(data: CampaignReportData): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;">
-  <div style="max-width:1000px;margin:0 auto;padding:20px;">
+  <div style="max-width:1200px;margin:0 auto;padding:20px;">
 
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;">
@@ -125,30 +145,50 @@ export function buildCampaignReportHtml(data: CampaignReportData): string {
       <p style="margin:8px 0 0;opacity:0.85;font-size:14px;">${date}</p>
     </div>
 
-    <!-- Summary Cards: Today -->
+    <!-- Summary Cards: Yesterday -->
     <div style="background:#eef6ff;padding:20px 32px;border-bottom:1px solid #bfdbfe;">
-      <h3 style="margin:0 0 12px;font-size:13px;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px;">Vandaag</h3>
+      <h3 style="margin:0 0 12px;font-size:13px;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px;">Gisteren</h3>
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
         <tr>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #bfdbfe;">
-            <div style="font-size:32px;font-weight:700;color:#1e3a5f;">${num(todayTotals.sent)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#1e3a5f;">${num(yesterdayTotals.sent)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Verzonden</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #bfdbfe;">
-            <div style="font-size:32px;font-weight:700;color:#2563eb;">${num(todayTotals.opensUnique)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#1e3a5f;">${num(yesterdayTotals.contacted)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Contacted</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#1e3a5f;">${num(yesterdayTotals.newContacted)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">New Contacted</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#2563eb;">${num(yesterdayTotals.opensUnique)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Opens</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #bfdbfe;">
-            <div style="font-size:32px;font-weight:700;color:#16a34a;">${num(todayTotals.replies)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#16a34a;">${num(yesterdayTotals.repliesUnique)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Replies</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #bfdbfe;">
-            <div style="font-size:32px;font-weight:700;color:#7c3aed;">${num(todayTotals.clicks)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#7c3aed;">${num(yesterdayTotals.clicks)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Clicks</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;">
-            <div style="font-size:32px;font-weight:700;color:${todayTotals.bounces > 0 ? '#dc2626' : '#6b7280'};">${num(todayTotals.bounces)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:${yesterdayTotals.bounces > 0 ? '#dc2626' : '#6b7280'};">${num(yesterdayTotals.bounces)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Bounces</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#0891b2;">${num(yesterdayTotals.completed)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Completed</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #bfdbfe;">
+            <div style="font-size:28px;font-weight:700;color:#ea580c;">${num(yesterdayTotals.opportunities)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Opportunities</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;">
+            <div style="font-size:28px;font-weight:700;color:#16a34a;">${num(yesterdayTotals.interested)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Interested</div>
           </td>
         </tr>
       </table>
@@ -159,25 +199,45 @@ export function buildCampaignReportHtml(data: CampaignReportData): string {
       <h3 style="margin:0 0 12px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Cumulatief</h3>
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
         <tr>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #e5e7eb;">
-            <div style="font-size:24px;font-weight:700;color:#374151;">${num(totals.sent)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.sent)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Verzonden (${pct(totals.opensUnique, totals.sent)} open rate)</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #e5e7eb;">
-            <div style="font-size:24px;font-weight:700;color:#374151;">${num(totals.opensUnique)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.contacted)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Contacted</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.newContacted)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">New Contacted</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.opensUnique)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Opens</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #e5e7eb;">
-            <div style="font-size:24px;font-weight:700;color:#374151;">${num(totals.replies)}</div>
-            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Replies (${pct(totals.replies, totals.sent)})</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.repliesUnique)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Replies (${pct(totals.repliesUnique, totals.sent)})</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;border-right:1px solid #e5e7eb;">
-            <div style="font-size:24px;font-weight:700;color:#374151;">${num(totals.clicks)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.clicks)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Clicks</div>
           </td>
-          <td style="padding:8px 16px;text-align:center;">
-            <div style="font-size:24px;font-weight:700;color:#374151;">${num(totals.bounces)}</div>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.bounces)}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px;">Bounces (${pct(totals.bounces, totals.sent)})</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.completed)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Completed</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;border-right:1px solid #e5e7eb;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.opportunities)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Opportunities</div>
+          </td>
+          <td style="padding:8px 12px;text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:#374151;">${num(totals.interested)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px;">Interested</div>
           </td>
         </tr>
       </table>
@@ -200,20 +260,35 @@ export function buildCampaignReportHtml(data: CampaignReportData): string {
             <th style="padding:8px 4px;text-align:center;font-weight:600;color:#374151;" rowspan="2">Status</th>
             <th style="padding:8px 4px;text-align:right;font-weight:600;color:#374151;" rowspan="2">Leads</th>
             <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="2">Sent</th>
+            <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="2">Contacted</th>
+            <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="2">New Contacted</th>
             <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="3">Opens</th>
-            <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="3">Replies</th>
+            <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="3">Replies (uniek)</th>
             <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="2">Bounces</th>
+            <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="2">Completed</th>
+            <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="2">Opportunities</th>
+            <th style="padding:4px 4px;text-align:center;font-weight:600;color:#1e3a5f;background:#eef6ff;border-bottom:1px solid #bfdbfe;" colspan="2">Interested</th>
           </tr>
           <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
-            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Vandaag</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
             <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
-            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Vandaag</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
             <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
             <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Rate</th>
-            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Vandaag</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
             <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
             <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Rate</th>
-            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Vandaag</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
+            <th style="padding:4px 4px;text-align:right;font-weight:600;color:#1e3a5f;background:#eef6ff;font-size:10px;">Gisteren</th>
             <th style="padding:4px 4px;text-align:right;font-weight:600;color:#6b7280;font-size:10px;">Totaal</th>
           </tr>
         </thead>
@@ -224,16 +299,26 @@ export function buildCampaignReportHtml(data: CampaignReportData): string {
           <tr style="background:#f0f9ff;border-top:2px solid #2563eb;font-weight:700;font-size:12px;">
             <td style="padding:8px 6px;" colspan="2">Totaal (${sorted.length} campagnes)</td>
             <td style="padding:8px 4px;text-align:right;">${num(totals.leads)}</td>
-            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(todayTotals.sent)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.sent)}</td>
             <td style="padding:8px 4px;text-align:right;">${num(totals.sent)}</td>
-            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(todayTotals.opensUnique)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.contacted)}</td>
+            <td style="padding:8px 4px;text-align:right;">${num(totals.contacted)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.newContacted)}</td>
+            <td style="padding:8px 4px;text-align:right;">${num(totals.newContacted)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.opensUnique)}</td>
             <td style="padding:8px 4px;text-align:right;">${num(totals.opensUnique)}</td>
             <td style="padding:8px 4px;text-align:right;">${pct(totals.opensUnique, totals.sent)}</td>
-            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(todayTotals.replies)}</td>
-            <td style="padding:8px 4px;text-align:right;">${num(totals.replies)}</td>
-            <td style="padding:8px 4px;text-align:right;">${pct(totals.replies, totals.sent)}</td>
-            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(todayTotals.bounces)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.repliesUnique)}</td>
+            <td style="padding:8px 4px;text-align:right;">${num(totals.repliesUnique)}</td>
+            <td style="padding:8px 4px;text-align:right;">${pct(totals.repliesUnique, totals.sent)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.bounces)}</td>
             <td style="padding:8px 4px;text-align:right;">${num(totals.bounces)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.completed)}</td>
+            <td style="padding:8px 4px;text-align:right;">${num(totals.completed)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.opportunities)}</td>
+            <td style="padding:8px 4px;text-align:right;">${num(totals.opportunities)}</td>
+            <td style="padding:8px 4px;text-align:right;background:#dbeafe;">${num(yesterdayTotals.interested)}</td>
+            <td style="padding:8px 4px;text-align:right;">${num(totals.interested)}</td>
           </tr>
         </tfoot>
       </table>
@@ -250,5 +335,5 @@ export function buildCampaignReportHtml(data: CampaignReportData): string {
 
 export function buildCampaignReportSubject(data: CampaignReportData): string {
   const activeCampaigns = data.campaigns.filter(c => c.campaign_status === 1).length
-  return `Instantly Dagrapport — ${data.date} — ${num(data.todayTotals.sent)} verzonden vandaag, ${activeCampaigns} actieve campagnes`
+  return `Instantly Dagrapport — ${data.date} — ${num(data.yesterdayTotals.sent)} verzonden gisteren, ${activeCampaigns} actieve campagnes`
 }

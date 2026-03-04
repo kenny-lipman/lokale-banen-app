@@ -138,6 +138,7 @@ export interface InstantlyCampaignAnalytics {
   unsubscribed_count: number
   completed_count: number
   total_opportunities: number
+  total_interested: number
 }
 
 // ============================================================================
