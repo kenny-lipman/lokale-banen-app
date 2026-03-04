@@ -1681,7 +1681,7 @@ export class InstantlyPipedriveSyncService {
    * - instantly_status NOT IN ('email_bounced') unless includeBounced=true
    * - email IS NOT NULL
    */
-  async syncUnprocessedContactsToPipedrive(batchSize: number = 50, options: { includeBounced?: boolean; requirePostalCode?: boolean } = {}): Promise<{
+  async syncUnprocessedContactsToPipedrive(batchSize: number = 50, options: { includeBounced?: boolean; requirePostalCode?: boolean; offset?: number } = {}): Promise<{
     processed: number;
     synced: number;
     skipped: number;
@@ -1690,7 +1690,7 @@ export class InstantlyPipedriveSyncService {
     remaining: number;
     details: Array<{ email: string; success: boolean; skipReason?: string; error?: string }>;
   }> {
-    const { includeBounced = false, requirePostalCode = false } = options;
+    const { includeBounced = false, requirePostalCode = false, offset = 0 } = options;
     console.log(`🔄 Starting Pipedrive backfill for unsynced contacts (batch: ${batchSize}, includeBounced: ${includeBounced}, requirePostalCode: ${requirePostalCode})`);
 
     // Use inner join when filtering by postal code to skip contacts without postal code at query level
@@ -1740,7 +1740,7 @@ export class InstantlyPipedriveSyncService {
     }
     const { data: contacts, error: fetchError } = await fetchQuery
       .order('instantly_synced_at', { ascending: true })
-      .limit(batchSize);
+      .range(offset, offset + batchSize - 1);
 
     if (fetchError || !contacts || contacts.length === 0) {
       if (fetchError) console.error('❌ Error fetching contacts:', fetchError.message);
