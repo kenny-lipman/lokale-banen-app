@@ -496,7 +496,8 @@ export class InstantlyPipedriveSyncService {
         await this.setOrganizationStartPipedriveDate(orgResult.id, enrichedLead.campaignCompletedAt);
 
         // 9. Add note to organization about the sync (including email history and reply count)
-        await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount);
+        // Skip Instantly email history for backfill: leads already removed, API calls fail with rate limits
+        await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount, syncSource === 'backfill');
 
         // 10. Log email activities to Pipedrive (sent/received emails from Instantly)
         // Skip for backfill: leads are already removed from Instantly, API calls would fail
@@ -2736,7 +2737,8 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
     eventType: SyncEventType,
     statusKey: string,
     campaignId?: string,
-    replyCount?: number
+    replyCount?: number,
+    skipEmailHistory: boolean = false
   ): Promise<void> {
     try {
       const statusLabel = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
@@ -2773,34 +2775,36 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
         backfill: 'Backfill sync'
       };
 
-      // Try to get email history from Instantly
+      // Try to get email history from Instantly (skip for backfill - leads already removed)
       let emailHistorySection = '';
-      try {
-        const emailSummary = await this.instantlyClient.getLeadEmailSummary(email, campaignId);
+      if (!skipEmailHistory) {
+        try {
+          const emailSummary = await this.instantlyClient.getLeadEmailSummary(email, campaignId);
 
-        if (emailSummary.totalEmails > 0) {
-          emailHistorySection = `\n\n📬 **Email Conversatie** (${emailSummary.sentCount} verzonden, ${emailSummary.receivedCount} ontvangen)\n`;
+          if (emailSummary.totalEmails > 0) {
+            emailHistorySection = `\n\n📬 **Email Conversatie** (${emailSummary.sentCount} verzonden, ${emailSummary.receivedCount} ontvangen)\n`;
 
-          for (const emailItem of emailSummary.emails) {
-            const date = new Date(emailItem.date).toLocaleDateString('nl-NL', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-            const icon = emailItem.type === 'sent' ? '➡️' : '⬅️';
-            const typeLabel = emailItem.type === 'sent' ? 'Verzonden' : 'Ontvangen';
+            for (const emailItem of emailSummary.emails) {
+              const date = new Date(emailItem.date).toLocaleDateString('nl-NL', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              const icon = emailItem.type === 'sent' ? '➡️' : '⬅️';
+              const typeLabel = emailItem.type === 'sent' ? 'Verzonden' : 'Ontvangen';
 
-            emailHistorySection += `\n${icon} **${typeLabel}** (${date})\n`;
-            emailHistorySection += `   Onderwerp: ${emailItem.subject}\n`;
-            if (emailItem.preview) {
-              emailHistorySection += `   ${emailItem.preview}\n`;
+              emailHistorySection += `\n${icon} **${typeLabel}** (${date})\n`;
+              emailHistorySection += `   Onderwerp: ${emailItem.subject}\n`;
+              if (emailItem.preview) {
+                emailHistorySection += `   ${emailItem.preview}\n`;
+              }
             }
           }
+        } catch (emailError) {
+          console.warn(`Could not fetch email history for ${email}:`, emailError);
         }
-      } catch (emailError) {
-        console.warn(`Could not fetch email history for ${email}:`, emailError);
       }
 
       // Build reply count line
