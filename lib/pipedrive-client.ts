@@ -1,5 +1,16 @@
 import { createServiceRoleClient } from './supabase-server';
 
+/**
+ * Thrown when Pipedrive returns a 429 with Retry-After > 60s,
+ * indicating the daily API token budget is exhausted.
+ */
+export class PipedriveDailyLimitError extends Error {
+  constructor(retryAfterSeconds: number) {
+    super(`Pipedrive daily API limit reached (retry-after: ${retryAfterSeconds}s)`);
+    this.name = 'PipedriveDailyLimitError';
+  }
+}
+
 const PIPEDRIVE_API_KEY = process.env.PIPEDRIVE_API_KEY;
 const PIPEDRIVE_API_URL = process.env.PIPEDRIVE_API_URL || 'https://api.pipedrive.com/v1';
 const PIPEDRIVE_API_V2_URL = process.env.PIPEDRIVE_API_V2_URL || 'https://lokalebanen.pipedrive.com/api/v2';
@@ -256,14 +267,23 @@ export class PipedriveClient {
     try {
       const response = await fetch(url, options);
 
-      // Handle rate limits with exponential backoff
+      // Handle rate limits with exponential backoff (Pipedrive: 100 req/10s)
       if (response.status === 429) {
-        if (retryCount >= MAX_RETRIES) {
-          throw new Error(`Pipedrive API rate limit exceeded after ${MAX_RETRIES} retries`);
+        // Check if daily limit is exhausted (Retry-After > 60s means daily budget, not burst limit)
+        const retryAfterHeader = response.headers.get('Retry-After');
+        const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 0;
+        if (retryAfterSeconds > 60) {
+          throw new PipedriveDailyLimitError(retryAfterSeconds);
         }
 
-        const delayMs = BASE_DELAY_MS * Math.pow(2, retryCount);
-        console.log(`⏳ Rate limited by Pipedrive API, waiting ${delayMs}ms before retry ${retryCount + 1}/${MAX_RETRIES}...`);
+        const RATE_LIMIT_MAX_RETRIES = 5;
+        if (retryCount >= RATE_LIMIT_MAX_RETRIES) {
+          throw new Error(`Pipedrive API rate limit exceeded after ${RATE_LIMIT_MAX_RETRIES} retries`);
+        }
+
+        // Exponential backoff from 2s, capped at 30s
+        const delayMs = Math.min(2000 * Math.pow(2, retryCount), 30000); // 2s, 4s, 8s, 16s, 30s
+        console.log(`⏳ Rate limited by Pipedrive API, waiting ${delayMs}ms before retry ${retryCount + 1}/${RATE_LIMIT_MAX_RETRIES}...`);
         await this.delay(delayMs);
 
         return this.request(method, endpoint, data, retryCount + 1);
@@ -352,6 +372,13 @@ export class PipedriveClient {
 
       // Handle rate limits with exponential backoff
       if (response.status === 429) {
+        // Check if daily limit is exhausted (Retry-After > 60s means daily budget, not burst limit)
+        const retryAfterHeader = response.headers.get('Retry-After');
+        const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 0;
+        if (retryAfterSeconds > 60) {
+          throw new PipedriveDailyLimitError(retryAfterSeconds);
+        }
+
         if (retryCount >= MAX_RETRIES) {
           throw new Error(`Pipedrive V2 API rate limit exceeded after ${MAX_RETRIES} retries`);
         }

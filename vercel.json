@@ -8,7 +8,8 @@
     { "path": "/api/cron/postcode-backfill", "schedule": "*/2 * * * *" },
     { "path": "/api/cron/refresh-contact-stats", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/watchdog", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/daily-campaign-report", "schedule": "0 8 * * *" }
+    { "path": "/api/cron/daily-campaign-report", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/pipedrive-backfill", "schedule": "*/15 * * * *" }
   ],
   "functions": {
     "app/api/cron/campaign-assignment/route.ts": { "maxDuration": 300 },
@@ -19,6 +20,7 @@
     "app/api/cron/refresh-campaign-eligible/route.ts": { "maxDuration": 300 },
     "app/api/cron/refresh-contact-stats/route.ts": { "maxDuration": 300 },
     "app/api/scrapers/debanensite/backfill/route.ts": { "maxDuration": 300 },
-    "app/api/cron/campaign-assignment-parallel/route.ts": { "maxDuration": 300 }
+    "app/api/cron/campaign-assignment-parallel/route.ts": { "maxDuration": 300 },
+    "app/api/cron/pipedrive-backfill/route.ts": { "maxDuration": 300 }
   }
 }

@@ -8,6 +8,7 @@
 import { createServiceRoleClient } from '../supabase-server';
 import {
   PipedriveClient,
+  PipedriveDailyLimitError,
   pipedriveClient,
   STATUS_PROSPECT_OPTIONS,
   STATUS_PROSPECT_LABELS,
@@ -1165,6 +1166,7 @@ export class InstantlyPipedriveSyncService {
       .eq('instantly_lead_email', email.toLowerCase().trim())
       .eq('instantly_campaign_id', campaignId)
       .eq('event_type', eventType)
+      .eq('sync_success', true)
       .single();
 
     if (error || !data) return null;
@@ -1716,6 +1718,7 @@ export class InstantlyPipedriveSyncService {
     errors: number;
     totalEligible: number;
     remaining: number;
+    dailyLimitReached: boolean;
     details: Array<{ email: string; success: boolean; skipReason?: string; error?: string }>;
   }> {
     const { includeBounced = false, requirePostalCode = false, offset = 0 } = options;
@@ -1742,7 +1745,7 @@ export class InstantlyPipedriveSyncService {
     console.log(`📊 Total eligible contacts: ${totalEligible || 0}`);
 
     if (!totalEligible || totalEligible === 0) {
-      return { processed: 0, synced: 0, skipped: 0, errors: 0, totalEligible: 0, remaining: 0, details: [] };
+      return { processed: 0, synced: 0, skipped: 0, errors: 0, totalEligible: 0, remaining: 0, dailyLimitReached: false, details: [] };
     }
 
     // Fetch batch of contacts with company data
@@ -1772,7 +1775,7 @@ export class InstantlyPipedriveSyncService {
 
     if (fetchError || !contacts || contacts.length === 0) {
       if (fetchError) console.error('❌ Error fetching contacts:', fetchError.message);
-      return { processed: 0, synced: 0, skipped: 0, errors: 0, totalEligible: totalEligible || 0, remaining: totalEligible || 0, details: [] };
+      return { processed: 0, synced: 0, skipped: 0, errors: 0, totalEligible: totalEligible || 0, remaining: totalEligible || 0, dailyLimitReached: false, details: [] };
     }
 
     console.log(`📦 Processing ${contacts.length} contacts`);
@@ -1780,6 +1783,7 @@ export class InstantlyPipedriveSyncService {
     let synced = 0;
     let skipped = 0;
     let errors = 0;
+    let dailyLimitReached = false;
     const details: Array<{ email: string; success: boolean; skipReason?: string; error?: string }> = [];
 
     for (const contact of contacts) {
@@ -1846,6 +1850,11 @@ export class InstantlyPipedriveSyncService {
         // Respect Pipedrive rate limits (100 req/10s → ~100ms between leads, but each lead does 7-11 calls)
         await this.delay(200);
       } catch (error) {
+        if (error instanceof PipedriveDailyLimitError) {
+          console.log(`⚠️ Daily API budget exhausted, stopping batch after ${synced} synced`);
+          dailyLimitReached = true;
+          break;
+        }
         errors++;
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         details.push({ email, success: false, error: errorMsg });
@@ -1853,8 +1862,8 @@ export class InstantlyPipedriveSyncService {
       }
     }
 
-    const remaining = (totalEligible || 0) - contacts.length;
-    console.log(`\n✅ Pipedrive backfill complete: ${synced} synced, ${skipped} skipped, ${errors} errors (${remaining} remaining)`);
+    const remaining = (totalEligible || 0) - synced;
+    console.log(`\n✅ Pipedrive backfill complete: ${synced} synced, ${skipped} skipped, ${errors} errors (${remaining} remaining)${dailyLimitReached ? ' [daily limit reached]' : ''}`);
 
     return {
       processed: contacts.length,
@@ -1863,6 +1872,7 @@ export class InstantlyPipedriveSyncService {
       errors,
       totalEligible: totalEligible || 0,
       remaining: Math.max(0, remaining),
+      dailyLimitReached,
       details,
     };
   }

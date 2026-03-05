@@ -52,6 +52,11 @@ export const CRON_JOBS_CONFIG: Record<string, { path: string; schedule: string; 
     schedule: '0 8 * * *',
     description: 'Sends daily Instantly campaign performance report via email',
   },
+  'pipedrive-backfill': {
+    path: '/api/cron/pipedrive-backfill',
+    schedule: '*/15 * * * *',
+    description: 'Syncs contacts with postal codes to Pipedrive (18/batch, ~1,728/day)',
+  },
 }
 
 /** Expected run interval per job in ms — used by watchdog and dashboard for overdue detection */
@@ -65,6 +70,7 @@ export const EXPECTED_INTERVAL_MS: Record<string, number> = {
   'debanensite-scraper': 24 * 3_600_000,
   'watchdog': 15 * 60_000,
   'daily-campaign-report': 24 * 3_600_000,
+  'pipedrive-backfill': 15 * 60_000,
 }
 
 /** Multiplier for overdue detection — job is overdue if elapsed > expectedInterval * this */
