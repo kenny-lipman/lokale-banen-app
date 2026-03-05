@@ -45,8 +45,12 @@ async function pipedriveBackfillHandler(request: NextRequest) {
     const message = result.dailyLimitReached
       ? `Daily token budget reached after ${result.synced} synced, will resume next run`
       : result.totalEligible === 0
-        ? 'No contacts remaining to sync'
+        ? 'No contacts remaining to sync — backfill complete. Remove this cron from vercel.json.'
         : `Synced ${result.synced} contacts (${result.remaining} remaining)`
+
+    if (result.totalEligible === 0) {
+      console.log(`🏁 BACKFILL COMPLETE: All contacts have been synced to Pipedrive. Remove /api/cron/pipedrive-backfill from vercel.json to stop unnecessary runs.`)
+    }
 
     console.log(`✅ Pipedrive backfill completed in ${duration}ms: ${message}`)
 

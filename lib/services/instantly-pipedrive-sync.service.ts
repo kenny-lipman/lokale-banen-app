@@ -615,6 +615,7 @@ export class InstantlyPipedriveSyncService {
       console.log(`✅ Synced ${cleanEmail} to Pipedrive ${orgResult ? `org ${orgResult.id}` : '(person only)'} with status ${statusKey}`);
       return result;
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       result.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Sync failed for ${lead.email}:`, error);
 
@@ -1727,13 +1728,15 @@ export class InstantlyPipedriveSyncService {
     // Use inner join when filtering by postal code to skip contacts without postal code at query level
     const companiesJoin = requirePostalCode ? 'companies!inner(id, name)' : 'companies(id, name)';
 
-    // Count total eligible
+    // Count total eligible (skip poison pill contacts with >= 3 failed sync attempts)
+    const MAX_SYNC_ATTEMPTS = 3;
     let countQuery = this.supabase
       .from('contacts')
       .select(requirePostalCode ? 'id, companies!inner(id)' : 'id', { count: 'exact', head: true })
       .eq('instantly_synced', true)
       .is('pipedrive_person_id', null)
-      .not('email', 'is', null);
+      .not('email', 'is', null)
+      .lt('pipedrive_sync_attempts', MAX_SYNC_ATTEMPTS);
     if (!includeBounced) {
       countQuery = countQuery.not('instantly_status', 'eq', 'email_bounced');
     }
@@ -1748,7 +1751,7 @@ export class InstantlyPipedriveSyncService {
       return { processed: 0, synced: 0, skipped: 0, errors: 0, totalEligible: 0, remaining: 0, dailyLimitReached: false, details: [] };
     }
 
-    // Fetch batch of contacts with company data
+    // Fetch batch of contacts with company data (skip poison pill contacts)
     let fetchQuery = this.supabase
       .from('contacts')
       .select(`
@@ -1757,12 +1760,13 @@ export class InstantlyPipedriveSyncService {
         instantly_opens_count, instantly_clicks_count,
         reply_count, instantly_last_open_at,
         instantly_campaign_completed_at, instantly_removed_at,
-        company_id,
+        company_id, pipedrive_sync_attempts,
         ${companiesJoin}
       `)
       .eq('instantly_synced', true)
       .is('pipedrive_person_id', null)
-      .not('email', 'is', null);
+      .not('email', 'is', null)
+      .lt('pipedrive_sync_attempts', MAX_SYNC_ATTEMPTS);
     if (!includeBounced) {
       fetchQuery = fetchQuery.not('instantly_status', 'eq', 'email_bounced');
     }
@@ -1836,6 +1840,8 @@ export class InstantlyPipedriveSyncService {
         if (result.success) {
           synced++;
           details.push({ email, success: true });
+          // Reset sync attempts on success
+          await this.supabase.from('contacts').update({ pipedrive_sync_attempts: 0, pipedrive_sync_failed_at: null }).eq('id', contact.id);
           console.log(`  ✅ ${email} synced to Pipedrive (org: ${result.pipedriveOrgId}, person: ${result.pipedrivePersonId})`);
         } else if (result.skipped) {
           skipped++;
@@ -1844,6 +1850,11 @@ export class InstantlyPipedriveSyncService {
         } else {
           errors++;
           details.push({ email, success: false, error: result.error });
+          // Increment sync attempts so poison pill contacts get skipped after MAX_SYNC_ATTEMPTS
+          await this.supabase.from('contacts').update({
+            pipedrive_sync_attempts: (contact.pipedrive_sync_attempts || 0) + 1,
+            pipedrive_sync_failed_at: new Date().toISOString(),
+          }).eq('id', contact.id);
           console.error(`  ❌ ${email} failed: ${result.error}`);
         }
 
@@ -1858,15 +1869,23 @@ export class InstantlyPipedriveSyncService {
         errors++;
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         details.push({ email, success: false, error: errorMsg });
+        // Increment sync attempts for unexpected errors too
+        await this.supabase.from('contacts').update({
+          pipedrive_sync_attempts: (contact.pipedrive_sync_attempts || 0) + 1,
+          pipedrive_sync_failed_at: new Date().toISOString(),
+        }).eq('id', contact.id);
         console.error(`  ❌ ${email} error: ${errorMsg}`);
       }
     }
 
+    // Only successfully synced contacts get pipedrive_person_id set and leave the eligible pool.
+    // Skipped/errored contacts remain eligible and will be retried in future runs.
+    const processed = synced + skipped + errors;
     const remaining = (totalEligible || 0) - synced;
-    console.log(`\n✅ Pipedrive backfill complete: ${synced} synced, ${skipped} skipped, ${errors} errors (${remaining} remaining)${dailyLimitReached ? ' [daily limit reached]' : ''}`);
+    console.log(`\n✅ Pipedrive backfill complete: ${synced} synced, ${skipped} skipped, ${errors} errors, ${processed} processed (${remaining} remaining)${dailyLimitReached ? ' [daily limit reached]' : ''}`);
 
     return {
-      processed: contacts.length,
+      processed,
       synced,
       skipped,
       errors,
@@ -2722,6 +2741,7 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       console.log(`⚡ Combined org update for ${orgId}: status=${skipStatus ? 'SKIPPED' : statusKey}, hoofddomein=${lead.hoofddomein || 'n/a'}, date=${dateToSet}`);
       return { skipped: skipStatus, reason: skipReason };
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error in combined org update for ${orgId}:`, error);
       return { skipped: false, reason: error instanceof Error ? error.message : 'Unknown error' };
     }

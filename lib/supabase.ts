@@ -646,6 +646,8 @@ export type Database = {
           name: string | null
           phone: string | null
           pipedrive_person_id: string | null
+          pipedrive_sync_attempts: number
+          pipedrive_sync_failed_at: string | null
           pipedrive_synced: boolean | null
           pipedrive_synced_at: string | null
           qualification_notes: string | null
@@ -706,6 +708,8 @@ export type Database = {
           name?: string | null
           phone?: string | null
           pipedrive_person_id?: string | null
+          pipedrive_sync_attempts?: number
+          pipedrive_sync_failed_at?: string | null
           pipedrive_synced?: boolean | null
           pipedrive_synced_at?: string | null
           qualification_notes?: string | null
@@ -766,6 +770,8 @@ export type Database = {
           name?: string | null
           phone?: string | null
           pipedrive_person_id?: string | null
+          pipedrive_sync_attempts?: number
+          pipedrive_sync_failed_at?: string | null
           pipedrive_synced?: boolean | null
           pipedrive_synced_at?: string | null
           qualification_notes?: string | null

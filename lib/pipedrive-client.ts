@@ -239,6 +239,21 @@ export class PipedriveClient {
   }
 
   /**
+   * Check a fetch response for daily API limit exhaustion (429 with Retry-After > 60s).
+   * Throws PipedriveDailyLimitError if detected. Used by direct-fetch V1 methods
+   * that don't go through the request()/requestV2() pipeline.
+   */
+  private checkDailyLimit(response: Response): void {
+    if (response.status === 429) {
+      const retryAfterHeader = response.headers.get('Retry-After');
+      const retryAfterSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 0;
+      if (retryAfterSeconds > 60) {
+        throw new PipedriveDailyLimitError(retryAfterSeconds);
+      }
+    }
+  }
+
+  /**
    * Make an API request to Pipedrive V1 with exponential backoff retry
    */
   private async request(
@@ -451,6 +466,7 @@ export class PipedriveClient {
       const data = await this.request('GET', `/organizations/search?term=${searchTerm}&fields=name`);
       return data?.items || [];
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error('Error searching organization:', error);
       return [];
     }
@@ -491,6 +507,7 @@ export class PipedriveClient {
       const data = await this.requestV2('GET', `/persons/search?term=${searchTerm}&limit=5`);
       return data?.items || [];
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error('Error searching person:', error);
       return [];
     }
@@ -635,6 +652,7 @@ export class PipedriveClient {
       return personId;
 
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error finding/creating person for email ${email}:`, error);
       return null;
     }
@@ -659,6 +677,8 @@ export class PipedriveClient {
         org_id: organizationId
       })
     });
+
+    this.checkDailyLimit(response);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -690,6 +710,8 @@ export class PipedriveClient {
       })
     });
 
+    this.checkDailyLimit(response);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ V1 Notes API Error Response:`, errorText.substring(0, 500));
@@ -711,6 +733,8 @@ export class PipedriveClient {
       method: 'GET',
       headers: { 'Accept': 'application/json' }
     });
+
+    this.checkDailyLimit(response);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -737,6 +761,8 @@ export class PipedriveClient {
       },
       body: JSON.stringify({ content })
     });
+
+    this.checkDailyLimit(response);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -780,6 +806,8 @@ export class PipedriveClient {
         done: activity.done ?? true // Default to done/completed
       })
     });
+
+    this.checkDailyLimit(response);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -883,6 +911,7 @@ export class PipedriveClient {
 
       return pipedriveId;
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error('Error syncing company to Pipedrive:', error);
       return null;
     }
@@ -958,6 +987,7 @@ export class PipedriveClient {
 
       return pipedrivePersonId;
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error('Error syncing contact to Pipedrive:', error);
       return null;
     }
@@ -981,6 +1011,7 @@ export class PipedriveClient {
       const statusValue = org[STATUS_PROSPECT_FIELD_ID];
       return statusValue ? parseInt(statusValue) : null;
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error getting status prospect for org ${orgId}:`, error);
       return null;
     }
@@ -1058,6 +1089,7 @@ export class PipedriveClient {
       console.log(`✅ Set status prospect for org ${orgId} to ${statusKey} (${newStatusId})`);
       return { success: true, skipped: false };
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error setting status prospect for org ${orgId}:`, error);
       return {
         success: false,
@@ -1084,6 +1116,7 @@ export class PipedriveClient {
       );
       return data?.items || [];
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error('Error searching organization by domain:', error);
       return [];
     }
@@ -1140,6 +1173,7 @@ export class PipedriveClient {
       console.log(`✅ Created new organization: ${orgName} (ID: ${newOrg.id})`);
       return { id: newOrg.id, name: orgName, created: true };
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error('Error finding/creating organization:', error);
       return null;
     }
@@ -1188,6 +1222,7 @@ export class PipedriveClient {
 
       return { id: newPerson.id, created: true };
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error finding/creating person for ${email}:`, error);
       return null;
     }
@@ -1231,6 +1266,7 @@ export class PipedriveClient {
       console.log(`✅ Set Hoofddomein for org ${orgId} to ${platformName} (enum ID: ${enumId})`);
       return { success: true };
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error setting Hoofddomein for org ${orgId}:`, error);
       return {
         success: false,
@@ -1306,6 +1342,7 @@ export class PipedriveClient {
       console.log(`✅ Set Subdomein for org ${orgId} to [${platformNames.filter(p => SUBDOMEIN_OPTIONS[p]).join(', ')}] (enum IDs: ${enumIds.join(', ')})`);
       return { success: true };
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error setting Subdomein for org ${orgId}:`, error);
       return {
         success: false,
@@ -1343,6 +1380,7 @@ export class PipedriveClient {
         options: field.options
       };
     } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
       console.error(`Error finding field by name "${fieldName}":`, error);
       return null;
     }
