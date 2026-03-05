@@ -30,8 +30,8 @@ function formatDuration(ms: number): string {
 async function main() {
   const { instantlyPipedriveSyncService } = await import('../lib/services/instantly-pipedrive-sync.service');
 
-  const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '15', 10);
-  const PARALLEL_WORKERS = parseInt(process.env.PARALLEL_WORKERS || '3', 10);
+  const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '20', 10);
+  const PARALLEL_WORKERS = parseInt(process.env.PARALLEL_WORKERS || '2', 10);
   const DELAY_BETWEEN_ROUNDS = parseInt(process.env.DELAY_BETWEEN_ROUNDS || '3000', 10);
   const REQUIRE_POSTAL_CODE = process.env.REQUIRE_POSTAL_CODE !== 'false';
   const INCLUDE_BOUNCED = process.env.INCLUDE_BOUNCED === 'true';
