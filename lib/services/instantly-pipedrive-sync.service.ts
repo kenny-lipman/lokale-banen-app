@@ -10,7 +10,14 @@ import {
   PipedriveClient,
   pipedriveClient,
   STATUS_PROSPECT_OPTIONS,
-  STATUS_PROSPECT_LABELS
+  STATUS_PROSPECT_LABELS,
+  STATUS_PROSPECT_FIELD_ID,
+  HOOFDDOMEIN_FIELD_ID,
+  SUBDOMEIN_FIELD_ID,
+  HOOFDDOMEIN_OPTIONS,
+  SUBDOMEIN_OPTIONS,
+  PROTECTED_STATUSES,
+  STATUS_PRIORITY
 } from '../pipedrive-client';
 import {
   InstantlyClient,
@@ -328,7 +335,10 @@ export class InstantlyPipedriveSyncService {
 
       // 2c. Check if email is blocklisted (in our database or Instantly)
       // If blocklisted, we still sync to Pipedrive but force status to NIET_MEER_BENADEREN
-      const blocklistCheck = await this.isEmailBlocklisted(cleanEmail);
+      // For backfill: skip Instantly blocklist check (leads already removed, only check DB)
+      const blocklistCheck = syncSource === 'backfill'
+        ? await this.isEmailBlocklistedInDB(cleanEmail)
+        : await this.isEmailBlocklisted(cleanEmail);
       const isBlocklisted = blocklistCheck.isBlocked;
       result.isBlocklisted = isBlocklisted;
 
@@ -441,70 +451,81 @@ export class InstantlyPipedriveSyncService {
       result.pipedrivePersonId = personResult.id;
       result.personCreated = personResult.created;
 
-      // 6. Set organization status prospect (only if we have an org)
+      // 6-10: Update organization (backfill uses combined single-PATCH path)
       if (orgResult) {
-        const statusResult = await this.pipedriveClient.setOrganizationStatusProspect(
-          orgResult.id,
-          statusKey,
-          options.force
-        );
-
-        if (statusResult.skipped) {
-          result.skipped = true;
-          result.skipReason = statusResult.reason;
-        } else if (!statusResult.success) {
-          result.error = statusResult.reason || 'Failed to set status';
-          await this.logSync(result, eventType, syncSource, options);
-          return result;
-        }
-
-        result.statusSet = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
-
-        // 7. Set Hoofddomein if available (based on company postal code)
-        if (enrichedLead.hoofddomein) {
-          const hoofddomeinResult = await this.pipedriveClient.setOrganizationHoofddomein(
-            orgResult.id,
-            enrichedLead.hoofddomein
-          );
-          if (!hoofddomeinResult.success) {
-            console.warn(`⚠️ Could not set Hoofddomein: ${hoofddomeinResult.reason}`);
-          }
-        }
-
-        // 7b. Set Subdomeinen if available (from companies table, single source of truth)
-        // IMPORTANT: Always filter out hoofddomein from subdomeinen to prevent duplicates
-        const rawSubdomeinen = enrichedLead.subdomeinen || [];
-        const subdomeinen = enrichedLead.hoofddomein
-          ? rawSubdomeinen.filter(s => s !== enrichedLead.hoofddomein)
-          : rawSubdomeinen;
-
-        if (subdomeinen.length > 0) {
-          const subdomeinResult = await this.pipedriveClient.setOrganizationSubdomein(
-            orgResult.id,
-            subdomeinen
-          );
-          if (!subdomeinResult.success) {
-            console.warn(`⚠️ Could not set Subdomeinen: ${subdomeinResult.reason}`);
-          }
-        }
-
-        // 8. Update organization with enrichment data (website, address)
-        await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
-
-        // 8b. Set "Start Pipedrive" date (when lead left the Instantly campaign)
-        // Always set this, regardless of whether org is new or existing
-        await this.setOrganizationStartPipedriveDate(orgResult.id, enrichedLead.campaignCompletedAt);
-
-        // 9. Add note to organization about the sync (including email history and reply count)
-        // Skip Instantly email history for backfill: leads already removed, API calls fail with rate limits
-        await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount, syncSource === 'backfill');
-
-        // 10. Log email activities to Pipedrive (sent/received emails from Instantly)
-        // Skip for backfill: leads are already removed from Instantly, API calls would fail
         if (syncSource === 'backfill') {
+          // === BACKFILL FAST PATH: combine all org updates into 1 GET + 1 PATCH + 1 note ===
+          const orgUpdateResult = await this.updateOrganizationCombined(
+            orgResult.id, statusKey, options.force, enrichedLead
+          );
+
+          if (orgUpdateResult.skipped) {
+            result.skipped = true;
+            result.skipReason = orgUpdateResult.reason;
+          } else {
+            result.statusSet = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
+          }
+
+          // Add sync note (no Instantly API calls)
+          await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount, true);
           result.emailActivitiesSynced = true;
           result.emailActivitiesCount = 0;
         } else {
+          // === NORMAL PATH: individual calls for webhook/real-time sync ===
+          const statusResult = await this.pipedriveClient.setOrganizationStatusProspect(
+            orgResult.id,
+            statusKey,
+            options.force
+          );
+
+          if (statusResult.skipped) {
+            result.skipped = true;
+            result.skipReason = statusResult.reason;
+          } else if (!statusResult.success) {
+            result.error = statusResult.reason || 'Failed to set status';
+            await this.logSync(result, eventType, syncSource, options);
+            return result;
+          }
+
+          result.statusSet = STATUS_PROSPECT_LABELS[statusKey] || statusKey;
+
+          // 7. Set Hoofddomein if available (based on company postal code)
+          if (enrichedLead.hoofddomein) {
+            const hoofddomeinResult = await this.pipedriveClient.setOrganizationHoofddomein(
+              orgResult.id,
+              enrichedLead.hoofddomein
+            );
+            if (!hoofddomeinResult.success) {
+              console.warn(`⚠️ Could not set Hoofddomein: ${hoofddomeinResult.reason}`);
+            }
+          }
+
+          // 7b. Set Subdomeinen if available
+          const rawSubdomeinen = enrichedLead.subdomeinen || [];
+          const subdomeinen = enrichedLead.hoofddomein
+            ? rawSubdomeinen.filter(s => s !== enrichedLead.hoofddomein)
+            : rawSubdomeinen;
+
+          if (subdomeinen.length > 0) {
+            const subdomeinResult = await this.pipedriveClient.setOrganizationSubdomein(
+              orgResult.id,
+              subdomeinen
+            );
+            if (!subdomeinResult.success) {
+              console.warn(`⚠️ Could not set Subdomeinen: ${subdomeinResult.reason}`);
+            }
+          }
+
+          // 8. Update organization with enrichment data
+          await this.updateOrganizationEnrichment(orgResult.id, enrichedLead);
+
+          // 8b. Set "Start Pipedrive" date
+          await this.setOrganizationStartPipedriveDate(orgResult.id, enrichedLead.campaignCompletedAt);
+
+          // 9. Add note
+          await this.addSyncNote(orgResult.id, cleanEmail, campaignName, eventType, statusKey, campaignId, enrichedLead.replyCount, false);
+
+          // 10. Log email activities
           const emailActivityResult = await this.logEmailActivities(orgResult.id, personResult.id, cleanEmail, campaignId);
           result.emailActivitiesSynced = emailActivityResult.success;
           result.emailActivitiesCount = emailActivityResult.count;
@@ -2573,6 +2594,130 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
   }
 
   /**
+   * Combined org update for backfill: 1 GET (status check) + 1 PATCH (all fields).
+   * Saves ~4 API calls per contact vs the normal individual-call path.
+   */
+  private async updateOrganizationCombined(
+    orgId: number,
+    statusKey: string,
+    force: boolean = false,
+    lead: SyncLeadData
+  ): Promise<{ skipped: boolean; reason?: string }> {
+    try {
+      // 1. GET: Check current status for protected/priority check
+      const currentStatus = await this.pipedriveClient.getOrganizationStatusProspect(orgId);
+
+      let skipStatus = false;
+      let skipReason: string | undefined;
+
+      if (!force && currentStatus && PROTECTED_STATUSES.includes(currentStatus)) {
+        skipStatus = true;
+        skipReason = 'Organization has protected status';
+      }
+
+      const newStatusId = STATUS_PROSPECT_OPTIONS[statusKey as keyof typeof STATUS_PROSPECT_OPTIONS];
+      if (!skipStatus && !force && currentStatus) {
+        const currentPriority = STATUS_PRIORITY[currentStatus] || 0;
+        const newPriority = STATUS_PRIORITY[newStatusId] || 0;
+        if (currentPriority > newPriority) {
+          skipStatus = true;
+          skipReason = 'Current status has higher priority';
+        }
+      }
+
+      // 2. Build combined PATCH payload
+      const customFields: Record<string, any> = {};
+      const updates: Record<string, any> = {};
+
+      // Status (only if not skipped due to protected/priority)
+      if (!skipStatus && newStatusId) {
+        customFields[STATUS_PROSPECT_FIELD_ID] = newStatusId;
+      }
+
+      // Hoofddomein
+      if (lead.hoofddomein) {
+        const hoofddomeinEnumId = HOOFDDOMEIN_OPTIONS[lead.hoofddomein];
+        if (hoofddomeinEnumId) {
+          customFields[HOOFDDOMEIN_FIELD_ID] = hoofddomeinEnumId;
+        }
+      }
+
+      // Subdomeinen
+      const rawSubdomeinen = lead.subdomeinen || [];
+      const subdomeinen = lead.hoofddomein
+        ? rawSubdomeinen.filter(s => s !== lead.hoofddomein)
+        : rawSubdomeinen;
+      if (subdomeinen.length > 0) {
+        const enumIds = subdomeinen
+          .map(p => SUBDOMEIN_OPTIONS[p])
+          .filter(Boolean);
+        if (enumIds.length > 0) {
+          customFields[SUBDOMEIN_FIELD_ID] = enumIds;
+        }
+      }
+
+      // Start Pipedrive date
+      const dateToSet = lead.campaignCompletedAt
+        ? new Date(lead.campaignCompletedAt).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+      customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_START_PIPEDRIVE_DATE] = dateToSet;
+
+      // Enrichment: website, phone, kvk, size
+      if (lead.website) {
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_WEBSITE] = lead.website;
+      }
+      if (lead.phone) {
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_PHONE] = lead.phone;
+      }
+      if (lead.kvkNumber) {
+        const kvkNumber = typeof lead.kvkNumber === 'string' ? parseInt(lead.kvkNumber, 10) : lead.kvkNumber;
+        if (!isNaN(kvkNumber)) {
+          customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_KVK] = kvkNumber;
+        }
+      }
+      if (lead.employeeCount) {
+        const sizeEnum = InstantlyPipedriveSyncService.mapEmployeeCountToSize(lead.employeeCount);
+        if (sizeEnum) {
+          customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_SIZE] = sizeEnum;
+        }
+      }
+
+      // Branche (3-tier fallback including AI)
+      let brancheEnum: number | null = null;
+      if (lead.industries && lead.industries.length > 0) {
+        brancheEnum = InstantlyPipedriveSyncService.mapIndustriesToBranche(lead.industries);
+      }
+      if (!brancheEnum && lead.jobCategories && lead.jobCategories.length > 0) {
+        brancheEnum = InstantlyPipedriveSyncService.mapJobCategoriesToBranche(lead.jobCategories);
+      }
+      if (!brancheEnum && lead.companyName) {
+        brancheEnum = await this.determineBrancheWithAI(lead.companyName);
+      }
+      if (brancheEnum) {
+        customFields[InstantlyPipedriveSyncService.PIPEDRIVE_FIELDS.ORGANIZATION_BRANCHE] = brancheEnum;
+      }
+
+      // Address
+      if (lead.streetAddress || lead.city || lead.postalCode) {
+        const addressValue = [lead.streetAddress, lead.postalCode, lead.city]
+          .filter(Boolean)
+          .join(', ');
+        updates.address = { value: addressValue };
+      }
+
+      // 3. Single PATCH call with everything
+      updates.custom_fields = customFields;
+      await this.pipedriveClient.updateOrganization(orgId, updates);
+
+      console.log(`⚡ Combined org update for ${orgId}: status=${skipStatus ? 'SKIPPED' : statusKey}, hoofddomein=${lead.hoofddomein || 'n/a'}, date=${dateToSet}`);
+      return { skipped: skipStatus, reason: skipReason };
+    } catch (error) {
+      console.error(`Error in combined org update for ${orgId}:`, error);
+      return { skipped: false, reason: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
    * Update organization with enrichment data (website, address, phone, kvk, size, branche)
    */
   private async updateOrganizationEnrichment(
@@ -3658,6 +3803,51 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
     } catch (error) {
       console.warn(`⚠️ Error checking blocklist for ${cleanEmail}:`, error);
       // In case of error, don't block the sync but log it
+      return { isBlocked: false, source: null };
+    }
+  }
+
+  /**
+   * Fast DB-only blocklist check (skips Instantly API call).
+   * Used during backfill when leads are already removed from Instantly.
+   */
+  private async isEmailBlocklistedInDB(email: string): Promise<{
+    isBlocked: boolean;
+    source: 'database' | 'instantly' | null;
+    reason?: string;
+  }> {
+    const cleanEmail = email.toLowerCase().trim();
+    try {
+      const { data: dbEntry } = await this.supabase
+        .from('blocklist_entries')
+        .select('id, reason')
+        .eq('value', cleanEmail)
+        .eq('type', 'email')
+        .eq('is_active', true)
+        .single();
+
+      if (dbEntry) {
+        return { isBlocked: true, source: 'database', reason: dbEntry.reason || undefined };
+      }
+
+      const domain = cleanEmail.split('@')[1];
+      if (domain) {
+        const { data: domainEntry } = await this.supabase
+          .from('blocklist_entries')
+          .select('id, reason')
+          .eq('value', domain)
+          .eq('type', 'domain')
+          .eq('is_active', true)
+          .single();
+
+        if (domainEntry) {
+          return { isBlocked: true, source: 'database', reason: domainEntry.reason || undefined };
+        }
+      }
+
+      return { isBlocked: false, source: null };
+    } catch (error) {
+      console.warn(`⚠️ Error checking DB blocklist for ${cleanEmail}:`, error);
       return { isBlocked: false, source: null };
     }
   }
