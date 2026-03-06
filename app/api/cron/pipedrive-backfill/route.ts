@@ -2,11 +2,12 @@
  * Pipedrive Backfill Cron Endpoint
  *
  * Syncs contacts with postal codes to Pipedrive in small batches.
- * Runs every 15 minutes, processes 18 contacts per run to stay within
+ * Runs every 15 minutes, processes 40 contacts per run to stay within
  * Pipedrive's daily API token budget (450k tokens/day).
  *
- * Budget: ~170 tokens/contact × 18 contacts × 96 runs/day = ~1,728 contacts/day
- * Expected completion: ~3.5 days for ~6,000 contacts
+ * Budget: ~170 tokens/contact × 40 contacts × 96 runs/day = ~3,360 contacts/day
+ * Expected completion: ~1.5 days for ~5,200 remaining contacts
+ * Auto-stop vangt eventuele daily limit overschrijding op.
  *
  * Automatically stops when daily budget is exhausted (429 with Retry-After > 60s)
  * and resumes on the next run after midnight budget reset.
@@ -16,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withCronMonitoring } from '@/lib/cron-monitor'
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service'
 
-const BATCH_SIZE = 18
+const BATCH_SIZE = 40
 
 async function pipedriveBackfillHandler(request: NextRequest) {
   const startTime = Date.now()
