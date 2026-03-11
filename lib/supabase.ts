@@ -272,6 +272,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "blocklist_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "mv_campaign_eligible_companies"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "blocklist_entries_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
@@ -286,6 +293,168 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      campaign_assignment_batches: {
+        Row: {
+          added: number | null
+          batch_id: string
+          candidate_ids: string[] | null
+          completed_at: string | null
+          created_at: string | null
+          errors: number | null
+          id: string
+          last_error: string | null
+          orchestration_id: string | null
+          platform_stats: Json | null
+          processed: number | null
+          processed_ids: string[] | null
+          skipped: number | null
+          started_at: string | null
+          status: string
+          total_candidates: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          added?: number | null
+          batch_id: string
+          candidate_ids?: string[] | null
+          completed_at?: string | null
+          created_at?: string | null
+          errors?: number | null
+          id?: string
+          last_error?: string | null
+          orchestration_id?: string | null
+          platform_stats?: Json | null
+          processed?: number | null
+          processed_ids?: string[] | null
+          skipped?: number | null
+          started_at?: string | null
+          status?: string
+          total_candidates?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          added?: number | null
+          batch_id?: string
+          candidate_ids?: string[] | null
+          completed_at?: string | null
+          created_at?: string | null
+          errors?: number | null
+          id?: string
+          last_error?: string | null
+          orchestration_id?: string | null
+          platform_stats?: Json | null
+          processed?: number | null
+          processed_ids?: string[] | null
+          skipped?: number | null
+          started_at?: string | null
+          status?: string
+          total_candidates?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      campaign_assignment_logs: {
+        Row: {
+          ai_personalization: Json | null
+          ai_processing_time_ms: number | null
+          batch_id: string
+          company_id: string | null
+          company_name: string | null
+          contact_email: string
+          contact_id: string
+          contact_name: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          instantly_campaign_id: string | null
+          instantly_lead_id: string | null
+          instantly_response: Json | null
+          pipedrive_is_klant: boolean | null
+          pipedrive_org_id: number | null
+          pipedrive_status_checked: boolean | null
+          platform_id: string | null
+          platform_name: string | null
+          skip_reason: string | null
+          status: string
+        }
+        Insert: {
+          ai_personalization?: Json | null
+          ai_processing_time_ms?: number | null
+          batch_id: string
+          company_id?: string | null
+          company_name?: string | null
+          contact_email: string
+          contact_id: string
+          contact_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          instantly_campaign_id?: string | null
+          instantly_lead_id?: string | null
+          instantly_response?: Json | null
+          pipedrive_is_klant?: boolean | null
+          pipedrive_org_id?: number | null
+          pipedrive_status_checked?: boolean | null
+          platform_id?: string | null
+          platform_name?: string | null
+          skip_reason?: string | null
+          status: string
+        }
+        Update: {
+          ai_personalization?: Json | null
+          ai_processing_time_ms?: number | null
+          batch_id?: string
+          company_id?: string | null
+          company_name?: string | null
+          contact_email?: string
+          contact_id?: string
+          contact_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          instantly_campaign_id?: string | null
+          instantly_lead_id?: string | null
+          instantly_response?: Json | null
+          pipedrive_is_klant?: boolean | null
+          pipedrive_org_id?: number | null
+          pipedrive_status_checked?: boolean | null
+          platform_id?: string | null
+          platform_name?: string | null
+          skip_reason?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      campaign_assignment_settings: {
+        Row: {
+          delay_between_contacts_ms: number
+          id: string
+          is_enabled: boolean
+          max_per_platform: number
+          max_total_contacts: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          delay_between_contacts_ms?: number
+          id?: string
+          is_enabled?: boolean
+          max_per_platform?: number
+          max_total_contacts?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          delay_between_contacts_ms?: number
+          id?: string
+          is_enabled?: boolean
+          max_per_platform?: number
+          max_total_contacts?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       cities: {
         Row: {
@@ -388,6 +557,8 @@ export type Database = {
           pipedrive_synced: boolean | null
           pipedrive_synced_at: string | null
           postal_code: string | null
+          postcode_geocode_source: string | null
+          postcode_geocoded_at: string | null
           qualification_notes: string | null
           qualification_status: string | null
           qualification_timestamp: string | null
@@ -463,6 +634,8 @@ export type Database = {
           pipedrive_synced?: boolean | null
           pipedrive_synced_at?: string | null
           postal_code?: string | null
+          postcode_geocode_source?: string | null
+          postcode_geocoded_at?: string | null
           qualification_notes?: string | null
           qualification_status?: string | null
           qualification_timestamp?: string | null
@@ -538,6 +711,8 @@ export type Database = {
           pipedrive_synced?: boolean | null
           pipedrive_synced_at?: string | null
           postal_code?: string | null
+          postcode_geocode_source?: string | null
+          postcode_geocoded_at?: string | null
           qualification_notes?: string | null
           qualification_status?: string | null
           qualification_timestamp?: string | null
@@ -791,7 +966,80 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "mv_campaign_eligible_companies"
+            referencedColumns: ["company_id"]
+          },
         ]
+      }
+      cron_job_logs: {
+        Row: {
+          completed_at: string
+          created_at: string
+          duration_ms: number
+          error_message: string | null
+          http_status: number | null
+          id: string
+          job_name: string
+          path: string
+          response_summary: Json | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string
+          created_at?: string
+          duration_ms: number
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          job_name: string
+          path: string
+          response_summary?: Json | null
+          started_at: string
+          status: string
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          job_name?: string
+          path?: string
+          response_summary?: Json | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      cron_watchdog_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          id: string
+          job_name: string
+          message: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          id?: string
+          job_name: string
+          message: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          id?: string
+          job_name?: string
+          message?: string
+        }
+        Relationships: []
       }
       enrichment_batches: {
         Row: {
@@ -926,6 +1174,191 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "enrichment_status_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "mv_campaign_eligible_companies"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
+      instantly_backfill_activity_logs: {
+        Row: {
+          batch_id: string | null
+          created_at: string | null
+          id: string
+          log_type: string
+          message: string
+          metadata: Json | null
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string | null
+          id?: string
+          log_type: string
+          message: string
+          metadata?: Json | null
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string | null
+          id?: string
+          log_type?: string
+          message?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instantly_backfill_activity_logs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "instantly_backfill_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instantly_backfill_batches: {
+        Row: {
+          batch_id: string
+          batch_size: number | null
+          campaign_ids: string[] | null
+          completed_at: string | null
+          created_at: string | null
+          current_batch: number | null
+          current_campaign_index: number | null
+          current_campaign_name: string | null
+          delay_ms: number | null
+          dry_run: boolean | null
+          error_count: number | null
+          failed_leads: number | null
+          id: string
+          last_error: string | null
+          max_leads_to_collect: number | null
+          paused_at: string | null
+          processed_leads: number | null
+          skipped_leads: number | null
+          started_at: string | null
+          status: string | null
+          synced_leads: number | null
+          total_campaigns: number | null
+          total_leads: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          batch_id: string
+          batch_size?: number | null
+          campaign_ids?: string[] | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_batch?: number | null
+          current_campaign_index?: number | null
+          current_campaign_name?: string | null
+          delay_ms?: number | null
+          dry_run?: boolean | null
+          error_count?: number | null
+          failed_leads?: number | null
+          id?: string
+          last_error?: string | null
+          max_leads_to_collect?: number | null
+          paused_at?: string | null
+          processed_leads?: number | null
+          skipped_leads?: number | null
+          started_at?: string | null
+          status?: string | null
+          synced_leads?: number | null
+          total_campaigns?: number | null
+          total_leads?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          batch_id?: string
+          batch_size?: number | null
+          campaign_ids?: string[] | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_batch?: number | null
+          current_campaign_index?: number | null
+          current_campaign_name?: string | null
+          delay_ms?: number | null
+          dry_run?: boolean | null
+          error_count?: number | null
+          failed_leads?: number | null
+          id?: string
+          last_error?: string | null
+          max_leads_to_collect?: number | null
+          paused_at?: string | null
+          processed_leads?: number | null
+          skipped_leads?: number | null
+          started_at?: string | null
+          status?: string | null
+          synced_leads?: number | null
+          total_campaigns?: number | null
+          total_leads?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      instantly_backfill_leads: {
+        Row: {
+          batch_id: string | null
+          campaign_id: string
+          campaign_name: string | null
+          collected_at: string | null
+          completed_at: string | null
+          determined_event_type: string | null
+          error_message: string | null
+          has_reply: boolean | null
+          id: string
+          instantly_data: Json | null
+          lead_email: string
+          pipedrive_org_id: number | null
+          pipedrive_person_id: number | null
+          retry_count: number | null
+          status: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          campaign_id: string
+          campaign_name?: string | null
+          collected_at?: string | null
+          completed_at?: string | null
+          determined_event_type?: string | null
+          error_message?: string | null
+          has_reply?: boolean | null
+          id?: string
+          instantly_data?: Json | null
+          lead_email: string
+          pipedrive_org_id?: number | null
+          pipedrive_person_id?: number | null
+          retry_count?: number | null
+          status?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          campaign_id?: string
+          campaign_name?: string | null
+          collected_at?: string | null
+          completed_at?: string | null
+          determined_event_type?: string | null
+          error_message?: string | null
+          has_reply?: boolean | null
+          id?: string
+          instantly_data?: Json | null
+          lead_email?: string
+          pipedrive_org_id?: number | null
+          pipedrive_person_id?: number | null
+          retry_count?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instantly_backfill_leads_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "instantly_backfill_batches"
+            referencedColumns: ["id"]
+          },
         ]
       }
       instantly_email_events: {
@@ -999,6 +1432,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instantly_email_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "mv_campaign_eligible_companies"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "instantly_email_events_contact_id_fkey"
@@ -1335,6 +1775,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_postings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "mv_campaign_eligible_companies"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "job_postings_platform_id_fkey"
             columns: ["platform_id"]
             isOneToOne: false
@@ -1384,6 +1831,72 @@ export type Database = {
         }
         Relationships: []
       }
+      mailerlite_syncs: {
+        Row: {
+          created_at: string | null
+          email: string
+          hoofddomein: string | null
+          id: string
+          mailerlite_group_id: string | null
+          mailerlite_group_name: string | null
+          mailerlite_subscriber_id: string | null
+          pipedrive_org_id: number | null
+          pipedrive_person_id: number | null
+          sync_error: string | null
+          sync_source: string
+          sync_success: boolean | null
+          synced_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          hoofddomein?: string | null
+          id?: string
+          mailerlite_group_id?: string | null
+          mailerlite_group_name?: string | null
+          mailerlite_subscriber_id?: string | null
+          pipedrive_org_id?: number | null
+          pipedrive_person_id?: number | null
+          sync_error?: string | null
+          sync_source?: string
+          sync_success?: boolean | null
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          hoofddomein?: string | null
+          id?: string
+          mailerlite_group_id?: string | null
+          mailerlite_group_name?: string | null
+          mailerlite_subscriber_id?: string | null
+          pipedrive_org_id?: number | null
+          pipedrive_person_id?: number | null
+          sync_error?: string | null
+          sync_source?: string
+          sync_success?: boolean | null
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      pipedrive_config: {
+        Row: {
+          key: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       platforms: {
         Row: {
           automation_enabled: boolean | null
@@ -1396,6 +1909,7 @@ export type Database = {
           is_active: boolean | null
           latitude: number | null
           longitude: number | null
+          mailerlite_group_id: string | null
           regio_platform: string
           scraping_priority: number | null
           updated_at: string | null
@@ -1411,6 +1925,7 @@ export type Database = {
           is_active?: boolean | null
           latitude?: number | null
           longitude?: number | null
+          mailerlite_group_id?: string | null
           regio_platform: string
           scraping_priority?: number | null
           updated_at?: string | null
@@ -1426,6 +1941,7 @@ export type Database = {
           is_active?: boolean | null
           latitude?: number | null
           longitude?: number | null
+          mailerlite_group_id?: string | null
           regio_platform?: string
           scraping_priority?: number | null
           updated_at?: string | null
@@ -1516,6 +2032,60 @@ export type Database = {
           full_name?: string | null
           id?: string
           role?: string
+        }
+        Relationships: []
+      }
+      scraper_backfill_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_page: number | null
+          id: string
+          last_run_at: string | null
+          pages_per_run: number | null
+          runs_completed: number | null
+          scraper_name: string
+          skip_ai: boolean | null
+          started_at: string | null
+          status: string | null
+          total_errors: number | null
+          total_inserted: number | null
+          total_pages: number
+          total_skipped: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_page?: number | null
+          id?: string
+          last_run_at?: string | null
+          pages_per_run?: number | null
+          runs_completed?: number | null
+          scraper_name: string
+          skip_ai?: boolean | null
+          started_at?: string | null
+          status?: string | null
+          total_errors?: number | null
+          total_inserted?: number | null
+          total_pages: number
+          total_skipped?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_page?: number | null
+          id?: string
+          last_run_at?: string | null
+          pages_per_run?: number | null
+          runs_completed?: number | null
+          scraper_name?: string
+          skip_ai?: boolean | null
+          started_at?: string | null
+          status?: string | null
+          total_errors?: number | null
+          total_inserted?: number | null
+          total_pages?: number
+          total_skipped?: number | null
         }
         Relationships: []
       }
@@ -1705,6 +2275,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "mv_campaign_eligible_companies"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "job_postings_platform_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
@@ -1738,6 +2315,19 @@ export type Database = {
         }
         Relationships: []
       }
+      mv_campaign_eligible_companies: {
+        Row: {
+          category_size: string | null
+          company_description: string | null
+          company_id: string | null
+          company_location: string | null
+          company_name: string | null
+          company_website: string | null
+          industries: string[] | null
+          pipedrive_id: string | null
+        }
+        Relationships: []
+      }
       unique_regio_platforms: {
         Row: {
           regio_platform: string | null
@@ -1746,21 +2336,63 @@ export type Database = {
       }
     }
     Functions: {
+      append_processed_id: {
+        Args: { p_batch_id: string; p_contact_id: string }
+        Returns: undefined
+      }
       bytea_to_text: { Args: { data: string }; Returns: string }
       company_status_counts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           count: number
           status: string
         }[]
       }
+      exec_sql: { Args: { query: string }; Returns: Json }
+      get_campaign_assignment_candidates: {
+        Args: { p_max_per_platform?: number; p_max_total?: number }
+        Returns: {
+          company_category_size: string
+          company_description: string
+          company_id: string
+          company_industries: string[]
+          company_location: string
+          company_name: string
+          company_pipedrive_id: string
+          company_website: string
+          email: string
+          first_name: string
+          id: string
+          instantly_campaign_id: string
+          job_posting_location: string
+          job_posting_title: string
+          last_name: string
+          linkedin_url: string
+          phone: string
+          platform_id: string
+          platform_name: string
+          title: string
+        }[]
+      }
       get_contacts_query_performance: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           avg_execution_time: number
           last_execution: string
           query_name: string
           total_executions: number
+        }[]
+      }
+      get_cron_job_stats: {
+        Args: { filter_job_name?: string; since_date: string }
+        Returns: {
+          avg_duration_ms: number
+          error_count: number
+          job_name: string
+          max_duration_ms: number
+          success_count: number
+          timeout_count: number
+          total_runs: number
         }[]
       }
       get_user_session_history: {
@@ -1782,25 +2414,77 @@ export type Database = {
       http: {
         Args: { request: Database["public"]["CompositeTypes"]["http_request"] }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "http_request"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      http_delete: {
-        Args: { uri: string } | { content: string; content_type: string; uri: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_get: {
-        Args: { uri: string } | { data: Json; uri: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
+      http_delete:
+        | {
+            Args: { uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { content: string; content_type: string; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      http_get:
+        | {
+            Args: { uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { data: Json; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       http_head: {
         Args: { uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "*"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       http_header: {
         Args: { field: string; value: string }
         Returns: Database["public"]["CompositeTypes"]["http_header"]
+        SetofOptions: {
+          from: "*"
+          to: "http_header"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       http_list_curlopt: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           curlopt: string
           value: string
@@ -1809,25 +2493,87 @@ export type Database = {
       http_patch: {
         Args: { content: string; content_type: string; uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "*"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      http_post: {
-        Args: { content: string; content_type: string; uri: string } | { data: Json; uri: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
+      http_post:
+        | {
+            Args: { content: string; content_type: string; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { data: Json; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       http_put: {
         Args: { content: string; content_type: string; uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "*"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      http_reset_curlopt: { Args: Record<PropertyKey, never>; Returns: boolean }
+      http_reset_curlopt: { Args: never; Returns: boolean }
       http_set_curlopt: {
         Args: { curlopt: string; value: string }
         Returns: boolean
       }
-      refresh_contact_statistics: { Args: Record<PropertyKey, never>; Returns: undefined }
-      refresh_contact_stats_mv: { Args: Record<PropertyKey, never>; Returns: undefined }
-      refresh_contacts_materialized_views: { Args: Record<PropertyKey, never>; Returns: undefined }
-      refresh_contacts_stats: { Args: Record<PropertyKey, never>; Returns: undefined }
-      refresh_unique_regio_platforms: { Args: Record<PropertyKey, never>; Returns: undefined }
+      increment_backfill_batch_counter: {
+        Args: { p_batch_id: string; p_counter_name: string }
+        Returns: undefined
+      }
+      process_postcode_geocode_responses: {
+        Args: never
+        Returns: {
+          out_city: string
+          out_company_id: string
+          out_pipedrive_updated: boolean
+          out_postcode: string
+          out_status: string
+        }[]
+      }
+      queue_postcode_geocode_requests: {
+        Args: { batch_size?: number }
+        Returns: {
+          out_company_id: string
+          out_company_name: string
+          out_request_id: number
+          out_search_query: string
+        }[]
+      }
+      refresh_campaign_eligible_companies: { Args: never; Returns: undefined }
+      refresh_contact_statistics: { Args: never; Returns: undefined }
+      refresh_contact_stats_mv: { Args: never; Returns: undefined }
+      refresh_contacts_materialized_views: { Args: never; Returns: undefined }
+      refresh_contacts_stats: { Args: never; Returns: undefined }
+      refresh_unique_regio_platforms: { Args: never; Returns: undefined }
+      run_postcode_backfill_cycle: {
+        Args: { batch_size?: number }
+        Returns: {
+          phase: string
+          pipedrive_updated: number
+          processed: number
+          successful: number
+        }[]
+      }
       search_contacts: {
         Args: {
           campaign_filter?: string
@@ -1920,14 +2666,43 @@ export type Database = {
         Args: { session_uuid: string }
         Returns: Json
       }
-      show_limit: { Args: Record<PropertyKey, never>; Returns: number }
+      show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       text_to_bytea: { Args: { data: string }; Returns: string }
+      update_pipedrive_organization_domeinen: {
+        Args: {
+          p_company_id: string
+          p_pipedrive_id: string
+          p_postal_code: string
+        }
+        Returns: Json
+      }
+      update_pipedrive_organization_full: {
+        Args: {
+          p_company_id: string
+          p_pipedrive_id: string
+          p_postal_code: string
+        }
+        Returns: Json
+      }
       upsert_automation_preferences: {
         Args: { p_preferences: Json; p_user_id: string }
         Returns: undefined
       }
-      urlencode: { Args: { data: Json }; Returns: string }
+      urlencode:
+        | { Args: { data: Json }; Returns: string }
+        | {
+            Args: { string: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { string: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
     }
     Enums: {
       processing_status_enum: "not_started" | "in_progress" | "completed"

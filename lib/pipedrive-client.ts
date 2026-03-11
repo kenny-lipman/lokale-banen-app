@@ -1398,6 +1398,52 @@ export class PipedriveClient {
       return [];
     }
   }
+
+  /**
+   * Set "Nieuwsbrief Status" on a Pipedrive organization.
+   * Field must be created first via setup endpoint (enum field with "Aangemeld" / "Afgemeld").
+   * Field ID is stored as NIEUWSBRIEF_STATUS_FIELD_ID constant (set after creation).
+   */
+  async setNieuwsbriefStatus(
+    orgId: number,
+    status: 'Aangemeld' | 'Afgemeld'
+  ): Promise<{ success: boolean; reason?: string }> {
+    try {
+      if (!NIEUWSBRIEF_STATUS_FIELD_ID) {
+        console.warn('⚠️ NIEUWSBRIEF_STATUS_FIELD_ID not configured - skipping');
+        return { success: false, reason: 'Field ID not configured' };
+      }
+
+      // Look up the enum option ID for the status label
+      const field = await this.request('GET', `/organizationFields/${NIEUWSBRIEF_STATUS_FIELD_ID}`);
+      if (!field?.options) {
+        return { success: false, reason: 'Nieuwsbrief Status field has no options' };
+      }
+
+      const option = field.options.find((o: any) => o.label === status);
+      if (!option) {
+        return { success: false, reason: `Option "${status}" not found in Nieuwsbrief Status field` };
+      }
+
+      await this.updateOrganization(orgId, {
+        [NIEUWSBRIEF_STATUS_FIELD_ID]: option.id
+      });
+
+      console.log(`✅ Set Nieuwsbrief Status to "${status}" for org ${orgId}`);
+      return { success: true };
+    } catch (error) {
+      if (error instanceof PipedriveDailyLimitError) throw error;
+      console.error(`Error setting Nieuwsbrief Status for org ${orgId}:`, error);
+      return {
+        success: false,
+        reason: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
 }
+
+// Nieuwsbrief Status field ID on Pipedrive Organization
+// Set this after creating the field via /api/mailerlite/setup
+const NIEUWSBRIEF_STATUS_FIELD_ID = process.env.PIPEDRIVE_NIEUWSBRIEF_STATUS_FIELD_ID || '';
 
 export const pipedriveClient = new PipedriveClient();

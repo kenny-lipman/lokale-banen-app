@@ -6,6 +6,7 @@ interface PatchPlatformRequest {
   is_active?: boolean
   instantly_campaign_id?: string | null
   automation_enabled?: boolean
+  mailerlite_group_id?: string | null
 }
 
 // Interface for update request
@@ -222,6 +223,9 @@ export async function PATCH(
     if (body.instantly_campaign_id !== undefined) {
       updateData.instantly_campaign_id = body.instantly_campaign_id || null
     }
+    if (body.mailerlite_group_id !== undefined) {
+      updateData.mailerlite_group_id = body.mailerlite_group_id || null
+    }
 
     // Only updated_at means no actual changes were provided
     if (Object.keys(updateData).length <= 1) {
@@ -235,7 +239,7 @@ export async function PATCH(
       .from('platforms')
       .update(updateData)
       .eq('regio_platform', platform)
-      .select('id, regio_platform, central_place, central_postcode, automation_enabled, is_active, instantly_campaign_id')
+      .select('id, regio_platform, central_place, central_postcode, automation_enabled, is_active, instantly_campaign_id, mailerlite_group_id')
       .single()
 
     if (updateError) {

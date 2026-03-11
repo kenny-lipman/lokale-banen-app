@@ -3,6 +3,7 @@
 import { PlatformAutomationSection } from "@/components/PlatformAutomationSection"
 import { ActiveRegionsSection } from "@/components/ActiveRegionsSection"
 import { CronJobMonitor } from "@/components/CronJobMonitor"
+import { MailerLiteGroupSection } from "@/components/MailerLiteGroupSection"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 export default function SettingsPage() {
@@ -29,6 +30,12 @@ export default function SettingsPage() {
             }}
           />
           
+          <MailerLiteGroupSection
+            onConfigChange={(config) => {
+              console.log('MailerLite config updated:', config)
+            }}
+          />
+
           <CronJobMonitor />
         </div>
       </ErrorBoundary>
