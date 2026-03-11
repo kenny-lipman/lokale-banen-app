@@ -292,7 +292,7 @@ export class MailerLiteClient {
   async createWebhook(url: string, events: string[]): Promise<{ data: MailerLiteWebhook }> {
     return this.request<{ data: MailerLiteWebhook }>('POST', '/webhooks', {
       url,
-      events: events.map(type => ({ type }))
+      events,
     });
   }
 }

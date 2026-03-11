@@ -9,6 +9,10 @@ import { mailerliteSyncService } from '@/lib/services/mailerlite-sync.service';
  * Backfill: sync existing Pipedrive-synced leads to MailerLite.
  * Picks leads from instantly_pipedrive_syncs that haven't been synced yet.
  * Auth: CRON_SECRET
+ *
+ * Query params:
+ * - limit: max leads to process (default 50, max 100)
+ * - platform: filter by specific platform (e.g. "AlkmaarseBanen")
  */
 
 // Events excluded from MailerLite sync
@@ -30,10 +34,34 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    const platformFilter = searchParams.get('platform');
+
+    // Get platforms with configured MailerLite groups
+    let platformQuery = supabase
+      .from('platforms')
+      .select('regio_platform, mailerlite_group_id')
+      .not('mailerlite_group_id', 'is', null);
+
+    if (platformFilter) {
+      platformQuery = platformQuery.eq('regio_platform', platformFilter);
+    }
+
+    const { data: configuredPlatforms } = await platformQuery;
+
+    if (!configuredPlatforms?.length) {
+      return NextResponse.json({
+        success: true,
+        message: platformFilter
+          ? `Platform "${platformFilter}" has no MailerLite group configured`
+          : 'No platforms with MailerLite groups configured',
+        processed: 0,
+      });
+    }
+
+    const configuredPlatformNames = configuredPlatforms.map(p => p.regio_platform);
 
     // Find leads synced to Pipedrive but not yet to MailerLite
-    // Group by email (a lead can have multiple sync records)
-    const { data: candidates, error: queryError } = await supabase
+    const { data: filteredCandidates, error: filterError } = await supabase
       .from('instantly_pipedrive_syncs')
       .select(`
         instantly_lead_email,
@@ -46,11 +74,11 @@ export async function POST(request: NextRequest) {
       .not('event_type', 'in', `(${EXCLUDED_EVENTS.join(',')})`)
       .order('synced_at', { ascending: false });
 
-    if (queryError) {
-      throw new Error(`Query error: ${queryError.message}`);
+    if (filterError) {
+      throw new Error(`Query error: ${filterError.message}`);
     }
 
-    if (!candidates?.length) {
+    if (!filteredCandidates?.length) {
       return NextResponse.json({
         success: true,
         message: 'No candidates found for backfill',
@@ -59,8 +87,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Deduplicate by email (take latest sync per email)
-    const emailMap = new Map<string, typeof candidates[0]>();
-    for (const c of candidates) {
+    const emailMap = new Map<string, typeof filteredCandidates[0]>();
+    for (const c of filteredCandidates) {
       const email = c.instantly_lead_email.toLowerCase().trim();
       if (!emailMap.has(email)) {
         emailMap.set(email, c);
@@ -75,17 +103,41 @@ export async function POST(request: NextRequest) {
       .in('email', allEmails);
 
     const alreadySyncedSet = new Set((alreadySynced || []).map(s => s.email));
-    const toSync = allEmails
-      .filter(email => !alreadySyncedSet.has(email))
-      .slice(0, limit);
+    const notYetSynced = allEmails.filter(email => !alreadySyncedSet.has(email));
+
+    // Filter by platform: look up which emails belong to configured platforms
+    const platformEmailBatches: string[][] = [];
+    for (let i = 0; i < notYetSynced.length; i += 500) {
+      platformEmailBatches.push(notYetSynced.slice(i, i + 500));
+    }
+
+    const platformFilteredEmails: string[] = [];
+    for (const batch of platformEmailBatches) {
+      const { data: contacts } = await supabase
+        .from('contacts')
+        .select('email, companies!inner(hoofddomein)')
+        .in('email', batch)
+        .in('companies.hoofddomein', configuredPlatformNames);
+
+      if (contacts) {
+        for (const c of contacts) {
+          platformFilteredEmails.push(c.email!);
+        }
+      }
+
+      if (platformFilteredEmails.length >= limit) break;
+    }
+
+    const toSync = platformFilteredEmails.slice(0, limit);
 
     if (toSync.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'All candidates already synced',
+        message: 'No candidates found for configured platforms',
         processed: 0,
         totalCandidates: allEmails.length,
         alreadySynced: alreadySyncedSet.size,
+        configuredPlatforms: configuredPlatformNames,
       });
     }
 
@@ -156,6 +208,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      platforms: configuredPlatformNames,
       ...results,
     });
   } catch (error: any) {
