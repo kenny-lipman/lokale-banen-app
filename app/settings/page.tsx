@@ -5,6 +5,7 @@ import { ActiveRegionsSection } from "@/components/ActiveRegionsSection"
 import { CronJobMonitor } from "@/components/CronJobMonitor"
 import { MailerLiteGroupSection } from "@/components/MailerLiteGroupSection"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 
 export default function SettingsPage() {
   return (
@@ -17,27 +18,42 @@ export default function SettingsPage() {
       </div>
 
       <ErrorBoundary>
-        <div className="space-y-8">
-          <ActiveRegionsSection 
-            onRegionsChange={(regions) => {
-              console.log('Active regions updated:', regions)
-            }}
-          />
+        <Tabs defaultValue="platforms" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="platforms">Platforms</TabsTrigger>
+            <TabsTrigger value="regions">Regio&apos;s</TabsTrigger>
+            <TabsTrigger value="mailerlite">MailerLite</TabsTrigger>
+            <TabsTrigger value="cron">Cron Jobs</TabsTrigger>
+          </TabsList>
 
-          <PlatformAutomationSection 
-            onPreferencesChange={(preferences) => {
-              console.log('Platform preferences updated:', preferences)
-            }}
-          />
-          
-          <MailerLiteGroupSection
-            onConfigChange={(config) => {
-              console.log('MailerLite config updated:', config)
-            }}
-          />
+          <TabsContent value="platforms">
+            <PlatformAutomationSection
+              onPreferencesChange={(preferences) => {
+                console.log('Platform preferences updated:', preferences)
+              }}
+            />
+          </TabsContent>
 
-          <CronJobMonitor />
-        </div>
+          <TabsContent value="regions">
+            <ActiveRegionsSection
+              onRegionsChange={(regions) => {
+                console.log('Active regions updated:', regions)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="mailerlite">
+            <MailerLiteGroupSection
+              onConfigChange={(config) => {
+                console.log('MailerLite config updated:', config)
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="cron">
+            <CronJobMonitor />
+          </TabsContent>
+        </Tabs>
       </ErrorBoundary>
     </div>
   )
