@@ -178,7 +178,7 @@ export async function PUT(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { platform: string } }
+  { params }: { params: Promise<{ platform: string }> }
 ) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -199,7 +199,7 @@ export async function PATCH(
       )
     }
 
-    const platform = params.platform
+    const { platform } = await params
     if (!platform) {
       return NextResponse.json(
         { error: 'Platform parameter is required' },
