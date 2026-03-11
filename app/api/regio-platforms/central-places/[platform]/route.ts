@@ -235,7 +235,7 @@ export async function PATCH(
       )
     }
 
-    const { data: updated, error: updateError } = await supabaseService.client
+    const { data: updated, error: updateError } = await supabaseService.serviceClient
       .from('platforms')
       .update(updateData)
       .eq('regio_platform', platform)
