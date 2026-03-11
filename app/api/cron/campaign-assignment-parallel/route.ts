@@ -40,8 +40,7 @@ async function parallelAssignmentHandler(request: NextRequest) {
     }
 
     // 4. Generate orchestration ID for grouping batches
-    const dateClean = /[-:T]/g
-    const orchestrationId = `orch_${new Date().toISOString().replace(dateClean, '').slice(0, 14)}_${Math.random().toString(36).slice(2, 8)}`
+    const orchestrationId = `orch_${new Date().toISOString().replaceAll('-', '').replaceAll(':', '').replaceAll('T', '').slice(0, 14)}_${Math.random().toString(36).slice(2, 8)}`
 
     // 5. Determine worker URL — use production domain, NOT deployment-specific VERCEL_URL
     //    (VERCEL_URL points to deployment-specific URL which may have Deployment Protection)
