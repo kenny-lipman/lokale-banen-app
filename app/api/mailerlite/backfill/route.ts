@@ -7,7 +7,7 @@ import { mailerliteSyncService } from '@/lib/services/mailerlite-sync.service';
  * POST /api/mailerlite/backfill
  *
  * Backfill: sync existing Pipedrive-synced leads to MailerLite.
- * Picks leads from instantly_pipedrive_syncs that haven't been synced yet.
+ * Finds contacts from configured platforms that are in Pipedrive but not yet in MailerLite.
  * Auth: CRON_SECRET
  *
  * Query params:
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const platformFilter = searchParams.get('platform');
 
-    // Get platforms with configured MailerLite groups
+    // 1. Get platforms with configured MailerLite groups
     let platformQuery = supabase
       .from('platforms')
       .select('regio_platform, mailerlite_group_id')
@@ -60,141 +60,137 @@ export async function POST(request: NextRequest) {
 
     const configuredPlatformNames = configuredPlatforms.map(p => p.regio_platform);
 
-    // Find leads synced to Pipedrive but not yet to MailerLite
-    const { data: filteredCandidates, error: filterError } = await supabase
-      .from('instantly_pipedrive_syncs')
+    // 2. Get contacts from configured platforms with company data
+    const { data: platformContacts, error: contactError } = await supabase
+      .from('companies')
       .select(`
-        instantly_lead_email,
-        pipedrive_org_id,
-        pipedrive_person_id,
-        event_type,
-        synced_at
+        id, name, website, city, postal_code, kvk_number,
+        employee_count, industry, hoofddomein,
+        contacts (email, name, phone, title)
       `)
-      .eq('sync_success', true)
-      .not('event_type', 'in', `(${EXCLUDED_EVENTS.join(',')})`)
-      .order('synced_at', { ascending: false });
+      .in('hoofddomein', configuredPlatformNames);
 
-    if (filterError) {
-      throw new Error(`Query error: ${filterError.message}`);
+    if (contactError) {
+      throw new Error(`Contact query error: ${contactError.message}`);
     }
 
-    if (!filteredCandidates?.length) {
-      return NextResponse.json({
-        success: true,
-        message: 'No candidates found for backfill',
-        processed: 0,
-      });
-    }
-
-    // Deduplicate by email (take latest sync per email)
-    const emailMap = new Map<string, typeof filteredCandidates[0]>();
-    for (const c of filteredCandidates) {
-      const email = c.instantly_lead_email.toLowerCase().trim();
-      if (!emailMap.has(email)) {
-        emailMap.set(email, c);
-      }
-    }
-
-    // Filter out emails already in mailerlite_syncs
-    const allEmails = Array.from(emailMap.keys());
-    const { data: alreadySynced } = await supabase
-      .from('mailerlite_syncs')
-      .select('email')
-      .in('email', allEmails);
-
-    const alreadySyncedSet = new Set((alreadySynced || []).map(s => s.email));
-    const notYetSynced = allEmails.filter(email => !alreadySyncedSet.has(email));
-
-    // Filter by platform: fetch contacts with their company data
-    // Use two separate queries to avoid join issues
-    const emailBatches: string[][] = [];
-    for (let i = 0; i < notYetSynced.length; i += 500) {
-      emailBatches.push(notYetSynced.slice(i, i + 500));
-    }
-
-    interface ContactWithCompany {
+    // Flatten: company + contact pairs
+    interface EnrichedLead {
       email: string;
-      name: string | null;
+      contactName: string | null;
       phone: string | null;
       title: string | null;
-      company_id: string | null;
+      company: {
+        name: string | null;
+        website: string | null;
+        city: string | null;
+        postal_code: string | null;
+        kvk_number: string | null;
+        employee_count: number | null;
+        industry: string | null;
+        hoofddomein: string;
+      };
     }
 
-    // Step 1: Get contacts
-    const matchedContacts: ContactWithCompany[] = [];
-    for (const batch of emailBatches) {
-      const { data: contacts } = await supabase
-        .from('contacts')
-        .select('email, name, phone, title, company_id')
-        .in('email', batch)
-        .not('company_id', 'is', null);
-
-      if (contacts) {
-        matchedContacts.push(...contacts);
-      }
-      if (matchedContacts.length >= limit * 5) break; // Get enough to filter
-    }
-
-    // Step 2: Get company data for those contacts
-    const companyIds = [...new Set(matchedContacts.map(c => c.company_id).filter(Boolean))] as string[];
-    const companyMap = new Map<string, any>();
-
-    for (let i = 0; i < companyIds.length; i += 500) {
-      const batch = companyIds.slice(i, i + 500);
-      const { data: companies } = await supabase
-        .from('companies')
-        .select('id, name, website, city, postal_code, kvk_number, employee_count, industry, hoofddomein')
-        .in('id', batch)
-        .in('hoofddomein', configuredPlatformNames);
-
-      if (companies) {
-        for (const comp of companies) {
-          companyMap.set(comp.id, comp);
+    const leadsByEmail = new Map<string, EnrichedLead>();
+    for (const company of (platformContacts || []) as any[]) {
+      const contacts = company.contacts || [];
+      for (const contact of contacts) {
+        if (contact.email) {
+          const email = contact.email.toLowerCase().trim();
+          leadsByEmail.set(email, {
+            email,
+            contactName: contact.name,
+            phone: contact.phone,
+            title: contact.title,
+            company: {
+              name: company.name,
+              website: company.website,
+              city: company.city,
+              postal_code: company.postal_code,
+              kvk_number: company.kvk_number,
+              employee_count: company.employee_count,
+              industry: company.industry,
+              hoofddomein: company.hoofddomein,
+            },
+          });
         }
       }
     }
 
-    // Step 3: Combine and filter
-    interface EnrichedContact {
-      email: string;
-      name: string | null;
-      phone: string | null;
-      title: string | null;
-      company: any;
+    if (leadsByEmail.size === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No contacts found for configured platforms',
+        processed: 0,
+        configuredPlatforms: configuredPlatformNames,
+      });
     }
 
-    const enrichedContacts: EnrichedContact[] = [];
-    for (const contact of matchedContacts) {
-      const company = companyMap.get(contact.company_id!);
-      if (company) {
-        enrichedContacts.push({
-          email: contact.email,
-          name: contact.name,
-          phone: contact.phone,
-          title: contact.title,
-          company,
-        });
+    // 3. Filter: must be in instantly_pipedrive_syncs (Pipedrive synced) and not in mailerlite_syncs
+    const platformEmails = Array.from(leadsByEmail.keys());
+
+    // Check which are already in MailerLite
+    const alreadySyncedSet = new Set<string>();
+    for (let i = 0; i < platformEmails.length; i += 500) {
+      const batch = platformEmails.slice(i, i + 500);
+      const { data: synced } = await supabase
+        .from('mailerlite_syncs')
+        .select('email')
+        .in('email', batch);
+      if (synced) {
+        for (const s of synced) alreadySyncedSet.add(s.email);
       }
     }
 
-    const toSync = enrichedContacts.slice(0, limit);
+    // Check which are in Pipedrive syncs (successful, non-excluded events)
+    const pipedriveMap = new Map<string, { pipedrive_org_id: number | null; pipedrive_person_id: number | null }>();
+    for (let i = 0; i < platformEmails.length; i += 500) {
+      const batch = platformEmails.slice(i, i + 500);
+      const { data: syncs } = await supabase
+        .from('instantly_pipedrive_syncs')
+        .select('instantly_lead_email, pipedrive_org_id, pipedrive_person_id')
+        .in('instantly_lead_email', batch)
+        .eq('sync_success', true)
+        .not('event_type', 'in', `(${EXCLUDED_EVENTS.join(',')})`);
+
+      if (syncs) {
+        for (const s of syncs) {
+          const email = s.instantly_lead_email.toLowerCase().trim();
+          if (!pipedriveMap.has(email)) {
+            pipedriveMap.set(email, {
+              pipedrive_org_id: s.pipedrive_org_id,
+              pipedrive_person_id: s.pipedrive_person_id,
+            });
+          }
+        }
+      }
+    }
+
+    // Combine: in Pipedrive + not in MailerLite
+    const toSync: EnrichedLead[] = [];
+    for (const [email, lead] of leadsByEmail) {
+      if (pipedriveMap.has(email) && !alreadySyncedSet.has(email)) {
+        toSync.push(lead);
+        if (toSync.length >= limit) break;
+      }
+    }
 
     if (toSync.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No candidates found for configured platforms',
+        message: 'No candidates to backfill',
         processed: 0,
-        totalCandidates: allEmails.length,
-        alreadySynced: alreadySyncedSet.size,
         configuredPlatforms: configuredPlatformNames,
-        debug: {
-          contactsFound: matchedContacts.length,
-          companiesMatched: companyMap.size,
+        stats: {
+          platformContacts: leadsByEmail.size,
+          alreadyInMailerLite: alreadySyncedSet.size,
+          inPipedrive: pipedriveMap.size,
         },
       });
     }
 
-    // Sync each lead
+    // 4. Sync each lead
     const results = {
       total: toSync.length,
       synced: 0,
@@ -203,42 +199,41 @@ export async function POST(request: NextRequest) {
       details: [] as Array<{ email: string; status: string; reason?: string; hoofddomein?: string }>,
     };
 
-    for (const enriched of toSync) {
-      const email = enriched.email.toLowerCase().trim();
-      const candidate = emailMap.get(email)!;
-      const nameParts = (enriched.name || '').split(' ');
+    for (const lead of toSync) {
+      const pipedrive = pipedriveMap.get(lead.email)!;
+      const nameParts = (lead.contactName || '').split(' ');
 
       const mlResult = await mailerliteSyncService.syncLeadToMailerLite(
         {
-          email,
+          email: lead.email,
           firstName: nameParts[0] || undefined,
           lastName: nameParts.slice(1).join(' ') || undefined,
-          companyName: enriched.company?.name || undefined,
-          phone: enriched.phone || undefined,
-          city: enriched.company?.city || undefined,
-          postalCode: enriched.company?.postal_code || undefined,
-          website: enriched.company?.website || undefined,
-          hoofddomein: enriched.company?.hoofddomein || undefined,
-          kvkNumber: enriched.company?.kvk_number || undefined,
-          employeeCount: enriched.company?.employee_count || undefined,
-          industries: enriched.company?.industry ? [enriched.company.industry] : undefined,
-          title: enriched.title || undefined,
+          companyName: lead.company.name || undefined,
+          phone: lead.phone || undefined,
+          city: lead.company.city || undefined,
+          postalCode: lead.company.postal_code || undefined,
+          website: lead.company.website || undefined,
+          hoofddomein: lead.company.hoofddomein,
+          kvkNumber: lead.company.kvk_number || undefined,
+          employeeCount: lead.company.employee_count || undefined,
+          industries: lead.company.industry ? [lead.company.industry] : undefined,
+          title: lead.title || undefined,
         },
-        candidate.pipedrive_org_id || undefined,
-        candidate.pipedrive_person_id || undefined,
+        pipedrive.pipedrive_org_id || undefined,
+        pipedrive.pipedrive_person_id || undefined,
         'backfill',
         'backfill'
       );
 
       if (mlResult.success) {
         results.synced++;
-        results.details.push({ email, status: 'success', hoofddomein: enriched.company?.hoofddomein });
+        results.details.push({ email: lead.email, status: 'success', hoofddomein: lead.company.hoofddomein });
       } else if (mlResult.skipped) {
         results.skipped++;
-        results.details.push({ email, status: 'skipped', reason: mlResult.skipReason, hoofddomein: enriched.company?.hoofddomein });
+        results.details.push({ email: lead.email, status: 'skipped', reason: mlResult.skipReason, hoofddomein: lead.company.hoofddomein });
       } else {
         results.errors++;
-        results.details.push({ email, status: 'error', reason: mlResult.error, hoofddomein: enriched.company?.hoofddomein });
+        results.details.push({ email: lead.email, status: 'error', reason: mlResult.error, hoofddomein: lead.company.hoofddomein });
       }
     }
 
