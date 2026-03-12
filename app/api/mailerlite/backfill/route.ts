@@ -105,30 +105,59 @@ export async function POST(request: NextRequest) {
     const alreadySyncedSet = new Set((alreadySynced || []).map(s => s.email));
     const notYetSynced = allEmails.filter(email => !alreadySyncedSet.has(email));
 
-    // Filter by platform: look up which emails belong to configured platforms
+    // Filter by platform + fetch enrichment data in one query
     const platformEmailBatches: string[][] = [];
     for (let i = 0; i < notYetSynced.length; i += 500) {
       platformEmailBatches.push(notYetSynced.slice(i, i + 500));
     }
 
-    const platformFilteredEmails: string[] = [];
+    interface EnrichedContact {
+      email: string;
+      name: string | null;
+      phone: string | null;
+      title: string | null;
+      company: {
+        name: string | null;
+        website: string | null;
+        city: string | null;
+        postal_code: string | null;
+        kvk_number: string | null;
+        employee_count: number | null;
+        industry: string | null;
+        hoofddomein: string;
+      };
+    }
+
+    const enrichedContacts: EnrichedContact[] = [];
     for (const batch of platformEmailBatches) {
       const { data: contacts } = await supabase
         .from('contacts')
-        .select('email, companies!inner(hoofddomein)')
+        .select(`
+          email, name, phone, title,
+          companies!inner(
+            name, website, city, postal_code, kvk_number,
+            employee_count, industry, hoofddomein
+          )
+        `)
         .in('email', batch)
         .in('companies.hoofddomein', configuredPlatformNames);
 
       if (contacts) {
-        for (const c of contacts) {
-          platformFilteredEmails.push(c.email!);
+        for (const c of contacts as any[]) {
+          enrichedContacts.push({
+            email: c.email,
+            name: c.name,
+            phone: c.phone,
+            title: c.title,
+            company: c.companies,
+          });
         }
       }
 
-      if (platformFilteredEmails.length >= limit) break;
+      if (enrichedContacts.length >= limit) break;
     }
 
-    const toSync = platformFilteredEmails.slice(0, limit);
+    const toSync = enrichedContacts.slice(0, limit);
 
     if (toSync.length === 0) {
       return NextResponse.json({
@@ -141,7 +170,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Enrich and sync each lead
+    // Sync each lead using pre-fetched enrichment data
     const results = {
       total: toSync.length,
       synced: 0,
@@ -150,41 +179,26 @@ export async function POST(request: NextRequest) {
       details: [] as Array<{ email: string; status: string; reason?: string }>,
     };
 
-    for (const email of toSync) {
+    for (const enriched of toSync) {
+      const email = enriched.email.toLowerCase().trim();
       const candidate = emailMap.get(email)!;
-
-      // Try to get enrichment data from contacts/companies
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select(`
-          name, email, phone, title,
-          companies (
-            name, website, city, postal_code, kvk_number,
-            employee_count, industry, hoofddomein
-          )
-        `)
-        .eq('email', email)
-        .limit(1)
-        .single();
-
-      const company = (contact as any)?.companies;
-      const nameParts = (contact?.name || '').split(' ');
+      const nameParts = (enriched.name || '').split(' ');
 
       const mlResult = await mailerliteSyncService.syncLeadToMailerLite(
         {
           email,
           firstName: nameParts[0] || undefined,
           lastName: nameParts.slice(1).join(' ') || undefined,
-          companyName: company?.name,
-          phone: contact?.phone || undefined,
-          city: company?.city || undefined,
-          postalCode: company?.postal_code || undefined,
-          website: company?.website || undefined,
-          hoofddomein: company?.hoofddomein || undefined,
-          kvkNumber: company?.kvk_number || undefined,
-          employeeCount: company?.employee_count || undefined,
-          industries: company?.industry ? [company.industry] : undefined,
-          title: contact?.title || undefined,
+          companyName: enriched.company?.name || undefined,
+          phone: enriched.phone || undefined,
+          city: enriched.company?.city || undefined,
+          postalCode: enriched.company?.postal_code || undefined,
+          website: enriched.company?.website || undefined,
+          hoofddomein: enriched.company?.hoofddomein || undefined,
+          kvkNumber: enriched.company?.kvk_number || undefined,
+          employeeCount: enriched.company?.employee_count || undefined,
+          industries: enriched.company?.industry ? [enriched.company.industry] : undefined,
+          title: enriched.title || undefined,
         },
         candidate.pipedrive_org_id || undefined,
         candidate.pipedrive_person_id || undefined,
