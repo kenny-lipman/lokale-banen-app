@@ -26,6 +26,7 @@ import {
   Bot,
   ChevronRight,
   Layers,
+  Mail,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
@@ -77,6 +78,11 @@ const data = {
       title: "Regio's",
       url: "/regios",
       icon: MapPin,
+    },
+    {
+      title: "MailerLite Sync",
+      url: "/mailerlite-sync",
+      icon: Mail,
     },
     {
       title: "Instellingen",
