@@ -105,56 +105,76 @@ export async function POST(request: NextRequest) {
     const alreadySyncedSet = new Set((alreadySynced || []).map(s => s.email));
     const notYetSynced = allEmails.filter(email => !alreadySyncedSet.has(email));
 
-    // Filter by platform + fetch enrichment data in one query
-    const platformEmailBatches: string[][] = [];
+    // Filter by platform: fetch contacts with their company data
+    // Use two separate queries to avoid join issues
+    const emailBatches: string[][] = [];
     for (let i = 0; i < notYetSynced.length; i += 500) {
-      platformEmailBatches.push(notYetSynced.slice(i, i + 500));
+      emailBatches.push(notYetSynced.slice(i, i + 500));
     }
 
+    interface ContactWithCompany {
+      email: string;
+      name: string | null;
+      phone: string | null;
+      title: string | null;
+      company_id: string | null;
+    }
+
+    // Step 1: Get contacts
+    const matchedContacts: ContactWithCompany[] = [];
+    for (const batch of emailBatches) {
+      const { data: contacts } = await supabase
+        .from('contacts')
+        .select('email, name, phone, title, company_id')
+        .in('email', batch)
+        .not('company_id', 'is', null);
+
+      if (contacts) {
+        matchedContacts.push(...contacts);
+      }
+      if (matchedContacts.length >= limit * 5) break; // Get enough to filter
+    }
+
+    // Step 2: Get company data for those contacts
+    const companyIds = [...new Set(matchedContacts.map(c => c.company_id).filter(Boolean))] as string[];
+    const companyMap = new Map<string, any>();
+
+    for (let i = 0; i < companyIds.length; i += 500) {
+      const batch = companyIds.slice(i, i + 500);
+      const { data: companies } = await supabase
+        .from('companies')
+        .select('id, name, website, city, postal_code, kvk_number, employee_count, industry, hoofddomein')
+        .in('id', batch)
+        .in('hoofddomein', configuredPlatformNames);
+
+      if (companies) {
+        for (const comp of companies) {
+          companyMap.set(comp.id, comp);
+        }
+      }
+    }
+
+    // Step 3: Combine and filter
     interface EnrichedContact {
       email: string;
       name: string | null;
       phone: string | null;
       title: string | null;
-      company: {
-        name: string | null;
-        website: string | null;
-        city: string | null;
-        postal_code: string | null;
-        kvk_number: string | null;
-        employee_count: number | null;
-        industry: string | null;
-        hoofddomein: string;
-      };
+      company: any;
     }
 
     const enrichedContacts: EnrichedContact[] = [];
-    for (const batch of platformEmailBatches) {
-      const { data: contacts } = await supabase
-        .from('contacts')
-        .select(`
-          email, name, phone, title,
-          companies!inner(
-            name, website, city, postal_code, kvk_number,
-            employee_count, industry, hoofddomein
-          )
-        `)
-        .in('email', batch)
-        .in('companies.hoofddomein', configuredPlatformNames);
-
-      if (contacts) {
-        for (const c of contacts as any[]) {
-          enrichedContacts.push({
-            email: c.email,
-            name: c.name,
-            phone: c.phone,
-            title: c.title,
-            company: c.companies,
-          });
-        }
+    for (const contact of matchedContacts) {
+      const company = companyMap.get(contact.company_id!);
+      if (company) {
+        enrichedContacts.push({
+          email: contact.email,
+          name: contact.name,
+          phone: contact.phone,
+          title: contact.title,
+          company,
+        });
       }
-
-      if (enrichedContacts.length >= limit) break;
     }
 
     const toSync = enrichedContacts.slice(0, limit);
@@ -167,16 +187,20 @@ export async function POST(request: NextRequest) {
         totalCandidates: allEmails.length,
         alreadySynced: alreadySyncedSet.size,
         configuredPlatforms: configuredPlatformNames,
+        debug: {
+          contactsFound: matchedContacts.length,
+          companiesMatched: companyMap.size,
+        },
       });
     }
 
-    // Sync each lead using pre-fetched enrichment data
+    // Sync each lead
     const results = {
       total: toSync.length,
       synced: 0,
       skipped: 0,
       errors: 0,
-      details: [] as Array<{ email: string; status: string; reason?: string }>,
+      details: [] as Array<{ email: string; status: string; reason?: string; hoofddomein?: string }>,
     };
 
     for (const enriched of toSync) {
@@ -208,13 +232,13 @@ export async function POST(request: NextRequest) {
 
       if (mlResult.success) {
         results.synced++;
-        results.details.push({ email, status: 'success' });
+        results.details.push({ email, status: 'success', hoofddomein: enriched.company?.hoofddomein });
       } else if (mlResult.skipped) {
         results.skipped++;
-        results.details.push({ email, status: 'skipped', reason: mlResult.skipReason });
+        results.details.push({ email, status: 'skipped', reason: mlResult.skipReason, hoofddomein: enriched.company?.hoofddomein });
       } else {
         results.errors++;
-        results.details.push({ email, status: 'error', reason: mlResult.error });
+        results.details.push({ email, status: 'error', reason: mlResult.error, hoofddomein: enriched.company?.hoofddomein });
       }
     }
 
