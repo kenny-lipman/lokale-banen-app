@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       .from('companies')
       .select(`
         id, name, website, city, postal_code, kvk,
-        employee_count, industry, hoofddomein,
+        industries, hoofddomein,
         contacts (email, name, phone, title)
       `)
       .in('hoofddomein', configuredPlatformNames);
@@ -86,8 +86,7 @@ export async function POST(request: NextRequest) {
         city: string | null;
         postal_code: string | null;
         kvk: string | null;
-        employee_count: number | null;
-        industry: string | null;
+        industries: string[] | null;
         hoofddomein: string;
       };
     }
@@ -109,8 +108,7 @@ export async function POST(request: NextRequest) {
               city: company.city,
               postal_code: company.postal_code,
               kvk: company.kvk,
-              employee_count: company.employee_count,
-              industry: company.industry,
+              industries: company.industries,
               hoofddomein: company.hoofddomein,
             },
           });
@@ -215,8 +213,7 @@ export async function POST(request: NextRequest) {
           website: lead.company.website || undefined,
           hoofddomein: lead.company.hoofddomein,
           kvkNumber: lead.company.kvk || undefined,
-          employeeCount: lead.company.employee_count || undefined,
-          industries: lead.company.industry ? [lead.company.industry] : undefined,
+          industries: lead.company.industries || undefined,
           title: lead.title || undefined,
         },
         pipedrive.pipedrive_org_id || undefined,
