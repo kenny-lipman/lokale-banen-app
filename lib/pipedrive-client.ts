@@ -1426,7 +1426,9 @@ export class PipedriveClient {
       }
 
       await this.updateOrganization(orgId, {
-        [NIEUWSBRIEF_STATUS_FIELD_ID]: option.id
+        custom_fields: {
+          [NIEUWSBRIEF_STATUS_FIELD_ID]: option.id
+        }
       });
 
       console.log(`✅ Set Nieuwsbrief Status to "${status}" for org ${orgId}`);
