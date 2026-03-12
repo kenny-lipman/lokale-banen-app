@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { data: platformContacts, error: contactError } = await supabase
       .from('companies')
       .select(`
-        id, name, website, city, postal_code, kvk_number,
+        id, name, website, city, postal_code, kvk,
         employee_count, industry, hoofddomein,
         contacts (email, name, phone, title)
       `)
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         website: string | null;
         city: string | null;
         postal_code: string | null;
-        kvk_number: string | null;
+        kvk: string | null;
         employee_count: number | null;
         industry: string | null;
         hoofddomein: string;
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
               website: company.website,
               city: company.city,
               postal_code: company.postal_code,
-              kvk_number: company.kvk_number,
+              kvk: company.kvk,
               employee_count: company.employee_count,
               industry: company.industry,
               hoofddomein: company.hoofddomein,
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
           postalCode: lead.company.postal_code || undefined,
           website: lead.company.website || undefined,
           hoofddomein: lead.company.hoofddomein,
-          kvkNumber: lead.company.kvk_number || undefined,
+          kvkNumber: lead.company.kvk || undefined,
           employeeCount: lead.company.employee_count || undefined,
           industries: lead.company.industry ? [lead.company.industry] : undefined,
           title: lead.title || undefined,
