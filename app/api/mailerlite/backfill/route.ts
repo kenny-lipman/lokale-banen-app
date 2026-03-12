@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       .select(`
         id, name, website, city, postal_code, kvk,
         industries, hoofddomein,
-        contacts (email, name, phone, title)
+        contacts (email, first_name, last_name, name, phone, title)
       `)
       .in('hoofddomein', configuredPlatformNames);
 
@@ -78,7 +78,8 @@ export async function POST(request: NextRequest) {
     // Flatten: company + contact pairs
     interface EnrichedLead {
       email: string;
-      contactName: string | null;
+      firstName: string | null;
+      lastName: string | null;
       phone: string | null;
       title: string | null;
       company: {
@@ -100,7 +101,8 @@ export async function POST(request: NextRequest) {
           const email = contact.email.toLowerCase().trim();
           leadsByEmail.set(email, {
             email,
-            contactName: contact.name,
+            firstName: contact.first_name || contact.name || null,
+            lastName: contact.last_name || null,
             phone: contact.phone,
             title: contact.title,
             company: {
@@ -200,13 +202,11 @@ export async function POST(request: NextRequest) {
 
     for (const lead of toSync) {
       const pipedrive = pipedriveMap.get(lead.email)!;
-      const nameParts = (lead.contactName || '').split(' ');
-
       const mlResult = await mailerliteSyncService.syncLeadToMailerLite(
         {
           email: lead.email,
-          firstName: nameParts[0] || undefined,
-          lastName: nameParts.slice(1).join(' ') || undefined,
+          firstName: lead.firstName || undefined,
+          lastName: lead.lastName || undefined,
           companyName: lead.company.name || undefined,
           phone: lead.phone || undefined,
           city: lead.company.city || undefined,

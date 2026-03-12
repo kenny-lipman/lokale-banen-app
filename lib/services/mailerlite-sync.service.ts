@@ -125,6 +125,7 @@ export class MailerLiteSyncService {
       if (lead.companyName) fields.company = lead.companyName;
       if (lead.city) fields.city = lead.city;
       if (lead.postalCode) fields.z_i_p = lead.postalCode;
+      fields.country = 'Netherlands';
       // Custom fields (created via setup endpoint)
       if (lead.hoofddomein) fields.hoofddomein = lead.hoofddomein;
       if (lead.subdomeinen?.length) fields.subdomeinen = lead.subdomeinen.join(', ');
@@ -143,10 +144,9 @@ export class MailerLiteSyncService {
         status: 'active',
       };
 
-      // Set name (MailerLite uses top-level 'fields.name')
-      const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
-      if (fullName) {
-        subscriberParams.fields!.name = fullName;
+      // Set name fields
+      if (lead.firstName) {
+        subscriberParams.fields!.name = lead.firstName;
       }
 
       // 6. Create/update subscriber in MailerLite
