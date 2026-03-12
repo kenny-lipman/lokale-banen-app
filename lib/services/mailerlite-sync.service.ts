@@ -144,10 +144,9 @@ export class MailerLiteSyncService {
         status: 'active',
       };
 
-      // Set name field (first_name + last_name combined)
-      const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
-      if (fullName) {
-        subscriberParams.fields!.name = fullName;
+      // Set name field (first_name only, last_name is sent separately)
+      if (lead.firstName) {
+        subscriberParams.fields!.name = lead.firstName;
       }
 
       // 6. Create/update subscriber in MailerLite
