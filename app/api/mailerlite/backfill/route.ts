@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSecretAuth } from '@/lib/api-auth';
 import { createServiceRoleClient } from '@/lib/supabase-server';
 import { mailerliteSyncService } from '@/lib/services/mailerlite-sync.service';
+import { pipedriveClient } from '@/lib/pipedrive-client';
 
 /**
  * POST /api/mailerlite/backfill
@@ -225,6 +226,15 @@ export async function POST(request: NextRequest) {
       if (mlResult.success) {
         results.synced++;
         results.details.push({ email: lead.email, status: 'success', hoofddomein: lead.company.hoofddomein });
+
+        // Update Pipedrive "Nieuwsbrief Status" to "Aangemeld"
+        if (pipedrive.pipedrive_org_id) {
+          try {
+            await pipedriveClient.setNieuwsbriefStatus(pipedrive.pipedrive_org_id, 'Aangemeld');
+          } catch (error) {
+            console.error(`⚠️ Failed to set Nieuwsbrief Status for org ${pipedrive.pipedrive_org_id}:`, error);
+          }
+        }
       } else if (mlResult.skipped) {
         results.skipped++;
         results.details.push({ email: lead.email, status: 'skipped', reason: mlResult.skipReason, hoofddomein: lead.company.hoofddomein });
