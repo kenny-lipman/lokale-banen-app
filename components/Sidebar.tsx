@@ -38,6 +38,7 @@ const menu = [
   { href: "/blocklist", icon: Shield, label: "Blocklist" },
   { href: "/instantly-sync", icon: ArrowLeftRight, label: "Instantly <> PD Sync" },
   { href: "/campaign-assignment", icon: Mail, label: "Campaign Assignment" },
+  { href: "/mailerlite-sync", icon: Mail, label: "MailerLite Sync" },
   { href: "/regios", icon: MapPin, label: "Regio's" },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
