@@ -2,7 +2,7 @@
  * Cron Job: Daily Campaign Report
  *
  * Fetches all campaign analytics from Instantly (cumulative + yesterday) and sends
- * a summary email to kenny@bespokeautomation.ai via Resend.
+ * a summary email via Resend.
  *
  * Schedule: Daily at 08:00 UTC (09:00 NL winter / 10:00 NL summer)
  */
@@ -13,7 +13,10 @@ import { resend } from '@/lib/email/resend-client'
 import { instantlyClient } from '@/lib/instantly-client'
 import { buildCampaignReportHtml, buildCampaignReportSubject } from '@/lib/email/templates/campaign-report'
 
-const REPORT_RECIPIENT = 'kenny@bespokeautomation.ai'
+const REPORT_RECIPIENTS = [
+  'kenny@bespokeautomation.ai',
+  'kay@wetarget.nl',
+]
 
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10) // YYYY-MM-DD
@@ -89,7 +92,7 @@ async function handler(_request: NextRequest) {
 
   const { error } = await resend.emails.send({
     from: 'Lokale Banen <onboarding@resend.dev>',
-    to: [REPORT_RECIPIENT],
+    to: REPORT_RECIPIENTS,
     subject,
     html,
   })
@@ -105,11 +108,11 @@ async function handler(_request: NextRequest) {
   const duration = Date.now() - startTime
   const activeCampaigns = analytics.filter(c => c.campaign_status === 1).length
 
-  console.log(`✅ Campaign report sent to ${REPORT_RECIPIENT} in ${duration}ms`)
+  console.log(`✅ Campaign report sent to ${REPORT_RECIPIENTS.join(', ')} in ${duration}ms`)
 
   return NextResponse.json({
     success: true,
-    message: `Report sent to ${REPORT_RECIPIENT}`,
+    message: `Report sent to ${REPORT_RECIPIENTS.join(', ')}`,
     stats: {
       campaigns: analytics.length,
       activeCampaigns,
