@@ -91,7 +91,7 @@ async function handler(_request: NextRequest) {
   const subject = buildCampaignReportSubject(reportData)
 
   const { error } = await resend.emails.send({
-    from: 'Lokale Banen <onboarding@resend.dev>',
+    from: 'Lokale Banen <noreply@cas.works>',
     to: REPORT_RECIPIENTS,
     subject,
     html,
