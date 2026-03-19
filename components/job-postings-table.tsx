@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star, CheckCircle, Clock, XCircle, AlertCircle, Archive, Crown, RefreshCw, Check, X, Pencil, Briefcase } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Eye, Edit, ExternalLink, Star, CheckCircle, Clock, XCircle, AlertCircle, Archive, Crown, RefreshCw, Check, X, Pencil, Briefcase, Upload } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useJobPostingsCache } from "@/hooks/use-job-postings-cache"
 import { TableFilters, TablePagination, DateRangeFilter, SalaryRangeFilter, HoursRangeFilter } from "@/components/ui/table-filters"
 import { useDebounce } from "@/hooks/use-debounce"
 import { TableSkeleton, LoadingSpinner } from "@/components/ui/loading-states"
 import { JobPostingDrawer } from "@/components/job-posting-drawer"
+import { Checkbox } from "@/components/ui/checkbox"
+import { LokaleBanenPushModal } from "@/components/LokaleBanenPushModal"
 
 // Lazy load supabaseService to avoid circular dependencies
 let supabaseService: any = null
@@ -65,6 +67,8 @@ interface JobPosting {
   zipcode?: string;
   street?: string;
   created_at?: string;
+  lokalebanen_id?: string;
+  lokalebanen_pushed_at?: string;
 }
 
 interface JobPostingsTableProps {
@@ -94,6 +98,10 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
   const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null)
   const [savingJobId, setSavingJobId] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Lokale Banen push states
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [pushModalOpen, setPushModalOpen] = useState(false)
 
   // New filter states
   const [dateFrom, setDateFrom] = useState<string | null>(null)
@@ -284,9 +292,9 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
       const result = await response.json()
       
       // Update the local state with the new platform info
-      setJobPostings(prev => prev.map(job => 
-        job.id === jobId 
-          ? { ...job, platform_id: selectedPlatformId, regio_platform: result.data.regio_platform }
+      setJobPostings(prev => prev.map(job =>
+        job.id === jobId
+          ? { ...job, platform_id: selectedPlatformId || undefined, regio_platform: result.data.regio_platform } as JobPosting
           : job
       ))
       
@@ -584,11 +592,58 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
         </div>
       )}
 
+      {/* Lokale Banen selection bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-blue-800">
+              {selectedIds.size} vacature{selectedIds.size !== 1 ? 's' : ''} geselecteerd
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-blue-600 hover:text-blue-800"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Deselecteer alles
+            </Button>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setPushModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Push naar Lokale Banen
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={filteredJobPostings.length > 0 && filteredJobPostings.every(jp => selectedIds.has(jp.id))}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev)
+                        filteredJobPostings.forEach(jp => next.add(jp.id))
+                        return next
+                      })
+                    } else {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev)
+                        filteredJobPostings.forEach(jp => next.delete(jp.id))
+                        return next
+                      })
+                    }
+                  }}
+                />
+              </TableHead>
               <TableHead>Vacature</TableHead>
               <TableHead>Bedrijf</TableHead>
               <TableHead>Locatie</TableHead>
@@ -612,13 +667,29 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
               filteredJobPostings.map((job) => (
                 <TableRow
                   key={String(job.id ?? job.title ?? job.company_name ?? Math.random())}
-                  className="hover:bg-orange-50 cursor-pointer"
+                  className={`hover:bg-orange-50 cursor-pointer ${selectedIds.has(job.id) ? 'bg-blue-50' : ''}`}
                   onClick={() => handleJobClick(job)}
                 >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(job.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedIds(prev => {
+                          const next = new Set(prev)
+                          if (checked) next.add(job.id)
+                          else next.delete(job.id)
+                          return next
+                        })
+                      }}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="space-y-1">
                       <div className="font-medium flex items-center gap-2">
                         {job.title}
+                        {job.lokalebanen_pushed_at && (
+                          <Badge className="bg-purple-100 text-purple-800 text-[10px] px-1.5">LB</Badge>
+                        )}
                       </div>
                       {/* Badges for both source and platform */}
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -760,6 +831,17 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
           }}
         />
       )}
+
+      {/* Lokale Banen Push Modal */}
+      <LokaleBanenPushModal
+        open={pushModalOpen}
+        onClose={() => setPushModalOpen(false)}
+        jobPostingIds={Array.from(selectedIds)}
+        onPushComplete={() => {
+          setSelectedIds(new Set())
+          if (refetch) refetch()
+        }}
+      />
 
       {/* Job Posting Drawer - only render if not using external drawer */}
       {!useExternalDrawer && (

@@ -4,6 +4,7 @@ import { PlatformAutomationSection } from "@/components/PlatformAutomationSectio
 import { ActiveRegionsSection } from "@/components/ActiveRegionsSection"
 import { CronJobMonitor } from "@/components/CronJobMonitor"
 import { MailerLiteGroupSection } from "@/components/MailerLiteGroupSection"
+import { LokaleBanenMappingSection } from "@/components/LokaleBanenMappingSection"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 
@@ -19,10 +20,11 @@ export default function SettingsPage() {
 
       <ErrorBoundary>
         <Tabs defaultValue="platforms" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="platforms">Platforms</TabsTrigger>
             <TabsTrigger value="regions">Regio&apos;s</TabsTrigger>
             <TabsTrigger value="mailerlite">MailerLite</TabsTrigger>
+            <TabsTrigger value="lokalebanen">Lokale Banen</TabsTrigger>
             <TabsTrigger value="cron">Cron Jobs</TabsTrigger>
           </TabsList>
 
@@ -48,6 +50,10 @@ export default function SettingsPage() {
                 console.log('MailerLite config updated:', config)
               }}
             />
+          </TabsContent>
+
+          <TabsContent value="lokalebanen">
+            <LokaleBanenMappingSection />
           </TabsContent>
 
           <TabsContent value="cron">
