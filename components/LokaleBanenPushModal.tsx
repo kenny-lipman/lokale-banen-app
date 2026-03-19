@@ -89,6 +89,12 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
         method: 'POST',
         body: JSON.stringify({ jobPostingIds }),
       })
+      if (!res.ok) {
+        const text = await res.text()
+        let msg = 'Validatie mislukt'
+        try { msg = JSON.parse(text).error || msg } catch {}
+        throw new Error(msg)
+      }
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
       setValidation(data)
@@ -113,11 +119,18 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
         body: JSON.stringify({ jobPostingIds: validIds }),
       })
 
-      if (!res.body) throw new Error('No response stream')
+      // Handle non-stream error responses (e.g. auth failure, env var missing)
+      if (!res.ok || !res.body) {
+        const text = await res.text()
+        let msg = 'Push mislukt'
+        try { msg = JSON.parse(text).error || msg } catch { msg = text || msg }
+        throw new Error(msg)
+      }
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      const allEvents: PushProgressEvent[] = []
 
       while (true) {
         const { done, value } = await reader.read()
@@ -135,26 +148,30 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
               const event: PushProgressEvent = JSON.parse(line.slice(6))
               setCurrentEvent(event)
               setProgress(prev => [...prev, event])
+              allEvents.push(event)
 
               if (event.type === 'complete') {
-                const allEvents = [...progress, event]
                 setResult({
                   success: countEvents(allEvents, 'vacancy_created'),
                   skipped: countEvents(allEvents, 'skipped'),
                   failed: countEvents(allEvents, 'error'),
                 })
                 setState('complete')
+              } else if (event.type === 'error' && event.total === 0) {
+                // Fatal error (not per-item error)
+                throw new Error(event.message)
               }
-            } catch {
-              // Skip malformed events
+            } catch (parseErr) {
+              if (parseErr instanceof Error && parseErr.message !== 'Unexpected end of JSON input') {
+                throw parseErr
+              }
             }
           }
         }
       }
 
-      // If we didn't get a complete event, set state based on what we have
-      if (state === 'pushing') {
-        const allEvents = progress
+      // Stream ended without complete event — show results
+      if (setState.length === 0 || allEvents[allEvents.length - 1]?.type !== 'complete') {
         setResult({
           success: countEvents(allEvents, 'vacancy_created'),
           skipped: countEvents(allEvents, 'skipped'),
