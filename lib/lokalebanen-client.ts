@@ -37,6 +37,24 @@ export interface LBVacancyCreate {
   interest_text?: string
 }
 
+export interface LBCompany {
+  id: number
+  name: string
+  street: string
+  streetnr: string
+  streetadd: string
+  postalcode: string
+  city: string
+  country: string
+  email: string
+  telephone: string
+}
+
+export interface LBCompaniesResponse {
+  companies: LBCompany[]
+  total: number
+}
+
 export interface LBCreateResponse {
   status: string
   message: string
@@ -82,6 +100,11 @@ export class LokaleBanenClient {
   // --------------------------------------------------------------------------
   // Config endpoints
   // --------------------------------------------------------------------------
+
+  async getCompanies(): Promise<LBCompany[]> {
+    const data = await this.makeRequest<LBCompaniesResponse>('/companies/')
+    return data.companies
+  }
 
   async getDomains(): Promise<string[]> {
     const data = await this.makeRequest<LBDomainsResponse>('/companies/domains/')

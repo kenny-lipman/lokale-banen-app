@@ -330,6 +330,26 @@ export async function pushJobPostingsToLB(
     }
   }
 
+  // ----------------------------------------------------------------
+  // DEDUPLICATION: Fetch existing LB companies to match by name+city
+  // ----------------------------------------------------------------
+  onProgress({ type: 'start', current: 0, total, message: 'Bestaande bedrijven ophalen van Lokale Banen...' })
+
+  let lbCompanyIndex = new Map<string, string>() // "name|city" → LB company ID
+  try {
+    const lbCompanies = await client.getCompanies()
+    for (const lbc of lbCompanies) {
+      const key = `${lbc.name.toLowerCase().trim()}|${lbc.city.toLowerCase().trim()}`
+      lbCompanyIndex.set(key, String(lbc.id))
+    }
+    console.log(`📋 ${lbCompanies.length} bestaande LB bedrijven geladen voor deduplicatie`)
+  } catch (err) {
+    console.warn('⚠️ Kon LB bedrijven niet ophalen voor deduplicatie, ga door zonder:', err)
+  }
+
+  // In-memory cache: our company_id → LB company_id (for batch dedup)
+  const companyLbIdCache = new Map<string, string>()
+
   // Process each job posting
   for (let i = 0; i < jobPostings.length; i++) {
     const jp = jobPostings[i] as unknown as JobPostingWithCompany
@@ -367,10 +387,41 @@ export async function pushJobPostingsToLB(
       const education = jp.education_level ? mappingMap.get(`education:${jp.education_level}`) : null
 
       // ----------------------------------------------------------------
-      // Step 1: Resolve or create company
+      // Step 1: Resolve company (3-layer dedup)
+      //   1. Check our DB (lokalebanen_id on companies table)
+      //   2. Check in-memory batch cache (same company in this batch)
+      //   3. Match against existing LB companies by name+city
+      //   4. Only create if none of the above match
       // ----------------------------------------------------------------
       let lbCompanyId = company.lokalebanen_id
 
+      // Layer 2: Check batch cache (same company already processed in this batch)
+      if (!lbCompanyId && companyLbIdCache.has(company.id)) {
+        lbCompanyId = companyLbIdCache.get(company.id)!
+        onProgress({ type: 'company_exists', jobPostingId: jp.id, current, total, title: jp.title, message: `Bedrijf al verwerkt in batch: ${company.name}` })
+      }
+
+      // Layer 3: Match against existing LB companies by name+city
+      if (!lbCompanyId) {
+        const companyCity = company.city || jp.city || ''
+        const matchKey = `${company.name.toLowerCase().trim()}|${companyCity.toLowerCase().trim()}`
+        const existingLbId = lbCompanyIndex.get(matchKey)
+
+        if (existingLbId) {
+          lbCompanyId = existingLbId
+
+          // Save to our DB so future pushes don't need to look up again
+          await supabase
+            .from('companies')
+            .update({ lokalebanen_id: lbCompanyId, lokalebanen_pushed_at: new Date().toISOString() })
+            .eq('id', company.id)
+
+          companyLbIdCache.set(company.id, lbCompanyId)
+          onProgress({ type: 'company_exists', jobPostingId: jp.id, current, total, title: jp.title, message: `Bedrijf gevonden bij LB: ${company.name}` })
+        }
+      }
+
+      // Layer 4: Create new company
       if (!lbCompanyId) {
         onProgress({ type: 'company_resolving', jobPostingId: jp.id, current, total, title: jp.title, message: `Bedrijf aanmaken: ${company.name}` })
 
@@ -397,14 +448,18 @@ export async function pushJobPostingsToLB(
 
         lbCompanyId = companyResponse.id
 
-        // Save LB company ID
+        // Save to DB + batch cache + LB index (prevent dupes in same batch AND future batches)
         await supabase
           .from('companies')
           .update({ lokalebanen_id: lbCompanyId, lokalebanen_pushed_at: new Date().toISOString() })
           .eq('id', company.id)
 
+        companyLbIdCache.set(company.id, lbCompanyId)
+        const companyCity = company.city || jp.city || ''
+        lbCompanyIndex.set(`${company.name.toLowerCase().trim()}|${companyCity.toLowerCase().trim()}`, lbCompanyId)
+
         onProgress({ type: 'company_created', jobPostingId: jp.id, current, total, title: jp.title, message: `Bedrijf aangemaakt: ${company.name}` })
-      } else {
+      } else if (company.lokalebanen_id) {
         onProgress({ type: 'company_exists', jobPostingId: jp.id, current, total, title: jp.title, message: `Bedrijf bestaat al: ${company.name}` })
       }
 
