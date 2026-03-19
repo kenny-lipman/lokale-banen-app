@@ -53,6 +53,7 @@ interface JobPostingWithCompany {
   end_date: string | null
   created_at: string
   platform_id: string | null
+  salary: string | null
   lokalebanen_id: string | null
   company_id: string
   companies: {
@@ -280,7 +281,7 @@ export async function pushJobPostingsToLB(
     .select(`
       id, title, description, city, zipcode, street, employment, education_level,
       categories, working_hours_min, working_hours_max, end_date, created_at,
-      platform_id, lokalebanen_id, company_id,
+      salary, platform_id, lokalebanen_id, company_id,
       companies!inner (
         id, name, city, street_address, postal_code, phone, description, lokalebanen_id
       )
@@ -464,16 +465,63 @@ export async function pushJobPostingsToLB(
       }
 
       // ----------------------------------------------------------------
-      // Step 2: Generate AI content
+      // Step 2: Generate AI content + extract missing fields
       // ----------------------------------------------------------------
       onProgress({ type: 'ai_generating', jobPostingId: jp.id, current, total, title: jp.title, message: `AI content genereren...` })
 
-      const content = await generateVacancyContent(
+      // Tell AI which fields are missing so it focuses on extracting those
+      const missingFields = {
+        employment: !jp.employment,
+        education_level: !jp.education_level,
+        categories: !jp.categories,
+        salary: !jp.working_hours_min,
+        working_hours_min: !jp.working_hours_min,
+        working_hours_max: !jp.working_hours_max,
+        city: !jp.city,
+      }
+
+      const aiResult = await generateVacancyContent(
         jp.title,
         jp.description || '',
         company.name,
-        company.description
+        company.description,
+        missingFields
       )
+
+      // Use AI-extracted values as fallbacks for missing fields
+      const effectiveEmployment = jp.employment || aiResult.extracted.employment
+      const effectiveEducation = jp.education_level || aiResult.extracted.education_level
+      const effectiveCategories = jp.categories || aiResult.extracted.categories
+      const effectiveCity = jp.city || aiResult.extracted.city || company.city || 'Onbekend'
+      const effectiveHoursMin = jp.working_hours_min ?? aiResult.extracted.working_hours_min
+      const effectiveHoursMax = jp.working_hours_max ?? aiResult.extracted.working_hours_max
+      const effectiveSalary = jp.salary || aiResult.extracted.salary
+
+      // Re-resolve mappings with AI-extracted values if originals were missing
+      const finalEmployment = effectiveEmployment
+        ? (mappingMap.get(`employment:${getPrimaryEmployment(effectiveEmployment)}`) || employment)
+        : employment
+      const finalEducation = effectiveEducation
+        ? (mappingMap.get(`education:${effectiveEducation}`) || education)
+        : education
+      const finalSector = effectiveCategories
+        ? (mappingMap.get(`sector:${getPrimaryCategory(effectiveCategories)}`) || sector)
+        : sector
+
+      // Write extracted fields back to our DB (enrich our data)
+      const enrichUpdates: Record<string, any> = {}
+      if (!jp.employment && aiResult.extracted.employment) enrichUpdates.employment = aiResult.extracted.employment
+      if (!jp.education_level && aiResult.extracted.education_level) enrichUpdates.education_level = aiResult.extracted.education_level
+      if (!jp.categories && aiResult.extracted.categories) enrichUpdates.categories = aiResult.extracted.categories
+      if (!jp.city && aiResult.extracted.city) enrichUpdates.city = aiResult.extracted.city
+      if (!jp.salary && aiResult.extracted.salary) enrichUpdates.salary = aiResult.extracted.salary
+      if (jp.working_hours_min == null && aiResult.extracted.working_hours_min != null) enrichUpdates.working_hours_min = aiResult.extracted.working_hours_min
+      if (jp.working_hours_max == null && aiResult.extracted.working_hours_max != null) enrichUpdates.working_hours_max = aiResult.extracted.working_hours_max
+
+      if (Object.keys(enrichUpdates).length > 0) {
+        await supabase.from('job_postings').update(enrichUpdates).eq('id', jp.id)
+        console.log(`📝 Enriched ${Object.keys(enrichUpdates).length} fields for "${jp.title}"`)
+      }
 
       // ----------------------------------------------------------------
       // Step 3: Create vacancy
@@ -486,18 +534,18 @@ export async function pushJobPostingsToLB(
       const vacancyResponse = await client.createVacancy({
         domain,
         title: jp.title,
-        city: jp.city || company.city || 'Onbekend',
+        city: effectiveCity,
         company_id: lbCompanyId,
         start_at: now.toISOString(),
         end_at: endDate.toISOString(),
-        sector: sector || 'overig',
-        employments: employment || 'fulltime',
-        educations: education || 'overig',
-        weeklyhours: formatWeeklyHours(jp.working_hours_min, jp.working_hours_max),
-        function_description: content.function_description || undefined,
-        function_demands: content.function_demands || undefined,
-        company_profile: content.company_profile || undefined,
-        interest_text: content.interest_text || undefined,
+        sector: finalSector || 'overig',
+        employments: finalEmployment || 'fulltime',
+        educations: finalEducation || 'overig',
+        weeklyhours: formatWeeklyHours(effectiveHoursMin, effectiveHoursMax),
+        function_description: aiResult.content.function_description || undefined,
+        function_demands: aiResult.content.function_demands || undefined,
+        company_profile: aiResult.content.company_profile || undefined,
+        interest_text: aiResult.content.interest_text || undefined,
       })
 
       // Save LB vacancy ID
