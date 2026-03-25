@@ -143,12 +143,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check which are in Pipedrive syncs with positive events (interested leads only)
-    const pipedriveMap = new Map<string, { pipedrive_org_id: number | null; pipedrive_person_id: number | null }>();
+    const pipedriveMap = new Map<string, { pipedrive_org_id: number | null; pipedrive_person_id: number | null; event_type: string }>();
     for (let i = 0; i < platformEmails.length; i += 500) {
       const batch = platformEmails.slice(i, i + 500);
       const { data: syncs } = await supabase
         .from('instantly_pipedrive_syncs')
-        .select('instantly_lead_email, pipedrive_org_id, pipedrive_person_id')
+        .select('instantly_lead_email, pipedrive_org_id, pipedrive_person_id, event_type')
         .in('instantly_lead_email', batch)
         .eq('sync_success', true)
         .in('event_type', POSITIVE_EVENTS);
@@ -160,6 +160,7 @@ export async function POST(request: NextRequest) {
             pipedriveMap.set(email, {
               pipedrive_org_id: s.pipedrive_org_id,
               pipedrive_person_id: s.pipedrive_person_id,
+              event_type: s.event_type,
             });
           }
         }
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
         },
         pipedrive.pipedrive_org_id || undefined,
         pipedrive.pipedrive_person_id || undefined,
-        'backfill',
+        pipedrive.event_type,
         'backfill'
       );
 
