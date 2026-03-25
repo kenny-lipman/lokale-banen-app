@@ -55,7 +55,7 @@ import {
 } from './lead-status-determination';
 import { postcodeBackfillService } from './postcode-backfill.service';
 import { companyEnrichmentService } from './company-enrichment.service';
-import { mailerliteSyncService } from './mailerlite-sync.service';
+import { mailerliteSyncService, POSITIVE_EVENTS } from './mailerlite-sync.service';
 
 // ============================================================================
 // TYPES
@@ -548,39 +548,41 @@ export class InstantlyPipedriveSyncService {
       // 12. Log the sync to database
       await this.logSync(result, eventType, syncSource, options);
 
-      // 12.5. Sync to MailerLite (DISABLED — re-enable when ready to go live)
-      // try {
-      //   const mlResult = await mailerliteSyncService.syncLeadToMailerLite(
-      //     {
-      //       email: cleanEmail,
-      //       firstName: enrichedLead.firstName,
-      //       lastName: enrichedLead.lastName,
-      //       companyName: enrichedLead.companyName,
-      //       phone: enrichedLead.phone,
-      //       city: enrichedLead.city,
-      //       postalCode: enrichedLead.postalCode,
-      //       website: enrichedLead.website,
-      //       hoofddomein: enrichedLead.hoofddomein,
-      //       subdomeinen: enrichedLead.subdomeinen,
-      //       kvkNumber: enrichedLead.kvkNumber,
-      //       industries: enrichedLead.industries,
-      //       employeeCount: enrichedLead.employeeCount,
-      //       title: enrichedLead.title,
-      //     },
-      //     result.pipedriveOrgId,
-      //     result.pipedrivePersonId,
-      //     eventType,
-      //     syncSource
-      //   );
-      //
-      //   if (mlResult.success && result.pipedriveOrgId) {
-      //     await this.pipedriveClient.setNieuwsbriefStatus(result.pipedriveOrgId, 'Aangemeld');
-      //   } else if (mlResult.skipped) {
-      //     console.log(`ℹ️ MailerLite sync skipped: ${mlResult.skipReason}`);
-      //   }
-      // } catch (error) {
-      //   console.error('❌ Unexpected error syncing to MailerLite:', error);
-      // }
+      // 12.5. Sync to MailerLite (only for positive events — interested leads get newsletter)
+      if (POSITIVE_EVENTS.has(eventType)) {
+        try {
+          const mlResult = await mailerliteSyncService.syncLeadToMailerLite(
+            {
+              email: cleanEmail,
+              firstName: enrichedLead.firstName,
+              lastName: enrichedLead.lastName,
+              companyName: enrichedLead.companyName,
+              phone: enrichedLead.phone,
+              city: enrichedLead.city,
+              postalCode: enrichedLead.postalCode,
+              website: enrichedLead.website,
+              hoofddomein: enrichedLead.hoofddomein,
+              subdomeinen: enrichedLead.subdomeinen,
+              kvkNumber: enrichedLead.kvkNumber,
+              industries: enrichedLead.industries,
+              employeeCount: enrichedLead.employeeCount,
+              title: enrichedLead.title,
+            },
+            result.pipedriveOrgId,
+            result.pipedrivePersonId,
+            eventType,
+            syncSource
+          );
+
+          if (mlResult.success && result.pipedriveOrgId) {
+            await this.pipedriveClient.setNieuwsbriefStatus(result.pipedriveOrgId, 'Aangemeld');
+          } else if (mlResult.skipped) {
+            console.log(`ℹ️ MailerLite sync skipped: ${mlResult.skipReason}`);
+          }
+        } catch (error) {
+          console.error('❌ Unexpected error syncing to MailerLite:', error);
+        }
+      }
 
       // 13. Update Otis contacts & companies tables for visibility in UI
       const contactUpdateResult = await this.updateOtisContact(

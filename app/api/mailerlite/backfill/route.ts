@@ -16,13 +16,11 @@ import { pipedriveClient } from '@/lib/pipedrive-client';
  * - platform: filter by specific platform (e.g. "AlkmaarseBanen")
  */
 
-// Events excluded from MailerLite sync
-const EXCLUDED_EVENTS = [
-  'lead_not_interested',
-  'email_bounced',
-  'lead_unsubscribed',
-  'lead_wrong_person',
-  'account_error',
+// Only positive events qualify for MailerLite sync (newsletter for interested leads)
+const POSITIVE_EVENTS = [
+  'lead_interested',
+  'lead_meeting_booked',
+  'custom_label_any_positive',
 ];
 
 export async function POST(request: NextRequest) {
@@ -144,7 +142,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check which are in Pipedrive syncs (successful, non-excluded events)
+    // Check which are in Pipedrive syncs with positive events (interested leads only)
     const pipedriveMap = new Map<string, { pipedrive_org_id: number | null; pipedrive_person_id: number | null }>();
     for (let i = 0; i < platformEmails.length; i += 500) {
       const batch = platformEmails.slice(i, i + 500);
@@ -153,7 +151,7 @@ export async function POST(request: NextRequest) {
         .select('instantly_lead_email, pipedrive_org_id, pipedrive_person_id')
         .in('instantly_lead_email', batch)
         .eq('sync_success', true)
-        .not('event_type', 'in', `(${EXCLUDED_EVENTS.join(',')})`);
+        .in('event_type', POSITIVE_EVENTS);
 
       if (syncs) {
         for (const s of syncs) {

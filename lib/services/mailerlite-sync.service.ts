@@ -40,13 +40,11 @@ export interface MailerLiteSyncLeadData {
   title?: string;
 }
 
-// Events that should NOT trigger MailerLite sync
-const EXCLUDED_EVENTS = new Set([
-  'lead_not_interested',
-  'email_bounced',
-  'lead_unsubscribed',
-  'lead_wrong_person',
-  'account_error',
+// Only positive events should trigger MailerLite sync (newsletter subscribers)
+export const POSITIVE_EVENTS = new Set([
+  'lead_interested',
+  'lead_meeting_booked',
+  'custom_label_any_positive',
 ]);
 
 // ============================================================================
@@ -76,10 +74,10 @@ export class MailerLiteSyncService {
     };
 
     try {
-      // 1. Check excluded events
-      if (EXCLUDED_EVENTS.has(eventType)) {
+      // 1. Only sync positive events (leads who showed interest)
+      if (!POSITIVE_EVENTS.has(eventType)) {
         result.skipped = true;
-        result.skipReason = `Event type "${eventType}" excluded from MailerLite sync`;
+        result.skipReason = `Event type "${eventType}" is not a positive event — only interested leads get synced to MailerLite`;
         return result;
       }
 
