@@ -98,3 +98,35 @@ Campaign assignment uses a **parallel orchestrator + worker** pattern:
 - `job_sources` - Scraper sources (Indeed, LinkedIn, Baan in de Buurt, etc.)
 - `campaign_assignment_batches` - Campaign assignment run tracking (with `orchestration_id` for parallel grouping)
 - `campaign_assignment_logs` - Per-contact processing logs
+- `wetarget_leads_staging` - Staging table for WeTarget campaign leads (sector-based)
+
+## WeTarget Campaigns (Sector-based)
+
+WeTarget is a jobmarketing bureau (vacature-ads, employer branding). Unlike the regular platform-based campaigns, WeTarget campaigns are **sector-based**.
+
+### Campaigns
+| Sector | Campaign ID | Senders |
+|--------|------------|---------|
+| Logistiek | `f5422a62-0dff-493d-b6d2-fac4eef133a1` | bart@, lois@we-targetonline.com |
+| Transport | `df8d72a9-2472-400c-ba4b-332c59bf67ec` | bart@, lois@we-targetonline.com |
+| Techniek | `a3664d52-7f83-4927-a088-493dddaf36d3` | bart@, lois@we-targetonline.com |
+
+### Lead Selection Criteria
+- Match job_postings.title to sector-specific function names (ILIKE patterns)
+- **Exclude Zuid-Holland**: state + postcode ranges 2160-3399 and 4100-4299
+- 1 contact per company, personal emails only (no info@, hr@, etc.)
+- Exclude "Afdeling Personeelszaken" placeholder contacts
+- Prioritize recent job postings
+
+### Scripts (in `scripts/`)
+- `generate-wetarget-excel.mjs` - Export staging leads to Excel (3 worksheets per sector)
+- `push-wetarget-instantly.mjs` - Push staging leads to Instantly campaigns (1 by 1 via POST /api/v2/leads)
+- `enrich-wetarget-leads.mjs` - AI personalization via Mistral + update Instantly leads
+- `fix-wetarget-titles.mjs` - Batch normalize job titles via Mistral + update Instantly (batches of 15 unique titles)
+
+### Instantly API Notes
+- Create lead: `POST /api/v2/leads` (single lead)
+- List leads: `POST /api/v2/leads/list` (not GET /leads)
+- Update lead: `PATCH /api/v2/leads/{id}`
+- Auth: `Bearer ${INSTANTLY_API_KEY}`
+- `jobTitle` is a core variable (set at creation), custom variables are in `payload`
