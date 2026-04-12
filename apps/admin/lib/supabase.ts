@@ -18,7 +18,13 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables')
+    // Return a proxy that throws on first use instead of at import time.
+    // This allows Next.js to collect page data during build without env vars.
+    return new Proxy({} as ReturnType<typeof createSupabaseClient<Database>>, {
+      get() {
+        throw new Error('Missing Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY)')
+      }
+    }) as unknown as ReturnType<typeof createSupabaseClient<Database>>
   }
 
   // Create and cache the instance
@@ -63,7 +69,15 @@ export const createServiceRoleClient = () => {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase service role environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
+    // Return a proxy that throws on first use instead of at import time.
+    // This allows Next.js to collect page data during build without env vars.
+    return new Proxy({} as ReturnType<typeof createSupabaseClient>, {
+      get() {
+        throw new Error(
+          "Missing Supabase service role environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+        )
+      }
+    })
   }
 
   return createSupabaseClient(supabaseUrl, supabaseServiceKey, {

@@ -80,11 +80,19 @@ export function createServerClientFromRequest(request: NextRequest) {
  * Should only be used for administrative operations.
  */
 export function createServiceRoleClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  if (!supabaseServiceKey) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable')
+  if (!supabaseUrl || !supabaseServiceKey) {
+    // Return a proxy that throws on first use instead of at import time.
+    // This allows Next.js to collect page data during build without env vars.
+    return new Proxy({} as ReturnType<typeof createSupabaseClient<Database>>, {
+      get() {
+        throw new Error(
+          'Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL environment variable'
+        )
+      }
+    })
   }
 
   return createSupabaseClient<Database>(supabaseUrl, supabaseServiceKey, {

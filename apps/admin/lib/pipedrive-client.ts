@@ -1448,4 +1448,18 @@ export class PipedriveClient {
 // Set this after creating the field via /api/mailerlite/setup
 const NIEUWSBRIEF_STATUS_FIELD_ID = process.env.PIPEDRIVE_NIEUWSBRIEF_STATUS_FIELD_ID || '';
 
-export const pipedriveClient = new PipedriveClient();
+// Lazy singleton (avoids module-level env var validation during build)
+let _pipedriveClient: PipedriveClient | null = null;
+export function getPipedriveClient(): PipedriveClient {
+  if (!_pipedriveClient) {
+    _pipedriveClient = new PipedriveClient();
+  }
+  return _pipedriveClient;
+}
+
+/** @deprecated Use getPipedriveClient() instead */
+export const pipedriveClient = new Proxy({} as PipedriveClient, {
+  get(_target, prop) {
+    return (getPipedriveClient() as Record<string | symbol, unknown>)[prop];
+  }
+});
