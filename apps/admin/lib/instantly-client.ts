@@ -1279,5 +1279,18 @@ export class InstantlyClient {
   }
 }
 
-// Export singleton instance
-export const instantlyClient = new InstantlyClient()
+// Export lazy singleton instance (avoids module-level env var validation during build)
+let _instantlyClient: InstantlyClient | null = null
+export function getInstantlyClient(): InstantlyClient {
+  if (!_instantlyClient) {
+    _instantlyClient = new InstantlyClient()
+  }
+  return _instantlyClient
+}
+
+/** @deprecated Use getInstantlyClient() instead */
+export const instantlyClient = new Proxy({} as InstantlyClient, {
+  get(_target, prop) {
+    return (getInstantlyClient() as Record<string | symbol, unknown>)[prop]
+  }
+})

@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceRoleClient } from '@/lib/supabase-server'
 import { validateContactUpdate } from '@/lib/validators/contact'
 import { ContactUpdateRequest, ContactUpdateResponse } from '@/types/contact'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const supabase = createServiceRoleClient()
     const { id: contactId } = await params
     
     // Parse request body
@@ -103,8 +99,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const supabase = createServiceRoleClient()
     const { id: contactId } = await params
-    
+
     const { data, error } = await supabase
       .from('contacts')
       .select('*')
