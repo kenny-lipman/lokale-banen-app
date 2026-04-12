@@ -88,17 +88,17 @@ export default async function SavedJobsPage() {
                   <div className="flex items-center gap-4 p-4 rounded-lg border transition-all hover:shadow-md hover:border-border">
                     <div className="flex-1 min-w-0">
                       <h2 className="font-semibold text-body group-hover:text-primary transition-colors line-clamp-1">
-                        {job.title as string}
+                        {String(job.title)}
                       </h2>
                       <p className="text-meta text-muted-foreground mt-0.5">
-                        {companyName as string}
-                        {job.city && ` · ${job.city}`}
+                        {String(companyName)}
+                        {job.city ? ` · ${String(job.city)}` : null}
                       </p>
-                      {job.salary && (
+                      {job.salary ? (
                         <p className="text-meta font-semibold text-emerald-700 mt-1 tabular-nums">
-                          {job.salary as string}
+                          {String(job.salary)}
                         </p>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-meta text-muted-foreground shrink-0">
                       {new Date(saved.saved_at as string).toLocaleDateString('nl-NL', {

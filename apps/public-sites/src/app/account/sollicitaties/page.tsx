@@ -92,15 +92,15 @@ export default async function ApplicationsPage() {
                       href={`/vacature/${job.slug || job.id}`}
                       className="font-semibold text-body hover:text-primary transition-colors line-clamp-1"
                     >
-                      {job.title as string}
+                      {String(job.title)}
                     </Link>
                     <p className="text-meta text-muted-foreground mt-0.5">
-                      {companyName as string}
-                      {job.city && ` · ${job.city}`}
+                      {String(companyName)}
+                      {job.city ? ` · ${String(job.city)}` : null}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                       <Badge variant="secondary" className="text-xs">
-                        {statusLabel}
+                        {String(statusLabel)}
                       </Badge>
                       <span className="text-meta text-muted-foreground">
                         {new Date(app.applied_at as string).toLocaleDateString('nl-NL', {
@@ -111,9 +111,9 @@ export default async function ApplicationsPage() {
                       </span>
                     </div>
                   </div>
-                  {job.url && (
+                  {job.url ? (
                     <a
-                      href={job.url as string}
+                      href={String(job.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
@@ -121,7 +121,7 @@ export default async function ApplicationsPage() {
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
-                  )}
+                  ) : null}
                 </div>
               )
             })}
