@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { getTenant } from '@/lib/tenant'
 import { TenantHeader } from '@/components/tenant-header'
 import { Button } from '@/components/ui/button'
@@ -14,7 +15,7 @@ export default async function ProfilePage() {
   const tenant = await getTenant()
 
   if (!tenant) {
-    return null
+    redirect('/')
   }
 
   // When Clerk is not configured, show placeholder

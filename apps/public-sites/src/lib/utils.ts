@@ -68,28 +68,21 @@ export function hexToMutedVariant(hex: string): string {
 
 /**
  * Format a date as a relative time string in Dutch.
- * Uses Intl.RelativeTimeFormat (no external deps).
+ * Uses day-level granularity to avoid stale "2 uur geleden" on cached pages.
  */
 export function formatRelative(date: string | Date): string {
-  const now = Date.now()
-  const then = new Date(date).getTime()
-  const diffMs = now - then
-  const diffMinutes = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
+  const d = new Date(date)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-  if (diffMinutes < 1) return 'Zojuist'
-  if (diffMinutes < 60) return `${diffMinutes} min geleden`
-  if (diffHours < 24) return `${diffHours}u geleden`
   if (diffDays === 0) return 'Vandaag'
   if (diffDays === 1) return 'Gisteren'
   if (diffDays < 7) return `${diffDays} dagen geleden`
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weken geleden`
 
-  return new Intl.DateTimeFormat('nl-NL', {
-    day: 'numeric',
-    month: 'short',
-  }).format(new Date(date))
+  // Meer dan een maand: toon datum
+  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
 }
 
 /**

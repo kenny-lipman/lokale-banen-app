@@ -33,7 +33,7 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
       <a
         href={whatsappUrl}
         target="_blank"
-        rel="noopener"
+        rel="noopener noreferrer"
         className="p-2 rounded-lg hover:bg-card-hover text-muted hover:text-foreground transition-colors"
         aria-label="Deel via WhatsApp"
       >
@@ -42,7 +42,7 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
       <a
         href={linkedinUrl}
         target="_blank"
-        rel="noopener"
+        rel="noopener noreferrer"
         className="p-2 rounded-lg hover:bg-card-hover text-muted hover:text-foreground transition-colors"
         aria-label="Deel via LinkedIn"
       >

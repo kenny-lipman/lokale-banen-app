@@ -4,6 +4,8 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { formatRelative, formatEmploymentLabel, renderMarkdown, sanitizeHtml } from '@/lib/utils'
+import { parseJobSections } from '@/lib/job-sections'
+import { ContentSection } from './content-section'
 import type { JobPosting } from '@/lib/queries'
 import { JobCard } from './job-card'
 
@@ -124,6 +126,14 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
         {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && htmlContent && (
           <ContentSection title="Over deze vacature" html={htmlContent} />
         )}
+        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && !htmlContent && (
+          <section className="mt-6">
+            <p className="text-body text-muted italic">
+              Er is geen beschrijving beschikbaar voor deze vacature.
+              Bezoek de website van de werkgever voor meer informatie.
+            </p>
+          </section>
+        )}
       </div>
 
       {/* 6. Company block */}
@@ -180,78 +190,3 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
   )
 }
 
-/**
- * Content section with H2 heading + HTML body.
- */
-function ContentSection({ title, html }: { title: string; html: string }) {
-  return (
-    <section>
-      <h2 className="text-h2 text-foreground mb-3 mt-6">{title}</h2>
-      <div
-        className="text-body text-foreground leading-[22px] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1.5 [&_p]:mb-3"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    </section>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Section parsing
-// ---------------------------------------------------------------------------
-
-interface JobSections {
-  watGaJeDoen: string | null
-  wieZoekenWe: string | null
-  watBiedenWe: string | null
-}
-
-function parseJobSections(html: string): JobSections {
-  const sections: JobSections = {
-    watGaJeDoen: null,
-    wieZoekenWe: null,
-    watBiedenWe: null,
-  }
-
-  if (!html) return sections
-
-  const taskPatterns = [
-    /wat ga je doen/i, /jouw taken/i, /functieomschrijving/i,
-    /werkzaamheden/i, /jouw rol/i, /de functie/i,
-  ]
-  const profilePatterns = [
-    /wie zoeken we/i, /jouw profiel/i, /functie-eisen/i,
-    /wat vragen we/i, /jij beschikt over/i, /profiel/i,
-  ]
-  const offerPatterns = [
-    /wat bieden we/i, /wij bieden/i, /arbeidsvoorwaarden/i,
-    /wat krijg je/i, /ons aanbod/i,
-  ]
-
-  const headingRegex = /<h[1-4][^>]*>(.*?)<\/h[1-4]>/gi
-  const headings: { index: number; text: string }[] = []
-  let match: RegExpExecArray | null
-
-  while ((match = headingRegex.exec(html)) !== null) {
-    headings.push({ index: match.index, text: match[1] })
-  }
-
-  for (let i = 0; i < headings.length; i++) {
-    const start = headings[i].index
-    const headingEnd = html.indexOf('>', start) + 1
-    const closingTag = html.indexOf('</', headingEnd)
-    const sectionStart = html.indexOf('>', closingTag) + 1
-    const sectionEnd = i + 1 < headings.length ? headings[i + 1].index : html.length
-    const content = html.slice(sectionStart, sectionEnd).trim()
-    const headingText = headings[i].text
-
-    if (taskPatterns.some((p) => p.test(headingText))) {
-      sections.watGaJeDoen = content
-    } else if (profilePatterns.some((p) => p.test(headingText))) {
-      sections.wieZoekenWe = content
-    } else if (offerPatterns.some((p) => p.test(headingText))) {
-      sections.watBiedenWe = content
-    }
-  }
-
-  return sections
-}

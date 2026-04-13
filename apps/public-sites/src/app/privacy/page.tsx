@@ -9,6 +9,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: `Privacybeleid | ${tenant?.name || 'Lokale Banen'}`,
     description: `Privacybeleid van ${tenant?.name || 'ons platform'}`,
+    alternates: {
+      canonical: tenant?.domain ? `https://${tenant.domain}/privacy` : undefined,
+    },
   }
 }
 

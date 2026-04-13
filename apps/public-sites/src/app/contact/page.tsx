@@ -10,6 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: `Contact | ${tenant?.name || 'Lokale Banen'}`,
     description: `Neem contact op met ${tenant?.name || 'ons'}`,
+    alternates: {
+      canonical: tenant?.domain ? `https://${tenant.domain}/contact` : undefined,
+    },
   }
 }
 

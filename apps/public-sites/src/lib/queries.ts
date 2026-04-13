@@ -355,14 +355,16 @@ export async function getApprovedJobCount(tenantId: string): Promise<number> {
 }
 
 /**
- * Fetch the top 5 cities by approved job count for a tenant.
+ * Fetch the top cities by approved job count for a tenant.
+ * Fetches only the city column (no row limit) and counts in-memory.
  */
 export async function getTopCities(
-  tenantId: string
+  tenantId: string,
+  limit = 5
 ): Promise<{ city: string; count: number }[]> {
   const supabase = createPublicClient()
 
-  // Query a sample of jobs and count cities client-side
+  // Fetch all approved cities for this tenant (only city column, lightweight)
   const { data } = await supabase
     .from('job_postings')
     .select('city')
@@ -370,22 +372,21 @@ export async function getTopCities(
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
     .not('city', 'is', null)
-    .limit(1000)
 
-  if (!data) return []
+  if (!data || data.length === 0) return []
 
-  const counts: Record<string, number> = {}
+  // Count occurrences
+  const counts = new Map<string, number>()
   for (const row of data) {
-    const city = (row.city as string)?.trim()
-    if (city) {
-      counts[city] = (counts[city] || 0) + 1
+    if (row.city) {
+      counts.set(row.city, (counts.get(row.city) || 0) + 1)
     }
   }
 
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
+  return Array.from(counts.entries())
     .map(([city, count]) => ({ city, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
 }
 
 // ---------------------------------------------------------------------------

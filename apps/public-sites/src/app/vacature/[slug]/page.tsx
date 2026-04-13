@@ -113,9 +113,8 @@ export default async function JobPage({ params }: JobPageProps) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: baseUrl + '/' },
-      { '@type': 'ListItem', position: 2, name: 'Vacatures', item: baseUrl + '/' },
-      { '@type': 'ListItem', position: 3, name: job.title },
+      { '@type': 'ListItem', position: 1, name: tenant.name, item: baseUrl + '/' },
+      { '@type': 'ListItem', position: 2, name: job.title },
     ],
   }
 
@@ -171,10 +170,6 @@ export default async function JobPage({ params }: JobPageProps) {
           <nav className="hidden lg:flex items-center gap-1 text-meta min-w-0" aria-label="Breadcrumb">
             <Link href="/" className="text-muted hover:text-primary transition-colors shrink-0">
               {tenant.name}
-            </Link>
-            <span className="text-muted-foreground shrink-0">{' > '}</span>
-            <Link href="/" className="text-muted hover:text-primary transition-colors shrink-0">
-              Vacatures
             </Link>
             <span className="text-muted-foreground shrink-0">{' > '}</span>
             <span className="text-foreground font-medium truncate">{job.title}</span>

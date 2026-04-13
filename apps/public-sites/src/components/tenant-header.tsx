@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Search } from 'lucide-react'
 import { UserNav } from './user-nav'
 import type { Tenant } from '@/lib/tenant'
@@ -31,11 +32,12 @@ export function TenantHeader({
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
           {tenant.logo_url ? (
-            <img
+            <Image
               src={tenant.logo_url}
-              alt=""
-              className="h-6 w-auto lg:h-8"
-              aria-hidden="true"
+              alt={`${tenant.name} logo`}
+              width={120}
+              height={32}
+              className="h-6 w-auto lg:h-8 object-contain"
             />
           ) : (
             <div className="h-6 w-6 lg:h-8 lg:w-8 rounded-md bg-primary flex items-center justify-center">
