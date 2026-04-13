@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { saveJob, unsaveJob } from '@/app/actions/saved-jobs'
 
 interface SaveJobButtonProps {
   jobId: string
@@ -12,58 +13,70 @@ interface SaveJobButtonProps {
 
 /**
  * Heart icon toggle for saving jobs.
- * Currently localStorage-only (anonymous mode).
- * When signed in via Clerk, can be extended to persist to DB.
+ * Signed-in users: persists to DB via server actions.
+ * Anonymous users: localStorage + signup prompt.
  */
 export function SaveJobButton({
   jobId,
   initialSaved = false,
 }: SaveJobButtonProps) {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, isLoaded } = useUser()
   const [saved, setSaved] = useState(initialSaved)
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('saved_jobs')
-      if (raw) {
-        const jobs = JSON.parse(raw) as string[]
-        setSaved(jobs.includes(jobId))
-      }
-    } catch {
-      // localStorage unavailable
-    }
-  }, [jobId])
   const [isPending, startTransition] = useTransition()
   const [showPrompt, setShowPrompt] = useState(false)
 
-  function handleToggle() {
-    startTransition(() => {
-      const newSaved = !saved
+  // For anonymous users: sync with localStorage on mount (and on sign-out)
+  useEffect(() => {
+    if (!isLoaded || isSignedIn) return // signed-in users get initialSaved from server
+    try {
+      const raw = localStorage.getItem('saved_jobs')
+      const jobs = raw ? (JSON.parse(raw) as string[]) : []
+      setSaved(jobs.includes(jobId))
+    } catch {
+      setSaved(false)
+    }
+  }, [jobId, isSignedIn, isLoaded])
 
+  function handleToggle() {
+    const newSaved = !saved
+    setSaved(newSaved) // optimistic update
+
+    if (isSignedIn) {
+      // Persist to database via server action
+      startTransition(async () => {
+        try {
+          if (newSaved) {
+            await saveJob(jobId)
+          } else {
+            await unsaveJob(jobId)
+          }
+        } catch {
+          setSaved(!newSaved) // revert on error
+        }
+      })
+    } else {
+      // Anonymous: localStorage only
       try {
         const savedJobs: string[] = JSON.parse(
           localStorage.getItem('saved_jobs') || '[]'
         )
         if (newSaved) {
-          if (!savedJobs.includes(jobId)) {
-            savedJobs.push(jobId)
-          }
+          if (!savedJobs.includes(jobId)) savedJobs.push(jobId)
         } else {
           const index = savedJobs.indexOf(jobId)
           if (index > -1) savedJobs.splice(index, 1)
         }
         localStorage.setItem('saved_jobs', JSON.stringify(savedJobs))
-        setSaved(newSaved)
-
-        // Show sign-up prompt for anonymous users
-        if (newSaved && !isSignedIn && !showPrompt) {
-          setShowPrompt(true)
-          setTimeout(() => setShowPrompt(false), 5000)
-        }
       } catch {
         // localStorage not available
       }
-    })
+
+      // Show sign-up prompt for anonymous users
+      if (newSaved && !showPrompt) {
+        setShowPrompt(true)
+        setTimeout(() => setShowPrompt(false), 5000)
+      }
+    }
   }
 
   return (

@@ -9,6 +9,7 @@ import { parseJobSections } from '@/lib/job-sections'
 import { ContentSection } from './content-section'
 import type { JobPosting } from '@/lib/queries'
 import { JobCard } from './job-card'
+import { ApplyLink } from './apply-link'
 import { slugifyCity } from '@lokale-banen/database'
 
 interface JobDetailProps {
@@ -99,15 +100,14 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
       <div className="hidden sm:block mt-4 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-3">
           {job.url && !isExpired ? (
-            <a
-              href={job.url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <ApplyLink
+              jobUrl={job.url}
+              jobId={job.id}
               className="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-primary text-primary-foreground text-button transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Solliciteer
               <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-            </a>
+            </ApplyLink>
           ) : (
             <button
               disabled

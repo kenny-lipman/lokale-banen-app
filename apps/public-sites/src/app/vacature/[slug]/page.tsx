@@ -5,6 +5,7 @@ import { getTenant } from '@/lib/tenant'
 import { getJobBySlug, getRelatedJobs, parseSalary, mapEmploymentType } from '@/lib/queries'
 import { buildJobPostingSchema, buildBreadcrumbSchema } from '@lokale-banen/shared'
 import { slugifyCity } from '@lokale-banen/database'
+import { isJobSaved } from '@/app/actions/saved-jobs'
 import { TenantHeader } from '@/components/tenant-header'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { JobDetail } from '@/components/job-detail'
@@ -184,7 +185,7 @@ export default async function JobPage({ params }: JobPageProps) {
 
           <div className="flex items-center gap-1">
             <Suspense fallback={<div className="h-10 w-10" />}>
-              <SaveJobButton jobId={job.id} />
+              <SaveJobButtonServer jobId={job.id} />
             </Suspense>
           </div>
         </div>
@@ -215,10 +216,17 @@ export default async function JobPage({ params }: JobPageProps) {
       {/* Sticky apply button (mobile bottom, desktop inline is in JobDetail) */}
       <ApplyButton
         jobUrl={job.url}
+        jobId={job.id}
         jobTitle={job.title}
         isExpired={!!isExpired}
       />
     </div>
   )
+}
+
+/** Server wrapper that checks saved state before rendering client button */
+async function SaveJobButtonServer({ jobId }: { jobId: string }) {
+  const initialSaved = await isJobSaved(jobId)
+  return <SaveJobButton jobId={jobId} initialSaved={initialSaved} />
 }
 
