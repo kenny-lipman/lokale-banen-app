@@ -8,7 +8,9 @@ import { TenantHeader } from '@/components/tenant-header'
 import { JobDetail } from '@/components/job-detail'
 import { ApplyButton } from '@/components/apply-button'
 import { SaveJobButton } from '@/components/save-job-button'
-import { ArrowLeft, Share2 } from 'lucide-react'
+import { ShareButtons } from '@/components/share-buttons'
+import { Footer } from '@/components/footer'
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 interface JobPageProps {
@@ -103,6 +105,18 @@ export default async function JobPage({ params }: JobPageProps) {
       ? new Date(new Date(job.published_at).getTime() + 60 * 86400000).toISOString()
       : new Date(Date.now() + 30 * 86400000).toISOString()
 
+  // --- Build BreadcrumbList JSON-LD ---
+  const baseUrl = `https://${tenant.domain}`
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: baseUrl + '/' },
+      { '@type': 'ListItem', position: 2, name: 'Vacatures', item: baseUrl + '/' },
+      { '@type': 'ListItem', position: 3, name: job.title },
+    ],
+  }
+
   const jsonLd = buildJobPostingSchema({
     title: job.title,
     description: cleanDescription,
@@ -139,18 +153,32 @@ export default async function JobPage({ params }: JobPageProps) {
     <div className="flex flex-col min-h-screen bg-surface">
       <TenantHeader tenant={tenant} showSearch={false} />
 
-      {/* Sub-header with back, share, save */}
+      {/* Sub-header with back / breadcrumbs, share, save */}
       <div className="bg-surface" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-[1280px] mx-auto flex items-center justify-between h-11 px-4 lg:px-6">
+          {/* Mobile: back button */}
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-body text-muted hover:text-foreground transition-colors"
+            className="lg:hidden inline-flex items-center gap-1.5 text-body text-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Terug
           </Link>
+
+          {/* Desktop: breadcrumbs */}
+          <nav className="hidden lg:flex items-center gap-1 text-meta min-w-0" aria-label="Breadcrumb">
+            <Link href="/" className="text-muted hover:text-primary transition-colors shrink-0">
+              {tenant.name}
+            </Link>
+            <span className="text-muted-foreground shrink-0">{' > '}</span>
+            <Link href="/" className="text-muted hover:text-primary transition-colors shrink-0">
+              Vacatures
+            </Link>
+            <span className="text-muted-foreground shrink-0">{' > '}</span>
+            <span className="text-foreground font-medium truncate">{job.title}</span>
+          </nav>
+
           <div className="flex items-center gap-1">
-            <ShareButton title={job.title} />
             <Suspense fallback={<div className="h-10 w-10" />}>
               <SaveJobButton jobId={job.id} />
             </Suspense>
@@ -159,14 +187,26 @@ export default async function JobPage({ params }: JobPageProps) {
       </div>
 
       <main className="flex-1 max-w-content mx-auto w-full py-6 px-4 lg:px-8 pb-24 sm:pb-8">
-        {/* JSON-LD */}
+        {/* JSON-LD: JobPosting */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {/* JSON-LD: BreadcrumbList */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
 
         <JobDetail job={job} relatedJobs={relatedJobs} />
+
+        {/* Share buttons below job detail */}
+        <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+          <ShareButtons url={`${baseUrl}/vacature/${slug}`} title={job.title} />
+        </div>
       </main>
+
+      <Footer tenant={tenant} />
 
       {/* Sticky apply button (mobile bottom, desktop inline is in JobDetail) */}
       <ApplyButton
@@ -178,16 +218,3 @@ export default async function JobPage({ params }: JobPageProps) {
   )
 }
 
-/**
- * Share button using native Web Share API with fallback.
- */
-function ShareButton({ title }: { title: string }) {
-  return (
-    <button
-      className="inline-flex items-center justify-center h-10 w-10 rounded-md text-muted hover:text-foreground hover:bg-background transition-colors"
-      aria-label="Deel deze vacature"
-    >
-      <Share2 className="h-4 w-4" />
-    </button>
-  )
-}

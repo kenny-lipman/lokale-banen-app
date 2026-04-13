@@ -4,8 +4,8 @@ import { TenantHeader } from '@/components/tenant-header'
 import { FilterBar } from '@/components/filter-bar'
 import { JobList } from '@/components/job-list'
 import { JobDetailPanel, EmptyDetailState } from '@/components/job-detail-panel'
-import type { JobFilter } from '@/lib/queries'
-import Link from 'next/link'
+import { Footer } from '@/components/footer'
+import type { JobFilter, SortOption } from '@/lib/queries'
 
 interface HomePageProps {
   searchParams: Promise<{
@@ -14,6 +14,7 @@ interface HomePageProps {
     type?: string
     page?: string
     selected?: string
+    sort?: string
   }>
 }
 
@@ -34,11 +35,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     )
   }
 
+  const sortParam = (params.sort || 'newest') as SortOption
   const filter: JobFilter = {
     query: params.q,
     location: params.location,
     type: params.type,
     page: params.page ? parseInt(params.page, 10) : 1,
+    sort: sortParam,
   }
 
   // Fetch selected job for split-view detail panel (desktop)
@@ -87,54 +90,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         {/* Right: detail panel (desktop only) */}
         <div className="hidden lg:block flex-1 overflow-y-auto scrollbar-thin bg-surface" style={{ overscrollBehavior: 'contain' }}>
           {selectedJob ? (
-            <JobDetailPanel job={selectedJob} />
+            <JobDetailPanel job={selectedJob} tenantName={tenant.name} tenantDomain={tenant.domain || undefined} />
           ) : (
             <EmptyDetailState />
           )}
         </div>
       </div>
 
-      {/* Footer */}
-      <Footer tenantName={tenant.name} />
+      {/* Footer: only visible on mobile (desktop is full-height split-view) */}
+      <Footer tenant={tenant} hiddenOnDesktop />
     </div>
-  )
-}
-
-/**
- * Dark footer: bg #18181B, text rgba(255,255,255,0.6).
- */
-function Footer({ tenantName }: { tenantName: string }) {
-  return (
-    <footer
-      style={{
-        backgroundColor: 'var(--foreground)',
-        padding: '32px 24px',
-      }}
-    >
-      <div className="max-w-[1280px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p
-          className="text-meta"
-          style={{ color: 'rgba(255,255,255,0.6)' }}
-        >
-          &copy; {new Date().getFullYear()} {tenantName}
-        </p>
-        <div className="flex items-center gap-4">
-          <Link
-            href="#"
-            className="text-meta transition-colors"
-            style={{ color: 'rgba(255,255,255,0.8)' }}
-          >
-            Over ons
-          </Link>
-          <Link
-            href="#"
-            className="text-meta transition-colors"
-            style={{ color: 'rgba(255,255,255,0.8)' }}
-          >
-            Privacy
-          </Link>
-        </div>
-      </div>
-    </footer>
   )
 }

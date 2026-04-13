@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Source_Sans_3 } from 'next/font/google'
 import { hexToLightVariant, darkenHex, hexToMutedVariant } from '@/lib/utils'
+import { CookieConsent } from '@/components/cookie-consent'
 import './globals.css'
 
 const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
@@ -69,6 +70,7 @@ export default async function RootLayout({
     <html lang="nl" className={sourceSans.variable} style={themeStyle}>
       <body className="font-sans">
         {children}
+        <CookieConsent />
       </body>
     </html>
   )
@@ -96,6 +98,7 @@ export default async function RootLayout({
               dynamic
             >
               {children}
+              <CookieConsent />
             </ClerkProvider>
           </body>
         </html>

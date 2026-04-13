@@ -43,11 +43,14 @@ export interface JobPosting {
   } | null
 }
 
+export type SortOption = 'newest' | 'salary_desc' | 'oldest'
+
 export interface JobFilter {
   query?: string
   location?: string
   type?: string
   page?: number
+  sort?: SortOption
 }
 
 const JOBS_PER_PAGE = 20
@@ -82,8 +85,18 @@ export async function getApprovedJobs(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
-    .order('published_at', { ascending: false })
-    .range(from, to)
+
+  // Apply sort order
+  const sort = filter.sort || 'newest'
+  if (sort === 'salary_desc') {
+    query = query.order('salary', { ascending: false, nullsFirst: false })
+  } else if (sort === 'oldest') {
+    query = query.order('published_at', { ascending: true })
+  } else {
+    query = query.order('published_at', { ascending: false })
+  }
+
+  query = query.range(from, to)
 
   // Filter by employment type (match against job_type array or employment field)
   if (filter.type && filter.type !== 'alle') {
@@ -114,6 +127,40 @@ export async function getApprovedJobs(
   })) as unknown as JobPosting[]
 
   return { jobs, total: count || 0 }
+}
+
+/**
+ * Count approved+published jobs for a tenant with the same filters as getApprovedJobs.
+ */
+export async function getJobCount(
+  tenantId: string,
+  filter: JobFilter = {}
+): Promise<number> {
+  const supabase = createPublicClient()
+
+  let query = supabase
+    .from('job_postings')
+    .select('id', { count: 'exact', head: true })
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+
+  if (filter.type && filter.type !== 'alle') {
+    const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
+    query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
+  }
+
+  if (filter.query) {
+    query = query.ilike('title', `%${filter.query}%`)
+  }
+
+  if (filter.location) {
+    query = query.ilike('city', `%${filter.location}%`)
+  }
+
+  const { count, error } = await query
+  if (error) return 0
+  return count ?? 0
 }
 
 /**
@@ -297,6 +344,40 @@ export async function getApprovedJobCount(tenantId: string): Promise<number> {
 
   if (error) return 0
   return count ?? 0
+}
+
+/**
+ * Fetch the top 5 cities by approved job count for a tenant.
+ */
+export async function getTopCities(
+  tenantId: string
+): Promise<{ city: string; count: number }[]> {
+  const supabase = createPublicClient()
+
+  // Query a sample of jobs and count cities client-side
+  const { data } = await supabase
+    .from('job_postings')
+    .select('city')
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .not('city', 'is', null)
+    .limit(1000)
+
+  if (!data) return []
+
+  const counts: Record<string, number> = {}
+  for (const row of data) {
+    const city = (row.city as string)?.trim()
+    if (city) {
+      counts[city] = (counts[city] || 0) + 1
+    }
+  }
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([city, count]) => ({ city, count }))
 }
 
 // ---------------------------------------------------------------------------

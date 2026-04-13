@@ -121,3 +121,93 @@ export function formatEmploymentLabel(
   }
   return parts.length > 0 ? parts.join(' · ') : 'Onbekend'
 }
+
+/**
+ * Render a simple markdown string to HTML.
+ * Supports ## headings, ### headings, **bold**, - list items, and paragraphs.
+ * No external dependencies.
+ */
+export function renderMarkdown(text: string): string {
+  // Escape HTML entities first to prevent XSS
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+  const lines = escaped.split('\n')
+  const blocks: string[] = []
+  let currentParagraph: string[] = []
+  let inList = false
+
+  function flushParagraph() {
+    if (currentParagraph.length > 0) {
+      const content = currentParagraph.join(' ').trim()
+      if (content) {
+        blocks.push(`<p class="mb-4 leading-relaxed">${applyInline(content)}</p>`)
+      }
+      currentParagraph = []
+    }
+  }
+
+  function flushList() {
+    if (inList) {
+      blocks.push('</ul>')
+      inList = false
+    }
+  }
+
+  function applyInline(str: string): string {
+    // Bold: **text**
+    return str.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+
+    // Empty line: flush current paragraph
+    if (trimmed === '') {
+      flushParagraph()
+      flushList()
+      continue
+    }
+
+    // ## Heading 2
+    if (trimmed.startsWith('## ')) {
+      flushParagraph()
+      flushList()
+      const heading = trimmed.slice(3).trim()
+      blocks.push(`<h2 class="text-h2 font-semibold mt-8 mb-4">${applyInline(heading)}</h2>`)
+      continue
+    }
+
+    // ### Heading 3
+    if (trimmed.startsWith('### ')) {
+      flushParagraph()
+      flushList()
+      const heading = trimmed.slice(4).trim()
+      blocks.push(`<h3 class="text-body-medium font-semibold mt-6 mb-3">${applyInline(heading)}</h3>`)
+      continue
+    }
+
+    // - List item
+    if (trimmed.startsWith('- ')) {
+      flushParagraph()
+      if (!inList) {
+        blocks.push('<ul class="list-disc pl-6 mb-4 space-y-1">')
+        inList = true
+      }
+      blocks.push(`<li class="leading-relaxed">${applyInline(trimmed.slice(2).trim())}</li>`)
+      continue
+    }
+
+    // Regular text line
+    flushList()
+    currentParagraph.push(trimmed)
+  }
+
+  flushParagraph()
+  flushList()
+
+  return blocks.join('\n')
+}

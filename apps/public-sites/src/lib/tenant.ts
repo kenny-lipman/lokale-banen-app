@@ -14,6 +14,18 @@ export interface Tenant {
   seo_description: string | null
   central_place: string | null
   indexnow_key: string | null
+  about_text: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  social_linkedin: string | null
+  social_instagram: string | null
+  social_facebook: string | null
+  social_tiktok: string | null
+  social_twitter: string | null
+  favicon_url: string | null
+  og_image_url: string | null
+  privacy_text: string | null
+  terms_text: string | null
 }
 
 /**
@@ -38,7 +50,7 @@ async function getTenantByHost(host: string): Promise<Tenant | null> {
   const supabase = createPublicClient()
   const { data, error } = await supabase
     .from('platforms')
-    .select('id, regio_platform, central_place, domain, is_public, tier, logo_url, primary_color, hero_title, hero_subtitle, seo_description, indexnow_key')
+    .select('id, regio_platform, central_place, domain, is_public, tier, logo_url, primary_color, hero_title, hero_subtitle, seo_description, indexnow_key, about_text, contact_email, contact_phone, social_linkedin, social_instagram, social_facebook, social_tiktok, social_twitter, favicon_url, og_image_url, privacy_text, terms_text')
     .eq('domain', host)
     .eq('is_public', true)
     .single()
@@ -59,5 +71,17 @@ async function getTenantByHost(host: string): Promise<Tenant | null> {
     seo_description: data.seo_description,
     central_place: data.central_place,
     indexnow_key: data.indexnow_key,
+    about_text: data.about_text ?? null,
+    contact_email: data.contact_email ?? null,
+    contact_phone: data.contact_phone ?? null,
+    social_linkedin: data.social_linkedin ?? null,
+    social_instagram: data.social_instagram ?? null,
+    social_facebook: data.social_facebook ?? null,
+    social_tiktok: data.social_tiktok ?? null,
+    social_twitter: data.social_twitter ?? null,
+    favicon_url: data.favicon_url ?? null,
+    og_image_url: data.og_image_url ?? null,
+    privacy_text: data.privacy_text ?? null,
+    terms_text: data.terms_text ?? null,
   } satisfies Tenant
 }
