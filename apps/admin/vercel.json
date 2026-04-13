@@ -3,6 +3,7 @@
     { "path": "/api/cron/cleanup-instantly-leads", "schedule": "0 3 * * *" },
     { "path": "/api/scrapers/baanindebuurt", "schedule": "0 5 * * *" },
     { "path": "/api/scrapers/debanensite", "schedule": "0 6 * * *" },
+    { "path": "/api/scrapers/nationalevacaturebank", "schedule": "0 */2 * * *" },
     { "path": "/api/cron/refresh-campaign-eligible", "schedule": "30 6 * * *" },
     { "path": "/api/cron/campaign-assignment-parallel", "schedule": "0 7,13 * * *" },
     { "path": "/api/cron/postcode-backfill", "schedule": "*/2 * * * *" },
@@ -19,6 +20,7 @@
     "app/api/cron/refresh-campaign-eligible/route.ts": { "maxDuration": 300 },
     "app/api/cron/refresh-contact-stats/route.ts": { "maxDuration": 300 },
     "app/api/scrapers/debanensite/backfill/route.ts": { "maxDuration": 300 },
-    "app/api/cron/campaign-assignment-parallel/route.ts": { "maxDuration": 300 }
+    "app/api/cron/campaign-assignment-parallel/route.ts": { "maxDuration": 300 },
+    "app/api/scrapers/nationalevacaturebank/route.ts": { "maxDuration": 300 }
   }
 }
