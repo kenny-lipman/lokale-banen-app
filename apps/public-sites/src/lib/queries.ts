@@ -1,4 +1,6 @@
+import { cache } from 'react'
 import { createPublicClient } from './supabase'
+import { slugifyCity } from '@lokale-banen/database'
 
 export interface JobPosting {
   id: string
@@ -30,6 +32,7 @@ export interface JobPosting {
   company: {
     id: string
     name: string
+    slug: string | null
     logo_url: string | null
     website: string | null
     linkedin_url: string | null
@@ -79,7 +82,7 @@ export async function getApprovedJobs(
       employment, job_type, salary,
       description, url, published_at, end_date, created_at,
       companies!company_id (
-        id, name, logo_url, website, linkedin_url, description, city
+        id, name, slug, logo_url, website, linkedin_url, description, city
       )
     `,
       { count: 'exact' }
@@ -193,7 +196,7 @@ export async function getJobBySlug(
       seo_title, seo_description, education_level, career_level,
       working_hours_min, working_hours_max,
       companies!company_id (
-        id, name, logo_url, website, linkedin_url, description, city,
+        id, name, slug, logo_url, website, linkedin_url, description, city,
         kvk, latitude, longitude, postal_code, street_address
       )
     `
@@ -236,7 +239,7 @@ export async function getRelatedJobs(
       employment, job_type, salary,
       published_at, end_date, created_at,
       companies!company_id (
-        id, name, logo_url, website, linkedin_url, description, city
+        id, name, slug, logo_url, website, linkedin_url, description, city
       )
     `
     )
@@ -352,6 +355,225 @@ export async function getApprovedJobCount(tenantId: string): Promise<number> {
 
   if (error) return 0
   return count ?? 0
+}
+
+// ---------------------------------------------------------------------------
+// City landing page queries
+// ---------------------------------------------------------------------------
+
+export interface CityWithCount {
+  city: string
+  slug: string
+  count: number
+}
+
+/**
+ * Fetch all distinct cities with job counts for a tenant.
+ * Slugifies each city name and merges spelling variants under the same slug.
+ * Returns sorted by count descending.
+ * Wrapped with React cache() for per-request deduplication.
+ */
+export const getCitiesWithJobCounts = cache(async function getCitiesWithJobCounts(
+  tenantId: string
+): Promise<CityWithCount[]> {
+  const supabase = createPublicClient()
+
+  // Use DB-side aggregation (GROUP BY) — returns ~100 rows instead of ~50k
+  const { data, error } = await supabase.rpc('get_city_job_counts', {
+    p_platform_id: tenantId,
+  })
+
+  if (error || !data || data.length === 0) return []
+
+  // Group by slug, merge spelling variants (e.g. "naaldwijk" vs "Naaldwijk")
+  const slugMap = new Map<string, { names: Map<string, number>; count: number }>()
+
+  for (const row of data as { city: string; count: number }[]) {
+    const slug = slugifyCity(row.city)
+    if (!slug) continue
+
+    const entry = slugMap.get(slug) || { names: new Map(), count: 0 }
+    entry.count += row.count
+    entry.names.set(row.city, (entry.names.get(row.city) || 0) + row.count)
+    slugMap.set(slug, entry)
+  }
+
+  return Array.from(slugMap.entries())
+    .map(([slug, { names, count }]) => {
+      // Pick the most common spelling as display name
+      let bestName = ''
+      let bestCount = 0
+      for (const [name, nameCount] of names) {
+        if (nameCount > bestCount) {
+          bestName = name
+          bestCount = nameCount
+        }
+      }
+      return { city: bestName, slug, count }
+    })
+    .sort((a, b) => b.count - a.count)
+})
+
+/**
+ * Resolve a city slug to the original city name(s) and fetch paginated jobs.
+ */
+export async function getJobsByCitySlug(
+  tenantId: string,
+  citySlug: string,
+  page = 1
+): Promise<{ jobs: JobPosting[]; total: number; cityName: string | null }> {
+  // First resolve the slug to actual city name(s)
+  const allCities = await getCitiesWithJobCounts(tenantId)
+  const match = allCities.find(c => c.slug === citySlug)
+
+  if (!match) {
+    return { jobs: [], total: 0, cityName: null }
+  }
+
+  // Use the display city name directly — getCitiesWithJobCounts already merged variants.
+  // For the .in() filter, use ILIKE on the canonical display name (covers case variants).
+  const supabase = createPublicClient()
+  const from = (page - 1) * JOBS_PER_PAGE
+  const to = from + JOBS_PER_PAGE - 1
+
+  const { data, count, error } = await supabase
+    .from('job_postings')
+    .select(
+      `
+      id, title, slug, company_id, city, state,
+      employment, job_type, salary,
+      description, url, published_at, end_date, created_at,
+      companies!company_id (
+        id, name, slug, logo_url, website, linkedin_url, description, city
+      )
+    `,
+      { count: 'exact' }
+    )
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .ilike('city', match.city)
+    .order('published_at', { ascending: false })
+    .range(from, to)
+
+  if (error || !data) {
+    return { jobs: [], total: 0, cityName: match.city }
+  }
+
+  const jobs = (data || []).map((row: Record<string, unknown>) => ({
+    ...row,
+    company: Array.isArray(row.companies) ? row.companies[0] : row.companies,
+  })) as unknown as JobPosting[]
+
+  return { jobs, total: count || 0, cityName: match.city }
+}
+
+/**
+ * Fetch nearby cities (other cities for this tenant, excluding the given one).
+ */
+export async function getNearbyCities(
+  tenantId: string,
+  excludeSlug: string,
+  limit = 8
+): Promise<CityWithCount[]> {
+  const allCities = await getCitiesWithJobCounts(tenantId)
+  return allCities
+    .filter(c => c.slug !== excludeSlug)
+    .slice(0, limit)
+}
+
+// ---------------------------------------------------------------------------
+// Company page queries
+// ---------------------------------------------------------------------------
+
+export interface CompanyProfile {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  logo_url: string | null
+  website: string | null
+  linkedin_url: string | null
+  city: string | null
+  kvk: string | null
+  latitude: number | null
+  longitude: number | null
+  postal_code: string | null
+  street_address: string | null
+}
+
+/**
+ * Fetch a company by slug, only if it has approved jobs on this tenant.
+ */
+export async function getCompanyBySlug(
+  tenantId: string,
+  companySlug: string
+): Promise<CompanyProfile | null> {
+  const supabase = createPublicClient()
+
+  // Find company by slug
+  const { data: company, error } = await supabase
+    .from('companies')
+    .select('id, name, slug, description, logo_url, website, linkedin_url, city, kvk, latitude, longitude, postal_code, street_address')
+    .eq('slug', companySlug)
+    .single()
+
+  if (error || !company) return null
+
+  // Verify it has at least one approved job on this tenant
+  const { count } = await supabase
+    .from('job_postings')
+    .select('id', { count: 'exact', head: true })
+    .eq('platform_id', tenantId)
+    .eq('company_id', company.id)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+
+  if (!count || count === 0) return null
+
+  return company as CompanyProfile
+}
+
+/**
+ * Fetch paginated jobs for a company on a specific tenant.
+ */
+export async function getJobsByCompany(
+  tenantId: string,
+  companyId: string,
+  page = 1
+): Promise<{ jobs: JobPosting[]; total: number }> {
+  const supabase = createPublicClient()
+  const from = (page - 1) * JOBS_PER_PAGE
+  const to = from + JOBS_PER_PAGE - 1
+
+  const { data, count, error } = await supabase
+    .from('job_postings')
+    .select(
+      `
+      id, title, slug, company_id, city, state,
+      employment, job_type, salary,
+      description, url, published_at, end_date, created_at,
+      companies!company_id (
+        id, name, slug, logo_url, website, linkedin_url, description, city
+      )
+    `,
+      { count: 'exact' }
+    )
+    .eq('platform_id', tenantId)
+    .eq('company_id', companyId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .order('published_at', { ascending: false })
+    .range(from, to)
+
+  if (error || !data) return { jobs: [], total: 0 }
+
+  const jobs = (data || []).map((row: Record<string, unknown>) => ({
+    ...row,
+    company: Array.isArray(row.companies) ? row.companies[0] : row.companies,
+  })) as unknown as JobPosting[]
+
+  return { jobs, total: count || 0 }
 }
 
 /**

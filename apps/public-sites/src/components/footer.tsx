@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Linkedin, Instagram, Facebook, Twitter } from 'lucide-react'
 import type { Tenant } from '@/lib/tenant'
-import { getTopCities } from '@/lib/queries'
+import { getCitiesWithJobCounts } from '@/lib/queries'
 
 interface FooterProps {
   tenant: Tenant
@@ -16,7 +16,8 @@ interface FooterProps {
  * Links: rgba(255,255,255,0.8), hover white
  */
 export async function Footer({ tenant, hiddenOnDesktop = false }: FooterProps) {
-  const topCities = await getTopCities(tenant.id)
+  const allCities = await getCitiesWithJobCounts(tenant.id)
+  const topCities = allCities.slice(0, 5)
 
   const hasSocials =
     tenant.social_linkedin ||
@@ -72,10 +73,10 @@ export async function Footer({ tenant, hiddenOnDesktop = false }: FooterProps) {
                   Alle vacatures
                 </Link>
               </li>
-              {topCities.map(({ city }) => (
-                <li key={city}>
+              {topCities.map(({ city, slug }) => (
+                <li key={slug}>
                   <Link
-                    href={`/?location=${encodeURIComponent(city)}`}
+                    href={`/vacatures/${slug}`}
                     className="text-meta transition-colors hover:!text-white"
                     style={{ color: 'rgba(255,255,255,0.8)' }}
                   >

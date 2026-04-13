@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
 import { getJobBySlug, getRelatedJobs, parseSalary, mapEmploymentType } from '@/lib/queries'
-import { buildJobPostingSchema } from '@lokale-banen/shared'
+import { buildJobPostingSchema, buildBreadcrumbSchema } from '@lokale-banen/shared'
+import { slugifyCity } from '@lokale-banen/database'
 import { TenantHeader } from '@/components/tenant-header'
+import { Breadcrumbs } from '@/components/breadcrumbs'
 import { JobDetail } from '@/components/job-detail'
 import { ApplyButton } from '@/components/apply-button'
 import { SaveJobButton } from '@/components/save-job-button'
@@ -107,16 +109,17 @@ export default async function JobPage({ params }: JobPageProps) {
       ? new Date(new Date(job.published_at).getTime() + 60 * 86400000).toISOString()
       : new Date(Date.now() + 30 * 86400000).toISOString()
 
-  // --- Build BreadcrumbList JSON-LD ---
+  // --- Build BreadcrumbList JSON-LD (3-level: Home > City > Job) ---
   const baseUrl = `https://${tenant.domain}`
-  const breadcrumbJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: tenant.name, item: baseUrl + '/' },
-      { '@type': 'ListItem', position: 2, name: job.title },
-    ],
-  }
+  const citySlug = job.city ? slugifyCity(job.city) : null
+  const breadcrumbItems = [
+    { name: tenant.name, url: `${baseUrl}/` },
+    ...(citySlug && job.city
+      ? [{ name: `Vacatures in ${job.city}`, url: `${baseUrl}/vacatures/${citySlug}` }]
+      : []),
+    { name: job.title, url: `${baseUrl}/vacature/${slug}` },
+  ]
+  const breadcrumbJsonLd = buildBreadcrumbSchema(breadcrumbItems)
 
   const jsonLd = buildJobPostingSchema({
     title: job.title,
@@ -166,14 +169,18 @@ export default async function JobPage({ params }: JobPageProps) {
             Terug
           </Link>
 
-          {/* Desktop: breadcrumbs */}
-          <nav className="hidden lg:flex items-center gap-1 text-meta min-w-0" aria-label="Breadcrumb">
-            <Link href="/" className="text-muted hover:text-primary transition-colors shrink-0">
-              {tenant.name}
-            </Link>
-            <span className="text-muted-foreground shrink-0">{' > '}</span>
-            <span className="text-foreground font-medium truncate">{job.title}</span>
-          </nav>
+          {/* Desktop: breadcrumbs (3-level: Home > City > Job) */}
+          <div className="hidden lg:block">
+            <Breadcrumbs
+              items={[
+                { label: tenant.name, href: '/' },
+                ...(citySlug && job.city
+                  ? [{ label: `Vacatures in ${job.city}`, href: `/vacatures/${citySlug}` }]
+                  : []),
+                { label: job.title },
+              ]}
+            />
+          </div>
 
           <div className="flex items-center gap-1">
             <Suspense fallback={<div className="h-10 w-10" />}>

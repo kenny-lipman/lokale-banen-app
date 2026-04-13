@@ -215,6 +215,9 @@ importers:
       '@clerk/nextjs':
         specifier: ^7.0.0
         version: 7.0.12(next@16.2.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@lokale-banen/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@lokale-banen/shared':
         specifier: workspace:*
         version: link:../../packages/shared

@@ -9,3 +9,6 @@ export type { WebSiteSchemaInput, WebSiteJsonLd } from './website'
 
 export { buildBreadcrumbSchema } from './breadcrumb'
 export type { BreadcrumbItem, BreadcrumbListJsonLd } from './breadcrumb'
+
+export { buildItemListSchema } from './item-list'
+export type { ItemListSchemaInput, ItemListJsonLd, ItemListItem } from './item-list'

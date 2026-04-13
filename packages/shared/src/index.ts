@@ -14,6 +14,7 @@ export {
   buildOrganizationSchema,
   buildWebSiteSchema,
   buildBreadcrumbSchema,
+  buildItemListSchema,
 } from './schema'
 export type {
   JobPostingSchemaInput,
@@ -24,4 +25,7 @@ export type {
   WebSiteJsonLd,
   BreadcrumbItem,
   BreadcrumbListJsonLd,
+  ItemListSchemaInput,
+  ItemListJsonLd,
+  ItemListItem,
 } from './schema'

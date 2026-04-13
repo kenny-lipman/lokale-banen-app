@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import {
   Globe,
   Linkedin,
@@ -8,6 +9,7 @@ import { parseJobSections } from '@/lib/job-sections'
 import { ContentSection } from './content-section'
 import type { JobPosting } from '@/lib/queries'
 import { JobCard } from './job-card'
+import { slugifyCity } from '@lokale-banen/database'
 
 interface JobDetailProps {
   job: JobPosting
@@ -52,14 +54,20 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
 
       {/* 2. Company + Location */}
       <p className="mb-4">
-        <span className="text-body-medium text-foreground">{companyName}</span>
+        {job.company?.slug ? (
+          <Link href={`/bedrijf/${job.company.slug}`} className="text-body-medium text-foreground hover:text-primary transition-colors">
+            {companyName}
+          </Link>
+        ) : (
+          <span className="text-body-medium text-foreground">{companyName}</span>
+        )}
         {job.city && (
           <>
             <span className="text-muted"> &middot; </span>
-            <span className="text-body text-muted">
+            <Link href={`/vacatures/${slugifyCity(job.city)}`} className="text-body text-muted hover:text-primary transition-colors">
               {job.city}
               {job.state && `, ${job.state}`}
-            </span>
+            </Link>
           </>
         )}
       </p>
@@ -142,7 +150,13 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           className="mt-8 p-4 rounded-lg"
           style={{ backgroundColor: 'var(--background)' }}
         >
-          <h3 className="text-body-medium text-foreground font-semibold">{companyName}</h3>
+          {job.company.slug ? (
+            <Link href={`/bedrijf/${job.company.slug}`} className="text-body-medium text-foreground font-semibold hover:text-primary transition-colors">
+              {companyName}
+            </Link>
+          ) : (
+            <h3 className="text-body-medium text-foreground font-semibold">{companyName}</h3>
+          )}
           {job.company.description && (
             <p className="text-meta text-muted mt-1 line-clamp-3">
               {job.company.description}

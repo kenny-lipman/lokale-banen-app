@@ -2,7 +2,7 @@
 export { createPublicClient, createServiceClient } from './client'
 
 // Slug utilities
-export { generateSlug, extractIdFromSlug } from './slug'
+export { generateSlug, extractIdFromSlug, slugifyCity, generateCompanySlug } from './slug'
 
 // Markdown conversion
 export { htmlToMarkdown } from './markdown'

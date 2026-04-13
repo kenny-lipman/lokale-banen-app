@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { headers } from 'next/headers'
 import { createPublicClient } from '@/lib/supabase'
+import { getCitiesWithJobCounts } from '@/lib/queries'
 
 /**
  * Dynamic sitemap generation per tenant.
@@ -49,6 +50,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/privacy`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
     { url: `${baseUrl}/voorwaarden`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
   ]
+
+  // City landing pages
+  const cities = await getCitiesWithJobCounts(tenant.id)
+  for (const { slug } of cities) {
+    entries.push({
+      url: `${baseUrl}/vacatures/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
+    })
+  }
+
+  // Company pages (companies with active jobs on this tenant)
+  const { data: companySlugs } = await supabase
+    .from('job_postings')
+    .select('companies!company_id ( slug )')
+    .eq('platform_id', tenant.id)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .not('company_id', 'is', null)
+    .limit(50000)
+
+  if (companySlugs) {
+    const uniqueSlugs = new Set<string>()
+    for (const row of companySlugs as Record<string, unknown>[]) {
+      const company = Array.isArray(row.companies) ? row.companies[0] : row.companies
+      const slug = (company as { slug?: string } | null)?.slug
+      if (slug && !uniqueSlugs.has(slug)) {
+        uniqueSlugs.add(slug)
+        entries.push({
+          url: `${baseUrl}/bedrijf/${slug}`,
+          lastModified: new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.6,
+        })
+      }
+    }
+  }
 
   if (jobs) {
     for (const job of jobs) {

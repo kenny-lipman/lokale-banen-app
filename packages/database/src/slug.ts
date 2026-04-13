@@ -29,6 +29,33 @@ function slugify(text: string): string {
 }
 
 /**
+ * Slugify a city name for URL use. Pure text transform, no ID suffix.
+ * Deterministic: same input always produces same output.
+ *
+ * @example
+ * slugifyCity('Naaldwijk')    // => 'naaldwijk'
+ * slugifyCity("'s-Gravenhage") // => 's-gravenhage' (apostrophe stripped)
+ * slugifyCity('Den Haag')     // => 'den-haag'
+ */
+export function slugifyCity(cityName: string): string {
+  return slugify(cityName)
+}
+
+/**
+ * Generate a URL-safe slug for a company from name + UUID.
+ * Format: `{name-kebab}-{short-id}`
+ *
+ * @example
+ * generateCompanySlug('Westland Bloemen B.V.', 'a1b2c3d4-e5f6-...')
+ * // => 'westland-bloemen-bv-a1b2c3d4'
+ */
+export function generateCompanySlug(name: string, id: string): string {
+  const nameSlug = slugify(name)
+  const shortId = id.replace(/-/g, '').slice(0, 8)
+  return `${nameSlug}-${shortId}`
+}
+
+/**
  * Extract the 8-char short ID from the end of a slug.
  * Returns null if the slug doesn't end with a valid hex ID.
  *
