@@ -135,17 +135,18 @@ export default function BewerkVacaturePage() {
     searchCompanies("")
   }, [searchCompanies])
 
-  // Load platforms
+  // Load platforms via authenticated API
   useEffect(() => {
     async function fetchPlatforms() {
       try {
-        const { createClient } = await import("@/lib/supabase")
-        const supabase = createClient()
-        const { data } = await supabase
-          .from("platforms")
-          .select("id, regio_platform")
-          .order("regio_platform")
-        if (data) setPlatforms(data)
+        const res = await authFetch("/api/review/platforms")
+        const { data } = await res.json()
+        if (data) {
+          setPlatforms(data.map((p: { id: string; regio_platform: string }) => ({
+            id: p.id,
+            regio_platform: p.regio_platform,
+          })))
+        }
       } catch {
         // Silently fail
       }

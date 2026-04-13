@@ -21,38 +21,20 @@ async function getHandler(_request: NextRequest, _authResult: AuthResult) {
       )
     }
 
-    // Get approved vacancy counts per platform
-    const { data: counts, error: countError } = await supabase
-      .rpc("exec_sql", {
-        sql: `
-          SELECT platform_id, COUNT(*)::int as count
-          FROM job_postings
-          WHERE review_status = 'approved' AND platform_id IS NOT NULL
-          GROUP BY platform_id
-        `,
-      })
-      .catch(async () => {
-        // Fallback: manual count via individual queries
-        return { data: null, error: null }
-      })
+    // Get approved vacancy counts per platform in a single query
+    const { data: counts } = await supabase
+      .from("job_postings")
+      .select("platform_id")
+      .eq("review_status", "approved")
+      .not("platform_id", "is", null)
 
-    // Build count map
+    // Build count map in-memory
     const countMap: Record<string, number> = {}
-    if (Array.isArray(counts)) {
+    if (counts) {
       for (const row of counts) {
-        countMap[row.platform_id] = row.count
-      }
-    }
-
-    // If rpc failed, get counts the regular way
-    if (!Array.isArray(counts) && platforms) {
-      for (const platform of platforms) {
-        const { count } = await supabase
-          .from("job_postings")
-          .select("*", { count: "exact", head: true })
-          .eq("review_status", "approved")
-          .eq("platform_id", platform.id)
-        countMap[platform.id] = count || 0
+        if (row.platform_id) {
+          countMap[row.platform_id] = (countMap[row.platform_id] || 0) + 1
+        }
       }
     }
 

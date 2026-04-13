@@ -59,7 +59,19 @@ async function postHandler(
       )
     }
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "png"
+    const mimeToExt: Record<string, string> = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/svg+xml": "svg",
+      "image/webp": "webp",
+    }
+    const ext = mimeToExt[file.type]
+    if (!ext) {
+      return NextResponse.json(
+        { error: `Ongeldig bestandstype: ${file.type}. Toegestaan: PNG, JPG, SVG, WebP` },
+        { status: 400 }
+      )
+    }
     const path = `${id}/logo.${ext}`
 
     // Convert File to ArrayBuffer for Supabase upload

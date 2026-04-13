@@ -90,21 +90,18 @@ export default function ReviewPage() {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Fetch platforms for dropdown
+  // Fetch platforms for dropdown via authenticated API
   useEffect(() => {
     async function fetchPlatforms() {
       try {
-        const res = await authFetch("/api/companies?type=platforms")
-        // Fallback: fetch from our custom endpoint or direct
-        const platformRes = await authFetch("/api/review?page=1&limit=1&status=all")
-        // Just get platforms list separately
-        const { createClient } = await import("@/lib/supabase")
-        const supabase = createClient()
-        const { data } = await supabase
-          .from("platforms")
-          .select("id, regio_platform")
-          .order("regio_platform")
-        if (data) setPlatforms(data)
+        const res = await authFetch("/api/review/platforms")
+        const { data } = await res.json()
+        if (data) {
+          setPlatforms(data.map((p: { id: string; regio_platform: string }) => ({
+            id: p.id,
+            regio_platform: p.regio_platform,
+          })))
+        }
       } catch {
         // Silently fail, platforms dropdown will be empty
       }
