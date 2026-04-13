@@ -26,6 +26,10 @@ export function JobCard({
   const companyName = job.company?.name || 'Onbekend bedrijf'
   const linkHref = href || `/vacature/${job.slug || job.id}`
 
+  // Check if job is published within the last 3 days
+  const isNew = job.published_at &&
+    (Date.now() - new Date(job.published_at).getTime()) < 3 * 24 * 60 * 60 * 1000
+
   // Strip HTML for description preview
   const rawDesc = (job.description || '')
     .replace(/<[^>]+>/g, '')
@@ -56,6 +60,11 @@ export function JobCard({
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-card-title text-foreground line-clamp-2">
             {job.title}
+            {isNew && (
+              <span className="inline-flex items-center ml-1.5 px-1.5 py-0.5 rounded-full text-caption bg-amber-50 text-amber-800 border border-amber-200 align-middle">
+                Nieuw
+              </span>
+            )}
           </h3>
           <ArrowRight
             className="shrink-0 h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150 mt-0.5"
@@ -107,6 +116,11 @@ export function JobCard({
       {/* Title: 16px/600 */}
       <h3 className="text-card-title text-foreground line-clamp-2">
         {job.title}
+        {isNew && (
+          <span className="inline-flex items-center ml-1.5 px-1.5 py-0.5 rounded-full text-caption bg-amber-50 text-amber-800 border border-amber-200 align-middle">
+            Nieuw
+          </span>
+        )}
       </h3>
 
       {/* Company + Location — mt 4px */}

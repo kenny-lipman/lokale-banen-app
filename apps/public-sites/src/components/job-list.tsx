@@ -3,6 +3,7 @@ import { getApprovedJobs, type JobFilter } from '@/lib/queries'
 import { JobCard } from './job-card'
 import { NoResultsState } from './job-detail-panel'
 import { JobListSkeleton } from './job-list-skeleton'
+import { SortSelect } from './sort-select'
 import Link from 'next/link'
 
 interface JobListProps {
@@ -38,6 +39,7 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
   if (filter.query) baseParams.set('q', filter.query)
   if (filter.location) baseParams.set('location', filter.location)
   if (filter.type && filter.type !== 'alle') baseParams.set('type', filter.type)
+  if (filter.sort && filter.sort !== 'newest') baseParams.set('sort', filter.sort)
 
   // Build next page params
   const nextParams = new URLSearchParams(baseParams)
@@ -45,11 +47,12 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
 
   return (
     <div>
-      {/* Result count */}
-      <div className="px-4 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <p className="text-meta text-muted">
+      {/* Result count + sort */}
+      <div className="flex items-center justify-between px-4 lg:px-6 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <p className="text-body-medium text-muted">
           {total} vacature{total !== 1 ? 's' : ''} gevonden
         </p>
+        <SortSelect current={filter.sort || 'newest'} />
       </div>
 
       {/* Desktop: list items for split-view */}

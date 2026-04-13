@@ -10,17 +10,20 @@ import {
 } from 'lucide-react'
 import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
+import { ShareButtons } from './share-buttons'
 import Link from 'next/link'
 
 interface JobDetailPanelProps {
   job: JobPosting
+  tenantName?: string
+  tenantDomain?: string
 }
 
 /**
  * Detail panel for the right side of the split-view.
  * Padding: 24px 32px, max-width 640px.
  */
-export function JobDetailPanel({ job }: JobDetailPanelProps) {
+export function JobDetailPanel({ job, tenantName, tenantDomain }: JobDetailPanelProps) {
   const companyName = job.company?.name || 'Onbekend bedrijf'
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
   const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
@@ -36,8 +39,26 @@ export function JobDetailPanel({ job }: JobDetailPanelProps) {
   }
   if (job.education_level) metaItems.push(job.education_level)
 
+  const slug = job.slug || job.id
+  const shareUrl = tenantDomain ? `https://${tenantDomain}/vacature/${slug}` : ''
+
   return (
     <article className="py-6 px-8 max-w-content">
+      {/* Breadcrumbs */}
+      {tenantName && (
+        <nav className="flex items-center gap-1 text-meta mb-4 min-w-0" aria-label="Breadcrumb">
+          <Link href="/" className="text-muted hover:text-primary transition-colors shrink-0">
+            {tenantName}
+          </Link>
+          <span className="text-muted-foreground shrink-0">{' > '}</span>
+          <Link href="/" className="text-muted hover:text-primary transition-colors shrink-0">
+            Vacatures
+          </Link>
+          <span className="text-muted-foreground shrink-0">{' > '}</span>
+          <span className="text-foreground font-medium truncate">{job.title}</span>
+        </nav>
+      )}
+
       {/* Expired banner */}
       {isExpired && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-5">
@@ -107,6 +128,12 @@ export function JobDetailPanel({ job }: JobDetailPanelProps) {
             </button>
           )}
         </div>
+        {/* Share buttons */}
+        {shareUrl && (
+          <div className="mt-3">
+            <ShareButtons url={shareUrl} title={job.title} />
+          </div>
+        )}
       </div>
 
       {/* 5. Content sections (markdown) — mt 24px */}
