@@ -1,7 +1,9 @@
 import { getTenant } from '@/lib/tenant'
+import { getJobBySlug } from '@/lib/queries'
 import { TenantHeader } from '@/components/tenant-header'
 import { FilterChips } from '@/components/filter-chips'
 import { JobList } from '@/components/job-list'
+import { JobDetailPanel, EmptyDetailState } from '@/components/job-detail-panel'
 import type { JobFilter } from '@/lib/queries'
 import Link from 'next/link'
 
@@ -11,6 +13,7 @@ interface HomePageProps {
     location?: string
     type?: string
     page?: string
+    selected?: string
   }>
 }
 
@@ -22,8 +25,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-h1 font-bold mb-2">Domein niet gevonden</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-display mb-2">Domein niet gevonden</h1>
+          <p className="text-body text-muted-foreground">
             Dit domein is niet gekoppeld aan een platform.
           </p>
         </div>
@@ -43,6 +46,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   if (params.q) baseParams.q = params.q
   if (params.location) baseParams.location = params.location
 
+  // Fetch selected job for split-view detail panel (desktop)
+  const selectedSlug = params.selected || null
+  const selectedJob = selectedSlug
+    ? await getJobBySlug(tenant.id, selectedSlug)
+    : null
+
   return (
     <div className="flex flex-col min-h-screen">
       <TenantHeader
@@ -51,29 +60,47 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         defaultLocation={params.location}
       />
 
-      <main className="flex-1 container py-4 sm:py-6">
-        {/* Filter chips */}
-        <div className="mb-4">
+      {/* Filter chips bar */}
+      <div className="border-b border-border bg-white">
+        <div className="container py-2">
           <FilterChips
             activeType={params.type || 'alle'}
             baseParams={baseParams}
           />
         </div>
+      </div>
 
-        {/* Job list with Suspense */}
-        <JobList tenantId={tenant.id} filter={filter} />
-      </main>
+      {/* Main content: split-view on desktop, list-only on mobile */}
+      <div className="flex-1 flex flex-col lg:flex-row">
+        {/* Left: job list */}
+        <div className="w-full lg:w-[380px] lg:shrink-0 lg:border-r border-border lg:overflow-y-auto lg:split-list bg-white">
+          <JobList
+            tenantId={tenant.id}
+            filter={filter}
+            selectedSlug={selectedSlug}
+          />
+        </div>
 
-      {/* Footer with SEO links */}
-      <footer className="border-t bg-muted/30">
-        <div className="container py-8 sm:py-12">
+        {/* Right: detail panel (desktop only) */}
+        <div className="hidden lg:block flex-1 overflow-y-auto split-detail bg-white">
+          {selectedJob ? (
+            <JobDetailPanel job={selectedJob} />
+          ) : (
+            <EmptyDetailState />
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-surface">
+        <div className="container py-6 sm:py-8">
           {/* SEO internal links */}
-          <div className="grid gap-6 sm:grid-cols-2 mb-8">
+          <div className="grid gap-4 sm:grid-cols-2 mb-6">
             <div>
               <h3 className="font-semibold text-meta text-foreground mb-2">
                 Vacatures per plaats
               </h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
                 {['Naaldwijk', 'Maasdijk', 'Wateringen', 'De Lier', "'s-Gravenzande"].map(
                   (city) => (
                     <Link
@@ -91,7 +118,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <h3 className="font-semibold text-meta text-foreground mb-2">
                 Vacatures per sector
               </h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
                 {['Tuinbouw', 'Logistiek', 'Techniek', 'Zorg', 'Horeca'].map(
                   (sector) => (
                     <Link
@@ -119,7 +146,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </a>
             </p>
             <p className="text-meta text-muted-foreground">
-              &copy; {new Date().getFullYear()} Lokale Banen
+              &copy; {new Date().getFullYear()} {tenant.name}
             </p>
           </div>
         </div>

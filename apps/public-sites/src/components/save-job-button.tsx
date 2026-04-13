@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { Heart } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface SaveJobButtonProps {
@@ -38,7 +37,6 @@ export function SaveJobButton({
     startTransition(() => {
       const newSaved = !saved
 
-      // LocalStorage for all users (anonymous mode)
       try {
         const savedJobs: string[] = JSON.parse(
           localStorage.getItem('saved_jobs') || '[]'
@@ -54,7 +52,6 @@ export function SaveJobButton({
         localStorage.setItem('saved_jobs', JSON.stringify(savedJobs))
         setSaved(newSaved)
 
-        // Show account prompt after first save
         if (newSaved && !showPrompt) {
           setShowPrompt(true)
           setTimeout(() => setShowPrompt(false), 5000)
@@ -67,13 +64,11 @@ export function SaveJobButton({
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
+      <button
         onClick={handleToggle}
         disabled={isPending}
         aria-label={saved ? 'Verwijder uit opgeslagen' : 'Vacature opslaan'}
-        className="h-11 w-11"
+        className="inline-flex items-center justify-center h-10 w-10 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       >
         <Heart
           className={cn(
@@ -83,12 +78,12 @@ export function SaveJobButton({
               : 'text-muted-foreground hover:text-red-400'
           )}
         />
-      </Button>
+      </button>
 
       {/* Anonymous save prompt */}
       {showPrompt && (
-        <div className="absolute right-0 top-full mt-2 z-50 w-64 rounded-lg border bg-background p-3 shadow-lg">
-          <p className="text-sm text-muted-foreground">
+        <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-lg border border-border bg-white p-3 shadow-lg">
+          <p className="text-meta text-muted-foreground">
             <a href="/sign-up" className="font-medium text-primary hover:underline">
               Maak een account aan
             </a>{' '}

@@ -11,9 +11,8 @@ interface TenantHeaderProps {
 }
 
 /**
- * Tenant-branded header with logo, inline search (desktop), and user nav.
- * Sticky at top, 56px on mobile, 72px on desktop (with inline search).
- * Search bar appears inline on desktop, below header on mobile.
+ * Compact tenant-branded header. Sticky, max ~120px.
+ * Logo left, search dominant center, account right.
  */
 export function TenantHeader({
   tenant,
@@ -22,26 +21,26 @@ export function TenantHeader({
   defaultLocation,
 }: TenantHeaderProps) {
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
+    <header className="sticky top-0 z-50 bg-white border-b border-border">
       <div className="container">
         {/* Main header row */}
-        <div className="flex items-center justify-between h-14 sm:h-[72px]">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center justify-between h-14">
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
             {tenant.logo_url ? (
               <img
                 src={tenant.logo_url}
                 alt=""
-                className="h-8 w-auto"
+                className="h-7 w-auto"
                 aria-hidden="true"
               />
             ) : (
-              <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-                <span className="text-xs font-bold text-primary-foreground">
+              <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
+                <span className="text-[11px] font-bold text-primary-foreground">
                   {(tenant.name || 'LB').slice(0, 2).toUpperCase()}
                 </span>
               </div>
             )}
-            <span className="font-semibold text-base hidden sm:inline">
+            <span className="font-semibold text-body hidden sm:inline text-foreground">
               {tenant.hero_title || tenant.name}
             </span>
           </Link>

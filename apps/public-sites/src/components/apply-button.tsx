@@ -1,7 +1,6 @@
 'use client'
 
 import { ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
 interface ApplyButtonProps {
   jobUrl: string | null
@@ -17,20 +16,18 @@ interface ApplyButtonProps {
 export function ApplyButton({ jobUrl, jobTitle, isExpired }: ApplyButtonProps) {
   if (isExpired || !jobUrl) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background p-3 sm:static sm:border-0 sm:p-0 sm:mt-6">
-        <Button
-          size="xl"
-          className="w-full sm:w-auto"
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white p-3 sm:static sm:border-0 sm:p-0 sm:mt-6">
+        <button
           disabled
+          className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-6 rounded-lg bg-muted text-muted-foreground font-semibold text-body cursor-not-allowed"
         >
           {isExpired ? 'Vacature verlopen' : 'Geen sollicitatielink beschikbaar'}
-        </Button>
+        </button>
       </div>
     )
   }
 
   function handleClick() {
-    // Track the application click via beacon (non-blocking)
     if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
       const data = JSON.stringify({
         jobTitle,
@@ -42,22 +39,17 @@ export function ApplyButton({ jobUrl, jobTitle, isExpired }: ApplyButtonProps) {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background p-3 shadow-lg sm:static sm:border-0 sm:p-0 sm:mt-6 sm:shadow-none">
-      <Button
-        size="xl"
-        className="w-full sm:w-auto"
-        asChild
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white p-3 shadow-lg sm:static sm:border-0 sm:p-0 sm:mt-6 sm:shadow-none">
+      <a
+        href={jobUrl}
+        target="_blank"
+        rel="noopener noreferrer"
         onClick={handleClick}
+        className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-body transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <a
-          href={jobUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Solliciteer
-          <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-        </a>
-      </Button>
+        Solliciteer
+        <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
+      </a>
     </div>
   )
 }

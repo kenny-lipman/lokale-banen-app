@@ -1,6 +1,5 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
 import { User } from 'lucide-react'
 import Link from 'next/link'
 
@@ -13,16 +12,16 @@ const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 export function UserNav() {
   if (!CLERK_ENABLED) {
     return (
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/sign-in" className="flex items-center gap-2">
-          <User className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Inloggen</span>
-        </Link>
-      </Button>
+      <Link
+        href="/sign-in"
+        className="inline-flex items-center gap-2 text-body text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <User className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden sm:inline">Inloggen</span>
+      </Link>
     )
   }
 
-  // When Clerk is available, use a dynamic wrapper
   return <ClerkUserNav />
 }
 
@@ -31,8 +30,6 @@ export function UserNav() {
  * Only renders when CLERK_ENABLED is true.
  */
 function ClerkUserNav() {
-  // Dynamic import approach: use a simple fallback since
-  // we can't use top-level await in client components
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useUser, UserButton } = require('@clerk/nextjs')
@@ -43,7 +40,7 @@ function ClerkUserNav() {
     if (isSignedIn) {
       return (
         <UserButton
-          appearance={{ elements: { avatarBox: 'h-9 w-9' } }}
+          appearance={{ elements: { avatarBox: 'h-8 w-8' } }}
           userProfileMode="navigation"
           userProfileUrl="/account/profiel"
         />
@@ -54,11 +51,12 @@ function ClerkUserNav() {
   }
 
   return (
-    <Button variant="ghost" size="sm" asChild>
-      <Link href="/sign-in" className="flex items-center gap-2">
-        <User className="h-4 w-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Inloggen</span>
-      </Link>
-    </Button>
+    <Link
+      href="/sign-in"
+      className="inline-flex items-center gap-2 text-body text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <User className="h-4 w-4" aria-hidden="true" />
+      <span className="hidden sm:inline">Inloggen</span>
+    </Link>
   )
 }

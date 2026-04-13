@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import { hexToHsl } from '@/lib/utils'
 import './globals.css'
 
 const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-jakarta',
   display: 'swap',
   weight: ['400', '500', '600', '700'],
 })
@@ -54,7 +54,7 @@ export default async function RootLayout({
   const primaryHsl = hexToHsl(tenant?.primary_color || '#0066cc')
 
   const body = (
-    <html lang="nl" className={inter.variable}>
+    <html lang="nl" className={jakarta.variable}>
       <head>
         <style
           dangerouslySetInnerHTML={{
@@ -62,7 +62,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen flex flex-col">
+      <body className="min-h-screen flex flex-col font-sans">
         {children}
       </body>
     </html>
@@ -74,7 +74,7 @@ export default async function RootLayout({
       const { ClerkProvider } = await import('@clerk/nextjs')
       const { nlNL } = await import('@clerk/localizations')
       return (
-        <html lang="nl" className={inter.variable}>
+        <html lang="nl" className={jakarta.variable}>
           <head>
             <style
               dangerouslySetInnerHTML={{
@@ -82,16 +82,16 @@ export default async function RootLayout({
               }}
             />
           </head>
-          <body className="min-h-screen flex flex-col">
+          <body className="min-h-screen flex flex-col font-sans">
             <ClerkProvider
               localization={nlNL}
               appearance={{
                 variables: {
                   colorPrimary: tenant?.primary_color || '#0066cc',
-                  colorText: 'hsl(222 47% 11%)',
+                  colorText: 'hsl(220 20% 10%)',
                   colorInputBackground: 'hsl(0 0% 100%)',
-                  colorInputText: 'hsl(222 47% 11%)',
-                  fontFamily: 'var(--font-inter)',
+                  colorInputText: 'hsl(220 20% 10%)',
+                  fontFamily: 'var(--font-jakarta)',
                   borderRadius: '8px',
                 },
               }}

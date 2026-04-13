@@ -7,22 +7,21 @@ import {
   Linkedin,
   MapPin,
   GraduationCap,
+  ExternalLink,
 } from 'lucide-react'
 import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
-import { JobCard } from './job-card'
 
-interface JobDetailProps {
+interface JobDetailPanelProps {
   job: JobPosting
-  relatedJobs: JobPosting[]
 }
 
 /**
- * Full job detail content for the dedicated /vacature/[slug] page.
- * Used on mobile and for direct link access.
- * Question-based H2 sections for GEO optimization.
+ * Detail panel for the right side of the split-view.
+ * Renders inline — no page navigation.
+ * Clean typography, salary callout, structured sections.
  */
-export function JobDetail({ job, relatedJobs }: JobDetailProps) {
+export function JobDetailPanel({ job }: JobDetailPanelProps) {
   const companyName = job.company?.name || 'Onbekend bedrijf'
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
   const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
@@ -31,7 +30,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
   const sections = parseJobSections(rawContent)
 
   return (
-    <article className="max-w-3xl mx-auto">
+    <article className="px-6 py-6 lg:px-8 lg:py-8 max-w-3xl">
       {/* Expired banner */}
       {isExpired && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-5">
@@ -41,7 +40,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
         </div>
       )}
 
-      {/* Header: title + company */}
+      {/* Title + company */}
       <header className="mb-5">
         <h1 className="text-h1">{job.title}</h1>
         <p className="text-body text-muted-foreground mt-1">
@@ -55,7 +54,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
         </p>
       </header>
 
-      {/* Info callout box */}
+      {/* Salary + info callout */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-5">
         <div className="grid grid-cols-2 gap-2.5 text-body">
           {job.salary && (
@@ -81,7 +80,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           {job.published_at && (
             <div className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>Gepost: {formatRelative(job.published_at)}</span>
+              <span>{formatRelative(job.published_at)}</span>
             </div>
           )}
           {job.working_hours_min && job.working_hours_max && (
@@ -98,6 +97,31 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           )}
         </div>
       </div>
+
+      {/* CTA buttons */}
+      <div className="flex items-center gap-3 mb-6">
+        {job.url && !isExpired ? (
+          <a
+            href={job.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-body transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Solliciteer
+            <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
+          </a>
+        ) : (
+          <button
+            disabled
+            className="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-muted text-muted-foreground font-semibold text-body cursor-not-allowed"
+          >
+            {isExpired ? 'Vacature verlopen' : 'Geen sollicitatielink'}
+          </button>
+        )}
+      </div>
+
+      {/* Separator */}
+      <div className="h-px bg-border mb-6" />
 
       {/* Content sections */}
       <div className="space-y-6">
@@ -131,6 +155,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           </section>
         )}
 
+        {/* Fallback: if no structured sections, show full description */}
         {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && rawContent && (
           <section>
             <h2 className="text-h2 border-b border-border pb-2 mb-3">Over deze vacature</h2>
@@ -183,24 +208,31 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           </section>
         </>
       )}
-
-      {/* Related jobs */}
-      {relatedJobs.length > 0 && (
-        <>
-          <div className="h-px bg-border my-6" />
-          <section>
-            <h2 className="text-h2 mb-3">Vergelijkbare banen</h2>
-            <div className="grid gap-3">
-              {relatedJobs.map((relatedJob) => (
-                <JobCard key={relatedJob.id} job={relatedJob} variant="card" />
-              ))}
-            </div>
-          </section>
-        </>
-      )}
     </article>
   )
 }
+
+/**
+ * Empty state when no job is selected in split-view.
+ */
+export function EmptyDetailState() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center px-8 py-20">
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+        <Briefcase className="h-7 w-7 text-muted-foreground" />
+      </div>
+      <p className="text-h2 text-foreground mb-1">Kies een vacature</p>
+      <p className="text-body text-muted-foreground">
+        Klik op een vacature uit de lijst om de details te bekijken.
+      </p>
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+// Section parsing (copied from job-detail.tsx, keep in sync)
+// ---------------------------------------------------------------------------
 
 interface JobSections {
   watGaJeDoen: string | null

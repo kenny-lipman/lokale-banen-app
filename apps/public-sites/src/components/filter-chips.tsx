@@ -5,8 +5,8 @@ const FILTERS = [
   { label: 'Alle', value: 'alle' },
   { label: 'Fulltime', value: 'fulltime' },
   { label: 'Parttime', value: 'parttime' },
+  { label: 'Tijdelijk', value: 'tijdelijk' },
   { label: 'Stage', value: 'stage' },
-  { label: 'Thuiswerk', value: 'thuiswerk' },
 ] as const
 
 interface FilterChipsProps {
@@ -17,13 +17,13 @@ interface FilterChipsProps {
 /**
  * Horizontal scrollable filter chips for employment type.
  * Each chip is a Link that updates the URL searchParams.
- * No JS state -- server re-renders with new filter.
+ * Small (h-8), compact. Active = filled primary. Inactive = transparent + border.
  */
 export function FilterChips({ activeType, baseParams = {} }: FilterChipsProps) {
   return (
     <nav
       aria-label="Filter op dienstverband"
-      className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1"
+      className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 py-1"
     >
       {FILTERS.map((filter) => {
         const isActive =
@@ -44,11 +44,10 @@ export function FilterChips({ activeType, baseParams = {} }: FilterChipsProps) {
             key={filter.value}
             href={href}
             className={cn(
-              'inline-flex items-center whitespace-nowrap rounded-sm border px-3 py-1.5 text-sm font-medium transition-colors',
-              'min-h-[36px] min-w-[44px] justify-center',
+              'inline-flex items-center whitespace-nowrap rounded-md px-3 h-8 text-xs font-medium transition-colors',
               isActive
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-transparent border border-border text-foreground hover:bg-muted'
             )}
             aria-current={isActive ? 'true' : undefined}
           >

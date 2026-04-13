@@ -1,103 +1,144 @@
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Clock, MapPin } from 'lucide-react'
-import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
+import { cn, formatRelative, formatEmploymentLabel } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 
 interface JobCardProps {
   job: JobPosting
+  /** Compact list-item style for split-view (no card border/shadow) */
+  variant?: 'list' | 'card'
+  /** Currently selected in split-view */
+  isSelected?: boolean
+  /** URL for the card link */
+  href?: string
 }
 
 /**
- * Full job card implementation following DESIGN.md section 10.
- * Entire card is a link (large tap target). Hover lifts with shadow.
- * Company avatar with fallback initials, salary highlight, "Nieuw" badge.
+ * Job card with two variants:
+ * - "list": compact list item for desktop split-view (no border/shadow, divider between items)
+ * - "card": full card for mobile (subtle border, rounded)
+ *
+ * No company logo/avatar in either variant to avoid layout shift.
  */
-export function JobCard({ job }: JobCardProps) {
+export function JobCard({
+  job,
+  variant = 'card',
+  isSelected = false,
+  href,
+}: JobCardProps) {
   const isNew =
     job.published_at &&
     Date.now() - new Date(job.published_at).getTime() < 3 * 24 * 60 * 60 * 1000
 
   const companyName = job.company?.name || 'Onbekend bedrijf'
-  const companyInitials = companyName.slice(0, 2).toUpperCase()
-  const logoUrl = job.company?.logo_url
-
-  // Build employment display from employment field and job_type array
   const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
+  const linkHref = href || `/vacature/${job.slug || job.id}`
 
+  if (variant === 'list') {
+    return (
+      <Link
+        href={linkHref}
+        className={cn(
+          'block px-4 py-3 border-b border-border transition-colors',
+          isSelected
+            ? 'bg-primary/5 border-l-[3px] border-l-primary'
+            : 'hover:bg-muted/50 border-l-[3px] border-l-transparent'
+        )}
+        prefetch={false}
+      >
+        {/* Title + New badge */}
+        <div className="flex items-start justify-between gap-2">
+          <h3 className={cn(
+            'text-[14px] font-semibold leading-tight line-clamp-2',
+            isSelected ? 'text-primary' : 'text-foreground'
+          )}>
+            {job.title}
+          </h3>
+          {isNew && (
+            <span className="shrink-0 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+              Nieuw
+            </span>
+          )}
+        </div>
+
+        {/* Company + Location */}
+        <p className="text-[13px] text-muted-foreground mt-1">
+          {companyName}
+          {job.city && <span> &middot; {job.city}</span>}
+        </p>
+
+        {/* Salary + Employment */}
+        <div className="flex items-center gap-1.5 mt-1.5">
+          {job.salary && (
+            <span className="text-[13px] font-semibold text-salary tabular-nums">
+              {job.salary}
+            </span>
+          )}
+          {job.salary && employmentLabel && (
+            <span className="text-muted-foreground">&middot;</span>
+          )}
+          {employmentLabel && (
+            <span className="text-[13px] text-muted-foreground">{employmentLabel}</span>
+          )}
+        </div>
+
+        {/* Time ago */}
+        {job.published_at && (
+          <p className="text-meta text-muted-foreground mt-1.5">
+            {formatRelative(job.published_at)}
+          </p>
+        )}
+      </Link>
+    )
+  }
+
+  // Card variant (mobile)
   return (
     <Link
-      href={`/vacature/${job.slug || job.id}`}
+      href={linkHref}
       className="block group"
       prefetch={false}
     >
-      <Card className="transition-all hover:shadow-md hover:border-border">
-        <CardContent className="p-5 sm:p-6">
-          <div className="flex gap-4">
-            {/* Company avatar */}
-            <div className="h-12 w-12 rounded-md shrink-0 overflow-hidden bg-muted flex items-center justify-center">
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt={companyName}
-                  className="h-full w-full object-contain"
-                  loading="lazy"
-                />
-              ) : (
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {companyInitials}
-                </span>
-              )}
-            </div>
+      <div className="rounded-md border border-border bg-card p-4 transition-colors group-hover:border-muted-foreground/20">
+        {/* Title + New badge */}
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-[14px] font-semibold leading-tight text-foreground group-hover:text-primary transition-colors line-clamp-2">
+            {job.title}
+          </h3>
+          {isNew && (
+            <span className="shrink-0 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+              Nieuw
+            </span>
+          )}
+        </div>
 
-            <div className="flex-1 min-w-0">
-              {/* Title + Nieuw badge */}
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-base leading-tight tracking-tight group-hover:text-primary transition-colors line-clamp-2">
-                  {job.title}
-                </h3>
-                {isNew && (
-                  <Badge variant="new" className="shrink-0">
-                    Nieuw
-                  </Badge>
-                )}
-              </div>
+        {/* Company + Location */}
+        <p className="text-[13px] text-muted-foreground mt-1">
+          {companyName}
+          {job.city && <span> &middot; {job.city}</span>}
+        </p>
 
-              {/* Company + location */}
-              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                <span className="font-medium">{companyName}</span>
-                {job.city && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{job.city}</span>
-                  </>
-                )}
-              </p>
+        {/* Salary + Employment */}
+        <div className="flex items-center gap-1.5 mt-1.5">
+          {job.salary && (
+            <span className="text-[13px] font-semibold text-salary tabular-nums">
+              {job.salary}
+            </span>
+          )}
+          {job.salary && employmentLabel && (
+            <span className="text-muted-foreground">&middot;</span>
+          )}
+          {employmentLabel && (
+            <span className="text-[13px] text-muted-foreground">{employmentLabel}</span>
+          )}
+        </div>
 
-              {/* Salary */}
-              {job.salary && (
-                <p className="text-sm font-semibold text-emerald-700 mt-2 tabular-nums">
-                  {job.salary}
-                </p>
-              )}
-
-              {/* Meta: employment type + time */}
-              <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{employmentLabel}</span>
-                {job.published_at && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span>{formatRelative(job.published_at)}</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Time ago */}
+        {job.published_at && (
+          <p className="text-meta text-muted-foreground mt-1.5">
+            {formatRelative(job.published_at)}
+          </p>
+        )}
+      </div>
     </Link>
   )
 }

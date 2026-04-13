@@ -9,7 +9,7 @@ const config: Config = {
       center: true,
       padding: '1rem',
       screens: {
-        '2xl': '1200px',
+        '2xl': '1280px',
       },
     },
     extend: {
@@ -19,6 +19,7 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        surface: 'hsl(var(--surface))',
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
@@ -51,12 +52,20 @@ const config: Config = {
         new: 'hsl(var(--new))',
       },
       fontSize: {
-        'display': ['clamp(28px, 1.5rem + 1vw, 36px)', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
-        'h1': ['clamp(24px, 1.3rem + 0.8vw, 32px)', { lineHeight: '1.2', letterSpacing: '-0.02em' }],
-        'h2': ['clamp(18px, 1.05rem + 0.4vw, 20px)', { lineHeight: '1.35' }],
-        'h3': ['clamp(16px, 0.95rem + 0.3vw, 17px)', { lineHeight: '1.4' }],
-        'body': ['clamp(15px, 0.9rem + 0.2vw, 16px)', { lineHeight: '1.55' }],
-        'meta': ['13px', { lineHeight: '1.5' }],
+        /* Display: hero/page titles */
+        'display': ['28px', { lineHeight: '32px', letterSpacing: '-0.03em', fontWeight: '700' }],
+        /* H1: job title in detail */
+        'h1': ['22px', { lineHeight: '28px', letterSpacing: '-0.02em', fontWeight: '700' }],
+        /* H2: section headings */
+        'h2': ['17px', { lineHeight: '24px', fontWeight: '600' }],
+        /* H3: sub-section */
+        'h3': ['15px', { lineHeight: '20px', fontWeight: '600' }],
+        /* Body: main text — compact like Indeed */
+        'body': ['14px', { lineHeight: '20px', fontWeight: '400' }],
+        /* Meta: timestamps, secondary info */
+        'meta': ['12px', { lineHeight: '16px', fontWeight: '500' }],
+        /* Salary display */
+        'salary': ['14px', { lineHeight: '20px', fontWeight: '600' }],
       },
       spacing: {
         'xs': '4px',
@@ -68,7 +77,7 @@ const config: Config = {
         '3xl': '64px',
       },
       borderRadius: {
-        sm: '6px',
+        sm: '4px',
         md: '8px',
         lg: '10px',
         xl: '12px',
@@ -80,7 +89,7 @@ const config: Config = {
         'lg': '0 8px 24px -4px rgb(0 0 0 / 0.12)',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['var(--font-jakarta)', 'system-ui', '-apple-system', 'sans-serif'],
       },
     },
   },

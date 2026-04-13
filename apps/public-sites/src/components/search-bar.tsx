@@ -1,6 +1,4 @@
 import { Search, MapPin } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 
 interface SearchBarProps {
   defaultQuery?: string
@@ -11,7 +9,7 @@ interface SearchBarProps {
 /**
  * Search bar with function + location inputs.
  * Submits as a GET form to keep state in URL searchParams.
- * No client-side JS needed -- pure HTML form submission.
+ * Warm muted background, no border — focus ring only.
  */
 export function SearchBar({
   defaultQuery = '',
@@ -20,32 +18,35 @@ export function SearchBar({
 }: SearchBarProps) {
   return (
     <form action="/" method="GET" className="w-full">
-      <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <input
             type="search"
             name="q"
-            placeholder="Functie of trefwoord"
+            placeholder="Functie, bedrijf of trefwoord"
             defaultValue={defaultQuery}
-            className="pl-9 h-11"
+            className="flex h-10 w-full rounded-lg bg-muted px-3 py-2 pl-9 text-body text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="Zoek op functie of trefwoord"
           />
         </div>
-        <div className="relative sm:w-48">
+        <div className="relative sm:w-44">
           <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <input
             type="text"
             name="location"
             placeholder={tenantRegion || 'Locatie'}
             defaultValue={defaultLocation}
-            className="pl-9 h-11"
+            className="flex h-10 w-full rounded-lg bg-muted px-3 py-2 pl-9 text-body text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="Zoek op locatie"
           />
         </div>
-        <Button type="submit" size="lg" className="h-11 sm:w-auto w-full">
+        <button
+          type="submit"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-body font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto w-full"
+        >
           Zoeken
-        </Button>
+        </button>
       </div>
     </form>
   )

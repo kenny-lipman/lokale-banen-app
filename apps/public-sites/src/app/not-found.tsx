@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 
 /**
@@ -11,16 +10,17 @@ export default function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="text-center">
-        <h1 className="text-4xl font-bold mb-2">404</h1>
-        <p className="text-lg text-muted-foreground mb-6">
+        <h1 className="text-display mb-2">404</h1>
+        <p className="text-body text-muted-foreground mb-6">
           Deze pagina bestaat niet of is verwijderd.
         </p>
-        <Button asChild>
-          <Link href="/" className="inline-flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Terug naar vacatures
-          </Link>
-        </Button>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-primary text-primary-foreground font-semibold text-body transition-colors hover:bg-primary/90"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Terug naar vacatures
+        </Link>
       </div>
     </div>
   )

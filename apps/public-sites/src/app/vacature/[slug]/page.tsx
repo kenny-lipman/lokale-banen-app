@@ -9,7 +9,6 @@ import { JobDetail } from '@/components/job-detail'
 import { ApplyButton } from '@/components/apply-button'
 import { SaveJobButton } from '@/components/save-job-button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Button } from '@/components/ui/button'
 import { ArrowLeft, Share2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -34,7 +33,6 @@ export async function generateMetadata({
       ? `${job.title} bij ${companyName} | ${tenantTitle}`
       : `${job.title} | ${tenantTitle}`)
 
-  // Strip HTML and take first 160 chars for description
   const rawText = (job.seo_description || job.description || '')
     .replace(/<[^>]+>/g, '')
     .replace(/\s+/g, ' ')
@@ -79,7 +77,6 @@ export default async function JobPage({ params }: JobPageProps) {
     notFound()
   }
 
-  // Return 410 Gone for expired jobs
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
 
   const relatedJobs = await getRelatedJobs(tenant.id, job.city, job.id)
@@ -89,22 +86,18 @@ export default async function JobPage({ params }: JobPageProps) {
   const salary = parseSalary(job.salary)
   const employmentType = mapEmploymentType(job.employment)
 
-  // sameAs links for the hiring organization
   const sameAs: string[] = []
   if (job.company?.website) sameAs.push(job.company.website)
   if (job.company?.linkedin_url) sameAs.push(job.company.linkedin_url)
 
-  // Use job lat/lng (text -> number), fallback to company lat/lng (already numeric)
   const lat = job.latitude ? parseFloat(job.latitude) : (job.company?.latitude ?? null)
   const lng = job.longitude ? parseFloat(job.longitude) : (job.company?.longitude ?? null)
 
-  // Clean description for JSON-LD (strip HTML)
   const cleanDescription = (job.content_md || job.description || '')
     .replace(/<[^>]+>/g, '')
     .replace(/\s+/g, ' ')
     .trim()
 
-  // Default validThrough: end_date, or 60 days from published_at
   const validThrough = job.end_date
     ? new Date(job.end_date).toISOString()
     : job.published_at
@@ -135,7 +128,7 @@ export default async function JobPage({ params }: JobPageProps) {
     salary: salary
       ? { minValue: salary.min, maxValue: salary.max, currency: 'EUR', unitText: salary.unit }
       : null,
-    directApply: !job.url, // directApply only true if we host the application form
+    directApply: !job.url,
     identifier: {
       name: tenant.name,
       value: job.id,
@@ -148,17 +141,18 @@ export default async function JobPage({ params }: JobPageProps) {
       <TenantHeader tenant={tenant} showSearch={false} />
 
       {/* Sub-header with back, share, save */}
-      <div className="border-b bg-background">
-        <div className="container flex items-center justify-between h-12">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/" className="flex items-center gap-1.5">
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              Terug
-            </Link>
-          </Button>
+      <div className="border-b border-border bg-white">
+        <div className="container flex items-center justify-between h-11">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Terug
+          </Link>
           <div className="flex items-center gap-1">
             <ShareButton title={job.title} />
-            <Suspense fallback={<Skeleton className="h-11 w-11 rounded-md" />}>
+            <Suspense fallback={<Skeleton className="h-10 w-10 rounded-md" />}>
               <SaveJobButton jobId={job.id} />
             </Suspense>
           </div>
@@ -190,13 +184,11 @@ export default async function JobPage({ params }: JobPageProps) {
  */
 function ShareButton({ title }: { title: string }) {
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-11 w-11"
+    <button
+      className="inline-flex items-center justify-center h-10 w-10 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       aria-label="Deel deze vacature"
     >
       <Share2 className="h-4 w-4" />
-    </Button>
+    </button>
   )
 }
