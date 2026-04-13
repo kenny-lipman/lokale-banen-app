@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, authResult: AuthResult) {
   try {
     const supabase = createServiceRoleClient()
     const body = await request.json()
@@ -16,13 +17,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { error, count } = await supabase
+    const { data, error } = await supabase
       .from("job_postings")
       .update({
         review_status: "rejected",
         reviewed_at: new Date().toISOString(),
+        reviewed_by: authResult.user?.id || null,
+        published_at: null,
       })
       .in("id", ids)
+      .select("id")
 
     if (error) {
       return NextResponse.json(
@@ -31,12 +35,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const rejected = data?.length || 0
+
     return NextResponse.json({
-      rejected: ids.length,
-      message: `${ids.length} vacature(s) afgekeurd`,
+      rejected,
+      message: `${rejected} vacature(s) afgekeurd`,
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error"
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+export const POST = withAuth(postHandler)

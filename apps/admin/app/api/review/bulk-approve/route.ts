@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
 
-export async function POST(request: NextRequest) {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+async function postHandler(request: NextRequest, authResult: AuthResult) {
   try {
     const supabase = createServiceRoleClient()
     const body = await request.json()
@@ -12,6 +15,15 @@ export async function POST(request: NextRequest) {
     if (!ids || ids.length === 0) {
       return NextResponse.json(
         { error: "No job posting IDs provided" },
+        { status: 400 }
+      )
+    }
+
+    // Validate UUIDs to prevent SQL injection
+    const validIds = ids.filter((id: string) => UUID_REGEX.test(id))
+    if (validIds.length === 0) {
+      return NextResponse.json(
+        { error: "Geen geldige IDs" },
         { status: 400 }
       )
     }
@@ -30,7 +42,7 @@ export async function POST(request: NextRequest) {
           ORDER BY ppl.distance ASC
           LIMIT 1
         )
-        WHERE jp.id = ANY(ARRAY[${ids.map((id) => `'${id}'::uuid`).join(",")}])
+        WHERE jp.id = ANY(ARRAY[${validIds.map((id) => `'${id}'::uuid`).join(",")}])
           AND jp.platform_id IS NULL
           AND jp.zipcode IS NOT NULL
       `,
@@ -42,7 +54,7 @@ export async function POST(request: NextRequest) {
       const { data: jobsNoPlatform } = await supabase
         .from("job_postings")
         .select("id, zipcode")
-        .in("id", ids)
+        .in("id", validIds)
         .is("platform_id", null)
         .not("zipcode", "is", null)
 
@@ -72,7 +84,7 @@ export async function POST(request: NextRequest) {
     const { data: jobsToApprove, error: fetchError } = await supabase
       .from("job_postings")
       .select("id, title, city")
-      .in("id", ids)
+      .in("id", validIds)
 
     if (fetchError) {
       return NextResponse.json(
@@ -99,6 +111,7 @@ export async function POST(request: NextRequest) {
             review_status: "approved",
             published_at: new Date().toISOString(),
             reviewed_at: new Date().toISOString(),
+            reviewed_by: authResult.user?.id || null,
             slug,
           })
           .eq("id", job.id)
@@ -147,3 +160,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+export const POST = withAuth(postHandler)

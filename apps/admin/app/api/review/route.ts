@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _authResult: AuthResult) {
   try {
     const supabase = createServiceRoleClient()
     const { searchParams } = new URL(request.url)
@@ -66,3 +67,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+export const GET = withAuth(getHandler)

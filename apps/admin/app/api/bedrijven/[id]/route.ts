@@ -79,53 +79,48 @@ async function updateBedrijfHandler(
       return NextResponse.json({ success: false, error: 'ID is verplicht' }, { status: 400 })
     }
 
-    const {
-      name,
-      website,
-      description,
-      logo_url,
-      linkedin_url,
-      kvk_number,
-      street,
-      city,
-      zipcode,
-      state,
-      country,
-      phone,
-      industry,
-      size_min,
-      size_max,
-    } = body
+    // Field allowlist to prevent unauthorized field updates
+    const allowedFields = [
+      'name', 'website', 'description', 'logo_url', 'linkedin_url',
+      'kvk_number', 'street', 'city', 'zipcode', 'state', 'country',
+      'phone', 'industry', 'size_min', 'size_max',
+    ]
+    const sanitizedBody = Object.fromEntries(
+      Object.entries(body).filter(([key]) => allowedFields.includes(key))
+    )
 
-    if (!name) {
+    if (!sanitizedBody.name) {
       return NextResponse.json({ success: false, error: 'Naam is verplicht' }, { status: 400 })
     }
 
     // Build location string
-    const locationParts = [city, state].filter(Boolean)
+    const locationParts = [sanitizedBody.city, sanitizedBody.state].filter(Boolean)
     const location = locationParts.join(', ') || null
+
+    // Normalize optional fields
+    const updates: Record<string, unknown> = {
+      name: sanitizedBody.name,
+      website: sanitizedBody.website || null,
+      description: sanitizedBody.description || null,
+      logo_url: sanitizedBody.logo_url || null,
+      linkedin_url: sanitizedBody.linkedin_url || null,
+      kvk_number: sanitizedBody.kvk_number || null,
+      street: sanitizedBody.street || null,
+      city: sanitizedBody.city || null,
+      zipcode: sanitizedBody.zipcode || null,
+      state: sanitizedBody.state || null,
+      country: sanitizedBody.country || 'NL',
+      phone: sanitizedBody.phone || null,
+      industry: sanitizedBody.industry || null,
+      size_min: sanitizedBody.size_min ? parseInt(sanitizedBody.size_min) : null,
+      size_max: sanitizedBody.size_max ? parseInt(sanitizedBody.size_max) : null,
+      location,
+      updated_at: new Date().toISOString(),
+    }
 
     const { data, error } = await supabase
       .from('companies')
-      .update({
-        name,
-        website: website || null,
-        description: description || null,
-        logo_url: logo_url || null,
-        linkedin_url: linkedin_url || null,
-        kvk_number: kvk_number || null,
-        street: street || null,
-        city: city || null,
-        zipcode: zipcode || null,
-        state: state || null,
-        country: country || 'NL',
-        phone: phone || null,
-        industry: industry || null,
-        size_min: size_min ? parseInt(size_min) : null,
-        size_max: size_max ? parseInt(size_max) : null,
-        location,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('id', id)
       .select('id, name')
       .single()

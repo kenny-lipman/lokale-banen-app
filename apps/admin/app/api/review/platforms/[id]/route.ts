@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(
+async function getHandler(
   request: NextRequest,
+  authResult: AuthResult,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -40,8 +42,9 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+async function patchHandler(
   request: NextRequest,
+  _authResult: AuthResult,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -58,6 +61,18 @@ export async function PATCH(
       "hero_title",
       "hero_subtitle",
       "seo_description",
+      "about_text",
+      "contact_email",
+      "contact_phone",
+      "social_linkedin",
+      "social_instagram",
+      "social_facebook",
+      "social_tiktok",
+      "social_twitter",
+      "favicon_url",
+      "og_image_url",
+      "privacy_text",
+      "terms_text",
     ]
 
     const updates: Record<string, unknown> = {}
@@ -99,3 +114,6 @@ export async function PATCH(
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+export const GET = withAuth(getHandler)
+export const PATCH = withAuth(patchHandler)
