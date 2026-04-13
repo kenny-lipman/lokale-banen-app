@@ -79,3 +79,21 @@ export function createSlug(title: string, id: string): string {
     .slice(0, 60)
   return `${slug}-${id.slice(0, 8)}`
 }
+
+/**
+ * Build a human-readable employment label from the employment field and job_type array.
+ * DB schema: employment = 'Vast'|'Tijdelijk'|etc., job_type = ['Fulltime']|['Parttime']|etc.
+ */
+export function formatEmploymentLabel(
+  employment: string | null | undefined,
+  jobType: string[] | null | undefined
+): string {
+  const parts: string[] = []
+  if (jobType && jobType.length > 0) {
+    parts.push(...jobType)
+  }
+  if (employment) {
+    parts.push(employment)
+  }
+  return parts.length > 0 ? parts.join(' · ') : 'Onbekend'
+}

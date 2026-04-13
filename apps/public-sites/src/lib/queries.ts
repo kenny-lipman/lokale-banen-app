@@ -1,24 +1,32 @@
-import { cacheLife, cacheTag } from 'next/cache'
 import { createPublicClient } from './supabase'
 
 export interface JobPosting {
   id: string
   title: string
   slug: string | null
-  company_name: string | null
   company_id: string | null
   city: string | null
   state: string | null
-  employment_type: string | null
+  zipcode: string | null
+  street: string | null
+  latitude: string | null
+  longitude: string | null
+  employment: string | null
+  job_type: string[] | null
   salary: string | null
-  salary_min: number | null
-  salary_max: number | null
   description: string | null
+  content_md: string | null
   url: string | null
   published_at: string | null
   end_date: string | null
   created_at: string
-  source: string | null
+  seo_title: string | null
+  seo_description: string | null
+  education_level: string | null
+  career_level: string | null
+  categories: string | null
+  working_hours_min: number | null
+  working_hours_max: number | null
   company: {
     id: string
     name: string
@@ -26,6 +34,12 @@ export interface JobPosting {
     website: string | null
     linkedin_url: string | null
     description: string | null
+    city: string | null
+    kvk: string | null
+    latitude: number | null
+    longitude: number | null
+    postal_code: string | null
+    street_address: string | null
   } | null
 }
 
@@ -40,15 +54,12 @@ const JOBS_PER_PAGE = 20
 
 /**
  * Fetch approved, published jobs for a tenant with optional filters.
- * Results are cached for 5 minutes, tagged per tenant for targeted invalidation.
  */
 export async function getApprovedJobs(
   tenantId: string,
   filter: JobFilter = {}
 ): Promise<{ jobs: JobPosting[]; total: number }> {
-  'use cache'
-  cacheLife('minutes')
-  cacheTag(`jobs:${tenantId}`)
+  // TODO: add 'use cache' + cacheLife after build verification
 
   const supabase = createPublicClient()
   const page = filter.page || 1
@@ -59,23 +70,25 @@ export async function getApprovedJobs(
     .from('job_postings')
     .select(
       `
-      id, title, slug, company_name, company_id, city, state,
-      employment_type, salary, salary_min, salary_max,
-      description, url, published_at, end_date, created_at, source,
+      id, title, slug, company_id, city, state,
+      employment, job_type, salary,
+      description, url, published_at, end_date, created_at,
       companies!company_id (
-        id, name, logo_url, website, linkedin_url, description
+        id, name, logo_url, website, linkedin_url, description, city
       )
     `,
       { count: 'exact' }
     )
+    .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
     .order('published_at', { ascending: false })
     .range(from, to)
 
-  // Filter by employment type
+  // Filter by employment type (match against job_type array or employment field)
   if (filter.type && filter.type !== 'alle') {
-    query = query.ilike('employment_type', `%${filter.type}%`)
+    const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
+    query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
   }
 
   // Text search on title
@@ -105,15 +118,12 @@ export async function getApprovedJobs(
 
 /**
  * Fetch a single job posting by slug.
- * Cached for 1 hour, tagged for on-demand invalidation.
  */
 export async function getJobBySlug(
   tenantId: string,
   slug: string
 ): Promise<JobPosting | null> {
-  'use cache'
-  cacheLife('hours')
-  cacheTag(`job:${slug}`)
+  // TODO: add 'use cache' + cacheLife after build verification
 
   const supabase = createPublicClient()
 
@@ -121,15 +131,20 @@ export async function getJobBySlug(
     .from('job_postings')
     .select(
       `
-      id, title, slug, company_name, company_id, city, state,
-      employment_type, salary, salary_min, salary_max,
-      description, url, published_at, end_date, created_at, source,
+      id, title, slug, company_id, city, state, zipcode, street,
+      latitude, longitude,
+      employment, job_type, salary, categories,
+      description, content_md, url, published_at, end_date, created_at,
+      seo_title, seo_description, education_level, career_level,
+      working_hours_min, working_hours_max,
       companies!company_id (
-        id, name, logo_url, website, linkedin_url, description
+        id, name, logo_url, website, linkedin_url, description, city,
+        kvk, latitude, longitude, postal_code, street_address
       )
     `
     )
     .eq('slug', slug)
+    .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
     .single()
@@ -152,9 +167,7 @@ export async function getRelatedJobs(
   city: string | null,
   excludeId: string
 ): Promise<JobPosting[]> {
-  'use cache'
-  cacheLife('hours')
-  cacheTag(`related:${excludeId}`)
+  // TODO: add 'use cache' + cacheLife after build verification
 
   if (!city) return []
 
@@ -164,14 +177,15 @@ export async function getRelatedJobs(
     .from('job_postings')
     .select(
       `
-      id, title, slug, company_name, company_id, city, state,
-      employment_type, salary, salary_min, salary_max,
-      published_at, end_date, created_at, source,
+      id, title, slug, company_id, city, state,
+      employment, job_type, salary,
+      published_at, end_date, created_at,
       companies!company_id (
-        id, name, logo_url, website, linkedin_url, description
+        id, name, logo_url, website, linkedin_url, description, city
       )
     `
     )
+    .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
     .ilike('city', city)
@@ -185,4 +199,154 @@ export async function getRelatedJobs(
     ...row,
     company: Array.isArray(row.companies) ? row.companies[0] : row.companies,
   })) as unknown as JobPosting[]
+}
+
+/** Lightweight type for sitemap entries */
+export interface SitemapJob {
+  slug: string
+  published_at: string
+}
+
+/**
+ * Fetch all approved job slugs + dates for sitemap generation.
+ * Limited to 50,000 (Google sitemap limit).
+ */
+export async function getSitemapJobs(
+  tenantId: string
+): Promise<SitemapJob[]> {
+  const supabase = createPublicClient()
+
+  const { data, error } = await supabase
+    .from('job_postings')
+    .select('slug, published_at')
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .not('slug', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(50000)
+
+  if (error || !data) return []
+  return data as SitemapJob[]
+}
+
+/** Lightweight type for llms.txt entries */
+export interface LlmsJob {
+  title: string
+  slug: string
+  city: string | null
+  salary: string | null
+  employment: string | null
+  company_name: string | null
+}
+
+/**
+ * Fetch approved jobs with company name for llms.txt manifest.
+ * Returns up to `limit` jobs ordered by recency.
+ */
+export async function getLlmsJobs(
+  tenantId: string,
+  limit: number = 200
+): Promise<LlmsJob[]> {
+  const supabase = createPublicClient()
+
+  const { data, error } = await supabase
+    .from('job_postings')
+    .select(
+      `
+      title, slug, city, salary, employment,
+      companies!company_id ( name )
+    `
+    )
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .not('slug', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(limit)
+
+  if (error || !data) return []
+
+  return (data as Record<string, unknown>[]).map((row) => {
+    const company = Array.isArray(row.companies)
+      ? row.companies[0]
+      : row.companies
+    return {
+      title: row.title as string,
+      slug: row.slug as string,
+      city: row.city as string | null,
+      salary: row.salary as string | null,
+      employment: row.employment as string | null,
+      company_name: (company as { name: string } | null)?.name ?? null,
+    }
+  })
+}
+
+/**
+ * Count total approved+published jobs for a tenant.
+ */
+export async function getApprovedJobCount(tenantId: string): Promise<number> {
+  const supabase = createPublicClient()
+
+  const { count, error } = await supabase
+    .from('job_postings')
+    .select('id', { count: 'exact', head: true })
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+
+  if (error) return 0
+  return count ?? 0
+}
+
+// ---------------------------------------------------------------------------
+// Helpers for JSON-LD schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse salary text like "2800 - 3500" into min/max numbers.
+ * Returns null if the string can't be parsed.
+ */
+export function parseSalary(
+  salary: string | null
+): { min: number; max: number; unit: string } | null {
+  if (!salary || salary.trim() === '-' || salary.trim() === '') return null
+  // Match patterns like "2800 - 3500", "2.800 - 3.500", "€2800-3500"
+  const cleaned = salary.replace(/[€\s.]/g, '')
+  const match = cleaned.match(/(\d+)\s*-\s*(\d+)/)
+  if (!match) return null
+  const min = parseInt(match[1], 10)
+  const max = parseInt(match[2], 10)
+  if (isNaN(min) || isNaN(max) || min <= 0) return null
+  return { min, max, unit: 'MONTH' }
+}
+
+/**
+ * Map Dutch employment type strings to schema.org employmentType values.
+ */
+const EMPLOYMENT_TYPE_MAP: Record<string, string> = {
+  vast: 'FULL_TIME',
+  fulltime: 'FULL_TIME',
+  voltijd: 'FULL_TIME',
+  tijdelijk: 'TEMPORARY',
+  parttime: 'PART_TIME',
+  deeltijd: 'PART_TIME',
+  stage: 'INTERN',
+  intern: 'INTERN',
+  vrijwilliger: 'VOLUNTEER',
+  bijbaan: 'PART_TIME',
+  freelance: 'CONTRACTOR',
+  zzp: 'CONTRACTOR',
+}
+
+export function mapEmploymentType(type: string | null): string | undefined {
+  if (!type) return undefined
+  const lower = type.toLowerCase().trim()
+  // Direct match
+  if (EMPLOYMENT_TYPE_MAP[lower]) return EMPLOYMENT_TYPE_MAP[lower]
+  // Partial match
+  for (const [key, value] of Object.entries(EMPLOYMENT_TYPE_MAP)) {
+    if (lower.includes(key)) return value
+  }
+  return undefined
 }

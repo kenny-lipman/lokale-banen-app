@@ -1,23 +1,54 @@
-import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { TenantHeader } from '@/components/tenant-header'
 import { getTenant } from '@/lib/tenant'
-import { Bookmark, FileText, Settings, LogOut } from 'lucide-react'
+import { Bookmark, FileText, Settings, LogOut, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { SignOutButton } from '@clerk/nextjs'
+
+const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 export default async function AccountPage() {
-  const user = await currentUser()
   const tenant = await getTenant()
-
-  if (!user) {
-    redirect('/sign-in?redirect_url=/account')
-  }
 
   if (!tenant) {
     redirect('/')
+  }
+
+  // When Clerk is not configured, show placeholder
+  if (!CLERK_ENABLED) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <TenantHeader tenant={tenant} showSearch={false} />
+        <main className="flex-1 container py-6 sm:py-8 max-w-2xl">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold mb-2">Mijn Account</h1>
+            <p className="text-base text-muted-foreground mb-6">
+              De accountfunctie is binnenkort beschikbaar.
+            </p>
+            <Button asChild>
+              <Link href="/" className="inline-flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Terug naar vacatures
+              </Link>
+            </Button>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // Clerk-enabled account page
+  let user = null
+  try {
+    const { currentUser } = await import('@clerk/nextjs/server')
+    user = await currentUser()
+  } catch {
+    redirect('/sign-in?redirect_url=/account')
+  }
+
+  if (!user) {
+    redirect('/sign-in?redirect_url=/account')
   }
 
   const menuItems = [
@@ -40,6 +71,14 @@ export default async function AccountPage() {
       href: '/account/profiel',
     },
   ]
+
+  let SignOutButton: React.ComponentType<{ children: React.ReactNode }> | null = null
+  try {
+    const clerk = await import('@clerk/nextjs')
+    SignOutButton = clerk.SignOutButton
+  } catch {
+    // no-op
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -64,12 +103,12 @@ export default async function AccountPage() {
             </div>
           )}
           <div>
-            <h1 className="text-h1 font-bold">
+            <h1 className="text-2xl font-bold">
               {user.firstName
                 ? `${user.firstName} ${user.lastName || ''}`
                 : 'Mijn Account'}
             </h1>
-            <p className="text-meta text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {user.emailAddresses[0]?.emailAddress}
             </p>
           </div>
@@ -85,10 +124,10 @@ export default async function AccountPage() {
                     <item.icon className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="font-semibold text-body group-hover:text-primary transition-colors">
+                    <h2 className="font-semibold text-base group-hover:text-primary transition-colors">
                       {item.label}
                     </h2>
-                    <p className="text-meta text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
@@ -99,14 +138,16 @@ export default async function AccountPage() {
         </div>
 
         {/* Sign out */}
-        <div className="mt-8">
-          <SignOutButton>
-            <Button variant="outline" className="w-full sm:w-auto">
-              <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
-              Uitloggen
-            </Button>
-          </SignOutButton>
-        </div>
+        {SignOutButton && (
+          <div className="mt-8">
+            <SignOutButton>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
+                Uitloggen
+              </Button>
+            </SignOutButton>
+          </div>
+        )}
       </main>
     </div>
   )

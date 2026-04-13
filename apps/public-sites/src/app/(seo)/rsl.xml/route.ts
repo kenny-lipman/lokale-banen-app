@@ -1,21 +1,34 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { createPublicClient } from '@/lib/supabase'
 
 /**
  * RSL 1.0 (Robots Source Licensing) manifest.
  * Permits AI search engines to cite content with attribution.
  * Blocks content from being used for model training.
+ * @see GEO-ANALYSIS.md section 5 (Probleem 5)
  */
 export async function GET() {
   const headersList = await headers()
   const host = headersList.get('x-tenant-host') || 'lokalebanen.nl'
   const baseUrl = `https://${host}`
 
+  // Resolve tenant name for display
+  const supabase = createPublicClient()
+  const { data: tenant } = await supabase
+    .from('platforms')
+    .select('regio_platform')
+    .eq('domain', host)
+    .eq('is_public', true)
+    .single()
+
+  const siteName = tenant?.regio_platform ?? host.replace(/\.\w+$/, '')
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rsl version="1.0" xmlns="https://rsl.org/schema/1.0">
   <site>
     <url>${baseUrl}</url>
-    <name>${host.replace(/\.\w+$/, '').replace(/-/g, ' ')}</name>
+    <name>${siteName}</name>
     <owner>Lokale Banen B.V.</owner>
     <contact>info@lokalebanen.nl</contact>
   </site>
@@ -27,7 +40,7 @@ export async function GET() {
       <action>cite</action>
       <scope>all</scope>
       <attribution required="true">
-        <format>Source: {site_name} ({url})</format>
+        <format>Source: ${siteName} (${baseUrl})</format>
       </attribution>
     </permission>
 
@@ -36,7 +49,7 @@ export async function GET() {
       <action>summarize</action>
       <scope>all</scope>
       <attribution required="true">
-        <format>Via {site_name}</format>
+        <format>Via ${siteName}</format>
       </attribution>
     </permission>
 

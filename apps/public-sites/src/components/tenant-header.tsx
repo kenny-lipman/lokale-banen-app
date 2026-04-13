@@ -41,7 +41,7 @@ export function TenantHeader({
                 </span>
               </div>
             )}
-            <span className="font-semibold text-body hidden sm:inline">
+            <span className="font-semibold text-base hidden sm:inline">
               {tenant.hero_title || tenant.name}
             </span>
           </Link>
@@ -52,7 +52,7 @@ export function TenantHeader({
               <SearchBar
                 defaultQuery={defaultQuery}
                 defaultLocation={defaultLocation}
-                tenantRegion={tenant.region}
+                tenantRegion={tenant.central_place}
               />
             </div>
           )}
@@ -66,7 +66,7 @@ export function TenantHeader({
             <SearchBar
               defaultQuery={defaultQuery}
               defaultLocation={defaultLocation}
-              tenantRegion={tenant.region}
+              tenantRegion={tenant.central_place}
             />
           </div>
         )}

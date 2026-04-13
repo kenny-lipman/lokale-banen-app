@@ -1,24 +1,53 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const isProtectedRoute = createRouteMatcher(['/account(.*)'])
+/**
+ * Proxy (middleware) that injects x-tenant-host header for tenant resolution.
+ * Clerk auth is conditionally enabled via env var.
+ */
 
-export default clerkMiddleware(async (auth, req: NextRequest) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect()
-  }
+const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
+export default async function proxy(req: NextRequest) {
   const host = req.headers.get('host') || req.headers.get('x-forwarded-host') || ''
   const hostname = host.split(':')[0]
 
+  // If Clerk is enabled, dynamically import and use clerkMiddleware
+  if (CLERK_ENABLED) {
+    try {
+      const { clerkMiddleware, createRouteMatcher } = await import('@clerk/nextjs/server')
+      const isProtectedRoute = createRouteMatcher(['/account(.*)'])
+
+      return clerkMiddleware(async (auth, clerkReq: NextRequest) => {
+        if (isProtectedRoute(clerkReq)) {
+          await auth.protect()
+        }
+
+        const requestHeaders = new Headers(clerkReq.headers)
+        requestHeaders.set('x-tenant-host', hostname)
+
+        return NextResponse.next({
+          request: { headers: requestHeaders },
+        })
+      })(req, {} as never)
+    } catch {
+      // Clerk import failed, fall through to simple proxy
+    }
+  }
+
+  // Simple proxy: just inject tenant host header
   const requestHeaders = new Headers(req.headers)
   requestHeaders.set('x-tenant-host', hostname)
+
+  // Redirect /account/* to homepage when Clerk is not available
+  if (req.nextUrl.pathname.startsWith('/account')) {
+    return NextResponse.redirect(new URL('/', req.url))
+  }
 
   return NextResponse.next({
     request: { headers: requestHeaders },
   })
-})
+}
 
 export const config = {
   matcher: [

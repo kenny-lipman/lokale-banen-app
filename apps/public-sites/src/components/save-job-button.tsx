@@ -8,25 +8,26 @@ import { cn } from '@/lib/utils'
 interface SaveJobButtonProps {
   jobId: string
   initialSaved?: boolean
-  isSignedIn?: boolean
 }
 
 /**
  * Heart icon toggle for saving jobs.
- * Clerk-aware: signed-in users persist to DB, anonymous users use localStorage.
- * Shows a soft prompt for anonymous users to create an account.
+ * Currently localStorage-only (anonymous mode).
+ * When Clerk is configured, can be extended to persist to DB.
  */
 export function SaveJobButton({
   jobId,
   initialSaved = false,
-  isSignedIn = false,
 }: SaveJobButtonProps) {
   const [saved, setSaved] = useState(() => {
     if (initialSaved) return true
-    // Check localStorage for anonymous users
-    if (typeof window !== 'undefined' && !isSignedIn) {
-      const savedJobs = JSON.parse(localStorage.getItem('saved_jobs') || '[]')
-      return savedJobs.includes(jobId)
+    if (typeof window !== 'undefined') {
+      try {
+        const savedJobs = JSON.parse(localStorage.getItem('saved_jobs') || '[]')
+        return savedJobs.includes(jobId)
+      } catch {
+        return false
+      }
     }
     return false
   })
@@ -34,30 +35,18 @@ export function SaveJobButton({
   const [showPrompt, setShowPrompt] = useState(false)
 
   function handleToggle() {
-    startTransition(async () => {
+    startTransition(() => {
       const newSaved = !saved
 
-      if (isSignedIn) {
-        // Server action to toggle saved status in DB
-        try {
-          const response = await fetch('/api/saved-jobs', {
-            method: newSaved ? 'POST' : 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId }),
-          })
-          if (response.ok) {
-            setSaved(newSaved)
-          }
-        } catch {
-          // Silently fail, don't disrupt UX
-        }
-      } else {
-        // LocalStorage for anonymous users
+      // LocalStorage for all users (anonymous mode)
+      try {
         const savedJobs: string[] = JSON.parse(
           localStorage.getItem('saved_jobs') || '[]'
         )
         if (newSaved) {
-          savedJobs.push(jobId)
+          if (!savedJobs.includes(jobId)) {
+            savedJobs.push(jobId)
+          }
         } else {
           const index = savedJobs.indexOf(jobId)
           if (index > -1) savedJobs.splice(index, 1)
@@ -70,6 +59,8 @@ export function SaveJobButton({
           setShowPrompt(true)
           setTimeout(() => setShowPrompt(false), 5000)
         }
+      } catch {
+        // localStorage not available
       }
     })
   }
@@ -95,9 +86,9 @@ export function SaveJobButton({
       </Button>
 
       {/* Anonymous save prompt */}
-      {showPrompt && !isSignedIn && (
+      {showPrompt && (
         <div className="absolute right-0 top-full mt-2 z-50 w-64 rounded-lg border bg-background p-3 shadow-lg">
-          <p className="text-meta text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             <a href="/sign-up" className="font-medium text-primary hover:underline">
               Maak een account aan
             </a>{' '}

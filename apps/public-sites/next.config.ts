@@ -1,7 +1,8 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
+  // TODO: re-enable cacheComponents after build is stable
+  // cacheComponents: true,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },

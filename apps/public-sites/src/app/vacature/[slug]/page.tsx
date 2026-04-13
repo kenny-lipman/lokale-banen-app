@@ -2,7 +2,8 @@ import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
-import { getJobBySlug, getRelatedJobs } from '@/lib/queries'
+import { getJobBySlug, getRelatedJobs, parseSalary, mapEmploymentType } from '@/lib/queries'
+import { buildJobPostingSchema } from '@lokale-banen/shared'
 import { TenantHeader } from '@/components/tenant-header'
 import { JobDetail } from '@/components/job-detail'
 import { ApplyButton } from '@/components/apply-button'
@@ -26,11 +27,23 @@ export async function generateMetadata({
   const job = await getJobBySlug(tenant.id, slug)
   if (!job) return {}
 
-  const companyName = job.company?.name || job.company_name || ''
-  const title = `${job.title} bij ${companyName}`
-  const description = job.description
-    ? job.description.replace(/<[^>]+>/g, '').slice(0, 155) + '...'
-    : `Bekijk de vacature ${job.title} bij ${companyName}`
+  const companyName = job.company?.name || ''
+  const tenantTitle = tenant.hero_title || tenant.name
+  const title = job.seo_title
+    || (companyName
+      ? `${job.title} bij ${companyName} | ${tenantTitle}`
+      : `${job.title} | ${tenantTitle}`)
+
+  // Strip HTML and take first 160 chars for description
+  const rawText = (job.seo_description || job.description || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const description = rawText.length > 160
+    ? rawText.slice(0, 157) + '...'
+    : rawText || `Bekijk de vacature ${job.title} bij ${companyName}`
+
+  const canonicalUrl = `https://${tenant.domain}/vacature/${slug}`
 
   return {
     title,
@@ -39,10 +52,15 @@ export async function generateMetadata({
       title,
       description,
       type: 'article',
+      url: canonicalUrl,
       publishedTime: job.published_at || undefined,
+      siteName: tenant.name,
     },
     alternates: {
-      canonical: `https://${tenant.domain}/vacature/${slug}`,
+      canonical: canonicalUrl,
+      types: {
+        'text/markdown': `${canonicalUrl}/md`,
+      },
     },
   }
 }
@@ -65,51 +83,65 @@ export default async function JobPage({ params }: JobPageProps) {
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
 
   const relatedJobs = await getRelatedJobs(tenant.id, job.city, job.id)
-  const companyName = job.company?.name || job.company_name || 'Onbekend bedrijf'
+  const companyName = job.company?.name || 'Onbekend bedrijf'
 
-  // JSON-LD JobPosting structured data
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'JobPosting',
+  // --- Build complete JSON-LD JobPosting using shared schema builder ---
+  const salary = parseSalary(job.salary)
+  const employmentType = mapEmploymentType(job.employment)
+
+  // sameAs links for the hiring organization
+  const sameAs: string[] = []
+  if (job.company?.website) sameAs.push(job.company.website)
+  if (job.company?.linkedin_url) sameAs.push(job.company.linkedin_url)
+
+  // Use job lat/lng (text -> number), fallback to company lat/lng (already numeric)
+  const lat = job.latitude ? parseFloat(job.latitude) : (job.company?.latitude ?? null)
+  const lng = job.longitude ? parseFloat(job.longitude) : (job.company?.longitude ?? null)
+
+  // Clean description for JSON-LD (strip HTML)
+  const cleanDescription = (job.content_md || job.description || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // Default validThrough: end_date, or 60 days from published_at
+  const validThrough = job.end_date
+    ? new Date(job.end_date).toISOString()
+    : job.published_at
+      ? new Date(new Date(job.published_at).getTime() + 60 * 86400000).toISOString()
+      : new Date(Date.now() + 30 * 86400000).toISOString()
+
+  const jsonLd = buildJobPostingSchema({
     title: job.title,
-    description: job.description?.replace(/<[^>]+>/g, '') || '',
+    description: cleanDescription,
     datePosted: job.published_at || job.created_at,
-    ...(job.end_date && { validThrough: job.end_date }),
-    ...(job.employment_type && {
-      employmentType: mapEmploymentType(job.employment_type),
-    }),
+    validThrough,
+    employmentType,
     hiringOrganization: {
-      '@type': 'Organization',
       name: companyName,
-      ...(job.company?.logo_url && { logo: job.company.logo_url }),
-      ...(job.company?.website && { sameAs: [job.company.website] }),
+      sameAs: sameAs.length > 0 ? sameAs : undefined,
+      logo: job.company?.logo_url,
+      kvkNumber: job.company?.kvk,
     },
-    ...(job.city && {
-      jobLocation: {
-        '@type': 'Place',
-        address: {
-          '@type': 'PostalAddress',
-          addressLocality: job.city,
-          ...(job.state && { addressRegion: job.state }),
-          addressCountry: 'NL',
-        },
-      },
-    }),
-    ...(job.salary_min &&
-      job.salary_max && {
-        baseSalary: {
-          '@type': 'MonetaryAmount',
-          currency: 'EUR',
-          value: {
-            '@type': 'QuantitativeValue',
-            minValue: job.salary_min,
-            maxValue: job.salary_max,
-            unitText: 'MONTH',
-          },
-        },
-      }),
-    ...(job.url && { directApply: false }),
-  }
+    jobLocation: {
+      streetAddress: job.street || job.company?.street_address,
+      city: job.city || job.company?.city || 'Nederland',
+      postalCode: job.zipcode || job.company?.postal_code,
+      region: job.state,
+      country: 'NL',
+      latitude: (lat && !isNaN(lat)) ? lat : null,
+      longitude: (lng && !isNaN(lng)) ? lng : null,
+    },
+    salary: salary
+      ? { minValue: salary.min, maxValue: salary.max, currency: 'EUR', unitText: salary.unit }
+      : null,
+    directApply: !job.url, // directApply only true if we host the application form
+    identifier: {
+      name: tenant.name,
+      value: job.id,
+    },
+    applicantLocationCountry: 'NL',
+  })
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -163,22 +195,8 @@ function ShareButton({ title }: { title: string }) {
       size="icon"
       className="h-11 w-11"
       aria-label="Deel deze vacature"
-      // Share handled client-side via onClick in a wrapper if needed
     >
       <Share2 className="h-4 w-4" />
     </Button>
   )
-}
-
-/**
- * Map Dutch employment type strings to schema.org values.
- */
-function mapEmploymentType(type: string): string {
-  const lower = type.toLowerCase()
-  if (lower.includes('fulltime') || lower.includes('voltijd')) return 'FULL_TIME'
-  if (lower.includes('parttime') || lower.includes('deeltijd')) return 'PART_TIME'
-  if (lower.includes('stage') || lower.includes('intern')) return 'INTERN'
-  if (lower.includes('freelance') || lower.includes('zzp')) return 'CONTRACTOR'
-  if (lower.includes('tijdelijk') || lower.includes('temp')) return 'TEMPORARY'
-  return 'OTHER'
 }

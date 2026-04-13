@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { ClerkProvider } from '@clerk/nextjs'
-import { nlNL } from '@clerk/localizations'
-import { getTenant } from '@/lib/tenant'
 import { hexToHsl } from '@/lib/utils'
 import './globals.css'
+
+const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 const inter = Inter({
   subsets: ['latin'],
@@ -13,8 +12,21 @@ const inter = Inter({
   weight: ['400', '500', '600', '700'],
 })
 
+/**
+ * Safely attempt to resolve tenant data.
+ * Returns null during static prerendering (/_not-found) when headers() is unavailable.
+ */
+async function safeTenant() {
+  try {
+    const { getTenant } = await import('@/lib/tenant')
+    return await getTenant()
+  } catch {
+    return null
+  }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
-  const tenant = await getTenant()
+  const tenant = await safeTenant()
 
   return {
     title: {
@@ -38,10 +50,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const tenant = await getTenant()
+  const tenant = await safeTenant()
   const primaryHsl = hexToHsl(tenant?.primary_color || '#0066cc')
 
-  return (
+  const body = (
     <html lang="nl" className={inter.variable}>
       <head>
         <style
@@ -51,23 +63,49 @@ export default async function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col">
-        <ClerkProvider
-          localization={nlNL}
-          appearance={{
-            variables: {
-              colorPrimary: tenant?.primary_color || '#0066cc',
-              colorText: 'hsl(222 47% 11%)',
-              colorInputBackground: 'hsl(0 0% 100%)',
-              colorInputText: 'hsl(222 47% 11%)',
-              fontFamily: 'var(--font-inter)',
-              borderRadius: '8px',
-            },
-          }}
-          dynamic
-        >
-          {children}
-        </ClerkProvider>
+        {children}
       </body>
     </html>
   )
+
+  // Wrap with ClerkProvider only if Clerk is configured
+  if (CLERK_ENABLED) {
+    try {
+      const { ClerkProvider } = await import('@clerk/nextjs')
+      const { nlNL } = await import('@clerk/localizations')
+      return (
+        <html lang="nl" className={inter.variable}>
+          <head>
+            <style
+              dangerouslySetInnerHTML={{
+                __html: `:root { --primary: ${primaryHsl}; --ring: ${primaryHsl}; }`,
+              }}
+            />
+          </head>
+          <body className="min-h-screen flex flex-col">
+            <ClerkProvider
+              localization={nlNL}
+              appearance={{
+                variables: {
+                  colorPrimary: tenant?.primary_color || '#0066cc',
+                  colorText: 'hsl(222 47% 11%)',
+                  colorInputBackground: 'hsl(0 0% 100%)',
+                  colorInputText: 'hsl(222 47% 11%)',
+                  fontFamily: 'var(--font-inter)',
+                  borderRadius: '8px',
+                },
+              }}
+              dynamic
+            >
+              {children}
+            </ClerkProvider>
+          </body>
+        </html>
+      )
+    } catch {
+      // Clerk import failed, use plain layout
+    }
+  }
+
+  return body
 }

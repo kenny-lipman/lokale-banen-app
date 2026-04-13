@@ -1,5 +1,4 @@
 import { Suspense } from 'react'
-import { cacheLife, cacheTag } from 'next/cache'
 import { getApprovedJobs, type JobFilter } from '@/lib/queries'
 import { JobCard } from './job-card'
 import { JobListSkeleton } from './job-list-skeleton'
@@ -13,7 +12,6 @@ interface JobListProps {
 
 /**
  * Server component that fetches and renders the job list.
- * Uses Cache Components with per-tenant cache tags.
  * Wrapped in Suspense with skeleton fallback at the page level.
  */
 export function JobList({ tenantId, filter }: JobListProps) {
@@ -25,9 +23,7 @@ export function JobList({ tenantId, filter }: JobListProps) {
 }
 
 async function JobListContent({ tenantId, filter }: JobListProps) {
-  'use cache'
-  cacheLife('minutes')
-  cacheTag(`jobs:${tenantId}`)
+  // TODO: add 'use cache' + cacheLife + cacheTag after build verification
 
   const { jobs, total } = await getApprovedJobs(tenantId, filter)
   const currentPage = filter.page || 1
@@ -35,8 +31,8 @@ async function JobListContent({ tenantId, filter }: JobListProps) {
 
   if (jobs.length === 0) {
     return (
-      <div className="text-center py-xl">
-        <p className="text-muted-foreground text-body mb-4">
+      <div className="text-center py-12">
+        <p className="text-muted-foreground text-base mb-4">
           Geen vacatures gevonden voor deze zoekopdracht.
         </p>
         <Button variant="outline" asChild>
@@ -55,7 +51,7 @@ async function JobListContent({ tenantId, filter }: JobListProps) {
 
   return (
     <div>
-      <p className="text-meta text-muted-foreground mb-4">
+      <p className="text-sm text-muted-foreground mb-4">
         {total} vacature{total !== 1 ? 's' : ''} gevonden
       </p>
 

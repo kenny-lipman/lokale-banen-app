@@ -4,8 +4,8 @@ import { createPublicClient } from '@/lib/supabase'
 
 /**
  * Dynamic sitemap generation per tenant.
- * Groups jobs by month for sitemap index pattern.
- * Prioritizes recent jobs with higher changefreq.
+ * Fetches all approved + published jobs with slugs for the resolved tenant.
+ * Google limits: max 50,000 URLs per sitemap, max 50 MB uncompressed.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers()
@@ -14,7 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const supabase = createPublicClient()
 
-  // Fetch tenant
+  // Resolve tenant by domain
   const { data: tenant } = await supabase
     .from('platforms')
     .select('id')
@@ -26,15 +26,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [{ url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 }]
   }
 
-  // Fetch all approved, published job slugs with dates
+  // Fetch all approved, published job slugs with dates for this tenant
   const { data: jobs } = await supabase
     .from('job_postings')
-    .select('slug, published_at, id')
+    .select('slug, published_at')
+    .eq('platform_id', tenant.id)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
     .not('slug', 'is', null)
     .order('published_at', { ascending: false })
-    .limit(5000)
+    .limit(50000)
 
   const entries: MetadataRoute.Sitemap = [
     {
@@ -42,16 +43,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'hourly',
       priority: 1,
-    },
-    {
-      url: `${baseUrl}/sign-in`,
-      changeFrequency: 'monthly',
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/sign-up`,
-      changeFrequency: 'monthly',
-      priority: 0.3,
     },
   ]
 
@@ -63,7 +54,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       )
 
       entries.push({
-        url: `${baseUrl}/vacature/${job.slug || job.id}`,
+        url: `${baseUrl}/vacature/${job.slug}`,
         lastModified: publishedDate,
         changeFrequency: daysSincePublished < 7 ? 'daily' : 'weekly',
         priority: daysSincePublished < 3 ? 0.9 : daysSincePublished < 14 ? 0.7 : 0.5,

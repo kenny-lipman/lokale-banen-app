@@ -9,8 +9,9 @@ import {
   Globe,
   Linkedin,
   MapPin,
+  GraduationCap,
 } from 'lucide-react'
-import { formatRelative } from '@/lib/utils'
+import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { JobCard } from './job-card'
 
@@ -25,13 +26,17 @@ interface JobDetailProps {
  * Salary callout box, company block with sameAs links.
  */
 export function JobDetail({ job, relatedJobs }: JobDetailProps) {
-  const companyName = job.company?.name || job.company_name || 'Onbekend bedrijf'
+  const companyName = job.company?.name || 'Onbekend bedrijf'
   const companyInitials = companyName.slice(0, 2).toUpperCase()
   const logoUrl = job.company?.logo_url
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
+  const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
+
+  // Use content_md if available, otherwise fall back to description
+  const rawContent = job.content_md || job.description || ''
 
   // Parse description into sections if structured, otherwise use as-is
-  const sections = parseJobSections(job.description || '')
+  const sections = parseJobSections(rawContent)
 
   return (
     <article className="max-w-3xl mx-auto">
@@ -61,8 +66,8 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
             )}
           </div>
           <div>
-            <h1 className="text-h1 font-bold tracking-tight">{job.title}</h1>
-            <p className="text-body text-muted-foreground mt-1">
+            <h1 className="text-2xl font-bold tracking-tight">{job.title}</h1>
+            <p className="text-base text-muted-foreground mt-1">
               <span className="font-medium text-foreground">@ {companyName}</span>
               {job.city && (
                 <>
@@ -87,10 +92,10 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
                   </span>
                 </div>
               )}
-              {job.employment_type && (
+              {employmentLabel && (
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-emerald-700" aria-hidden="true" />
-                  <span>{job.employment_type}</span>
+                  <span>{employmentLabel}</span>
                 </div>
               )}
               {job.city && (
@@ -105,6 +110,18 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
                   <span>Gepost: {formatRelative(job.published_at)}</span>
                 </div>
               )}
+              {job.working_hours_min && job.working_hours_max && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                  <span>{job.working_hours_min}-{job.working_hours_max} uur/week</span>
+                </div>
+              )}
+              {job.education_level && (
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                  <span>{job.education_level}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -116,7 +133,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           <section>
             <h2>Wat ga je doen?</h2>
             <div
-              className="text-body leading-relaxed text-foreground/90"
+              className="text-base leading-relaxed text-foreground/90"
               dangerouslySetInnerHTML={{ __html: sections.watGaJeDoen }}
             />
           </section>
@@ -126,7 +143,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           <section>
             <h2>Wie zoeken we?</h2>
             <div
-              className="text-body leading-relaxed text-foreground/90"
+              className="text-base leading-relaxed text-foreground/90"
               dangerouslySetInnerHTML={{ __html: sections.wieZoekenWe }}
             />
           </section>
@@ -136,19 +153,19 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
           <section>
             <h2>Wat bieden we?</h2>
             <div
-              className="text-body leading-relaxed text-foreground/90"
+              className="text-base leading-relaxed text-foreground/90"
               dangerouslySetInnerHTML={{ __html: sections.watBiedenWe }}
             />
           </section>
         )}
 
         {/* Fallback: if no structured sections, show full description */}
-        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && job.description && (
+        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && rawContent && (
           <section>
             <h2>Over deze vacature</h2>
             <div
-              className="text-body leading-relaxed text-foreground/90"
-              dangerouslySetInnerHTML={{ __html: job.description }}
+              className="text-base leading-relaxed text-foreground/90"
+              dangerouslySetInnerHTML={{ __html: rawContent }}
             />
           </section>
         )}
@@ -177,9 +194,9 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-h3">{companyName}</h3>
+                    <h3 className="font-semibold text-base">{companyName}</h3>
                     {job.company.description && (
-                      <p className="text-meta text-muted-foreground mt-1 line-clamp-3">
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-3">
                         {job.company.description}
                       </p>
                     )}
@@ -189,7 +206,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
                           href={job.company.website}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-meta text-primary hover:underline"
+                          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                         >
                           <Globe className="h-3.5 w-3.5" aria-hidden="true" />
                           Website
@@ -200,7 +217,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
                           href={job.company.linkedin_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-meta text-primary hover:underline"
+                          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                         >
                           <Linkedin className="h-3.5 w-3.5" aria-hidden="true" />
                           LinkedIn
@@ -251,8 +268,6 @@ function parseJobSections(html: string): JobSections {
   }
 
   if (!html) return sections
-
-  const lowerHtml = html.toLowerCase()
 
   // Common heading patterns for Dutch job postings
   const taskPatterns = [
