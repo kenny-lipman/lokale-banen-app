@@ -19,6 +19,8 @@ import {
   Shield,
   ArrowLeftRight,
   Mail,
+  ClipboardCheck,
+  Monitor,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 
@@ -32,6 +34,7 @@ const menu = [
     ],
     href: "/agents"
   },
+  { href: "/review", icon: ClipboardCheck, label: "Review" },
   { href: "/job-postings", icon: Briefcase, label: "Vacatures" },
   { href: "/companies", icon: Building2, label: "Bedrijven" },
   { href: "/contacten", icon: Users, label: "Contacten" },
@@ -39,6 +42,7 @@ const menu = [
   { href: "/instantly-sync", icon: ArrowLeftRight, label: "Instantly <> PD Sync" },
   { href: "/campaign-assignment", icon: Mail, label: "Campaign Assignment" },
   { href: "/mailerlite-sync", icon: Mail, label: "MailerLite Sync" },
+  { href: "/platforms", icon: Monitor, label: "Platforms" },
   { href: "/regios", icon: MapPin, label: "Regio's" },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
