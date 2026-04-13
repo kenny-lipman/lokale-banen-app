@@ -22,7 +22,13 @@ export interface Tenant {
  */
 export async function getTenant(): Promise<Tenant | null> {
   const headersList = await headers()
-  const host = headersList.get('x-tenant-host') || 'lokalebanen.nl'
+  let host = headersList.get('x-tenant-host') || 'lokalebanen.nl'
+
+  // Development: localhost resolved naar WestlandseBanen
+  if (host === 'localhost' || host.startsWith('localhost:') || host.endsWith('.local')) {
+    host = 'westlandsebanen.nl'
+  }
+
   return getTenantByHost(host)
 }
 

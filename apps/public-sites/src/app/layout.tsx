@@ -1,15 +1,15 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
-import { hexToHsl } from '@/lib/utils'
+import { Source_Sans_3 } from 'next/font/google'
+import { hexToLightVariant, darkenHex, hexToMutedVariant } from '@/lib/utils'
 import './globals.css'
 
 const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
-const jakarta = Plus_Jakarta_Sans({
+const sourceSans = Source_Sans_3({
   subsets: ['latin'],
-  variable: '--font-jakarta',
+  variable: '--font-source-sans',
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
+  weight: ['300', '400', '500', '600', '700'],
 })
 
 /**
@@ -51,18 +51,23 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const tenant = await safeTenant()
-  const primaryHsl = hexToHsl(tenant?.primary_color || '#0066cc')
+  const primaryColor = tenant?.primary_color || '#006B5E'
+
+  // Generate derived colors from primary
+  const primaryHover = darkenHex(primaryColor, 0.1)
+  const primaryLight = hexToLightVariant(primaryColor, 0.08)
+  const primaryMuted = hexToMutedVariant(primaryColor)
+
+  const themeStyle = {
+    '--primary': primaryColor,
+    '--primary-hover': primaryHover,
+    '--primary-light': primaryLight,
+    '--primary-muted': primaryMuted,
+  } as React.CSSProperties
 
   const body = (
-    <html lang="nl" className={jakarta.variable}>
-      <head>
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `:root { --primary: ${primaryHsl}; --ring: ${primaryHsl}; }`,
-          }}
-        />
-      </head>
-      <body className="min-h-screen flex flex-col font-sans">
+    <html lang="nl" className={sourceSans.variable} style={themeStyle}>
+      <body className="font-sans">
         {children}
       </body>
     </html>
@@ -74,24 +79,17 @@ export default async function RootLayout({
       const { ClerkProvider } = await import('@clerk/nextjs')
       const { nlNL } = await import('@clerk/localizations')
       return (
-        <html lang="nl" className={jakarta.variable}>
-          <head>
-            <style
-              dangerouslySetInnerHTML={{
-                __html: `:root { --primary: ${primaryHsl}; --ring: ${primaryHsl}; }`,
-              }}
-            />
-          </head>
-          <body className="min-h-screen flex flex-col font-sans">
+        <html lang="nl" className={sourceSans.variable} style={themeStyle}>
+          <body className="font-sans">
             <ClerkProvider
               localization={nlNL}
               appearance={{
                 variables: {
-                  colorPrimary: tenant?.primary_color || '#0066cc',
-                  colorText: 'hsl(220 20% 10%)',
-                  colorInputBackground: 'hsl(0 0% 100%)',
-                  colorInputText: 'hsl(220 20% 10%)',
-                  fontFamily: 'var(--font-jakarta)',
+                  colorPrimary: primaryColor,
+                  colorText: '#18181B',
+                  colorInputBackground: '#FFFFFF',
+                  colorInputText: '#18181B',
+                  fontFamily: 'var(--font-source-sans)',
                   borderRadius: '8px',
                 },
               }}

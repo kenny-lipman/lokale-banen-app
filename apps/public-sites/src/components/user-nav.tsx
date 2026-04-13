@@ -7,17 +7,17 @@ const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 /**
  * User navigation: shows Clerk UserButton when auth is configured,
- * otherwise a simple "Inloggen" link.
+ * otherwise a simple user icon link. 32px on mobile.
  */
 export function UserNav() {
   if (!CLERK_ENABLED) {
     return (
       <Link
         href="/sign-in"
-        className="inline-flex items-center gap-2 text-body text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted hover:text-foreground hover:bg-background transition-colors"
+        aria-label="Inloggen"
       >
         <User className="h-4 w-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Inloggen</span>
       </Link>
     )
   }
@@ -53,10 +53,10 @@ function ClerkUserNav() {
   return (
     <Link
       href="/sign-in"
-      className="inline-flex items-center gap-2 text-body text-muted-foreground hover:text-foreground transition-colors"
+      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted hover:text-foreground hover:bg-background transition-colors"
+      aria-label="Inloggen"
     >
       <User className="h-4 w-4" aria-hidden="true" />
-      <span className="hidden sm:inline">Inloggen</span>
     </Link>
   )
 }

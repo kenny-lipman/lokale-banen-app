@@ -68,7 +68,7 @@ export function SaveJobButton({
         onClick={handleToggle}
         disabled={isPending}
         aria-label={saved ? 'Verwijder uit opgeslagen' : 'Vacature opslaan'}
-        className="inline-flex items-center justify-center h-10 w-10 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        className="inline-flex items-center justify-center h-10 w-10 rounded-md text-muted hover:text-foreground hover:bg-background transition-colors"
       >
         <Heart
           className={cn(
@@ -82,7 +82,7 @@ export function SaveJobButton({
 
       {/* Anonymous save prompt */}
       {showPrompt && (
-        <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-lg border border-border bg-white p-3 shadow-lg">
+        <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-lg border border-border bg-surface p-3 shadow-card-hover">
           <p className="text-meta text-muted-foreground">
             <a href="/sign-up" className="font-medium text-primary hover:underline">
               Maak een account aan

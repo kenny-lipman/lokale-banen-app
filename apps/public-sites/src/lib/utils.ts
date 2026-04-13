@@ -6,40 +6,64 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Convert a hex color string to HSL values string (e.g. "221 83% 53%").
- * Used for tenant theme injection into CSS custom properties.
+ * Parse a hex color into r, g, b components (0-255).
  */
-export function hexToHsl(hex: string): string {
+function parseHex(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  if (!result) return '221 83% 53%' // fallback default blue
-
-  let r = parseInt(result[1], 16) / 255
-  let g = parseInt(result[2], 16) / 255
-  let b = parseInt(result[3], 16) / 255
-
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  let h = 0
-  let s = 0
-  const l = (max + min) / 2
-
-  if (max !== min) {
-    const d = max - min
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-    switch (max) {
-      case r:
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6
-        break
-      case g:
-        h = ((b - r) / d + 2) / 6
-        break
-      case b:
-        h = ((r - g) / d + 4) / 6
-        break
-    }
+  if (!result) return null
+  return {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
   }
+}
 
-  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+/**
+ * Convert r, g, b (0-255) back to a hex string.
+ */
+function toHex(r: number, g: number, b: number): string {
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
+  return `#${clamp(r).toString(16).padStart(2, '0')}${clamp(g).toString(16).padStart(2, '0')}${clamp(b).toString(16).padStart(2, '0')}`
+}
+
+/**
+ * Generate a light tint of a hex color (mix with white at given opacity).
+ * E.g. hexToLightVariant('#006B5E', 0.08) produces a very light greenish tint.
+ */
+export function hexToLightVariant(hex: string, opacity: number): string {
+  const parsed = parseHex(hex)
+  if (!parsed) return '#E8F5F2'
+  // Mix with white: result = white * (1 - opacity) + color * opacity
+  const r = 255 * (1 - opacity) + parsed.r * opacity
+  const g = 255 * (1 - opacity) + parsed.g * opacity
+  const b = 255 * (1 - opacity) + parsed.b * opacity
+  return toHex(r, g, b)
+}
+
+/**
+ * Darken a hex color by a given factor (0-1).
+ * E.g. darkenHex('#006B5E', 0.1) darkens by 10%.
+ */
+export function darkenHex(hex: string, factor: number): string {
+  const parsed = parseHex(hex)
+  if (!parsed) return '#005A4F'
+  const r = parsed.r * (1 - factor)
+  const g = parsed.g * (1 - factor)
+  const b = parsed.b * (1 - factor)
+  return toHex(r, g, b)
+}
+
+/**
+ * Generate a muted (desaturated lighter) variant of a hex color.
+ */
+export function hexToMutedVariant(hex: string): string {
+  const parsed = parseHex(hex)
+  if (!parsed) return '#B2DDD5'
+  // Mix with a light gray at ~35% opacity
+  const r = 200 * 0.65 + parsed.r * 0.35
+  const g = 210 * 0.65 + parsed.g * 0.35
+  const b = 205 * 0.65 + parsed.b * 0.35
+  return toHex(r, g, b)
 }
 
 /**

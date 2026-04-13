@@ -16,10 +16,14 @@ interface ApplyButtonProps {
 export function ApplyButton({ jobUrl, jobTitle, isExpired }: ApplyButtonProps) {
   if (isExpired || !jobUrl) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white p-3 sm:static sm:border-0 sm:p-0 sm:mt-6">
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 bg-surface p-3 sm:hidden"
+        style={{ borderTop: '1px solid var(--border)' }}
+      >
         <button
           disabled
-          className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-6 rounded-lg bg-muted text-muted-foreground font-semibold text-body cursor-not-allowed"
+          className="w-full inline-flex items-center justify-center h-12 px-6 rounded-lg bg-background text-muted text-button cursor-not-allowed"
+          style={{ border: '1px solid var(--border)' }}
         >
           {isExpired ? 'Vacature verlopen' : 'Geen sollicitatielink beschikbaar'}
         </button>
@@ -39,13 +43,16 @@ export function ApplyButton({ jobUrl, jobTitle, isExpired }: ApplyButtonProps) {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white p-3 shadow-lg sm:static sm:border-0 sm:p-0 sm:mt-6 sm:shadow-none">
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 bg-surface p-3 shadow-card-hover sm:hidden"
+      style={{ borderTop: '1px solid var(--border)' }}
+    >
       <a
         href={jobUrl}
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-body transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="w-full inline-flex items-center justify-center h-12 px-6 rounded-lg bg-primary text-primary-foreground text-button transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         Solliciteer
         <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />

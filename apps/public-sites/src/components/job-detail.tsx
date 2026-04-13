@@ -1,12 +1,7 @@
 import {
-  Banknote,
-  Clock,
-  Briefcase,
-  CalendarDays,
   Globe,
   Linkedin,
-  MapPin,
-  GraduationCap,
+  ExternalLink,
 } from 'lucide-react'
 import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
@@ -20,7 +15,7 @@ interface JobDetailProps {
 /**
  * Full job detail content for the dedicated /vacature/[slug] page.
  * Used on mobile and for direct link access.
- * Question-based H2 sections for GEO optimization.
+ * Follows same design language as JobDetailPanel but full-page.
  */
 export function JobDetail({ job, relatedJobs }: JobDetailProps) {
   const companyName = job.company?.name || 'Onbekend bedrijf'
@@ -30,177 +25,178 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
   const rawContent = job.content_md || job.description || ''
   const sections = parseJobSections(rawContent)
 
+  // Build metadata items for salary callout box
+  const metaItems: string[] = []
+  if (employmentLabel) metaItems.push(employmentLabel)
+  if (job.working_hours_min && job.working_hours_max) {
+    metaItems.push(`${job.working_hours_min}-${job.working_hours_max} uur/week`)
+  }
+  if (job.education_level) metaItems.push(job.education_level)
+
   return (
-    <article className="max-w-3xl mx-auto">
+    <article>
       {/* Expired banner */}
       {isExpired && (
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-5">
-          <p className="text-body font-medium text-destructive">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-5">
+          <p className="text-body font-medium text-red-700">
             Deze vacature is verlopen en niet meer beschikbaar.
           </p>
         </div>
       )}
 
-      {/* Header: title + company */}
-      <header className="mb-5">
-        <h1 className="text-h1">{job.title}</h1>
-        <p className="text-body text-muted-foreground mt-1">
-          <span className="font-medium text-foreground">{companyName}</span>
-          {job.city && (
-            <>
-              {' '}&middot; {job.city}
-              {job.state && `, ${job.state}`}
-            </>
-          )}
-        </p>
-      </header>
+      {/* 1. Title */}
+      <h1 className="text-h1 text-foreground mb-1">{job.title}</h1>
 
-      {/* Info callout box */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-5">
-        <div className="grid grid-cols-2 gap-2.5 text-body">
-          {job.salary && (
-            <div className="flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span className="font-semibold text-emerald-800 tabular-nums">
-                {job.salary}
-              </span>
-            </div>
-          )}
-          {employmentLabel && (
-            <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>{employmentLabel}</span>
-            </div>
-          )}
-          {job.city && (
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>{job.city}</span>
-            </div>
-          )}
-          {job.published_at && (
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>Gepost: {formatRelative(job.published_at)}</span>
-            </div>
-          )}
-          {job.working_hours_min && job.working_hours_max && (
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>{job.working_hours_min}-{job.working_hours_max} uur/week</span>
-            </div>
-          )}
-          {job.education_level && (
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>{job.education_level}</span>
-            </div>
+      {/* 2. Company + Location */}
+      <p className="mb-4">
+        <span className="text-body-medium text-foreground">{companyName}</span>
+        {job.city && (
+          <>
+            <span className="text-muted"> &middot; </span>
+            <span className="text-body text-muted">
+              {job.city}
+              {job.state && `, ${job.state}`}
+            </span>
+          </>
+        )}
+      </p>
+
+      {/* 3. Salary callout box */}
+      <div
+        className="p-3 px-4 rounded-lg mb-4"
+        style={{
+          backgroundColor: 'var(--background)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        {job.salary && (
+          <p className="text-salary text-salary">{job.salary}</p>
+        )}
+        {metaItems.length > 0 && (
+          <p className="text-meta text-muted mt-2">
+            {metaItems.join(' \u00B7 ')}
+          </p>
+        )}
+        {job.published_at && (
+          <p className="text-meta text-muted mt-1">
+            Geplaatst: {formatRelative(job.published_at)}
+          </p>
+        )}
+      </div>
+
+      {/* 4. Desktop CTA (mobile uses sticky bottom) */}
+      <div className="hidden sm:block mt-4 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-3">
+          {job.url && !isExpired ? (
+            <a
+              href={job.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-primary text-primary-foreground text-button transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Solliciteer
+              <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
+            </a>
+          ) : (
+            <button
+              disabled
+              className="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-background text-muted text-button cursor-not-allowed"
+              style={{ border: '1px solid var(--border)' }}
+            >
+              {isExpired ? 'Vacature verlopen' : 'Geen sollicitatielink'}
+            </button>
           )}
         </div>
       </div>
 
-      {/* Content sections */}
-      <div className="space-y-6">
+      {/* 5. Content sections */}
+      <div className="mt-6">
         {sections.watGaJeDoen && (
-          <section>
-            <h2 className="text-h2 border-b border-border pb-2 mb-3">Wat ga je doen?</h2>
-            <div
-              className="text-body leading-relaxed text-foreground/90 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1 [&_p]:mb-2 [&_li]:text-body"
-              dangerouslySetInnerHTML={{ __html: sections.watGaJeDoen }}
-            />
-          </section>
+          <ContentSection title="Wat ga je doen?" html={sections.watGaJeDoen} />
         )}
-
         {sections.wieZoekenWe && (
-          <section>
-            <h2 className="text-h2 border-b border-border pb-2 mb-3">Wie zoeken we?</h2>
-            <div
-              className="text-body leading-relaxed text-foreground/90 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1 [&_p]:mb-2 [&_li]:text-body"
-              dangerouslySetInnerHTML={{ __html: sections.wieZoekenWe }}
-            />
-          </section>
+          <ContentSection title="Wie zoeken we?" html={sections.wieZoekenWe} />
         )}
-
         {sections.watBiedenWe && (
-          <section>
-            <h2 className="text-h2 border-b border-border pb-2 mb-3">Wat bieden we?</h2>
-            <div
-              className="text-body leading-relaxed text-foreground/90 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1 [&_p]:mb-2 [&_li]:text-body"
-              dangerouslySetInnerHTML={{ __html: sections.watBiedenWe }}
-            />
-          </section>
+          <ContentSection title="Wat bieden we?" html={sections.watBiedenWe} />
         )}
-
         {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && rawContent && (
-          <section>
-            <h2 className="text-h2 border-b border-border pb-2 mb-3">Over deze vacature</h2>
-            <div
-              className="text-body leading-relaxed text-foreground/90 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1 [&_p]:mb-2 [&_li]:text-body"
-              dangerouslySetInnerHTML={{ __html: rawContent }}
-            />
-          </section>
+          <ContentSection title="Over deze vacature" html={rawContent} />
         )}
       </div>
 
-      {/* Company block */}
+      {/* 6. Company block */}
       {job.company && (
-        <>
-          <div className="h-px bg-border my-6" />
-          <section>
-            <h2 className="text-h2 mb-3">Over {companyName}</h2>
-            <div className="rounded-lg border border-border p-4">
-              <h3 className="font-semibold text-body text-foreground">{companyName}</h3>
-              {job.company.description && (
-                <p className="text-body text-muted-foreground mt-1 line-clamp-3">
-                  {job.company.description}
-                </p>
-              )}
-              <div className="flex items-center gap-4 mt-3">
-                {job.company.website && (
-                  <a
-                    href={job.company.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-body text-primary hover:underline"
-                  >
-                    <Globe className="h-3.5 w-3.5" aria-hidden="true" />
-                    Website
-                  </a>
-                )}
-                {job.company.linkedin_url && (
-                  <a
-                    href={job.company.linkedin_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-body text-primary hover:underline"
-                  >
-                    <Linkedin className="h-3.5 w-3.5" aria-hidden="true" />
-                    LinkedIn
-                  </a>
-                )}
-              </div>
-            </div>
-          </section>
-        </>
+        <div
+          className="mt-8 p-4 rounded-lg"
+          style={{ backgroundColor: 'var(--background)' }}
+        >
+          <h3 className="text-body-medium text-foreground font-semibold">{companyName}</h3>
+          {job.company.description && (
+            <p className="text-meta text-muted mt-1 line-clamp-3">
+              {job.company.description}
+            </p>
+          )}
+          <div className="flex items-center gap-4 mt-3">
+            {job.company.website && (
+              <a
+                href={job.company.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-body text-primary hover:underline"
+              >
+                <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+                Website
+              </a>
+            )}
+            {job.company.linkedin_url && (
+              <a
+                href={job.company.linkedin_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-body text-primary hover:underline"
+              >
+                <Linkedin className="h-3.5 w-3.5" aria-hidden="true" />
+                LinkedIn
+              </a>
+            )}
+          </div>
+        </div>
       )}
 
-      {/* Related jobs */}
+      {/* 7. Related jobs */}
       {relatedJobs.length > 0 && (
-        <>
-          <div className="h-px bg-border my-6" />
-          <section>
-            <h2 className="text-h2 mb-3">Vergelijkbare banen</h2>
-            <div className="grid gap-3">
-              {relatedJobs.map((relatedJob) => (
-                <JobCard key={relatedJob.id} job={relatedJob} variant="card" />
-              ))}
-            </div>
-          </section>
-        </>
+        <div className="mt-8">
+          <h2 className="text-h2 text-foreground mb-3">Vergelijkbare banen</h2>
+          <div className="space-y-0">
+            {relatedJobs.map((relatedJob) => (
+              <JobCard key={relatedJob.id} job={relatedJob} variant="mobile" />
+            ))}
+          </div>
+        </div>
       )}
     </article>
   )
 }
+
+/**
+ * Content section with H2 heading + HTML body.
+ */
+function ContentSection({ title, html }: { title: string; html: string }) {
+  return (
+    <section>
+      <h2 className="text-h2 text-foreground mb-3 mt-6">{title}</h2>
+      <div
+        className="text-body text-foreground leading-[22px] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1.5 [&_p]:mb-3"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Section parsing
+// ---------------------------------------------------------------------------
 
 interface JobSections {
   watGaJeDoen: string | null

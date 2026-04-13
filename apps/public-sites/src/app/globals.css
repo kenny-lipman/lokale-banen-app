@@ -4,70 +4,57 @@
 
 @layer base {
   :root {
-    /* Warm neutrals — not cold blue-gray */
-    --background: 40 20% 99%;
-    --foreground: 220 20% 10%;
-    --muted: 40 10% 95%;
-    --muted-foreground: 220 10% 45%;
-    --border: 30 15% 90%;
-    --input: 30 15% 90%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
-    --ring: 221 83% 53%;
+    --background: #F7F7F8;
+    --surface: #FFFFFF;
+    --foreground: #18181B;
+    --muted: #71717A;
+    --muted-foreground: #A1A1AA;
+    --border: #E4E4E7;
+    --border-subtle: #F4F4F5;
+    --ring: var(--primary);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
-    --secondary: 40 10% 95%;
-    --secondary-foreground: 220 20% 10%;
-    --accent: 40 10% 95%;
-    --accent-foreground: 220 20% 10%;
+    /* Per-tenant — default, override via layout.tsx inline style */
+    --primary: #006B5E;
+    --primary-foreground: #FFFFFF;
+    --primary-hover: #005A4F;
+    --primary-light: #E8F5F2;
+    --primary-muted: #B2DDD5;
 
-    /* Status */
-    --salary: 160 84% 30%;
-    --new: 38 92% 50%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    /* Semantisch — VAST, niet per tenant */
+    --salary: #16A34A;
+    --card-hover: #FAFAFA;
+    --card-selected: var(--primary-light);
+    --card-selected-border: var(--primary);
 
-    /* Per-tenant override via layout.tsx <style> */
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
-
-    /* Surface for split-view background */
-    --surface: 40 15% 97%;
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.1);
 
     --radius: 0.5rem;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   body {
-    @apply bg-background text-foreground antialiased;
+    background-color: var(--background);
+    color: var(--foreground);
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-@layer utilities {
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .scrollbar-none {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Split view scroll containers */
-  .split-list {
-    height: calc(100vh - 130px);
-  }
-  .split-detail {
-    height: calc(100vh - 130px);
-  }
+/* Split-view scroll utilities */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.scrollbar-thin::-webkit-scrollbar { width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }

@@ -8,7 +8,6 @@ import { TenantHeader } from '@/components/tenant-header'
 import { JobDetail } from '@/components/job-detail'
 import { ApplyButton } from '@/components/apply-button'
 import { SaveJobButton } from '@/components/save-job-button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Share2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -137,29 +136,29 @@ export default async function JobPage({ params }: JobPageProps) {
   })
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-surface">
       <TenantHeader tenant={tenant} showSearch={false} />
 
       {/* Sub-header with back, share, save */}
-      <div className="border-b border-border bg-white">
-        <div className="container flex items-center justify-between h-11">
+      <div className="bg-surface" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="max-w-[1280px] mx-auto flex items-center justify-between h-11 px-4 lg:px-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1.5 text-body text-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Terug
           </Link>
           <div className="flex items-center gap-1">
             <ShareButton title={job.title} />
-            <Suspense fallback={<Skeleton className="h-10 w-10 rounded-md" />}>
+            <Suspense fallback={<div className="h-10 w-10" />}>
               <SaveJobButton jobId={job.id} />
             </Suspense>
           </div>
         </div>
       </div>
 
-      <main className="flex-1 container py-6 sm:py-8 pb-24 sm:pb-8">
+      <main className="flex-1 max-w-content mx-auto w-full py-6 px-4 lg:px-8 pb-24 sm:pb-8">
         {/* JSON-LD */}
         <script
           type="application/ld+json"
@@ -185,7 +184,7 @@ export default async function JobPage({ params }: JobPageProps) {
 function ShareButton({ title }: { title: string }) {
   return (
     <button
-      className="inline-flex items-center justify-center h-10 w-10 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      className="inline-flex items-center justify-center h-10 w-10 rounded-md text-muted hover:text-foreground hover:bg-background transition-colors"
       aria-label="Deel deze vacature"
     >
       <Share2 className="h-4 w-4" />
