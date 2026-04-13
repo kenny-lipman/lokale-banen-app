@@ -123,6 +123,22 @@ export function formatEmploymentLabel(
 }
 
 /**
+ * Sanitize raw HTML by stripping dangerous tags and attributes.
+ * Used when rendering scraped job descriptions that are not markdown.
+ */
+export function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<link\b[^>]*>/gi, '')
+    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\bon\w+\s*=\s*[^\s>]*/gi, '')
+    .replace(/javascript\s*:/gi, 'nojavascript:')
+    .replace(/data\s*:\s*text\/html/gi, 'nodata:text/html')
+}
+
+/**
  * Render a simple markdown string to HTML.
  * Supports ## headings, ### headings, **bold**, - list items, and paragraphs.
  * No external dependencies.

@@ -43,10 +43,12 @@ export async function generateMetadata({
     : rawText || `Bekijk de vacature ${job.title} bij ${companyName}`
 
   const canonicalUrl = `https://${tenant.domain}/vacature/${slug}`
+  const isExpired = job.end_date && new Date(job.end_date) < new Date()
 
   return {
     title,
     description,
+    robots: isExpired ? { index: false, follow: false } : undefined,
     openGraph: {
       title,
       description,
@@ -190,12 +192,12 @@ export default async function JobPage({ params }: JobPageProps) {
         {/* JSON-LD: JobPosting */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
         {/* JSON-LD: BreadcrumbList */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, '\\u003c') }}
         />
 
         <JobDetail job={job} relatedJobs={relatedJobs} />

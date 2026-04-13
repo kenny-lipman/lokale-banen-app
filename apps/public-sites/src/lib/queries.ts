@@ -55,6 +55,8 @@ export interface JobFilter {
 
 const JOBS_PER_PAGE = 20
 
+const VALID_TYPES = ['vast', 'tijdelijk', 'fulltime', 'parttime', 'stage', 'bijbaan', 'freelance', 'vrijwilliger'] as const
+
 /**
  * Fetch approved, published jobs for a tenant with optional filters.
  */
@@ -100,8 +102,11 @@ export async function getApprovedJobs(
 
   // Filter by employment type (match against job_type array or employment field)
   if (filter.type && filter.type !== 'alle') {
-    const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
-    query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
+    const normalizedType = filter.type.toLowerCase()
+    if (VALID_TYPES.some(t => normalizedType.includes(t))) {
+      const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
+      query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
+    }
   }
 
   // Text search on title
@@ -146,8 +151,11 @@ export async function getJobCount(
     .not('published_at', 'is', null)
 
   if (filter.type && filter.type !== 'alle') {
-    const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
-    query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
+    const normalizedType = filter.type.toLowerCase()
+    if (VALID_TYPES.some(t => normalizedType.includes(t))) {
+      const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
+      query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
+    }
   }
 
   if (filter.query) {

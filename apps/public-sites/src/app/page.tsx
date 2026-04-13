@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
 import { getJobBySlug } from '@/lib/queries'
 import { TenantHeader } from '@/components/tenant-header'
@@ -6,6 +7,22 @@ import { JobList } from '@/components/job-list'
 import { JobDetailPanel, EmptyDetailState } from '@/components/job-detail-panel'
 import { Footer } from '@/components/footer'
 import type { JobFilter, SortOption } from '@/lib/queries'
+
+const VALID_SORTS = ['newest', 'salary_desc', 'oldest'] as const
+type ValidSort = typeof VALID_SORTS[number]
+
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenant()
+  if (!tenant) return { title: 'Lokale Banen' }
+
+  return {
+    title: tenant.hero_title || `Vacatures in ${tenant.central_place}`,
+    description: tenant.seo_description || `Vind lokale vacatures bij ${tenant.name}`,
+    alternates: {
+      canonical: tenant.domain ? `https://${tenant.domain}` : undefined,
+    },
+  }
+}
 
 interface HomePageProps {
   searchParams: Promise<{
@@ -35,13 +52,18 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     )
   }
 
-  const sortParam = (params.sort || 'newest') as SortOption
+  const sort: SortOption = VALID_SORTS.includes(params.sort as ValidSort)
+    ? (params.sort as SortOption)
+    : 'newest'
+  const pageNum = parseInt(params.page || '1', 10)
+  const page = isNaN(pageNum) || pageNum < 1 ? 1 : pageNum
+
   const filter: JobFilter = {
     query: params.q,
     location: params.location,
     type: params.type,
-    page: params.page ? parseInt(params.page, 10) : 1,
-    sort: sortParam,
+    page,
+    sort,
   }
 
   // Fetch selected job for split-view detail panel (desktop)

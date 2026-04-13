@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,18 +18,19 @@ export function SaveJobButton({
   jobId,
   initialSaved = false,
 }: SaveJobButtonProps) {
-  const [saved, setSaved] = useState(() => {
-    if (initialSaved) return true
-    if (typeof window !== 'undefined') {
-      try {
-        const savedJobs = JSON.parse(localStorage.getItem('saved_jobs') || '[]')
-        return savedJobs.includes(jobId)
-      } catch {
-        return false
+  const [saved, setSaved] = useState(initialSaved)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('saved_jobs')
+      if (raw) {
+        const jobs = JSON.parse(raw) as string[]
+        setSaved(jobs.includes(jobId))
       }
+    } catch {
+      // localStorage unavailable
     }
-    return false
-  })
+  }, [jobId])
   const [isPending, startTransition] = useTransition()
   const [showPrompt, setShowPrompt] = useState(false)
 

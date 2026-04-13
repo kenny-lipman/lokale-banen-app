@@ -84,7 +84,7 @@ export function JobCard({
         </p>
 
         {/* Salary — mt 4px */}
-        {job.salary && (
+        {job.salary && job.salary.trim() !== '-' && job.salary.trim() !== '' && (
           <p className="text-salary text-salary mt-1">
             {job.salary}
           </p>
@@ -135,7 +135,7 @@ export function JobCard({
       </p>
 
       {/* Salary — 14px/600, mt 6px */}
-      {job.salary && (
+      {job.salary && job.salary.trim() !== '-' && job.salary.trim() !== '' && (
         <p className="text-[14px] font-semibold leading-5 text-salary mt-1.5">
           {job.salary}
         </p>

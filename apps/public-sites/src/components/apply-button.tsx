@@ -11,9 +11,8 @@ interface ApplyButtonProps {
 /**
  * Sticky bottom CTA for mobile, inline for desktop.
  * External redirect to the original job posting URL.
- * Tracks clicks via a beacon to avoid blocking navigation.
  */
-export function ApplyButton({ jobUrl, jobTitle, isExpired }: ApplyButtonProps) {
+export function ApplyButton({ jobUrl, isExpired }: ApplyButtonProps) {
   if (isExpired || !jobUrl) {
     return (
       <div
@@ -31,17 +30,6 @@ export function ApplyButton({ jobUrl, jobTitle, isExpired }: ApplyButtonProps) {
     )
   }
 
-  function handleClick() {
-    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-      const data = JSON.stringify({
-        jobTitle,
-        jobUrl,
-        timestamp: new Date().toISOString(),
-      })
-      navigator.sendBeacon('/api/track-apply', data)
-    }
-  }
-
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-40 bg-surface p-3 shadow-card-hover sm:hidden"
@@ -51,7 +39,6 @@ export function ApplyButton({ jobUrl, jobTitle, isExpired }: ApplyButtonProps) {
         href={jobUrl}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={handleClick}
         className="w-full inline-flex items-center justify-center h-12 px-6 rounded-lg bg-primary text-primary-foreground text-button transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         Solliciteer

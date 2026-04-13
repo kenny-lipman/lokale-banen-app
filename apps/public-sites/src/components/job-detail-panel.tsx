@@ -8,7 +8,7 @@ import {
   MapPin,
   Search,
 } from 'lucide-react'
-import { formatRelative, formatEmploymentLabel, renderMarkdown } from '@/lib/utils'
+import { formatRelative, formatEmploymentLabel, renderMarkdown, sanitizeHtml } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { ShareButtons } from './share-buttons'
 import Link from 'next/link'
@@ -30,7 +30,7 @@ export function JobDetailPanel({ job, tenantName, tenantDomain }: JobDetailPanel
 
   const rawContent = job.content_md || job.description || ''
   // Convert markdown to HTML first, then parse into sections
-  const htmlContent = job.content_md ? renderMarkdown(rawContent) : rawContent
+  const htmlContent = job.content_md ? renderMarkdown(rawContent) : sanitizeHtml(rawContent)
   const sections = parseJobSections(htmlContent)
 
   // Build metadata items for salary callout box
@@ -92,7 +92,7 @@ export function JobDetailPanel({ job, tenantName, tenantDomain }: JobDetailPanel
           border: '1px solid var(--border-subtle)',
         }}
       >
-        {job.salary && (
+        {job.salary && job.salary.trim() !== '-' && job.salary.trim() !== '' && (
           <p className="text-salary text-salary">{job.salary}</p>
         )}
         {metaItems.length > 0 && (
