@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation'
+import { auth, currentUser } from '@clerk/nextjs/server'
+import { SignOutButton } from '@clerk/nextjs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { TenantHeader } from '@/components/tenant-header'
 import { getTenant } from '@/lib/tenant'
-import { Bookmark, FileText, Settings, LogOut, ArrowLeft } from 'lucide-react'
+import { Bookmark, FileText, Settings, LogOut } from 'lucide-react'
 import Link from 'next/link'
-
-const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 export default async function AccountPage() {
   const tenant = await getTenant()
@@ -15,38 +15,12 @@ export default async function AccountPage() {
     redirect('/')
   }
 
-  // When Clerk is not configured, show placeholder
-  if (!CLERK_ENABLED) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <TenantHeader tenant={tenant} showSearch={false} />
-        <main className="flex-1 container py-6 sm:py-8 max-w-2xl">
-          <div className="text-center py-12">
-            <h1 className="text-2xl font-bold mb-2">Mijn Account</h1>
-            <p className="text-base text-muted-foreground mb-6">
-              De accountfunctie is binnenkort beschikbaar.
-            </p>
-            <Button asChild>
-              <Link href="/" className="inline-flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Terug naar vacatures
-              </Link>
-            </Button>
-          </div>
-        </main>
-      </div>
-    )
-  }
-
-  // Clerk-enabled account page
-  let user = null
-  try {
-    const { currentUser } = await import('@clerk/nextjs/server')
-    user = await currentUser()
-  } catch {
+  const { userId } = await auth()
+  if (!userId) {
     redirect('/sign-in?redirect_url=/account')
   }
 
+  const user = await currentUser()
   if (!user) {
     redirect('/sign-in?redirect_url=/account')
   }
@@ -71,14 +45,6 @@ export default async function AccountPage() {
       href: '/account/profiel',
     },
   ]
-
-  let SignOutButton: React.ComponentType<{ children: React.ReactNode }> | null = null
-  try {
-    const clerk = await import('@clerk/nextjs')
-    SignOutButton = clerk.SignOutButton
-  } catch {
-    // no-op
-  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -138,16 +104,14 @@ export default async function AccountPage() {
         </div>
 
         {/* Sign out */}
-        {SignOutButton && (
-          <div className="mt-8">
-            <SignOutButton>
-              <Button variant="outline" className="w-full sm:w-auto">
-                <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
-                Uitloggen
-              </Button>
-            </SignOutButton>
-          </div>
-        )}
+        <div className="mt-8">
+          <SignOutButton>
+            <Button variant="outline" className="w-full sm:w-auto">
+              <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
+              Uitloggen
+            </Button>
+          </SignOutButton>
+        </div>
       </main>
     </div>
   )

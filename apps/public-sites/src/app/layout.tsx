@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { Source_Sans_3 } from 'next/font/google'
+import { ClerkProvider } from '@clerk/nextjs'
+import { nlNL } from '@clerk/localizations'
 import { hexToLightVariant, darkenHex, hexToMutedVariant } from '@/lib/utils'
 import { CookieConsent } from '@/components/cookie-consent'
 import './globals.css'
-
-const CLERK_ENABLED = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 const sourceSans = Source_Sans_3({
   subsets: ['latin'],
@@ -66,47 +66,27 @@ export default async function RootLayout({
     '--primary-muted': primaryMuted,
   } as React.CSSProperties
 
-  const body = (
+  return (
     <html lang="nl" className={sourceSans.variable} style={themeStyle}>
       <body className="font-sans">
-        {children}
-        <CookieConsent />
+        <ClerkProvider
+          localization={nlNL}
+          appearance={{
+            variables: {
+              colorPrimary: primaryColor,
+              colorText: '#18181B',
+              colorInputBackground: '#FFFFFF',
+              colorInputText: '#18181B',
+              fontFamily: 'var(--font-source-sans)',
+              borderRadius: '8px',
+            },
+          }}
+          dynamic
+        >
+          {children}
+          <CookieConsent />
+        </ClerkProvider>
       </body>
     </html>
   )
-
-  // Wrap with ClerkProvider only if Clerk is configured
-  if (CLERK_ENABLED) {
-    try {
-      const { ClerkProvider } = await import('@clerk/nextjs')
-      const { nlNL } = await import('@clerk/localizations')
-      return (
-        <html lang="nl" className={sourceSans.variable} style={themeStyle}>
-          <body className="font-sans">
-            <ClerkProvider
-              localization={nlNL}
-              appearance={{
-                variables: {
-                  colorPrimary: primaryColor,
-                  colorText: '#18181B',
-                  colorInputBackground: '#FFFFFF',
-                  colorInputText: '#18181B',
-                  fontFamily: 'var(--font-source-sans)',
-                  borderRadius: '8px',
-                },
-              }}
-              dynamic
-            >
-              {children}
-              <CookieConsent />
-            </ClerkProvider>
-          </body>
-        </html>
-      )
-    } catch {
-      // Clerk import failed, use plain layout
-    }
-  }
-
-  return body
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -12,12 +13,13 @@ interface SaveJobButtonProps {
 /**
  * Heart icon toggle for saving jobs.
  * Currently localStorage-only (anonymous mode).
- * When Clerk is configured, can be extended to persist to DB.
+ * When signed in via Clerk, can be extended to persist to DB.
  */
 export function SaveJobButton({
   jobId,
   initialSaved = false,
 }: SaveJobButtonProps) {
+  const { isSignedIn } = useUser()
   const [saved, setSaved] = useState(initialSaved)
 
   useEffect(() => {
@@ -53,7 +55,8 @@ export function SaveJobButton({
         localStorage.setItem('saved_jobs', JSON.stringify(savedJobs))
         setSaved(newSaved)
 
-        if (newSaved && !showPrompt) {
+        // Show sign-up prompt for anonymous users
+        if (newSaved && !isSignedIn && !showPrompt) {
           setShowPrompt(true)
           setTimeout(() => setShowPrompt(false), 5000)
         }
