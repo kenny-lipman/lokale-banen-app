@@ -6,6 +6,9 @@ import { JobPostingsTable } from "@/components/job-postings-table"
 import { JobPostingDrawer } from "@/components/job-posting-drawer"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { authFetch } from "@/lib/authenticated-fetch"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
+import Link from "next/link"
 
 interface JobPosting {
   id: string
@@ -83,9 +86,17 @@ function JobPostingsContent() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Vacatures</h1>
-        <p className="text-gray-600 mt-2">Beheer alle gescrapte vacatures</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Vacatures</h1>
+          <p className="text-gray-600 mt-2">Beheer alle gescrapte vacatures</p>
+        </div>
+        <Link href="/vacatures/nieuw">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Nieuwe vacature
+          </Button>
+        </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow">

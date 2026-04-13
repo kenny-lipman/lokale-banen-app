@@ -32,7 +32,10 @@ import {
   RefreshCw,
   ClipboardCheck,
   Loader2,
+  Pencil,
+  Plus,
 } from "lucide-react"
+import Link from "next/link"
 
 interface Company {
   id: string
@@ -239,10 +242,18 @@ export default function ReviewPage() {
             Beoordeel en publiceer vacatures voor de publieke sites
           </p>
         </div>
-        <Button variant="outline" onClick={fetchJobPostings} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Vernieuwen
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/vacatures/nieuw">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Nieuwe vacature
+            </Button>
+          </Link>
+          <Button variant="outline" onClick={fetchJobPostings} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Vernieuwen
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -380,19 +391,20 @@ export default function ReviewPage() {
                 <TableHead>Salaris</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Datum</TableHead>
+                <TableHead className="w-[80px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                     <span className="text-muted-foreground">Laden...</span>
                   </TableCell>
                 </TableRow>
               ) : jobPostings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                     Geen vacatures gevonden met de huidige filters
                   </TableCell>
                 </TableRow>
@@ -421,6 +433,13 @@ export default function ReviewPage() {
                     <TableCell>{statusBadge(job.review_status)}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {formatDate(job.scraped_at)}
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/vacatures/${job.id}/bewerken`}>
+                        <Button variant="ghost" size="sm">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))

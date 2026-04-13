@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import Link from "next/link"
 import { CompaniesTabContainer } from "@/components/companies-tab-container"
 import { CompanyDrawer } from "@/components/company-drawer"
 import { CompanyStats } from "@/components/company-stats"
@@ -120,6 +121,12 @@ export default function CompaniesPage() {
             <h1 className="text-3xl font-bold text-gray-900">Companies</h1>
             <p className="text-gray-600 mt-2">Beheer alle bedrijven en hun qualification workflow</p>
           </div>
+          <Link href="/bedrijven/nieuw">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Nieuw bedrijf
+            </Button>
+          </Link>
         </div>
       </div>
 

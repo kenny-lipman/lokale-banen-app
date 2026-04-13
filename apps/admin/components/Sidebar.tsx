@@ -21,6 +21,7 @@ import {
   Mail,
   ClipboardCheck,
   Monitor,
+  Plus,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 
@@ -35,8 +36,24 @@ const menu = [
     href: "/agents"
   },
   { href: "/review", icon: ClipboardCheck, label: "Review" },
-  { href: "/job-postings", icon: Briefcase, label: "Vacatures" },
-  { href: "/companies", icon: Building2, label: "Bedrijven" },
+  {
+    label: "Vacatures",
+    icon: Briefcase,
+    href: "/job-postings",
+    children: [
+      { href: "/job-postings", icon: Briefcase, label: "Overzicht" },
+      { href: "/vacatures/nieuw", icon: Plus, label: "Nieuw aanmaken" },
+    ],
+  },
+  {
+    label: "Bedrijven",
+    icon: Building2,
+    href: "/companies",
+    children: [
+      { href: "/companies", icon: Building2, label: "Overzicht" },
+      { href: "/bedrijven/nieuw", icon: Plus, label: "Nieuw aanmaken" },
+    ],
+  },
   { href: "/contacten", icon: Users, label: "Contacten" },
   { href: "/blocklist", icon: Shield, label: "Blocklist" },
   { href: "/instantly-sync", icon: ArrowLeftRight, label: "Instantly <> PD Sync" },
@@ -49,9 +66,13 @@ const menu = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
-  const [agentsOpen, setAgentsOpen] = useState(false)
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
   const router = useRouter()
   const { logout } = useAuth()
+
+  const toggleMenu = (label: string) => {
+    setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }))
+  }
 
   const handleLogout = async () => {
     await logout()
@@ -87,24 +108,22 @@ export default function Sidebar() {
       <nav className="flex-1 flex flex-col gap-1 mt-2">
         {menu.map((item) => {
           if (item.children) {
-            // Parent with submenu (Agents)
+            const isOpen = openMenus[item.label] || false
             return (
-              <div key={item.label} className="">
+              <div key={item.label}>
                 <button
                   type="button"
-                  onClick={() => setAgentsOpen((v) => !v)}
+                  onClick={() => toggleMenu(item.label)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg mx-2 my-1 text-gray-800 hover:bg-orange-50 transition-all text-lg font-medium w-full ${collapsed ? "justify-center px-2" : ""}`}
-                  aria-expanded={agentsOpen}
+                  aria-expanded={isOpen}
                 >
-                  {/* Agents icon met scale-90 */}
                   <item.icon className="w-6 h-6 scale-90" />
                   {!collapsed && <span className="truncate text-base flex-1 text-left">{item.label}</span>}
                   {!collapsed && (
-                    agentsOpen ? <ChevronDown className="w-5 h-5 ml-auto" /> : <ChevronRight className="w-5 h-5 ml-auto" />
+                    isOpen ? <ChevronDown className="w-5 h-5 ml-auto" /> : <ChevronRight className="w-5 h-5 ml-auto" />
                   )}
                 </button>
-                {/* Submenu */}
-                {!collapsed && agentsOpen && (
+                {!collapsed && isOpen && (
                   <div className="ml-8 border-l border-orange-100 pl-2">
                     {item.children.map((sub) => (
                       <Link
@@ -121,7 +140,6 @@ export default function Sidebar() {
               </div>
             )
           }
-          // Regular item
           return (
             <Link
               key={item.href}
