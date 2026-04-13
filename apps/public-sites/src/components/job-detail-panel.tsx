@@ -8,7 +8,7 @@ import {
   MapPin,
   Search,
 } from 'lucide-react'
-import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
+import { formatRelative, formatEmploymentLabel, renderMarkdown } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { ShareButtons } from './share-buttons'
 import Link from 'next/link'
@@ -29,7 +29,9 @@ export function JobDetailPanel({ job, tenantName, tenantDomain }: JobDetailPanel
   const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
 
   const rawContent = job.content_md || job.description || ''
-  const sections = parseJobSections(rawContent)
+  // Convert markdown to HTML first, then parse into sections
+  const htmlContent = job.content_md ? renderMarkdown(rawContent) : rawContent
+  const sections = parseJobSections(htmlContent)
 
   // Build metadata items for salary callout box
   const metaItems: string[] = []
@@ -147,8 +149,8 @@ export function JobDetailPanel({ job, tenantName, tenantDomain }: JobDetailPanel
         {sections.watBiedenWe && (
           <ContentSection title="Wat bieden we?" html={sections.watBiedenWe} />
         )}
-        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && rawContent && (
-          <ContentSection title="Over deze vacature" html={rawContent} />
+        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && htmlContent && (
+          <ContentSection title="Over deze vacature" html={htmlContent} />
         )}
       </div>
 
@@ -190,6 +192,19 @@ export function JobDetailPanel({ job, tenantName, tenantDomain }: JobDetailPanel
           </div>
         </div>
       )}
+
+      {/* Mini-footer in detail panel (desktop only, since main footer is lg:hidden) */}
+      <nav className="mt-12 pt-6 border-t border-[var(--border)] text-meta text-[var(--muted)]" aria-label="Footer links">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <Link href="/over-ons" className="hover:text-[var(--foreground)] transition-colors">Over ons</Link>
+          <Link href="/contact" className="hover:text-[var(--foreground)] transition-colors">Contact</Link>
+          <Link href="/privacy" className="hover:text-[var(--foreground)] transition-colors">Privacy</Link>
+          <Link href="/voorwaarden" className="hover:text-[var(--foreground)] transition-colors">Voorwaarden</Link>
+        </div>
+        <p className="mt-2 text-caption text-[var(--muted-foreground)]">
+          © {new Date().getFullYear()} {tenantName || 'Lokale Banen'}
+        </p>
+      </nav>
     </article>
   )
 }

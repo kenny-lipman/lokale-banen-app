@@ -3,7 +3,7 @@ import {
   Linkedin,
   ExternalLink,
 } from 'lucide-react'
-import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
+import { formatRelative, formatEmploymentLabel, renderMarkdown } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { JobCard } from './job-card'
 
@@ -23,7 +23,8 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
   const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
 
   const rawContent = job.content_md || job.description || ''
-  const sections = parseJobSections(rawContent)
+  const htmlContent = job.content_md ? renderMarkdown(rawContent) : rawContent
+  const sections = parseJobSections(htmlContent)
 
   // Build metadata items for salary callout box
   const metaItems: string[] = []
@@ -120,8 +121,8 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
         {sections.watBiedenWe && (
           <ContentSection title="Wat bieden we?" html={sections.watBiedenWe} />
         )}
-        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && rawContent && (
-          <ContentSection title="Over deze vacature" html={rawContent} />
+        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && htmlContent && (
+          <ContentSection title="Over deze vacature" html={htmlContent} />
         )}
       </div>
 
