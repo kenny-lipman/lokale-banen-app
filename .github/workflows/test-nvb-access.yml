@@ -15,23 +15,55 @@ jobs:
           echo "=== Reverse DNS / geo ==="
           curl -s "https://ipinfo.io/$(curl -s https://api.ipify.org)" || true
 
-      - name: Test NVB API
+      - name: Test NVB API (api.nationalevacaturebank.nl)
+        continue-on-error: true
         run: |
           echo "=== NVB API test ==="
-          STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+          STATUS=$(curl -s -o /tmp/api.json -w "%{http_code}" \
             "https://api.nationalevacaturebank.nl/api/jobs/v3/sites/nationalevacaturebank.nl/jobs?page=1&limit=2&sort=date" \
             -H "Accept: application/json" \
             -H "Referer: https://www.nationalevacaturebank.nl/" \
             -H "Origin: https://www.nationalevacaturebank.nl" \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
             -H "Accept-Language: nl-NL,nl;q=0.9,en;q=0.8")
-          echo "HTTP Status: $STATUS"
-          echo "=== Response (first 500 chars) ==="
-          head -c 500 /tmp/response.json
+          echo "API HTTP Status: $STATUS"
+          head -c 300 /tmp/api.json
           echo ""
 
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::NVB API returned $STATUS instead of 200"
-            exit 1
-          fi
-          echo "::notice::NVB API accessible from GitHub Actions runner"
+      - name: Test NVB public HTML (www.nationalevacaturebank.nl)
+        continue-on-error: true
+        run: |
+          echo "=== NVB public HTML test ==="
+          STATUS=$(curl -s -o /tmp/html.html -w "%{http_code}" \
+            "https://www.nationalevacaturebank.nl/vacatures" \
+            -H "Accept: text/html,application/xhtml+xml" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Accept-Language: nl-NL,nl;q=0.9,en;q=0.8")
+          echo "HTML HTTP Status: $STATUS"
+          echo "HTML size: $(wc -c < /tmp/html.html) bytes"
+          head -c 300 /tmp/html.html
+          echo ""
+
+      - name: Test NVB sitemap (sitemap.xml)
+        continue-on-error: true
+        run: |
+          echo "=== NVB sitemap test ==="
+          STATUS=$(curl -s -o /tmp/sitemap.xml -w "%{http_code}" \
+            "https://www.nationalevacaturebank.nl/sitemap.xml" \
+            -H "User-Agent: Mozilla/5.0")
+          echo "Sitemap HTTP Status: $STATUS"
+          echo "Sitemap size: $(wc -c < /tmp/sitemap.xml) bytes"
+          head -c 500 /tmp/sitemap.xml
+          echo ""
+
+      - name: Test NVB RSS feed (guess)
+        continue-on-error: true
+        run: |
+          for URL in \
+            "https://www.nationalevacaturebank.nl/rss" \
+            "https://www.nationalevacaturebank.nl/vacatures/rss" \
+            "https://www.nationalevacaturebank.nl/feed" \
+            "https://api.nationalevacaturebank.nl/rss" ; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" -H "User-Agent: Mozilla/5.0")
+            echo "RSS $URL → $STATUS"
+          done
