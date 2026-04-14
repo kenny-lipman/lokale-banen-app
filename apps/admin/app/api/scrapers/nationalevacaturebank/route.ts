@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCronMonitoring } from "@/lib/cron-monitor";
 import { scrapeNationaleVacaturebank } from "@/lib/scrapers/nationalevacaturebank/scraper";
 
+export const runtime = "nodejs";
+export const preferredRegion = "fra1";
+
 const DEFAULT_CONFIG = {
   startPage: 1,
   maxPagesPerRun: 50,
