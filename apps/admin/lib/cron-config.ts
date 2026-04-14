@@ -42,11 +42,6 @@ export const CRON_JOBS_CONFIG: Record<string, { path: string; schedule: string; 
     schedule: '0 6 * * *',
     description: 'Scrapes job postings from debanensite.nl',
   },
-  'nvb-scraper': {
-    path: '/api/scrapers/nationalevacaturebank',
-    schedule: '0 */2 * * *',
-    description: 'Scrapes job postings from nationalevacaturebank.nl (every 2 hours)',
-  },
   'watchdog': {
     path: '/api/cron/watchdog',
     schedule: '*/15 * * * *',
@@ -73,7 +68,6 @@ export const EXPECTED_INTERVAL_MS: Record<string, number> = {
   'refresh-contact-stats': 5 * 60_000,
   'baanindebuurt-scraper': 24 * 3_600_000,
   'debanensite-scraper': 24 * 3_600_000,
-  'nvb-scraper': 2 * 3_600_000,
   'watchdog': 15 * 60_000,
   'daily-campaign-report': 24 * 3_600_000,
   'pipedrive-backfill': 15 * 60_000,
