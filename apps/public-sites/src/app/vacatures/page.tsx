@@ -24,9 +24,7 @@ export async function generateMetadata({ searchParams }: VacaturesPageProps): Pr
   if (!tenant) return {}
 
   const page = parseInt(sp.page || '1', 10) || 1
-  const title = page > 1
-    ? `Alle vacatures — Pagina ${page} | ${tenant.name}`
-    : `Alle vacatures | ${tenant.name}`
+  const title = page > 1 ? `Alle vacatures — Pagina ${page}` : 'Alle vacatures'
   const description =
     tenant.seo_description ??
     `Bekijk het actuele vacature-aanbod bij ${tenant.name}.`
