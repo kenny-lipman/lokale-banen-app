@@ -67,6 +67,24 @@ export function hexToMutedVariant(hex: string): string {
 }
 
 /**
+ * Return the best contrast ink color (#FFFFFF or #1A1815) for a given
+ * background hex. Uses WCAG relative luminance.
+ */
+export function getContrastInk(hex: string): string {
+  const parsed = parseHex(hex)
+  if (!parsed) return '#FFFFFF'
+  const toLinear = (c: number) => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  }
+  const L =
+    0.2126 * toLinear(parsed.r) +
+    0.7152 * toLinear(parsed.g) +
+    0.0722 * toLinear(parsed.b)
+  return L > 0.45 ? '#1A1815' : '#FFFFFF'
+}
+
+/**
  * Format a date as a relative time string in Dutch.
  * Uses day-level granularity to avoid stale "2 uur geleden" on cached pages.
  */

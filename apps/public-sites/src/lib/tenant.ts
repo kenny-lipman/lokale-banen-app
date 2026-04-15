@@ -11,6 +11,10 @@ export interface Tenant {
   tier: string | null
   logo_url: string | null
   primary_color: string
+  /** Editorial accent color. Falls back to neutral ink when null. */
+  secondary_color: string | null
+  /** Warm cream/paper accent. Falls back to default paper cream when null. */
+  tertiary_color: string | null
   hero_title: string | null
   hero_subtitle: string | null
   seo_description: string | null
@@ -61,7 +65,7 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
   const supabase = createPublicClient()
   const { data, error } = await supabase
     .from('platforms')
-    .select('id, regio_platform, central_place, domain, preview_domain, is_public, tier, logo_url, primary_color, hero_title, hero_subtitle, seo_description, indexnow_key, about_text, contact_email, contact_phone, social_linkedin, social_instagram, social_facebook, social_tiktok, social_twitter, favicon_url, og_image_url, privacy_text, terms_text')
+    .select('id, regio_platform, central_place, domain, preview_domain, is_public, tier, logo_url, primary_color, secondary_color, tertiary_color, hero_title, hero_subtitle, seo_description, indexnow_key, about_text, contact_email, contact_phone, social_linkedin, social_instagram, social_facebook, social_tiktok, social_twitter, favicon_url, og_image_url, privacy_text, terms_text')
     .or(`domain.eq.${host},preview_domain.eq.${host}`)
     .eq('is_public', true)
     .single()
@@ -78,6 +82,8 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
     tier: data.tier,
     logo_url: data.logo_url,
     primary_color: data.primary_color || '#0066cc',
+    secondary_color: (data as { secondary_color?: string | null }).secondary_color ?? null,
+    tertiary_color: (data as { tertiary_color?: string | null }).tertiary_color ?? null,
     hero_title: data.hero_title,
     hero_subtitle: data.hero_subtitle,
     seo_description: data.seo_description,

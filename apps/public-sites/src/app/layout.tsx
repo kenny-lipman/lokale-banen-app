@@ -1,22 +1,44 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { Source_Sans_3 } from 'next/font/google'
+import { Source_Sans_3, Newsreader, JetBrains_Mono } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { nlNL } from '@clerk/localizations'
 import { hexToLightVariant, darkenHex, hexToMutedVariant } from '@/lib/utils'
+import { buildTenantThemeCss } from '@/lib/theme'
 import { CookieConsent } from '@/components/cookie-consent'
 import './globals.css'
 
 const sourceSans = Source_Sans_3({
   subsets: ['latin'],
-  variable: '--font-source-sans',
+  variable: '--font-body',
   display: 'swap',
   weight: ['300', '400', '500', '600', '700'],
+})
+
+// Editorial display serif — variable optical-size (opsz 6..72), weights 400-700 + italic 500.
+// `display: 'optional'` avoids blocking LCP; falls back to system serif until ready.
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'optional',
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  axes: ['opsz'],
+})
+
+// Editorial monospace — used for salary, distance-chip, counts.
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'optional',
+  weight: ['400', '500'],
 })
 
 // Default brand color used during static prerender; the TenantTheme below
 // streams in per-tenant overrides at request time without blocking the shell.
 const DEFAULT_PRIMARY = '#006B5E'
+const DEFAULT_SECONDARY: string | null = null
+const DEFAULT_TERTIARY: string | null = null
 
 /**
  * Safely attempt to resolve tenant data.
@@ -61,19 +83,18 @@ async function TenantTheme() {
   const tenant = await safeTenant()
   if (!tenant) return null
 
-  const primary = tenant.primary_color || DEFAULT_PRIMARY
-  const primaryHover = darkenHex(primary, 0.1)
-  const primaryLight = hexToLightVariant(primary, 0.08)
-  const primaryMuted = hexToMutedVariant(primary)
+  const css = buildTenantThemeCss({
+    primary: tenant.primary_color || DEFAULT_PRIMARY,
+    secondary: tenant.secondary_color,
+    tertiary: tenant.tertiary_color,
+  })
 
-  const css = `:root {
-  --primary: ${primary};
-  --primary-hover: ${primaryHover};
-  --primary-light: ${primaryLight};
-  --primary-muted: ${primaryMuted};
-}`
-
-  return <style dangerouslySetInnerHTML={{ __html: css }} />
+  return (
+    <style
+      data-tenant-theme={tenant.domain || 'default'}
+      dangerouslySetInnerHTML={{ __html: css }}
+    />
+  )
 }
 
 export default function RootLayout({
@@ -82,15 +103,25 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   // Static shell with default theme vars — safe to prerender.
-  const defaultThemeStyle = {
+  // Uses the paper/warm-neutral fallbacks from theme.ts so the shell already
+  // honours the editorial palette before tenant data streams in.
+  const defaultThemeStyle: React.CSSProperties = {
     '--primary': DEFAULT_PRIMARY,
     '--primary-hover': darkenHex(DEFAULT_PRIMARY, 0.1),
     '--primary-light': hexToLightVariant(DEFAULT_PRIMARY, 0.08),
+    '--primary-tint': hexToLightVariant(DEFAULT_PRIMARY, 0.08),
     '--primary-muted': hexToMutedVariant(DEFAULT_PRIMARY),
+    '--primary-dark': darkenHex(DEFAULT_PRIMARY, 0.25),
   } as React.CSSProperties
 
+  const fontVars = [
+    sourceSans.variable,
+    newsreader.variable,
+    jetbrainsMono.variable,
+  ].join(' ')
+
   return (
-    <html lang="nl" className={sourceSans.variable} style={defaultThemeStyle}>
+    <html lang="nl" className={fontVars} style={defaultThemeStyle}>
       <head>
         {/* Tenant-specific CSS variables stream in at request time */}
         <Suspense fallback={null}>
@@ -103,10 +134,10 @@ export default function RootLayout({
           appearance={{
             variables: {
               colorPrimary: DEFAULT_PRIMARY,
-              colorText: '#18181B',
+              colorText: '#1A1815',
               colorInputBackground: '#FFFFFF',
-              colorInputText: '#18181B',
-              fontFamily: 'var(--font-source-sans)',
+              colorInputText: '#1A1815',
+              fontFamily: 'var(--font-body)',
               borderRadius: '8px',
             },
           }}

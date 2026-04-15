@@ -1,42 +1,111 @@
 import type { Config } from 'tailwindcss'
 
+/**
+ * Tailwind theme for the public-sites app.
+ *
+ * All colors reference CSS custom properties so per-tenant theming happens
+ * purely at runtime via `buildTenantThemeCss()` in `src/lib/theme.ts`.
+ *
+ * Typography scale mirrors the editorial-regional design prototype in
+ * `.branding-staging/design-prototype/styles.css` (t-mega/display/h1/h2/card/
+ * body/meta/label/mono).
+ */
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-source-sans)', 'system-ui', 'sans-serif'],
+        // Primary body font — Source Sans 3 via next/font
+        sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
+        body: ['var(--font-body)', 'system-ui', 'sans-serif'],
+        // Editorial display serif — Newsreader via next/font, variable opsz.
+        display: ['var(--font-display)', 'Iowan Old Style', 'Charter', 'Georgia', 'serif'],
+        // Monospace for numeric data (salary, distance, counts).
+        mono: ['var(--font-mono)', 'SF Mono', 'Menlo', 'monospace'],
       },
       fontSize: {
-        'display': ['24px', { lineHeight: '32px', fontWeight: '600', letterSpacing: '-0.02em' }],
-        'h1': ['20px', { lineHeight: '28px', fontWeight: '600', letterSpacing: '-0.01em' }],
-        'h2': ['16px', { lineHeight: '24px', fontWeight: '600' }],
-        'card-title': ['16px', { lineHeight: '22px', fontWeight: '600' }],
-        'body': ['14px', { lineHeight: '20px', fontWeight: '400' }],
-        'body-medium': ['14px', { lineHeight: '20px', fontWeight: '500' }],
-        'meta': ['13px', { lineHeight: '18px', fontWeight: '400', letterSpacing: '0.01em' }],
-        'salary': ['13px', { lineHeight: '18px', fontWeight: '600' }],
-        'caption': ['12px', { lineHeight: '16px', fontWeight: '400', letterSpacing: '0.02em' }],
-        'button': ['14px', { lineHeight: '20px', fontWeight: '600', letterSpacing: '0.01em' }],
+        // ── Editorial typography scale (prototype-authoritative) ────────
+        // t-mega: city-hero headline
+        't-mega': ['clamp(3rem, 7.5vw, 6rem)', { lineHeight: '0.95', letterSpacing: '-0.025em', fontWeight: '500' }],
+        // t-display: section hero headline
+        't-display': ['clamp(1.75rem, 3.2vw, 2.5rem)', { lineHeight: '1.08', letterSpacing: '-0.018em', fontWeight: '500' }],
+        // t-h1: primary page headline
+        't-h1': ['1.625rem', { lineHeight: '1.18', letterSpacing: '-0.012em', fontWeight: '500' }],
+        // t-h2: sub-section head
+        't-h2': ['1.125rem', { lineHeight: '1.3', letterSpacing: '-0.005em', fontWeight: '600' }],
+        // t-card: card title
+        't-card': ['1rem', { lineHeight: '1.3', fontWeight: '600' }],
+        // t-body: prose paragraphs
+        't-body': ['0.9375rem', { lineHeight: '1.55', fontWeight: '400' }],
+        // t-meta: tertiary info
+        't-meta': ['0.8125rem', { lineHeight: '1.4', fontWeight: '400' }],
+        // t-label: section eyebrows
+        't-label': ['0.6875rem', { lineHeight: '1.3', fontWeight: '600', letterSpacing: '0.09em' }],
+        // t-mono: numeric data
+        't-mono': ['0.75rem', { lineHeight: '1.4', fontWeight: '500', letterSpacing: '0' }],
+
+        // ── Back-compat aliases (used by existing components) ──────────
+        'display': ['clamp(1.75rem, 3.2vw, 2.5rem)', { lineHeight: '1.08', letterSpacing: '-0.018em', fontWeight: '500' }],
+        'h1': ['1.625rem', { lineHeight: '1.18', letterSpacing: '-0.012em', fontWeight: '500' }],
+        'h2': ['1.125rem', { lineHeight: '1.3', letterSpacing: '-0.005em', fontWeight: '600' }],
+        'card-title': ['1rem', { lineHeight: '1.3', fontWeight: '600' }],
+        'body': ['0.9375rem', { lineHeight: '1.55', fontWeight: '400' }],
+        'body-medium': ['0.9375rem', { lineHeight: '1.55', fontWeight: '500' }],
+        'meta': ['0.8125rem', { lineHeight: '1.4', fontWeight: '400', letterSpacing: '0.01em' }],
+        'salary': ['0.9375rem', { lineHeight: '1.4', fontWeight: '500' }],
+        'caption': ['0.75rem', { lineHeight: '1.4', fontWeight: '400', letterSpacing: '0.02em' }],
+        'button': ['0.9375rem', { lineHeight: '1.4', fontWeight: '600', letterSpacing: '0.01em' }],
       },
       colors: {
-        background: 'var(--background)',
+        // Paper canvas
+        background: 'var(--bg)',
+        'bg-tint': 'var(--bg-tint)',
         surface: 'var(--surface)',
-        foreground: 'var(--foreground)',
-        muted: 'var(--muted)',
-        'muted-foreground': 'var(--muted-foreground)',
+        'surface-2': 'var(--surface-2)',
+
+        // Ink
+        foreground: 'var(--text)',
+        'text-2': 'var(--text-2)',
+        muted: 'var(--text-muted)',
+        'muted-foreground': 'var(--text-faint)',
+
+        // Lines
         border: 'var(--border)',
+        'border-strong': 'var(--border-strong)',
+        'border-ink': 'var(--border-ink)',
         'border-subtle': 'var(--border-subtle)',
+
+        // Brand — primary
         primary: {
           DEFAULT: 'var(--primary)',
-          foreground: 'var(--primary-foreground)',
+          foreground: 'var(--primary-ink)',
+          ink: 'var(--primary-ink)',
           hover: 'var(--primary-hover)',
-          light: 'var(--primary-light)',
+          light: 'var(--primary-tint)',
+          tint: 'var(--primary-tint)',
           muted: 'var(--primary-muted)',
+          dark: 'var(--primary-dark)',
         },
-        salary: 'var(--salary)',
-        'card-hover': 'var(--card-hover)',
-        'card-selected': 'var(--card-selected)',
+        // Brand — secondary (editorial accent)
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-ink)',
+          ink: 'var(--secondary-ink)',
+          tint: 'var(--secondary-tint)',
+          dark: 'var(--secondary-dark)',
+        },
+        // Brand — tertiary (warm cream)
+        tertiary: {
+          DEFAULT: 'var(--tertiary)',
+        },
+
+        // Semantic tokens
+        salary: 'var(--text)',
+        'card-hover': 'var(--surface-2)',
+        'card-selected': 'var(--primary-tint)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
       },
       boxShadow: {
         'sm': 'var(--shadow-sm)',
@@ -45,9 +114,17 @@ const config: Config = {
       },
       borderRadius: {
         DEFAULT: 'var(--radius)',
+        'sm': 'var(--r-sm)',
+        'md': 'var(--r-md)',
+        'lg': 'var(--r-lg)',
+        'xl': 'var(--r-xl)',
       },
       maxWidth: {
         'content': '640px',
+        'max': 'var(--max)',
+      },
+      spacing: {
+        'pad': 'var(--pad)',
       },
     },
   },
