@@ -45,6 +45,11 @@ export async function GET(
         zipcode,
         street,
         country,
+        slug,
+        published_at,
+        reviewed_at,
+        reviewed_by,
+        header_image_url,
         companies (
           id,
           name,
@@ -59,7 +64,9 @@ export async function GET(
         ),
         platforms (
           id,
-          regio_platform
+          regio_platform,
+          domain,
+          preview_domain
         )
       `)
       .eq('id', id)
@@ -78,7 +85,7 @@ export async function GET(
     // Note: Foreign key relations return an object when using .single()
     const company = jobPosting.companies as { id: string; name: string; website: string | null; logo_url: string | null; rating_indeed: number | null; is_customer: boolean | null } | null
     const jobSource = jobPosting.job_sources as { id: string; name: string } | null
-    const platform = jobPosting.platforms as { id: string; regio_platform: string } | null
+    const platform = jobPosting.platforms as { id: string; regio_platform: string; domain: string | null; preview_domain: string | null } | null
 
     const flattenedJob = {
       ...jobPosting,
@@ -89,6 +96,7 @@ export async function GET(
       is_customer: company?.is_customer,
       source_name: jobSource?.name,
       regio_platform: platform?.regio_platform,
+      platform: platform,
       // Keep companies object for backward compatibility
     }
 

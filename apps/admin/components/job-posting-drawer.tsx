@@ -3,6 +3,9 @@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { VacatureActionBar } from "@/components/vacature/action-bar"
+import { LivePreview } from "@/components/vacature/live-preview"
+import { ActivityLog } from "@/components/vacature/activity-log"
 import {
   Briefcase,
   ExternalLink,
@@ -14,13 +17,18 @@ import {
   Users,
   Euro,
   Calendar,
-  CheckCircle,
-  AlertCircle,
-  Archive,
   Tag,
   FileText,
-  Crown
+  Crown,
+  Eye
 } from "lucide-react"
+
+interface PlatformInfo {
+  id: string
+  regio_platform: string
+  domain: string | null
+  preview_domain: string | null
+}
 
 interface JobPosting {
   id: string
@@ -43,7 +51,8 @@ interface JobPosting {
   source_id: string
   source_name?: string
   regio_platform?: string
-  platform_id?: string
+  platform_id?: string | null
+  platform?: PlatformInfo | null
   description?: string
   employment?: string
   career_level?: string
@@ -56,6 +65,13 @@ interface JobPosting {
   zipcode?: string
   street?: string
   created_at?: string
+  updated_at?: string | null
+  published_at?: string | null
+  reviewed_at?: string | null
+  reviewed_by?: string | null
+  slug?: string | null
+  header_image_url?: string | null
+  job_sources?: { name: string | null } | null
 }
 
 interface JobPostingDrawerProps {
@@ -63,9 +79,10 @@ interface JobPostingDrawerProps {
   open: boolean
   onClose: () => void
   onCompanyClick?: (companyId: string) => void
+  onJobChange?: () => void | Promise<void>
 }
 
-export function JobPostingDrawer({ job, open, onClose, onCompanyClick }: JobPostingDrawerProps) {
+export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChange }: JobPostingDrawerProps) {
   if (!job) return null
 
   const formatDate = (dateString: string) => {
@@ -74,56 +91,6 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick }: JobPost
       month: "long",
       year: "numeric",
     })
-  }
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("nl-NL", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "new":
-        return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Nieuw
-          </Badge>
-        )
-      case "active":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-200">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Actief
-          </Badge>
-        )
-      case "inactive":
-        return (
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200">
-            <Clock className="w-3 h-3 mr-1" />
-            Inactief
-          </Badge>
-        )
-      case "archived":
-        return (
-          <Badge className="bg-red-100 text-red-800 border-red-200">
-            <Archive className="w-3 h-3 mr-1" />
-            Gearchiveerd
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            {status || "Onbekend"}
-          </Badge>
-        )
-    }
   }
 
   const getWorkingHours = () => {
@@ -157,18 +124,39 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick }: JobPost
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
         <SheetHeader className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <SheetTitle className="text-xl leading-tight">{job.title}</SheetTitle>
-              <SheetDescription className="mt-1">
-                Vacaturedetails en informatie
-              </SheetDescription>
-            </div>
-            {getStatusBadge(job.status)}
+          <div>
+            <SheetTitle className="text-xl leading-tight">{job.title}</SheetTitle>
+            <SheetDescription className="mt-1">
+              Vacaturedetails en informatie
+            </SheetDescription>
           </div>
+          <VacatureActionBar
+            vacature={{
+              id: job.id,
+              slug: job.slug ?? null,
+              review_status: job.review_status,
+              published_at: job.published_at ?? null,
+              status: job.status ?? null,
+              platform_id: job.platform_id ?? null,
+            }}
+            platform={job.platform ?? null}
+            variant="full"
+            onChange={onJobChange}
+          />
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          {/* Header image preview */}
+          {job.header_image_url && (
+            <div className="aspect-[16/9] w-full overflow-hidden rounded-lg border bg-gray-50">
+              <img
+                src={job.header_image_url}
+                alt={`Header voor ${job.title}`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
           {/* Company Info */}
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center gap-4">
@@ -365,27 +353,41 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick }: JobPost
             </div>
           )}
 
-          {/* Meta Info */}
-          <div className="border-t border-gray-200 pt-4 space-y-2 text-xs text-gray-500">
-            <div className="flex justify-between">
-              <span>Toegevoegd op:</span>
-              <span>{job.created_at ? formatDateTime(job.created_at) : formatDateTime(job.scraped_at)}</span>
-            </div>
-            {job.scraped_at && job.created_at && job.scraped_at !== job.created_at && (
-              <div className="flex justify-between">
-                <span>Laatst bijgewerkt:</span>
-                <span>{formatDateTime(job.scraped_at)}</span>
-              </div>
-            )}
+          {/* Activity log */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">Activiteit</h4>
+            <ActivityLog
+              vacature={{
+                id: job.id,
+                scraped_at: job.scraped_at ?? null,
+                created_at: job.created_at ?? null,
+                updated_at: job.updated_at ?? null,
+                published_at: job.published_at ?? null,
+                reviewed_at: job.reviewed_at ?? null,
+                reviewed_by: job.reviewed_by ?? null,
+                review_status: job.review_status,
+                job_sources: job.job_sources ?? null,
+              }}
+            />
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+            <LivePreview
+              vacature={{ id: job.id, slug: job.slug ?? null, title: job.title }}
+              platform={job.platform ?? null}
+              trigger={
+                <Button variant="outline">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Live preview
+                </Button>
+              }
+            />
             {job.url && (
-              <Button className="flex-1 bg-orange-500 hover:bg-orange-600" asChild>
+              <Button variant="outline" asChild>
                 <a href={job.url} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Bekijk vacature
+                  Originele bron
                 </a>
               </Button>
             )}

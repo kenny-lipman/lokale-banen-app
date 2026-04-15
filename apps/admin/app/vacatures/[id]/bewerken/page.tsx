@@ -28,8 +28,9 @@ import {
 import { Combobox } from "@/components/ui/combobox"
 import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, Trash2, Briefcase } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Briefcase, ImageIcon } from "lucide-react"
 import Link from "next/link"
+import { HeaderImageField } from "@/components/vacature/header-image-field"
 
 const PROVINCES = [
   "Noord-Holland",
@@ -110,6 +111,7 @@ export default function BewerkVacaturePage() {
   const [endDate, setEndDate] = useState("")
   const [platformId, setPlatformId] = useState("")
   const [reviewStatus, setReviewStatus] = useState("pending")
+  const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null)
 
   // Load companies for combobox
   const searchCompanies = useCallback(async (search: string) => {
@@ -193,6 +195,7 @@ export default function BewerkVacaturePage() {
         setEndDate(data.end_date ? data.end_date.split("T")[0] : "")
         setPlatformId(data.platform_id || "")
         setReviewStatus(data.review_status || "pending")
+        setHeaderImageUrl(data.header_image_url ?? null)
       } catch {
         toast.error("Fout bij laden vacature")
       } finally {
@@ -232,6 +235,7 @@ export default function BewerkVacaturePage() {
           end_date: endDate || undefined,
           platform_id: platformId || undefined,
           review_status: reviewStatus,
+          header_image_url: headerImageUrl,
         }),
       })
 
@@ -306,6 +310,24 @@ export default function BewerkVacaturePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Header image */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Header afbeelding
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <HeaderImageField
+              vacatureId={id}
+              currentUrl={headerImageUrl}
+              onUpload={(url) => setHeaderImageUrl(url)}
+              onRemove={() => setHeaderImageUrl(null)}
+            />
+          </CardContent>
+        </Card>
+
         {/* Basic info */}
         <Card>
           <CardHeader>
