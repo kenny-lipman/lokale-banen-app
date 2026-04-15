@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
+import { revalidatePublicSite } from "@/lib/services/public-site-revalidate.service"
 
 export const dynamic = "force-dynamic"
 
@@ -93,6 +94,9 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
       )
     }
 
+    const approvedSlugs: string[] = []
+    const affectedPlatformIds = new Set<string>()
+
     for (const job of jobsToApprove || []) {
       try {
         // Generate slug: title + city + short id
@@ -120,6 +124,7 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
           errors.push(`${job.id}: ${updateError.message}`)
         } else {
           approved++
+          approvedSlugs.push(slug)
 
           // Step 3: Insert job_posting_platforms junction record
           const { data: currentJob } = await supabase
@@ -129,6 +134,7 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
             .single()
 
           if (currentJob?.platform_id) {
+            affectedPlatformIds.add(currentJob.platform_id)
             await supabase
               .from("job_posting_platforms")
               .upsert(
@@ -150,9 +156,16 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
       }
     }
 
+    // Invalidate public-site cache for affected platforms and new job slugs
+    const revalidateResult = await revalidatePublicSite({
+      platformIds: Array.from(affectedPlatformIds),
+      jobSlugs: approvedSlugs,
+    })
+
     return NextResponse.json({
       approved,
       errors,
+      revalidated: revalidateResult.ok,
       message: `${approved} vacature(s) goedgekeurd${errors.length > 0 ? `, ${errors.length} fout(en)` : ""}`,
     })
   } catch (err: unknown) {

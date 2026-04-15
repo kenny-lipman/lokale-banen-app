@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
+import { revalidatePublicSite } from "@/lib/services/public-site-revalidate.service"
 
 export const dynamic = "force-dynamic"
 
@@ -16,6 +17,14 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
         { status: 400 }
       )
     }
+
+    // Capture platform_ids and slugs before the update so we can invalidate
+    // cache for pages that were previously serving these jobs.
+    const { data: previouslyApproved } = await supabase
+      .from("job_postings")
+      .select("platform_id, slug")
+      .in("id", ids)
+      .eq("review_status", "approved")
 
     const { data, error } = await supabase
       .from("job_postings")
@@ -37,8 +46,21 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
 
     const rejected = data?.length || 0
 
+    const affectedPlatformIds = new Set<string>()
+    const affectedSlugs: string[] = []
+    for (const row of previouslyApproved ?? []) {
+      if (row.platform_id) affectedPlatformIds.add(row.platform_id)
+      if (row.slug) affectedSlugs.push(row.slug)
+    }
+
+    const revalidateResult = await revalidatePublicSite({
+      platformIds: Array.from(affectedPlatformIds),
+      jobSlugs: affectedSlugs,
+    })
+
     return NextResponse.json({
       rejected,
+      revalidated: revalidateResult.ok,
       message: `${rejected} vacature(s) afgekeurd`,
     })
   } catch (err: unknown) {

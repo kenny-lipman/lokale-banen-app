@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import { revalidatePublicSite } from '@/lib/services/public-site-revalidate.service'
 
 async function getVacatureHandler(
   req: NextRequest,
@@ -134,17 +135,6 @@ async function updateVacatureHandler(
       return NextResponse.json({ success: false, error: 'Vacature niet gevonden' }, { status: 404 })
     }
 
-    // Get company name
-    let companyName = null
-    if (company_id) {
-      const { data: company } = await supabase
-        .from('companies')
-        .select('name')
-        .eq('id', company_id)
-        .single()
-      companyName = company?.name || null
-    }
-
     // Build location string
     const locationParts = [city, state].filter(Boolean)
     const location = locationParts.join(', ') || null
@@ -168,7 +158,6 @@ async function updateVacatureHandler(
     const updateFields: Record<string, unknown> = {
       title,
       company_id: company_id || null,
-      company_name: companyName,
       city: city || null,
       zipcode: zipcode || null,
       street: street || null,
@@ -246,6 +235,18 @@ async function updateVacatureHandler(
         .catch(() => {})
     }
 
+    // Invalidate public-site cache for both old and new platform + slug
+    const platformIds = [current.platform_id, finalPlatformId].filter(
+      (v): v is string => typeof v === 'string'
+    )
+    const jobSlugs = [current.slug, data?.slug].filter(
+      (v): v is string => typeof v === 'string'
+    )
+    await revalidatePublicSite({
+      platformIds: Array.from(new Set(platformIds)),
+      jobSlugs: Array.from(new Set(jobSlugs)),
+    })
+
     return NextResponse.json({
       success: true,
       data,
@@ -274,6 +275,13 @@ async function deleteVacatureHandler(
       return NextResponse.json({ success: false, error: 'ID is verplicht' }, { status: 400 })
     }
 
+    // Capture platform_id + slug before archiving so we can invalidate cache
+    const { data: before } = await supabase
+      .from('job_postings')
+      .select('platform_id, slug')
+      .eq('id', id)
+      .single()
+
     // Soft delete: set status to archived
     const { error } = await supabase
       .from('job_postings')
@@ -292,6 +300,12 @@ async function deleteVacatureHandler(
         details: error.message,
       }, { status: 500 })
     }
+
+    // Invalidate public-site cache for affected platform + slug
+    await revalidatePublicSite({
+      platformIds: before?.platform_id ? [before.platform_id] : [],
+      jobSlugs: before?.slug ? [before.slug] : [],
+    })
 
     return NextResponse.json({
       success: true,

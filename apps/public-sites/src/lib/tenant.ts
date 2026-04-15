@@ -5,6 +5,7 @@ export interface Tenant {
   id: string
   name: string
   domain: string | null
+  preview_domain: string | null
   is_public: boolean
   tier: string | null
   logo_url: string | null
@@ -50,8 +51,8 @@ async function getTenantByHost(host: string): Promise<Tenant | null> {
   const supabase = createPublicClient()
   const { data, error } = await supabase
     .from('platforms')
-    .select('id, regio_platform, central_place, domain, is_public, tier, logo_url, primary_color, hero_title, hero_subtitle, seo_description, indexnow_key, about_text, contact_email, contact_phone, social_linkedin, social_instagram, social_facebook, social_tiktok, social_twitter, favicon_url, og_image_url, privacy_text, terms_text')
-    .eq('domain', host)
+    .select('id, regio_platform, central_place, domain, preview_domain, is_public, tier, logo_url, primary_color, hero_title, hero_subtitle, seo_description, indexnow_key, about_text, contact_email, contact_phone, social_linkedin, social_instagram, social_facebook, social_tiktok, social_twitter, favicon_url, og_image_url, privacy_text, terms_text')
+    .or(`domain.eq.${host},preview_domain.eq.${host}`)
     .eq('is_public', true)
     .single()
 
@@ -62,6 +63,7 @@ async function getTenantByHost(host: string): Promise<Tenant | null> {
     id: data.id,
     name: data.regio_platform,
     domain: data.domain,
+    preview_domain: data.preview_domain,
     is_public: data.is_public,
     tier: data.tier,
     logo_url: data.logo_url,

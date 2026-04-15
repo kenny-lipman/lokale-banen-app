@@ -1,0 +1,102 @@
+{
+  "ok": [
+    {
+      "platform": "AchterhoekseBanen",
+      "alias": "achterhoeksebanen.vercel.app"
+    },
+    {
+      "platform": "AlkmaarseBanen",
+      "alias": "alkmaarsebanen.vercel.app"
+    },
+    {
+      "platform": "AlmeloseBanen",
+      "alias": "almelosebanen.vercel.app"
+    },
+    {
+      "platform": "AmersfoortseBanen",
+      "alias": "amersfoortsebanen.vercel.app"
+    },
+    {
+      "platform": "ArnhemseBanen",
+      "alias": "arnhemsebanen.vercel.app"
+    },
+    {
+      "platform": "AssenseBanen",
+      "alias": "assensebanen.vercel.app"
+    },
+    {
+      "platform": "BosscheBanen",
+      "alias": "bosschebanen.vercel.app"
+    },
+    {
+      "platform": "BredaseBanen",
+      "alias": "bredasebanen.vercel.app"
+    },
+    {
+      "platform": "DeventerseBanen",
+      "alias": "deventersebanen.vercel.app"
+    },
+    {
+      "platform": "EindhovenseBanen",
+      "alias": "eindhovensebanen.vercel.app"
+    },
+    {
+      "platform": "EmmeloordseBanen",
+      "alias": "emmeloordsebanen.vercel.app"
+    },
+    {
+      "platform": "Emmensebanen",
+      "alias": "emmensebanen.vercel.app"
+    },
+    {
+      "platform": "EnschedeseBanen",
+      "alias": "enschedesebanen.vercel.app"
+    },
+    {
+      "platform": "GroningseBanen",
+      "alias": "groningsebanen.vercel.app"
+    },
+    {
+      "platform": "HeerenveenseBanen",
+      "alias": "heerenveensebanen.vercel.app"
+    },
+    {
+      "platform": "HelmondseBanen",
+      "alias": "helmondsebanen.vercel.app"
+    },
+    {
+      "platform": "LeeuwardseBanen",
+      "alias": "leeuwardsebanen.vercel.app"
+    },
+    {
+      "platform": "MaastrichtseBanen",
+      "alias": "maastrichtsebanen.vercel.app"
+    },
+    {
+      "platform": "NijmegenseBanen",
+      "alias": "nijmegensebanen.vercel.app"
+    },
+    {
+      "platform": "OssseBanen",
+      "alias": "osssebanen.vercel.app"
+    },
+    {
+      "platform": "RoosendaalseBanen",
+      "alias": "roosendaalsebanen.vercel.app"
+    },
+    {
+      "platform": "UtrechtseBanen",
+      "alias": "utrechtsebanen.vercel.app"
+    },
+    {
+      "platform": "VenloseBanen",
+      "alias": "venlosebanen.vercel.app"
+    },
+    {
+      "platform": "ZeeuwseBanen",
+      "alias": "zeeuwsebanen.vercel.app"
+    }
+  ],
+  "failed": [],
+  "alreadySet": []
+}

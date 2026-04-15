@@ -96,7 +96,6 @@ async function createVacatureHandler(req: NextRequest, _authResult: AuthResult) 
       .insert({
         title,
         company_id: finalCompanyId,
-        company_name: company?.name || null,
         city: city || null,
         zipcode: zipcode || null,
         street: street || null,
