@@ -38,7 +38,7 @@ const BUCKET_CONFIG = {
     ],
   },
   "job-images": {
-    maxSizeBytes: 2 * 1024 * 1024,
+    maxSizeBytes: 3 * 1024 * 1024, // 3MB
     allowedMimeTypes: ["image/png", "image/jpeg", "image/webp"],
   },
 } as const

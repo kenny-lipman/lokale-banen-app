@@ -122,6 +122,7 @@ async function updateVacatureHandler(
       end_date,
       platform_id,
       review_status,
+      header_image_url,
     } = body
 
     // Get current data to check if slug needs regeneration
@@ -174,6 +175,12 @@ async function updateVacatureHandler(
       platform_id: finalPlatformId,
       review_status: review_status || current.review_status,
       updated_at: new Date().toISOString(),
+    }
+
+    // Only touch header_image_url when the client explicitly sent it.
+    // `undefined` leaves the DB value untouched; `null` clears it on remove.
+    if (header_image_url !== undefined) {
+      updateFields.header_image_url = header_image_url
     }
 
     // Regenerate slug if title or city changed
