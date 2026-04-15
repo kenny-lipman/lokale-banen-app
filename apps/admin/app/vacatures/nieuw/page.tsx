@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -14,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DescriptionEditor } from "@/components/vacature/description-editor"
 import {
   Accordion,
   AccordionContent,
@@ -416,15 +416,11 @@ export default function NieuweVacaturePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="description">Vacature beschrijving</Label>
-              <Textarea
-                id="description"
+              <DescriptionEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Beschrijf de vacature..."
-                rows={15}
-                className="font-mono text-sm"
+                onChange={setDescription}
+                minHeight={300}
               />
-              <p className="text-xs text-muted-foreground">Markdown wordt ondersteund</p>
             </div>
           </CardContent>
         </Card>

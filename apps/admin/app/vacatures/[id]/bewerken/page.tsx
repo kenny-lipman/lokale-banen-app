@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -14,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DescriptionEditor } from "@/components/vacature/description-editor"
+import { htmlToMarkdown } from "@/lib/services/html-to-markdown"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -184,7 +185,9 @@ export default function BewerkVacaturePage() {
             setState(parts[parts.length - 1])
           }
         }
-        setDescription(data.description || "")
+        // Legacy scraped descriptions zijn vaak HTML. Lazy converteren zodat
+        // het markdown-veld geen tags toont en een save markdown terugschrijft.
+        setDescription(htmlToMarkdown(data.description))
         setSalary(data.salary || "")
         setEmployment(data.employment || "")
         setWorkingHoursMin(data.working_hours_min?.toString() || "")
@@ -458,15 +461,11 @@ export default function BewerkVacaturePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="description">Vacature beschrijving</Label>
-              <Textarea
-                id="description"
+              <DescriptionEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Beschrijf de vacature..."
-                rows={15}
-                className="font-mono text-sm"
+                onChange={setDescription}
+                minHeight={300}
               />
-              <p className="text-xs text-muted-foreground">Markdown wordt ondersteund</p>
             </div>
           </CardContent>
         </Card>
