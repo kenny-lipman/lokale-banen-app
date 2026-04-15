@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
-import { RateLimiter, RateLimitUtils } from '@/middleware/rate-limiting'
+import { RateLimiter, RateLimitUtils, getClientIp } from '@/middleware/rate-limiting'
 import { pipedriveClient, STATUS_PROSPECT_OPTIONS } from '@/lib/pipedrive-client'
 
 const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
@@ -12,10 +12,7 @@ const KLANT_STATUS_ID = STATUS_PROSPECT_OPTIONS.KLANT // 303
 const campaignAdditionLimiter = new RateLimiter({
   windowMs: 300000, // 5 minutes
   maxRequests: 10, // 10 campaign additions per 5 minutes
-  keyGenerator: (req) => {
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown'
-    return `campaign_addition:${ip}`
-  }
+  keyGenerator: (req) => `campaign_addition:${getClientIp(req)}`
 })
 
 async function addToCampaignHandler(request: NextRequest, authResult: AuthResult) {

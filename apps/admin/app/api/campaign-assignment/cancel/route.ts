@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     // Cancel by orchestration ID — cancels all batches in the orchestration
     if (orchestrationId) {
-      const { data: batches, error: fetchError } = await (supabase as any)
+      const { data: batches, error: fetchError } = await supabase
         .from('campaign_assignment_batches')
         .select('batch_id, status')
         .eq('orchestration_id', orchestrationId)
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       }
 
       const batchIds = batches.map((b: { batch_id: string }) => b.batch_id)
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('campaign_assignment_batches')
         .update({
           status: 'cancelled',
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     let targetBatchId = batchId
 
     if (!targetBatchId) {
-      const { data: activeBatch } = await (supabase as any)
+      const { data: activeBatch } = await supabase
         .from('campaign_assignment_batches')
         .select('batch_id')
         .in('status', ['processing', 'pending'])
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update batch status to cancelled
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('campaign_assignment_batches')
       .update({
         status: 'cancelled',

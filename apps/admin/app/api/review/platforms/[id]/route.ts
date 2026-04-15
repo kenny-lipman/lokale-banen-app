@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 import { revalidatePublicSite } from "@/lib/services/public-site-revalidate.service"
+import type { TablesUpdate } from "@/lib/supabase"
+
+type PlatformUpdate = TablesUpdate<"platforms">
 
 export const dynamic = "force-dynamic"
 
@@ -84,10 +87,10 @@ async function patchHandler(
       "social_twitter",
     ] as const
 
-    const updates: Record<string, unknown> = {}
+    const updates: PlatformUpdate = {}
     for (const field of allowedFields) {
       if (field in body) {
-        updates[field] = body[field]
+        ;(updates as Record<string, unknown>)[field] = body[field]
       }
     }
 
@@ -104,8 +107,7 @@ async function patchHandler(
 
     updates.updated_at = new Date().toISOString()
 
-    // Cast to any — generated types are outdated vs. actual schema.
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("platforms")
       .update(updates)
       .eq("id", id)

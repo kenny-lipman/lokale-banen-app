@@ -32,8 +32,7 @@ async function getHandler(
     const { id } = await params
     const supabase = createServiceRoleClient()
 
-    // Cast to any — generated types do not yet reflect new platform columns.
-    const { data: platformRow, error } = await (supabase as any)
+    const { data: platformRow, error } = await supabase
       .from("platforms")
       .select(
         "id, is_public, published_at, domain, primary_color, logo_url, hero_title, seo_description, about_text",
@@ -48,17 +47,7 @@ async function getHandler(
       )
     }
 
-    const platform = platformRow as {
-      id: string
-      is_public: boolean | null
-      published_at: string | null
-      domain: string | null
-      primary_color: string | null
-      logo_url: string | null
-      hero_title: string | null
-      seo_description: string | null
-      about_text: string | null
-    }
+    const platform = platformRow
 
     // Approved vacancy count — mirrors the count used in the platforms list UI
     // so numbers match what Luc/Kay see on the overview page.

@@ -11,14 +11,12 @@ export interface CampaignAssignmentSettings {
   updated_by: string | null
 }
 
-// Note: Using 'as any' because table types will be generated after migration runs
-
 // GET - Fetch current settings
 export async function GET() {
   try {
     const supabase = createServiceRoleClient()
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('campaign_assignment_settings')
       .select('*')
       .limit(1)
@@ -101,7 +99,7 @@ export async function PUT(request: NextRequest) {
     if (delay_between_contacts_ms !== undefined) updates.delay_between_contacts_ms = delay_between_contacts_ms
 
     // First try to update existing settings
-    const { data: existingData } = await (supabase as any)
+    const { data: existingData } = await supabase
       .from('campaign_assignment_settings')
       .select('id')
       .limit(1)
@@ -109,7 +107,7 @@ export async function PUT(request: NextRequest) {
 
     if (existingData) {
       // Update existing settings
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('campaign_assignment_settings')
         .update(updates)
         .eq('id', existingData.id)
@@ -140,7 +138,7 @@ export async function PUT(request: NextRequest) {
         delay_between_contacts_ms: delay_between_contacts_ms ?? 500
       }
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('campaign_assignment_settings')
         .insert(newSettings)
         .select()

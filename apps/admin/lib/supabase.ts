@@ -562,6 +562,8 @@ export type Database = {
           linkedin_url: string | null
           location: string | null
           logo_url: string | null
+          lokalebanen_id: string | null
+          lokalebanen_pushed_at: string | null
           longitude: number | null
           name: string
           nominatim_success: boolean | null
@@ -583,6 +585,7 @@ export type Database = {
           review_count_indeed: number | null
           size_max: number | null
           size_min: number | null
+          slug: string | null
           source: string | null
           "SourceId (CRM)": string | null
           start: string | null
@@ -639,6 +642,8 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           logo_url?: string | null
+          lokalebanen_id?: string | null
+          lokalebanen_pushed_at?: string | null
           longitude?: number | null
           name: string
           nominatim_success?: boolean | null
@@ -660,6 +665,7 @@ export type Database = {
           review_count_indeed?: number | null
           size_max?: number | null
           size_min?: number | null
+          slug?: string | null
           source?: string | null
           "SourceId (CRM)"?: string | null
           start?: string | null
@@ -716,6 +722,8 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           logo_url?: string | null
+          lokalebanen_id?: string | null
+          lokalebanen_pushed_at?: string | null
           longitude?: number | null
           name?: string
           nominatim_success?: boolean | null
@@ -737,6 +745,7 @@ export type Database = {
           review_count_indeed?: number | null
           size_max?: number | null
           size_min?: number | null
+          slug?: string | null
           source?: string | null
           "SourceId (CRM)"?: string | null
           start?: string | null
@@ -1616,6 +1625,57 @@ export type Database = {
           },
         ]
       }
+      job_applications: {
+        Row: {
+          applied_at: string | null
+          id: string
+          job_posting_id: string
+          metadata: Json | null
+          method: string | null
+          organization_id: string | null
+          platform_id: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          id?: string
+          job_posting_id: string
+          metadata?: Json | null
+          method?: string | null
+          organization_id?: string | null
+          platform_id?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          id?: string
+          job_posting_id?: string
+          metadata?: Json | null
+          method?: string | null
+          organization_id?: string | null
+          platform_id?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_documents: {
         Row: {
           file_url: string | null
@@ -1651,6 +1711,45 @@ export type Database = {
           },
         ]
       }
+      job_posting_platforms: {
+        Row: {
+          created_at: string | null
+          distance_km: number | null
+          is_primary: boolean
+          job_posting_id: string
+          platform_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          distance_km?: number | null
+          is_primary?: boolean
+          job_posting_id: string
+          platform_id: string
+        }
+        Update: {
+          created_at?: string | null
+          distance_km?: number | null
+          is_primary?: boolean
+          job_posting_id?: string
+          platform_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_platforms_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_posting_platforms_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_postings: {
         Row: {
           apify_run_id: string | null
@@ -1659,7 +1758,9 @@ export type Database = {
           city: string | null
           company_id: string | null
           contact_analysis_completed: boolean
+          content_enriched_at: string | null
           content_hash: string | null
+          content_md: string | null
           country: string | null
           created_at: string | null
           description: string | null
@@ -1667,24 +1768,32 @@ export type Database = {
           employment: string | null
           end_date: string | null
           external_vacancy_id: string | null
+          header_image_url: string | null
           id: string
           job_type: string[] | null
           latitude: string | null
           location: string | null
+          lokalebanen_id: string | null
+          lokalebanen_pushed_at: string | null
           longitude: string | null
           nominatim_failed: boolean | null
           platform_id: string | null
+          published_at: string | null
           review_status: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           salary: string | null
           scraped_at: string | null
           search_vector: unknown
+          seo_description: string | null
+          seo_title: string | null
+          slug: string | null
           source_id: string | null
           state: string | null
           status: string | null
           street: string | null
           title: string
+          updated_at: string
           url: string | null
           working_hours_max: number | null
           working_hours_min: number | null
@@ -1697,7 +1806,9 @@ export type Database = {
           city?: string | null
           company_id?: string | null
           contact_analysis_completed?: boolean
+          content_enriched_at?: string | null
           content_hash?: string | null
+          content_md?: string | null
           country?: string | null
           created_at?: string | null
           description?: string | null
@@ -1705,24 +1816,32 @@ export type Database = {
           employment?: string | null
           end_date?: string | null
           external_vacancy_id?: string | null
+          header_image_url?: string | null
           id?: string
           job_type?: string[] | null
           latitude?: string | null
           location?: string | null
+          lokalebanen_id?: string | null
+          lokalebanen_pushed_at?: string | null
           longitude?: string | null
           nominatim_failed?: boolean | null
           platform_id?: string | null
+          published_at?: string | null
           review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           salary?: string | null
           scraped_at?: string | null
           search_vector?: unknown
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string | null
           source_id?: string | null
           state?: string | null
           status?: string | null
           street?: string | null
           title: string
+          updated_at?: string
           url?: string | null
           working_hours_max?: number | null
           working_hours_min?: number | null
@@ -1735,7 +1854,9 @@ export type Database = {
           city?: string | null
           company_id?: string | null
           contact_analysis_completed?: boolean
+          content_enriched_at?: string | null
           content_hash?: string | null
+          content_md?: string | null
           country?: string | null
           created_at?: string | null
           description?: string | null
@@ -1743,24 +1864,32 @@ export type Database = {
           employment?: string | null
           end_date?: string | null
           external_vacancy_id?: string | null
+          header_image_url?: string | null
           id?: string
           job_type?: string[] | null
           latitude?: string | null
           location?: string | null
+          lokalebanen_id?: string | null
+          lokalebanen_pushed_at?: string | null
           longitude?: string | null
           nominatim_failed?: boolean | null
           platform_id?: string | null
+          published_at?: string | null
           review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           salary?: string | null
           scraped_at?: string | null
           search_vector?: unknown
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string | null
           source_id?: string | null
           state?: string | null
           status?: string | null
           street?: string | null
           title?: string
+          updated_at?: string
           url?: string | null
           working_hours_max?: number | null
           working_hours_min?: number | null
@@ -1845,6 +1974,33 @@ export type Database = {
         }
         Relationships: []
       }
+      lokalebanen_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          our_value: string
+          their_value: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          our_value: string
+          their_value?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          our_value?: string
+          their_value?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       mailerlite_syncs: {
         Row: {
           created_at: string | null
@@ -1913,52 +2069,121 @@ export type Database = {
       }
       platforms: {
         Row: {
+          about_text: string | null
           automation_enabled: boolean | null
           central_place: string
           central_postcode: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string | null
+          domain: string | null
+          favicon_url: string | null
           geocoded_at: string | null
+          hero_subtitle: string | null
+          hero_title: string | null
           id: string
+          indexnow_key: string | null
           instantly_campaign_id: string | null
           is_active: boolean | null
+          is_public: boolean | null
           latitude: number | null
+          logo_url: string | null
           longitude: number | null
           mailerlite_group_id: string | null
+          og_image_url: string | null
+          preview_domain: string | null
+          primary_color: string | null
+          privacy_text: string | null
+          published_at: string | null
           regio_platform: string
           scraping_priority: number | null
-          updated_at: string | null
+          seo_description: string | null
+          social_facebook: string | null
+          social_instagram: string | null
+          social_linkedin: string | null
+          social_tiktok: string | null
+          social_twitter: string | null
+          terms_text: string | null
+          tier: string | null
+          updated_at: string
         }
         Insert: {
+          about_text?: string | null
           automation_enabled?: boolean | null
           central_place: string
           central_postcode?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          domain?: string | null
+          favicon_url?: string | null
           geocoded_at?: string | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
           id?: string
+          indexnow_key?: string | null
           instantly_campaign_id?: string | null
           is_active?: boolean | null
+          is_public?: boolean | null
           latitude?: number | null
+          logo_url?: string | null
           longitude?: number | null
           mailerlite_group_id?: string | null
+          og_image_url?: string | null
+          preview_domain?: string | null
+          primary_color?: string | null
+          privacy_text?: string | null
+          published_at?: string | null
           regio_platform: string
           scraping_priority?: number | null
-          updated_at?: string | null
+          seo_description?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_linkedin?: string | null
+          social_tiktok?: string | null
+          social_twitter?: string | null
+          terms_text?: string | null
+          tier?: string | null
+          updated_at?: string
         }
         Update: {
+          about_text?: string | null
           automation_enabled?: boolean | null
           central_place?: string
           central_postcode?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          domain?: string | null
+          favicon_url?: string | null
           geocoded_at?: string | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
           id?: string
+          indexnow_key?: string | null
           instantly_campaign_id?: string | null
           is_active?: boolean | null
+          is_public?: boolean | null
           latitude?: number | null
+          logo_url?: string | null
           longitude?: number | null
           mailerlite_group_id?: string | null
+          og_image_url?: string | null
+          preview_domain?: string | null
+          primary_color?: string | null
+          privacy_text?: string | null
+          published_at?: string | null
           regio_platform?: string
           scraping_priority?: number | null
-          updated_at?: string | null
+          seo_description?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_linkedin?: string | null
+          social_tiktok?: string | null
+          social_twitter?: string | null
+          terms_text?: string | null
+          tier?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2049,6 +2274,45 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_jobs: {
+        Row: {
+          job_posting_id: string
+          notes: string | null
+          platform_id: string | null
+          saved_at: string | null
+          user_id: string
+        }
+        Insert: {
+          job_posting_id: string
+          notes?: string | null
+          platform_id?: string | null
+          saved_at?: string | null
+          user_id: string
+        }
+        Update: {
+          job_posting_id?: string
+          notes?: string | null
+          platform_id?: string | null
+          saved_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_jobs_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_jobs_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scraper_backfill_progress: {
         Row: {
           completed_at: string | null
@@ -2130,6 +2394,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profiles: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          phone: string | null
+          platform_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          phone?: string | null
+          platform_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          phone?: string | null
+          platform_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           email: string | null
@@ -2148,6 +2450,63 @@ export type Database = {
           id?: string
           name?: string | null
           role?: string | null
+        }
+        Relationships: []
+      }
+      wetarget_leads_staging: {
+        Row: {
+          city: string | null
+          company_id: string
+          company_name: string | null
+          contact_id: string
+          created_at: string | null
+          email: string
+          first_name: string | null
+          id: number
+          instantly_campaign_id: string | null
+          job_created_at: string | null
+          job_title: string | null
+          last_name: string | null
+          postal_code: string | null
+          pushed_to_instantly: boolean | null
+          sector: string
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          company_id: string
+          company_name?: string | null
+          contact_id: string
+          created_at?: string | null
+          email: string
+          first_name?: string | null
+          id?: number
+          instantly_campaign_id?: string | null
+          job_created_at?: string | null
+          job_title?: string | null
+          last_name?: string | null
+          postal_code?: string | null
+          pushed_to_instantly?: boolean | null
+          sector: string
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          company_id?: string
+          company_name?: string | null
+          contact_id?: string
+          created_at?: string | null
+          email?: string
+          first_name?: string | null
+          id?: number
+          instantly_campaign_id?: string | null
+          job_created_at?: string | null
+          job_title?: string | null
+          last_name?: string | null
+          postal_code?: string | null
+          pushed_to_instantly?: boolean | null
+          sector?: string
+          state?: string | null
         }
         Relationships: []
       }
@@ -2388,6 +2747,13 @@ export type Database = {
           title: string
         }[]
       }
+      get_city_job_counts: {
+        Args: { p_platform_id: string }
+        Returns: {
+          city: string
+          count: number
+        }[]
+      }
       get_contacts_query_performance: {
         Args: never
         Returns: {
@@ -2407,6 +2773,14 @@ export type Database = {
           success_count: number
           timeout_count: number
           total_runs: number
+        }[]
+      }
+      get_job_posting_counts: {
+        Args: { count_cap?: number; platform_filter?: string }
+        Returns: {
+          is_estimate: boolean
+          row_count: number
+          status_bucket: string
         }[]
       }
       get_user_session_history: {
@@ -2660,6 +3034,7 @@ export type Database = {
           id: string
           job_type: string[]
           location: string
+          lokalebanen_pushed_at: string
           platform_id: string
           platform_regio_platform: string
           review_status: string
@@ -2684,6 +3059,7 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       text_to_bytea: { Args: { data: string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
       update_pipedrive_organization_domeinen: {
         Args: {
           p_company_id: string

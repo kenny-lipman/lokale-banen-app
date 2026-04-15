@@ -1,6 +1,25 @@
 import { NextRequest } from "next/server"
 import { cacheService } from "@/lib/cache-service"
 
+/**
+ * Extract client IP address from a Next.js request.
+ *
+ * Next 15's `NextRequest` no longer exposes `req.ip`, so we read the
+ * standard proxy headers instead. Vercel, Cloudflare, and most CDNs set
+ * `x-forwarded-for` (comma-separated, client first). `x-real-ip` is a
+ * common fallback for direct nginx-style proxies.
+ */
+export function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for")
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim()
+    if (first) return first
+  }
+  const realIp = req.headers.get("x-real-ip")
+  if (realIp) return realIp.trim()
+  return "unknown"
+}
+
 export interface RateLimitConfig {
   windowMs: number
   maxRequests: number
@@ -84,10 +103,7 @@ export class RateLimiter {
    * Default key generator
    */
   private defaultKeyGenerator(req: NextRequest): string {
-    return req.ip || 
-           req.headers.get('x-forwarded-for')?.split(',')[0] || 
-           req.headers.get('x-real-ip') || 
-           'unknown'
+    return getClientIp(req)
   }
 }
 
@@ -95,28 +111,19 @@ export class RateLimiter {
 export const statusApiLimiter = new RateLimiter({
   windowMs: 60000, // 1 minute
   maxRequests: 10, // 10 requests per minute
-  keyGenerator: (req) => {
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown'
-    return `status_api:${ip}`
-  }
+  keyGenerator: (req) => `status_api:${getClientIp(req)}`
 })
 
 export const enrichmentApiLimiter = new RateLimiter({
   windowMs: 300000, // 5 minutes
   maxRequests: 5, // 5 enrichment requests per 5 minutes
-  keyGenerator: (req) => {
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown'
-    return `enrichment_api:${ip}`
-  }
+  keyGenerator: (req) => `enrichment_api:${getClientIp(req)}`
 })
 
 export const generalApiLimiter = new RateLimiter({
   windowMs: 60000, // 1 minute
   maxRequests: 100, // 100 requests per minute
-  keyGenerator: (req) => {
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown'
-    return `general_api:${ip}`
-  }
+  keyGenerator: (req) => `general_api:${getClientIp(req)}`
 })
 
 /**
@@ -151,10 +158,7 @@ export class RateLimitUtils {
     return new RateLimiter({
       windowMs,
       maxRequests,
-      keyGenerator: (req) => {
-        const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown'
-        return `${keyPrefix}:${ip}`
-      }
+      keyGenerator: (req) => `${keyPrefix}:${getClientIp(req)}`
     })
   }
 

@@ -41,20 +41,15 @@ async function getHandler(
 
     const supabase = createServiceRoleClient()
 
-    // 1. user_profiles first. We cast to any because the generated Database
-    //    types may not match the actual columns (display_name/email).
-    const { data: profileRow } = await (supabase as any)
+    // 1. user_profiles first.
+    const { data: profileRow } = await supabase
       .from("user_profiles")
       .select("user_id, display_name, email")
       .eq("user_id", id)
       .maybeSingle()
 
     if (profileRow) {
-      const profile = profileRow as {
-        user_id: string
-        display_name: string | null
-        email: string | null
-      }
+      const profile = profileRow
       const payload: ProfileResponse = {
         display_name: deriveDisplayName(profile.display_name, profile.email, id),
         email: profile.email ?? null,

@@ -17,8 +17,7 @@ async function postHandler(
     const supabase = createServiceRoleClient()
 
     // 1. Load current state to validate required checks server-side.
-    // Cast to any — generated types do not yet reflect new platform columns.
-    const { data: platformRow, error: loadErr } = await (supabase as any)
+    const { data: platformRow, error: loadErr } = await supabase
       .from("platforms")
       .select(
         "id, is_public, domain, primary_color, hero_title, seo_description, about_text",
@@ -33,15 +32,7 @@ async function postHandler(
       )
     }
 
-    const platform = platformRow as {
-      id: string
-      is_public: boolean | null
-      domain: string | null
-      primary_color: string | null
-      hero_title: string | null
-      seo_description: string | null
-      about_text: string | null
-    }
+    const platform = platformRow
 
     const hasValue = (v: string | null | undefined) =>
       typeof v === "string" && v.trim().length > 0
@@ -75,7 +66,7 @@ async function postHandler(
 
     // 2. Flip is_public + published_at atomically.
     const nowIso = new Date().toISOString()
-    const { data: updated, error: updateErr } = await (supabase as any)
+    const { data: updated, error: updateErr } = await supabase
       .from("platforms")
       .update({
         is_public: true,
