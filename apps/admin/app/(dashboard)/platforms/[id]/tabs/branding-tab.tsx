@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Palette } from "lucide-react"
-import { ImagePickerField } from "@/components/platform/image-picker-field"
+import { ImageUpload } from "@/components/ui/image-upload"
 import type { PlatformFormValues } from "../types"
 
 export interface BrandingTabProps {
+  platformId: string
   values: PlatformFormValues
   onChange: (patch: Partial<PlatformFormValues>) => void
 }
@@ -23,7 +24,7 @@ const COLOR_PRESETS = [
   "#0f172a",
 ]
 
-export function BrandingTab({ values, onChange }: BrandingTabProps) {
+export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) {
   return (
     <div className="space-y-6">
       <Card>
@@ -33,33 +34,42 @@ export function BrandingTab({ values, onChange }: BrandingTabProps) {
             Afbeeldingen
           </CardTitle>
           <CardDescription>
-            Logo, favicon en social-share image. URL-invoer voor nu — drag &amp; drop upload komt
-            binnenkort.
+            Logo, favicon en social-share image. Drag &amp; drop of klik om te uploaden.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <ImagePickerField
+          <ImageUpload
+            bucket="platform-assets"
+            path={`${platformId}/logo.png`}
+            currentUrl={values.logo_url}
             label="Logo"
-            description="Toont in de header. Aanbevolen 200 × 60 px — PNG of SVG."
-            value={values.logo_url}
-            onChange={(url) => onChange({ logo_url: url })}
-            placeholder="https://.../logo.png"
+            helperText="Toont in de header. Aanbevolen 200 × 60 px — PNG of SVG."
+            aspectRatio="auto"
+            onUpload={(url) => onChange({ logo_url: url })}
+            onRemove={() => onChange({ logo_url: null })}
           />
 
-          <ImagePickerField
+          <ImageUpload
+            bucket="platform-assets"
+            path={`${platformId}/favicon.png`}
+            currentUrl={values.favicon_url}
             label="Favicon"
-            description="32 × 32 px (PNG/ICO). Toont in de browsertab."
-            value={values.favicon_url}
-            onChange={(url) => onChange({ favicon_url: url })}
-            placeholder="https://.../favicon.png"
+            helperText="32 × 32 px (PNG/ICO). Toont in de browsertab."
+            aspectRatio="1:1"
+            acceptedFormats={["image/png", "image/x-icon", "image/svg+xml"]}
+            onUpload={(url) => onChange({ favicon_url: url })}
+            onRemove={() => onChange({ favicon_url: null })}
           />
 
-          <ImagePickerField
+          <ImageUpload
+            bucket="platform-assets"
+            path={`${platformId}/og-image.png`}
+            currentUrl={values.og_image_url}
             label="OG image"
-            description="1200 × 630 px — toont in LinkedIn/Twitter/WhatsApp previews."
-            value={values.og_image_url}
-            onChange={(url) => onChange({ og_image_url: url })}
-            placeholder="https://.../og.png"
+            helperText="1200 × 630 px — toont in LinkedIn/Twitter/WhatsApp previews."
+            aspectRatio="16:9"
+            onUpload={(url) => onChange({ og_image_url: url })}
+            onRemove={() => onChange({ og_image_url: null })}
           />
         </CardContent>
       </Card>

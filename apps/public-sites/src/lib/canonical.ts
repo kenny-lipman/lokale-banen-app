@@ -1,4 +1,4 @@
-import { cache } from 'react'
+import { cacheLife, cacheTag } from 'next/cache'
 import { createPublicClient } from './supabase'
 
 export interface CanonicalInfo {
@@ -22,59 +22,59 @@ interface PlatformLite {
  * Strategy:
  *   1. Look up `job_posting_platforms` where `is_primary = true` and return that platform.
  *   2. Fallback to `job_postings.platform_id` (single-regio assumption).
- *
- * Uses React's `cache` so concurrent callers in the same render share the lookup.
- * When `cacheComponents` is enabled in next.config, this can be upgraded to
- * `'use cache'` + `cacheTag('job:<id>')` + `cacheTag('platform:<id>')` without
- * changing the signature.
  */
-export const getCanonicalInfo = cache(
-  async (jobPostingId: string, slug: string): Promise<CanonicalInfo | null> => {
-    const supabase = createPublicClient()
+export async function getCanonicalInfo(
+  jobPostingId: string,
+  slug: string,
+): Promise<CanonicalInfo | null> {
+  'use cache'
+  cacheTag(`job:${jobPostingId}`)
+  cacheLife('hours')
 
-    let platform: PlatformLite | null = null
+  const supabase = createPublicClient()
 
-    // 1. Prefer explicit primary in junction
-    const { data: primaryJunction } = await supabase
-      .from('job_posting_platforms')
-      .select('platform_id, platforms:platform_id ( id, domain, preview_domain )')
-      .eq('job_posting_id', jobPostingId)
-      .eq('is_primary', true)
+  let platform: PlatformLite | null = null
+
+  // 1. Prefer explicit primary in junction
+  const { data: primaryJunction } = await supabase
+    .from('job_posting_platforms')
+    .select('platform_id, platforms:platform_id ( id, domain, preview_domain )')
+    .eq('job_posting_id', jobPostingId)
+    .eq('is_primary', true)
+    .maybeSingle()
+
+  if (primaryJunction) {
+    const rel = (primaryJunction as Record<string, unknown>).platforms
+    platform = Array.isArray(rel)
+      ? ((rel[0] as PlatformLite | undefined) ?? null)
+      : ((rel as PlatformLite | null) ?? null)
+  }
+
+  // 2. Fallback: use the job_postings.platform_id
+  if (!platform) {
+    const { data: job } = await supabase
+      .from('job_postings')
+      .select('platforms:platform_id ( id, domain, preview_domain )')
+      .eq('id', jobPostingId)
       .maybeSingle()
 
-    if (primaryJunction) {
-      const rel = (primaryJunction as Record<string, unknown>).platforms
+    if (job) {
+      const rel = (job as Record<string, unknown>).platforms
       platform = Array.isArray(rel)
         ? ((rel[0] as PlatformLite | undefined) ?? null)
         : ((rel as PlatformLite | null) ?? null)
     }
-
-    // 2. Fallback: use the job_postings.platform_id
-    if (!platform) {
-      const { data: job } = await supabase
-        .from('job_postings')
-        .select('platforms:platform_id ( id, domain, preview_domain )')
-        .eq('id', jobPostingId)
-        .maybeSingle()
-
-      if (job) {
-        const rel = (job as Record<string, unknown>).platforms
-        platform = Array.isArray(rel)
-          ? ((rel[0] as PlatformLite | undefined) ?? null)
-          : ((rel as PlatformLite | null) ?? null)
-      }
-    }
-
-    if (!platform) return null
-
-    // Prefer production .nl, fallback to preview Vercel domain
-    const domain = platform.domain ?? platform.preview_domain
-    if (!domain) return null
-
-    return {
-      primaryPlatformId: platform.id,
-      primaryDomain: domain,
-      canonicalUrl: `https://${domain}/vacature/${slug}`,
-    }
   }
-)
+
+  if (!platform) return null
+
+  // Prefer production .nl, fallback to preview Vercel domain
+  const domain = platform.domain ?? platform.preview_domain
+  if (!domain) return null
+
+  return {
+    primaryPlatformId: platform.id,
+    primaryDomain: domain,
+    canonicalUrl: `https://${domain}/vacature/${slug}`,
+  }
+}

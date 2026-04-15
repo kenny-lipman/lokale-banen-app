@@ -235,7 +235,7 @@ export default function PlatformDetailPage() {
         </TabsContent>
 
         <TabsContent value="branding">
-          <BrandingTab values={values} onChange={handleChange} />
+          <BrandingTab platformId={platformId} values={values} onChange={handleChange} />
         </TabsContent>
 
         <TabsContent value="content">
