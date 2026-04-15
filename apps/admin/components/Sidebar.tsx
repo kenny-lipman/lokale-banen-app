@@ -35,7 +35,7 @@ const menu = [
     ],
     href: "/agents"
   },
-  { href: "/review", icon: ClipboardCheck, label: "Review" },
+  { href: "/job-postings?status=pending", icon: ClipboardCheck, label: "Review" },
   {
     label: "Vacatures",
     icon: Briefcase,

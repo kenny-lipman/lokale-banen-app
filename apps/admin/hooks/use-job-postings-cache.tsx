@@ -9,6 +9,7 @@ export interface JobPostingsFilterParams {
   limit?: number
   search?: string
   status?: string
+  review_status?: string
   platform_id?: string[] | null
   source_id?: string[] | null
   // New filter parameters
@@ -49,9 +50,13 @@ export function useJobPostingsCache(params: JobPostingsFilterParams) {
         ? (params.platform_id.includes('null') ? null : params.platform_id)
         : null
 
-      const rpcParams = {
+      // Note: the RPC accepts `undefined` (resolved to SQL DEFAULT NULL), so we
+      // cast via `any` here — the RPC itself handles nulls correctly via
+      // `IS NULL` checks inside plpgsql.
+      const rpcParams: any = {
         search_term: params.search || null,
         status_filter: params.status || null,
+        review_status_filter: params.review_status || null,
         source_filter: params.source_id && params.source_id.length > 0 ? params.source_id : null,
         platform_filter: platformFilterArray,
         page_number: page,

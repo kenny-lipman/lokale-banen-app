@@ -15,6 +15,7 @@ import { TableSkeleton, LoadingSpinner } from "@/components/ui/loading-states"
 import { JobPostingDrawer } from "@/components/job-posting-drawer"
 import { Checkbox } from "@/components/ui/checkbox"
 import { LokaleBanenPushModal } from "@/components/LokaleBanenPushModal"
+import { BulkActionBar } from "@/components/vacature/bulk-action-bar"
 
 // Lazy load supabaseService to avoid circular dependencies
 let supabaseService: any = null
@@ -76,9 +77,12 @@ interface JobPostingsTableProps {
   data?: any[] // Optional: override data for custom use (e.g. Otis scraped jobs)
   onJobSelect?: (job: JobPosting) => void // Callback when a job is selected (for URL-based drawer)
   selectedJobId?: string // Currently selected job ID (for URL-based drawer)
+  reviewStatus?: "pending" | "approved" | "rejected" | "all" // Review status filter from tabs
+  onResetSelection?: number // Increment to force-reset selection state (e.g. on tab change)
+  onBulkActionComplete?: () => void // Fires after a bulk approve/reject so parent can refresh counts
 }
 
-export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect, selectedJobId }: JobPostingsTableProps) {
+export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect, selectedJobId, reviewStatus, onResetSelection, onBulkActionComplete }: JobPostingsTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
@@ -147,6 +151,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
           limit: itemsPerPage,
           search: debouncedSearchTerm,
           status: statusFilter === "all" ? undefined : statusFilter,
+          review_status: reviewStatus && reviewStatus !== "all" ? reviewStatus : undefined,
           source_id: sourceFilter.length > 0 ? sourceFilter : undefined,
           platform_id: platformFilter.length > 0 ? platformFilter : undefined,
           // New filter parameters
@@ -224,7 +229,12 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
     if (currentPage !== 1) {
       setCurrentPage(1)
     }
-  }, [debouncedSearchTerm, statusFilter, sourceFilter, platformFilter, dateFrom, dateTo, employmentFilter, salaryMin, salaryMax, careerLevelFilter, educationLevelFilter, hoursMin, hoursMax])
+  }, [debouncedSearchTerm, statusFilter, sourceFilter, platformFilter, dateFrom, dateTo, employmentFilter, salaryMin, salaryMax, careerLevelFilter, educationLevelFilter, hoursMin, hoursMax, reviewStatus])
+
+  // Reset selection when reviewStatus tab changes or parent signals reset
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [reviewStatus, onResetSelection])
 
   // No client-side filtering needed - all filtering is handled server-side
   const filteredJobPostings = jobPostings;
@@ -592,8 +602,22 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
         </div>
       )}
 
-      {/* Lokale Banen selection bar */}
-      {selectedIds.size > 0 && (
+      {/* Bulk action bar — approve/reject for review workflow (shown when reviewStatus tabs are active) */}
+      {reviewStatus && selectedIds.size > 0 && (
+        <BulkActionBar
+          selectedIds={Array.from(selectedIds)}
+          platformId={platformFilter.length === 1 && platformFilter[0] !== "null" ? platformFilter[0] : null}
+          onDeselect={() => setSelectedIds(new Set())}
+          onActionComplete={() => {
+            setSelectedIds(new Set())
+            if (refetch) refetch()
+            if (onBulkActionComplete) onBulkActionComplete()
+          }}
+        />
+      )}
+
+      {/* Lokale Banen selection bar — shown in non-review contexts (or in addition to review bar) */}
+      {!reviewStatus && selectedIds.size > 0 && (
         <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-blue-800">

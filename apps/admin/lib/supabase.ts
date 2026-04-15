@@ -2634,6 +2634,7 @@ export type Database = {
           page_number?: number
           page_size?: number
           platform_filter?: string[]
+          review_status_filter?: string
           salary_max?: number
           salary_min?: number
           search_term?: string
