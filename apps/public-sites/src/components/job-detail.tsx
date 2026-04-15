@@ -1,12 +1,12 @@
 import Link from 'next/link'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Globe,
   Linkedin,
   ExternalLink,
 } from 'lucide-react'
-import { formatRelative, formatEmploymentLabel, renderMarkdown, sanitizeHtml } from '@/lib/utils'
-import { parseJobSections } from '@/lib/job-sections'
-import { ContentSection } from './content-section'
+import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { JobCard } from './job-card'
 import { ApplyLink } from './apply-link'
@@ -27,9 +27,7 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
   const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
 
-  const rawContent = job.content_md || job.description || ''
-  const htmlContent = job.content_md ? renderMarkdown(rawContent) : sanitizeHtml(rawContent)
-  const sections = parseJobSections(htmlContent)
+  const markdownContent = (job.content_md || job.description || '').trim()
 
   // Build metadata items for salary callout box
   const metaItems: string[] = []
@@ -120,21 +118,15 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
         </div>
       </div>
 
-      {/* 5. Content sections */}
+      {/* 5. Description (markdown) */}
       <div className="mt-6">
-        {sections.watGaJeDoen && (
-          <ContentSection title="Wat ga je doen?" html={sections.watGaJeDoen} />
-        )}
-        {sections.wieZoekenWe && (
-          <ContentSection title="Wie zoeken we?" html={sections.wieZoekenWe} />
-        )}
-        {sections.watBiedenWe && (
-          <ContentSection title="Wat bieden we?" html={sections.watBiedenWe} />
-        )}
-        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && htmlContent && (
-          <ContentSection title="Over deze vacature" html={htmlContent} />
-        )}
-        {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && !htmlContent && (
+        {markdownContent ? (
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {markdownContent}
+            </ReactMarkdown>
+          </div>
+        ) : (
           <section className="mt-6">
             <p className="text-body text-muted italic">
               Er is geen beschrijving beschikbaar voor deze vacature.

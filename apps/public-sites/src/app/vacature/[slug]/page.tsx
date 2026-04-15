@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
 import { getJobBySlug, getRelatedJobs, parseSalary, mapEmploymentType } from '@/lib/queries'
@@ -53,6 +54,13 @@ export async function generateMetadata({
   const ogUrl = `https://${tenant.domain}/vacature/${slug}`
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
 
+  // Per-vacature header image overruled tenant fallback for social cards.
+  const ogImages = job.header_image_url
+    ? [{ url: job.header_image_url, width: 1600, height: 900 }]
+    : tenant.og_image_url
+      ? [{ url: tenant.og_image_url }]
+      : undefined
+
   return {
     title,
     description,
@@ -64,6 +72,13 @@ export async function generateMetadata({
       url: ogUrl,
       publishedTime: job.published_at || undefined,
       siteName: tenant.name,
+      images: ogImages,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ogImages?.map((i) => i.url),
     },
     alternates: {
       canonical: canonicalUrl,
@@ -127,37 +142,40 @@ export default async function JobPage({ params }: JobPageProps) {
   ]
   const breadcrumbJsonLd = buildBreadcrumbSchema(breadcrumbItems)
 
-  const jsonLd = buildJobPostingSchema({
-    title: job.title,
-    description: cleanDescription,
-    datePosted: job.published_at || job.created_at,
-    validThrough,
-    employmentType,
-    hiringOrganization: {
-      name: companyName,
-      sameAs: sameAs.length > 0 ? sameAs : undefined,
-      logo: job.company?.logo_url,
-      kvkNumber: job.company?.kvk,
-    },
-    jobLocation: {
-      streetAddress: job.street || job.company?.street_address,
-      city: job.city || job.company?.city || 'Nederland',
-      postalCode: job.zipcode || job.company?.postal_code,
-      region: job.state,
-      country: 'NL',
-      latitude: (lat && !isNaN(lat)) ? lat : null,
-      longitude: (lng && !isNaN(lng)) ? lng : null,
-    },
-    salary: salary
-      ? { minValue: salary.min, maxValue: salary.max, currency: 'EUR', unitText: salary.unit }
-      : null,
-    directApply: !job.url,
-    identifier: {
-      name: tenant.name,
-      value: job.id,
-    },
-    applicantLocationCountry: 'NL',
-  })
+  const jsonLd = {
+    ...buildJobPostingSchema({
+      title: job.title,
+      description: cleanDescription,
+      datePosted: job.published_at || job.created_at,
+      validThrough,
+      employmentType,
+      hiringOrganization: {
+        name: companyName,
+        sameAs: sameAs.length > 0 ? sameAs : undefined,
+        logo: job.company?.logo_url,
+        kvkNumber: job.company?.kvk,
+      },
+      jobLocation: {
+        streetAddress: job.street || job.company?.street_address,
+        city: job.city || job.company?.city || 'Nederland',
+        postalCode: job.zipcode || job.company?.postal_code,
+        region: job.state,
+        country: 'NL',
+        latitude: (lat && !isNaN(lat)) ? lat : null,
+        longitude: (lng && !isNaN(lng)) ? lng : null,
+      },
+      salary: salary
+        ? { minValue: salary.min, maxValue: salary.max, currency: 'EUR', unitText: salary.unit }
+        : null,
+      directApply: !job.url,
+      identifier: {
+        name: tenant.name,
+        value: job.id,
+      },
+      applicantLocationCountry: 'NL',
+    }),
+    ...(job.header_image_url ? { image: job.header_image_url } : {}),
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-surface">
@@ -207,6 +225,20 @@ export default async function JobPage({ params }: JobPageProps) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, '\\u003c') }}
         />
+
+        {/* Hero image (16:9) — rendered above job detail when set */}
+        {job.header_image_url && (
+          <div className="relative w-full aspect-[16/9] mb-6 overflow-hidden rounded-lg">
+            <Image
+              src={job.header_image_url}
+              alt={job.title}
+              fill
+              priority
+              sizes="(max-width: 1280px) 100vw, 1280px"
+              className="object-cover"
+            />
+          </div>
+        )}
 
         <JobDetail job={job} relatedJobs={relatedJobs} />
 
