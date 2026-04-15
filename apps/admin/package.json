@@ -43,6 +43,7 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.50.3",
+    "@uiw/react-md-editor": "^4.1.0",
     "autoprefixer": "^10.4.20",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",

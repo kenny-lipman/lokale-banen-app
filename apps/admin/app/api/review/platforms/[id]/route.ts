@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
+import { revalidatePublicSite } from "@/lib/services/public-site-revalidate.service"
 
 export const dynamic = "force-dynamic"
 
@@ -52,16 +53,28 @@ async function patchHandler(
     const supabase = createServiceRoleClient()
     const body = await request.json()
 
-    // Only allow updating specific fields
+    // Whitelist of editable fields (all 6 tabs combined). Not in this list:
+    // id, regio_platform, central_place, preview_domain, indexnow_key,
+    // updated_at (set server-side), published_at (managed via go-live).
     const allowedFields = [
-      "domain",
+      // Basis
+      "tier",
       "is_public",
+      "domain",
+      // Branding
       "logo_url",
+      "favicon_url",
+      "og_image_url",
       "primary_color",
+      // Content
       "hero_title",
       "hero_subtitle",
-      "seo_description",
       "about_text",
+      "privacy_text",
+      "terms_text",
+      // SEO
+      "seo_description",
+      // Contact
       "contact_email",
       "contact_phone",
       "social_linkedin",
@@ -69,11 +82,7 @@ async function patchHandler(
       "social_facebook",
       "social_tiktok",
       "social_twitter",
-      "favicon_url",
-      "og_image_url",
-      "privacy_text",
-      "terms_text",
-    ]
+    ] as const
 
     const updates: Record<string, unknown> = {}
     for (const field of allowedFields) {
@@ -82,16 +91,21 @@ async function patchHandler(
       }
     }
 
-    // If setting is_public to true, also set published_at
-    if (updates.is_public === true) {
-      updates.published_at = new Date().toISOString()
-    } else if (updates.is_public === false) {
-      updates.published_at = null
+    // Keep published_at in sync with is_public toggles from the UI. The
+    // dedicated /go-live endpoint is still the canonical "publish" path but
+    // this keeps the toggle on the Basics tab functional too.
+    if ("is_public" in updates) {
+      if (updates.is_public === true) {
+        updates.published_at = new Date().toISOString()
+      } else if (updates.is_public === false) {
+        updates.published_at = null
+      }
     }
 
     updates.updated_at = new Date().toISOString()
 
-    const { data, error } = await supabase
+    // Cast to any — generated types are outdated vs. actual schema.
+    const { data, error } = await (supabase as any)
       .from("platforms")
       .update(updates)
       .eq("id", id)
@@ -105,8 +119,20 @@ async function patchHandler(
       )
     }
 
+    // Best-effort: invalidate public-site caches for this platform.
+    const revalidate = await revalidatePublicSite({ platformIds: [id] })
+    if (!revalidate.ok && !revalidate.skipped) {
+      console.warn(`[platforms PATCH] revalidate failed for ${id}:`, revalidate.error)
+    }
+
+    const { count } = await supabase
+      .from("job_postings")
+      .select("*", { count: "exact", head: true })
+      .eq("review_status", "approved")
+      .eq("platform_id", id)
+
     return NextResponse.json({
-      data,
+      data: { ...data, approved_count: count || 0 },
       message: "Platform bijgewerkt",
     })
   } catch (err: unknown) {
