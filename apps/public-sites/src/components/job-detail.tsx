@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import {
   Globe,
   Linkedin,
@@ -10,6 +11,8 @@ import { formatRelative, formatEmploymentLabel } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { JobCard } from './job-card'
 import { ApplyLink } from './apply-link'
+import { ContentSection } from './content-section'
+import { parseJobSections } from '@/lib/job-sections'
 import { slugifyCity } from '@lokale-banen/database'
 
 interface JobDetailProps {
@@ -28,6 +31,10 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
   const employmentLabel = formatEmploymentLabel(job.employment, job.job_type)
 
   const markdownContent = (job.content_md || job.description || '').trim()
+  const sections = parseJobSections(markdownContent)
+  const hasAnySection = Boolean(
+    sections.watGaJeDoen || sections.wieZoekenWe || sections.watBiedenWe
+  )
 
   // Build metadata items for salary callout box
   const metaItems: string[] = []
@@ -118,21 +125,40 @@ export function JobDetail({ job, relatedJobs }: JobDetailProps) {
         </div>
       </div>
 
-      {/* 5. Description (markdown) */}
+      {/* 5. Description — split in recognised Dutch sections, fallback to full markdown */}
       <div className="mt-6">
-        {markdownContent ? (
-          <div className="prose prose-sm max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {markdownContent}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <section className="mt-6">
+        {!markdownContent ? (
+          <section>
             <p className="text-body text-muted italic">
               Er is geen beschrijving beschikbaar voor deze vacature.
               Bezoek de website van de werkgever voor meer informatie.
             </p>
           </section>
+        ) : hasAnySection ? (
+          <>
+            {sections.overige && (
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  {sections.overige}
+                </ReactMarkdown>
+              </div>
+            )}
+            {sections.watGaJeDoen && (
+              <ContentSection title="Wat ga je doen?" content={sections.watGaJeDoen} />
+            )}
+            {sections.wieZoekenWe && (
+              <ContentSection title="Wie zoeken we?" content={sections.wieZoekenWe} />
+            )}
+            {sections.watBiedenWe && (
+              <ContentSection title="Wat bieden we?" content={sections.watBiedenWe} />
+            )}
+          </>
+        ) : (
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+              {markdownContent}
+            </ReactMarkdown>
+          </div>
         )}
       </div>
 

@@ -1,15 +1,21 @@
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+
 /**
- * Content section with H2 heading + HTML body.
- * Shared between JobDetailPanel and JobDetail.
+ * Content section with H2 heading + body rendered as markdown.
+ * Supports inline HTML (via rehype-raw) so legacy scraped content that still
+ * contains <br>, <ul>, etc. renders correctly alongside newer markdown input.
  */
-export function ContentSection({ title, html }: { title: string; html: string }) {
+export function ContentSection({ title, content }: { title: string; content: string }) {
   return (
     <section>
       <h2 className="text-h2 text-foreground mb-3 mt-6">{title}</h2>
-      <div
-        className="text-body text-foreground leading-[22px] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1.5 [&_p]:mb-3"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="prose prose-sm max-w-none text-body text-foreground leading-[22px]">
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+          {content}
+        </ReactMarkdown>
+      </div>
     </section>
   )
 }

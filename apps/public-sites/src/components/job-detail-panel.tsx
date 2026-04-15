@@ -148,16 +148,16 @@ export function JobDetailPanel({ job, tenantName, tenantDomain }: JobDetailPanel
       {/* 5. Content sections (markdown) — mt 24px */}
       <div className="mt-6">
         {sections.watGaJeDoen && (
-          <ContentSection title="Wat ga je doen?" html={sections.watGaJeDoen} />
+          <ContentSection title="Wat ga je doen?" content={sections.watGaJeDoen} />
         )}
         {sections.wieZoekenWe && (
-          <ContentSection title="Wie zoeken we?" html={sections.wieZoekenWe} />
+          <ContentSection title="Wie zoeken we?" content={sections.wieZoekenWe} />
         )}
         {sections.watBiedenWe && (
-          <ContentSection title="Wat bieden we?" html={sections.watBiedenWe} />
+          <ContentSection title="Wat bieden we?" content={sections.watBiedenWe} />
         )}
         {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && htmlContent && (
-          <ContentSection title="Over deze vacature" html={htmlContent} />
+          <ContentSection title="Over deze vacature" content={htmlContent} />
         )}
         {!sections.watGaJeDoen && !sections.wieZoekenWe && !sections.watBiedenWe && !htmlContent && (
           <section className="mt-6">
