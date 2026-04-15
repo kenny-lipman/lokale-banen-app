@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 import { revalidatePublicSite } from "@/lib/services/public-site-revalidate.service"
+import {
+  submitToIndexNow,
+  resolvePlatformHost,
+  buildVacatureUrlList,
+} from "@/lib/services/indexnow.service"
 
 export const dynamic = "force-dynamic"
 
@@ -96,6 +101,8 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
 
     const approvedSlugs: string[] = []
     const affectedPlatformIds = new Set<string>()
+    // Per-platform slug buckets for IndexNow batch submit.
+    const slugsByPlatform = new Map<string, string[]>()
 
     for (const job of jobsToApprove || []) {
       try {
@@ -135,6 +142,9 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
 
           if (currentJob?.platform_id) {
             affectedPlatformIds.add(currentJob.platform_id)
+            const bucket = slugsByPlatform.get(currentJob.platform_id) ?? []
+            bucket.push(slug)
+            slugsByPlatform.set(currentJob.platform_id, bucket)
             await supabase
               .from("job_posting_platforms")
               .upsert(
@@ -161,6 +171,34 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
       platformIds: Array.from(affectedPlatformIds),
       jobSlugs: approvedSlugs,
     })
+
+    // IndexNow ping — one submit per platform with all that platform's new slugs.
+    // Best-effort, never throws; logged per platform.
+    if (slugsByPlatform.size > 0) {
+      const { data: platforms } = await supabase
+        .from("platforms")
+        .select("id, domain, preview_domain, indexnow_key")
+        .in("id", Array.from(slugsByPlatform.keys()))
+
+      for (const platform of platforms ?? []) {
+        const slugs = slugsByPlatform.get(platform.id) ?? []
+        const host = resolvePlatformHost(platform)
+        if (!host || !platform.indexnow_key) {
+          console.warn(
+            `[IndexNow] bulk-approve skipped platform=${platform.id} — missing domain or key (slugs=${slugs.length})`
+          )
+          continue
+        }
+        const result = await submitToIndexNow({
+          host,
+          key: platform.indexnow_key,
+          urlList: buildVacatureUrlList(host, slugs),
+        })
+        console.log(
+          `[IndexNow] bulk-approve platform=${platform.id} host=${host} ok=${result.ok} status=${result.status ?? "n/a"} submitted=${result.submitted}`
+        )
+      }
+    }
 
     return NextResponse.json({
       approved,
