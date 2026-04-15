@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
 import { getJobBySlug, getRelatedJobs, parseSalary, mapEmploymentType } from '@/lib/queries'
+import { getCanonicalInfo } from '@/lib/canonical'
 import { buildJobPostingSchema, buildBreadcrumbSchema } from '@lokale-banen/shared'
 import { slugifyCity } from '@lokale-banen/database'
 import { isJobSaved } from '@/app/actions/saved-jobs'
@@ -45,7 +46,11 @@ export async function generateMetadata({
     ? rawText.slice(0, 157) + '...'
     : rawText || `Bekijk de vacature ${job.title} bij ${companyName}`
 
-  const canonicalUrl = `https://${tenant.domain}/vacature/${slug}`
+  // Multi-regio canonical: resolve primary platform for this job posting.
+  // Falls back to the current tenant host if no junction/platform info is available.
+  const canonical = await getCanonicalInfo(job.id, slug)
+  const canonicalUrl = canonical?.canonicalUrl ?? `https://${tenant.domain}/vacature/${slug}`
+  const ogUrl = `https://${tenant.domain}/vacature/${slug}`
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
 
   return {
@@ -56,7 +61,7 @@ export async function generateMetadata({
       title,
       description,
       type: 'article',
-      url: canonicalUrl,
+      url: ogUrl,
       publishedTime: job.published_at || undefined,
       siteName: tenant.name,
     },
