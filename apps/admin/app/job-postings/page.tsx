@@ -151,6 +151,9 @@ function JobPostingsContent() {
   const renderCount = (tab: ReviewStatusTab) => {
     if (countsLoading || !counts) return ""
     const n = counts[tab] ?? 0
+    // Backend caps at 10001 for pending tab when exact count is expensive;
+    // show "10.000+" for any value at/above the cap.
+    if (n >= 10001) return "10.000+"
     return n.toLocaleString("nl-NL")
   }
 

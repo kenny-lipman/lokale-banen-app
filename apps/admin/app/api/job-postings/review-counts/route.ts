@@ -4,16 +4,26 @@ import { createServiceRoleClient } from "@/lib/supabase-server"
 
 export const dynamic = "force-dynamic"
 
+interface CountRow {
+  status_bucket: 'all' | 'pending' | 'approved' | 'rejected'
+  row_count: number
+  is_estimate: boolean
+}
+
 /**
  * GET /api/job-postings/review-counts
  *
- * Returns counts per review_status (pending/approved/rejected/all).
- * Used by the tabs on the /job-postings admin page to show badge counts.
+ * Returns counts per review_status (pending/approved/rejected/all) for the
+ * tabs on the admin job-postings page.
  *
- * Optional query params mirror the RPC filters that the main table respects so
- * that the tab counts stay consistent with active filters. For now we only
- * honour `platform_id` (single uuid) since that is the most common cross-tab
- * filter. Other filters are intentionally ignored to keep the query cheap.
+ * Implementation: single RPC call to `get_job_posting_counts` which uses
+ *   - reltuples estimate for unfiltered 'all' (instant)
+ *   - LIMIT trick for pending (stops at 10001 — UI shows "10.000+")
+ *   - exact counts for approved/rejected (small partial indexes)
+ *
+ * Response is cached for 5 minutes via Cache-Control. Invalidated naturally
+ * when the user moves between tabs (next tick refetches) or when admin-side
+ * mutations happen.
  */
 async function getHandler(request: NextRequest, _authResult: AuthResult) {
   try {
@@ -21,39 +31,46 @@ async function getHandler(request: NextRequest, _authResult: AuthResult) {
     const { searchParams } = new URL(request.url)
     const platformId = searchParams.get("platform_id") || null
 
-    const buildQuery = (review: "pending" | "approved" | "rejected" | null) => {
-      let q = supabase
-        .from("job_postings")
-        .select("*", { count: "exact", head: true })
-      if (review) q = q.eq("review_status", review)
-      if (platformId) q = q.eq("platform_id", platformId)
-      return q
-    }
+    const { data, error } = await supabase.rpc('get_job_posting_counts', {
+      platform_filter: platformId,
+      count_cap: 10000,
+    })
 
-    const [pending, approved, rejected, all] = await Promise.all([
-      buildQuery("pending"),
-      buildQuery("approved"),
-      buildQuery("rejected"),
-      buildQuery(null),
-    ])
-
-    const firstError =
-      pending.error || approved.error || rejected.error || all.error
-    if (firstError) {
+    if (error) {
       return NextResponse.json(
-        { error: "Failed to fetch review counts", details: firstError.message },
+        { error: "Failed to fetch review counts", details: error.message },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({
-      counts: {
-        pending: pending.count ?? 0,
-        approved: approved.count ?? 0,
-        rejected: rejected.count ?? 0,
-        all: all.count ?? 0,
-      },
-    })
+    const rows = (data ?? []) as CountRow[]
+    const counts = {
+      all: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+    }
+    const estimates = {
+      all: false,
+      pending: false,
+      approved: false,
+      rejected: false,
+    }
+
+    for (const row of rows) {
+      counts[row.status_bucket] = row.row_count
+      estimates[row.status_bucket] = row.is_estimate
+    }
+
+    return NextResponse.json(
+      { counts, estimates },
+      {
+        headers: {
+          // 5 min browser/CDN cache, 10 min stale-while-revalidate
+          'Cache-Control': 's-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error"
     return NextResponse.json({ error: message }, { status: 500 })
