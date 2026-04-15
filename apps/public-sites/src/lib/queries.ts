@@ -1,4 +1,4 @@
-import { cache } from 'react'
+import { cacheLife, cacheTag } from 'next/cache'
 import { createPublicClient } from './supabase'
 import { slugifyCity } from '@lokale-banen/database'
 
@@ -67,7 +67,9 @@ export async function getApprovedJobs(
   tenantId: string,
   filter: JobFilter = {}
 ): Promise<{ jobs: JobPosting[]; total: number }> {
-  // TODO: add 'use cache' + cacheLife after build verification
+  'use cache'
+  cacheTag(`jobs:${tenantId}`)
+  cacheLife('minutes')
 
   const supabase = createPublicClient()
   const page = filter.page || 1
@@ -144,6 +146,10 @@ export async function getJobCount(
   tenantId: string,
   filter: JobFilter = {}
 ): Promise<number> {
+  'use cache'
+  cacheTag(`jobs:${tenantId}`)
+  cacheLife('minutes')
+
   const supabase = createPublicClient()
 
   let query = supabase
@@ -181,7 +187,9 @@ export async function getJobBySlug(
   tenantId: string,
   slug: string
 ): Promise<JobPosting | null> {
-  // TODO: add 'use cache' + cacheLife after build verification
+  'use cache'
+  cacheTag(`job:${slug}`)
+  cacheLife('hours')
 
   const supabase = createPublicClient()
 
@@ -225,7 +233,9 @@ export async function getRelatedJobs(
   city: string | null,
   excludeId: string
 ): Promise<JobPosting[]> {
-  // TODO: add 'use cache' + cacheLife after build verification
+  'use cache'
+  cacheTag(`jobs:${tenantId}`)
+  cacheLife('minutes')
 
   if (!city) return []
 
@@ -272,6 +282,10 @@ export interface SitemapJob {
 export async function getSitemapJobs(
   tenantId: string
 ): Promise<SitemapJob[]> {
+  'use cache'
+  cacheTag(`sitemap:${tenantId}`)
+  cacheLife('hours')
+
   const supabase = createPublicClient()
 
   const { data, error } = await supabase
@@ -306,6 +320,10 @@ export async function getLlmsJobs(
   tenantId: string,
   limit: number = 200
 ): Promise<LlmsJob[]> {
+  'use cache'
+  cacheTag(`sitemap:${tenantId}`)
+  cacheLife('hours')
+
   const supabase = createPublicClient()
 
   const { data, error } = await supabase
@@ -344,6 +362,10 @@ export async function getLlmsJobs(
  * Count total approved+published jobs for a tenant.
  */
 export async function getApprovedJobCount(tenantId: string): Promise<number> {
+  'use cache'
+  cacheTag(`jobs:${tenantId}`)
+  cacheLife('minutes')
+
   const supabase = createPublicClient()
 
   const { count, error } = await supabase
@@ -371,11 +393,14 @@ export interface CityWithCount {
  * Fetch all distinct cities with job counts for a tenant.
  * Slugifies each city name and merges spelling variants under the same slug.
  * Returns sorted by count descending.
- * Wrapped with React cache() for per-request deduplication.
  */
-export const getCitiesWithJobCounts = cache(async function getCitiesWithJobCounts(
+export async function getCitiesWithJobCounts(
   tenantId: string
 ): Promise<CityWithCount[]> {
+  'use cache'
+  cacheTag(`cities:${tenantId}`)
+  cacheLife('hours')
+
   const supabase = createPublicClient()
 
   // Use DB-side aggregation (GROUP BY) — returns ~100 rows instead of ~50k
@@ -412,7 +437,7 @@ export const getCitiesWithJobCounts = cache(async function getCitiesWithJobCount
       return { city: bestName, slug, count }
     })
     .sort((a, b) => b.count - a.count)
-})
+}
 
 /**
  * Resolve a city slug to the original city name(s) and fetch paginated jobs.
@@ -422,6 +447,10 @@ export async function getJobsByCitySlug(
   citySlug: string,
   page = 1
 ): Promise<{ jobs: JobPosting[]; total: number; cityName: string | null }> {
+  'use cache'
+  cacheTag(`jobs:${tenantId}`, `city:${tenantId}:${citySlug}`)
+  cacheLife('minutes')
+
   // First resolve the slug to actual city name(s)
   const allCities = await getCitiesWithJobCounts(tenantId)
   const match = allCities.find(c => c.slug === citySlug)
@@ -476,6 +505,10 @@ export async function getNearbyCities(
   excludeSlug: string,
   limit = 8
 ): Promise<CityWithCount[]> {
+  'use cache'
+  cacheTag(`cities:${tenantId}`)
+  cacheLife('hours')
+
   const allCities = await getCitiesWithJobCounts(tenantId)
   return allCities
     .filter(c => c.slug !== excludeSlug)
@@ -509,6 +542,10 @@ export async function getCompanyBySlug(
   tenantId: string,
   companySlug: string
 ): Promise<CompanyProfile | null> {
+  'use cache'
+  cacheTag(`company:${tenantId}:${companySlug}`)
+  cacheLife('hours')
+
   const supabase = createPublicClient()
 
   // Find company by slug
@@ -542,6 +579,10 @@ export async function getJobsByCompany(
   companyId: string,
   page = 1
 ): Promise<{ jobs: JobPosting[]; total: number }> {
+  'use cache'
+  cacheTag(`company:${tenantId}:${companyId}`)
+  cacheLife('minutes')
+
   const supabase = createPublicClient()
   const from = (page - 1) * JOBS_PER_PAGE
   const to = from + JOBS_PER_PAGE - 1
@@ -584,6 +625,10 @@ export async function getTopCities(
   tenantId: string,
   limit = 5
 ): Promise<{ city: string; count: number }[]> {
+  'use cache'
+  cacheTag(`cities:${tenantId}`)
+  cacheLife('hours')
+
   const supabase = createPublicClient()
 
   // Fetch all approved cities for this tenant (only city column, lightweight)

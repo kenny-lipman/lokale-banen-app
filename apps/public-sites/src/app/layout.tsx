@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { Source_Sans_3 } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
@@ -12,6 +13,10 @@ const sourceSans = Source_Sans_3({
   display: 'swap',
   weight: ['300', '400', '500', '600', '700'],
 })
+
+// Default brand color used during static prerender; the TenantTheme below
+// streams in per-tenant overrides at request time without blocking the shell.
+const DEFAULT_PRIMARY = '#006B5E'
 
 /**
  * Safely attempt to resolve tenant data.
@@ -46,34 +51,58 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function RootLayout({
+/**
+ * Dynamic theme override component. Streams per-tenant CSS variables into
+ * the document head at request time. The static shell ships with
+ * DEFAULT_PRIMARY so the page remains useful even before this component
+ * resolves.
+ */
+async function TenantTheme() {
+  const tenant = await safeTenant()
+  if (!tenant) return null
+
+  const primary = tenant.primary_color || DEFAULT_PRIMARY
+  const primaryHover = darkenHex(primary, 0.1)
+  const primaryLight = hexToLightVariant(primary, 0.08)
+  const primaryMuted = hexToMutedVariant(primary)
+
+  const css = `:root {
+  --primary: ${primary};
+  --primary-hover: ${primaryHover};
+  --primary-light: ${primaryLight};
+  --primary-muted: ${primaryMuted};
+}`
+
+  return <style dangerouslySetInnerHTML={{ __html: css }} />
+}
+
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const tenant = await safeTenant()
-  const primaryColor = tenant?.primary_color || '#006B5E'
-
-  // Generate derived colors from primary
-  const primaryHover = darkenHex(primaryColor, 0.1)
-  const primaryLight = hexToLightVariant(primaryColor, 0.08)
-  const primaryMuted = hexToMutedVariant(primaryColor)
-
-  const themeStyle = {
-    '--primary': primaryColor,
-    '--primary-hover': primaryHover,
-    '--primary-light': primaryLight,
-    '--primary-muted': primaryMuted,
+  // Static shell with default theme vars — safe to prerender.
+  const defaultThemeStyle = {
+    '--primary': DEFAULT_PRIMARY,
+    '--primary-hover': darkenHex(DEFAULT_PRIMARY, 0.1),
+    '--primary-light': hexToLightVariant(DEFAULT_PRIMARY, 0.08),
+    '--primary-muted': hexToMutedVariant(DEFAULT_PRIMARY),
   } as React.CSSProperties
 
   return (
-    <html lang="nl" className={sourceSans.variable} style={themeStyle}>
+    <html lang="nl" className={sourceSans.variable} style={defaultThemeStyle}>
+      <head>
+        {/* Tenant-specific CSS variables stream in at request time */}
+        <Suspense fallback={null}>
+          <TenantTheme />
+        </Suspense>
+      </head>
       <body className="font-sans">
         <ClerkProvider
           localization={nlNL}
           appearance={{
             variables: {
-              colorPrimary: primaryColor,
+              colorPrimary: DEFAULT_PRIMARY,
               colorText: '#18181B',
               colorInputBackground: '#FFFFFF',
               colorInputText: '#18181B',

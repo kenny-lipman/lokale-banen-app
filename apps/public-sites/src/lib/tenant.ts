@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { cacheLife, cacheTag } from 'next/cache'
 import { createPublicClient } from './supabase'
 
 export interface Tenant {
@@ -32,6 +33,9 @@ export interface Tenant {
 /**
  * Resolve the current tenant from the request's x-tenant-host header.
  * Falls back to lokalebanen.nl (master aggregator).
+ *
+ * This function is dynamic (reads headers). The actual DB lookup is delegated
+ * to `getTenantByHost`, which is cached per host.
  */
 export async function getTenant(): Promise<Tenant | null> {
   const headersList = await headers()
@@ -45,8 +49,14 @@ export async function getTenant(): Promise<Tenant | null> {
   return getTenantByHost(host)
 }
 
-async function getTenantByHost(host: string): Promise<Tenant | null> {
-  // TODO: add 'use cache' + cacheLife after build verification
+/**
+ * Cached tenant lookup by host. Key: host → platform row.
+ * Invalidate via tag `platform:host:${host}` when a platform's config changes.
+ */
+export async function getTenantByHost(host: string): Promise<Tenant | null> {
+  'use cache'
+  cacheTag(`platform:host:${host}`)
+  cacheLife('hours')
 
   const supabase = createPublicClient()
   const { data, error } = await supabase
