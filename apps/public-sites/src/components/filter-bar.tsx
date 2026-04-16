@@ -15,6 +15,7 @@ interface FilterBarProps {
   activeType?: string
   query?: string
   location?: string
+  sort?: string
   lat?: string
   lng?: string
 }
@@ -23,14 +24,19 @@ interface FilterBarProps {
  * Sticky filter chips bar — sits below the EditorialSearchBar.
  * Renders dienstverband type chips as links (preserves URL params) + GeolocateButton.
  * Height: 44px (used in split-view height calc: 100vh - 56px header - 44px = calc(100vh - 100px)).
+ *
+ * Chip links preserve: q, location, lat, lng, sort (page is intentionally reset to 1).
+ * 'nearest' sort is auto-cleared when lat/lng are absent (sort-select handles display).
  */
-export function FilterBar({ activeType, query, location, lat, lng }: FilterBarProps) {
+export function FilterBar({ activeType, query, location, sort, lat, lng }: FilterBarProps) {
   function chipHref(type: string) {
     const params = new URLSearchParams()
     if (query) params.set('q', query)
     if (location) params.set('location', location)
     if (lat) params.set('lat', lat)
     if (lng) params.set('lng', lng)
+    // Preserve sort — but 'nearest' without location makes no sense; let the sort-select handle it
+    if (sort && sort !== 'newest') params.set('sort', sort)
     if (type) params.set('type', type)
     const qs = params.toString()
     return qs ? `/?${qs}` : '/'

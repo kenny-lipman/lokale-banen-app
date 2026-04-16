@@ -14,6 +14,10 @@ interface EditorialSearchBarProps {
   queryPlaceholder?: string
   /** Optional placeholder for where field. */
   locationPlaceholder?: string
+  /** Active geolocation latitude — preserved as hidden input so distance chips survive search. */
+  lat?: string
+  /** Active geolocation longitude — preserved as hidden input so distance chips survive search. */
+  lng?: string
 }
 
 /**
@@ -32,6 +36,8 @@ export function EditorialSearchBar({
   action = '/',
   queryPlaceholder = 'Functie, vaardigheid of bedrijf',
   locationPlaceholder = 'Postcode of plaats',
+  lat,
+  lng,
 }: EditorialSearchBarProps) {
   const [isFocused, setIsFocused] = useState(false)
 
@@ -131,6 +137,10 @@ export function EditorialSearchBar({
             />
           </div>
         </label>
+
+        {/* Preserve geolocation through search so distance chips + nearest sort survive */}
+        {lat && <input type="hidden" name="lat" value={lat} />}
+        {lng && <input type="hidden" name="lng" value={lng} />}
 
         {/* Submit */}
         <button

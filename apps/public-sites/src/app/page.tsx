@@ -133,6 +133,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         defaultQuery={params.q}
         defaultLocation={params.location}
         locationPlaceholder={tenant.central_place || 'Postcode of plaats'}
+        lat={params.lat}
+        lng={params.lng}
       />
 
       {/* Sticky filter chips bar — type filter + geolocate */}
@@ -140,6 +142,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         activeType={params.type}
         query={params.q}
         location={params.location}
+        sort={params.sort}
         lat={params.lat}
         lng={params.lng}
       />
