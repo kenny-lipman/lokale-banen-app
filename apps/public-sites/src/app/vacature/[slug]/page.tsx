@@ -8,14 +8,14 @@ import { getCanonicalInfo } from '@/lib/canonical'
 import { buildJobPostingSchema, buildBreadcrumbSchema } from '@lokale-banen/shared'
 import { slugifyCity } from '@lokale-banen/database'
 import { isJobSaved } from '@/app/actions/saved-jobs'
+import { formatRelative } from '@/lib/utils'
 import { TenantHeader } from '@/components/tenant-header'
-import { Breadcrumbs } from '@/components/breadcrumbs'
+import { Wegwijzer } from '@/components/wegwijzer'
 import { JobDetail } from '@/components/job-detail'
 import { ApplyButton } from '@/components/apply-button'
 import { SaveJobButton } from '@/components/save-job-button'
 import { ShareButtons } from '@/components/share-buttons'
 import { Footer } from '@/components/footer'
-import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 interface JobPageProps {
@@ -177,40 +177,42 @@ export default async function JobPage({ params }: JobPageProps) {
     ...(job.header_image_url ? { image: job.header_image_url } : {}),
   }
 
+  // Build wegwijzer items — only include non-null facts (conditioneel renderen)
+  const postedAgo = job.published_at ? formatRelative(job.published_at) : null
+  const endsInDays = job.end_date ? daysBetween(new Date(), new Date(job.end_date)) : null
+
+  const wegwijzerItems: import('@/components/wegwijzer').WegwijzerItem[] = []
+  if (job.city) {
+    wegwijzerItems.push({
+      id: 'city',
+      label: job.city,
+      icon: 'map',
+      href: citySlug ? `/vacatures/${citySlug}` : undefined,
+    })
+  }
+  if (postedAgo) {
+    wegwijzerItems.push({ id: 'time', label: postedAgo, icon: 'clock' })
+  }
+  if (endsInDays !== null && endsInDays > 0 && endsInDays <= 30) {
+    wegwijzerItems.push({ id: 'ends', label: `Nog ${endsInDays} dagen open`, icon: 'none' })
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-surface">
       <TenantHeader tenant={tenant} showSearch={false} />
 
-      {/* Sub-header with back / breadcrumbs, share, save */}
+      {/* Wegwijzer strip — signature breadcrumb + position markers */}
+      <Wegwijzer
+        back={{ label: 'Overzicht', href: '/' }}
+        items={wegwijzerItems}
+      />
+
+      {/* Save action row — small affordance under wegwijzer */}
       <div className="bg-surface" style={{ borderBottom: '1px solid var(--border)' }}>
-        <div className="max-w-[1280px] mx-auto flex items-center justify-between h-11 px-4 lg:px-6">
-          {/* Mobile: back button */}
-          <Link
-            href="/"
-            className="lg:hidden inline-flex items-center gap-1.5 text-body text-muted hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Terug
-          </Link>
-
-          {/* Desktop: breadcrumbs (3-level: Home > City > Job) */}
-          <div className="hidden lg:block">
-            <Breadcrumbs
-              items={[
-                { label: tenant.name, href: '/' },
-                ...(citySlug && job.city
-                  ? [{ label: `Vacatures in ${job.city}`, href: `/vacatures/${citySlug}` }]
-                  : []),
-                { label: job.title },
-              ]}
-            />
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Suspense fallback={<div className="h-10 w-10" />}>
-              <SaveJobButtonServer jobId={job.id} />
-            </Suspense>
-          </div>
+        <div className="max-w-[1280px] mx-auto flex items-center justify-end h-11 px-4 lg:px-6">
+          <Suspense fallback={<div className="h-10 w-10" />}>
+            <SaveJobButtonServer jobId={job.id} />
+          </Suspense>
         </div>
       </div>
 
@@ -226,8 +228,8 @@ export default async function JobPage({ params }: JobPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, '\\u003c') }}
         />
 
-        {/* Hero image (16:9) — rendered above job detail when set */}
-        {job.header_image_url && (
+        {/* Hero — real image when set, otherwise branded gradient (Fase 2 fallback) */}
+        {job.header_image_url ? (
           <div className="relative w-full aspect-[16/9] mb-6 overflow-hidden rounded-lg">
             <Image
               src={job.header_image_url}
@@ -236,6 +238,24 @@ export default async function JobPage({ params }: JobPageProps) {
               priority
               sizes="(max-width: 1280px) 100vw, 1280px"
               className="object-cover"
+            />
+          </div>
+        ) : (
+          <div
+            aria-hidden="true"
+            className="relative w-full aspect-[21/9] mb-6 overflow-hidden rounded-lg"
+            style={{
+              background:
+                'linear-gradient(180deg, transparent 60%, rgba(26,24,21,0.25) 100%), linear-gradient(135deg, var(--primary) 0%, var(--secondary, var(--primary-dark)) 100%)',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage:
+                  'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.18) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.10) 0%, transparent 35%), repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 20px, transparent 20px 40px)',
+              }}
             />
           </div>
         )}
@@ -265,5 +285,11 @@ export default async function JobPage({ params }: JobPageProps) {
 async function SaveJobButtonServer({ jobId }: { jobId: string }) {
   const initialSaved = await isJobSaved(jobId)
   return <SaveJobButton jobId={jobId} initialSaved={initialSaved} />
+}
+
+/** Days between two dates (returns ceiled positive integer). */
+function daysBetween(a: Date, b: Date): number {
+  const ms = b.getTime() - a.getTime()
+  return Math.ceil(ms / 86_400_000)
 }
 

@@ -5,8 +5,10 @@ import { getTenant } from '@/lib/tenant'
 import { getJobsByCitySlug, getNearbyCities } from '@/lib/queries'
 import { buildBreadcrumbSchema, buildItemListSchema } from '@lokale-banen/shared'
 import { TenantHeader } from '@/components/tenant-header'
-import { Breadcrumbs } from '@/components/breadcrumbs'
-import { JobCard } from '@/components/job-card'
+import { Wegwijzer } from '@/components/wegwijzer'
+import { CityHero } from '@/components/city-hero'
+import { RuleBreak } from '@/components/rule-break'
+import { EditorialJobCard } from '@/components/editorial-job-card'
 import { Pagination } from '@/components/pagination'
 import { NearbyCities } from '@/components/nearby-cities'
 import { Footer } from '@/components/footer'
@@ -94,23 +96,23 @@ export default async function CityPage({ params, searchParams }: CityPageProps) 
     })),
   })
 
+  // Distinct employer count for city — conditioneel stat in CityHero
+  const employerSet = new Set(jobs.map((j) => j.company?.id).filter(Boolean))
+
   return (
     <div className="flex flex-col min-h-screen bg-surface">
       <TenantHeader tenant={tenant} showSearch={false} />
 
-      {/* Breadcrumbs bar */}
-      <div className="bg-surface" style={{ borderBottom: '1px solid var(--border)' }}>
-        <div className="max-w-[1280px] mx-auto h-11 px-4 lg:px-6 flex items-center">
-          <Breadcrumbs
-            items={[
-              { label: tenant.name, href: '/' },
-              { label: `Vacatures in ${cityName}` },
-            ]}
-          />
-        </div>
-      </div>
+      {/* Wegwijzer — back to overview, mention region context */}
+      <Wegwijzer
+        back={{ label: 'Alle vacatures', href: '/' }}
+        items={[
+          { id: 'city', label: cityName, icon: 'map' },
+          { id: 'count', label: `${total.toLocaleString('nl-NL')} vacatures`, mono: true },
+        ]}
+      />
 
-      <main className="flex-1 max-w-[1280px] mx-auto w-full py-6 px-4 lg:px-8">
+      <main className="flex-1 max-w-[1280px] mx-auto w-full pb-12">
         {/* JSON-LD */}
         <script
           type="application/ld+json"
@@ -121,28 +123,35 @@ export default async function CityPage({ params, searchParams }: CityPageProps) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd).replace(/</g, '\\u003c') }}
         />
 
-        {/* Page header */}
-        <div className="mb-6">
-          <h1 className="text-display text-foreground">
-            Vacatures in {cityName}
-          </h1>
-          <p className="text-body text-muted mt-1">
-            {total} vacature{total !== 1 ? 's' : ''} gevonden
-          </p>
-        </div>
+        {/* Editorial city hero — mega-display name + stats */}
+        <CityHero
+          eyebrow={`Vacatures in regio ${tenant.name}`}
+          name={cityName}
+          accent={cityName}
+          description={
+            total > 0
+              ? `Bekijk de ${total} actuele vacature${total !== 1 ? 's' : ''} in ${cityName}. Lokaal werk, dichter bij huis.`
+              : `Op dit moment geen vacatures in ${cityName}.`
+          }
+          stats={[
+            { value: total.toLocaleString('nl-NL'), label: total === 1 ? 'Open vacature' : 'Open vacatures' },
+            ...(employerSet.size > 0
+              ? [{ value: employerSet.size.toLocaleString('nl-NL'), label: 'Werkgevers (deze pagina)' }]
+              : []),
+          ]}
+        />
+
+        <RuleBreak label={total > 0 ? '◇ Vacatures' : '◇ Geen resultaten'} />
 
         {/* Job list or empty state */}
         {jobs.length > 0 ? (
-          <div
-            className="rounded-lg overflow-hidden"
-            style={{ border: '1px solid var(--border)' }}
-          >
+          <div className="flex flex-col gap-2 px-4 lg:px-8 pt-4">
             {jobs.map((job) => (
-              <JobCard key={job.id} job={job} variant="mobile" />
+              <EditorialJobCard key={job.id} job={job} variant="list" />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
+          <div className="text-center py-12 px-4">
             <p className="text-body text-muted">
               Er zijn momenteel geen vacatures in {cityName}.
             </p>
@@ -157,14 +166,18 @@ export default async function CityPage({ params, searchParams }: CityPageProps) 
         )}
 
         {/* Pagination */}
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          basePath={`/vacatures/${citySlug}`}
-        />
+        <div className="px-4 lg:px-8 pt-4">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            basePath={`/vacatures/${citySlug}`}
+          />
+        </div>
 
         {/* Nearby cities */}
-        <NearbyCities cities={nearbyCities} />
+        <div className="px-4 lg:px-8 pt-6">
+          <NearbyCities cities={nearbyCities} />
+        </div>
       </main>
 
       <Footer tenant={tenant} />
