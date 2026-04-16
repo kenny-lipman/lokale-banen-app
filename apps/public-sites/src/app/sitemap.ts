@@ -7,6 +7,9 @@ import { getCitiesWithJobCounts } from '@/lib/queries'
  * Dynamic sitemap generation per tenant.
  * Fetches all approved + published jobs with slugs for the resolved tenant.
  * Google limits: max 50,000 URLs per sitemap, max 50 MB uncompressed.
+ *
+ * Master tenant (lokalebanen.nl): returns a sitemap-index pointing to all
+ * regional sub-sitemaps + master static pages.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers()
@@ -15,16 +18,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const supabase = createPublicClient()
 
-  // Resolve tenant by domain
+  // Resolve tenant by domain or preview_domain
   const { data: tenant } = await supabase
     .from('platforms')
-    .select('id')
-    .eq('domain', host)
+    .select('id, tier')
+    .or(`domain.eq.${host},preview_domain.eq.${host}`)
     .eq('is_public', true)
-    .single()
+    .maybeSingle()
 
   if (!tenant) {
     return [{ url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 }]
+  }
+
+  // ── Master aggregator: sitemap-index pointing to 24 regional sub-sitemaps ──
+  if (tenant.tier === 'master') {
+    const { data: platforms } = await supabase
+      .from('platforms')
+      .select('domain, preview_domain')
+      .eq('tier', 'free')
+      .eq('is_public', true)
+
+    const entries: MetadataRoute.Sitemap = [
+      { url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
+      { url: `${baseUrl}/vacatures`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.9 },
+      { url: `${baseUrl}/over-ons`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
+      { url: `${baseUrl}/privacy`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
+      { url: `${baseUrl}/voorwaarden`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
+    ]
+
+    // Add sitemap URLs for all regional platforms (link to their sub-sitemaps)
+    if (platforms) {
+      for (const p of platforms) {
+        const platHost = p.domain ?? p.preview_domain
+        if (platHost) {
+          entries.push({
+            url: `https://${platHost}/sitemap.xml`,
+            lastModified: new Date(),
+            changeFrequency: 'daily',
+            priority: 0.7,
+          })
+        }
+      }
+    }
+
+    return entries
   }
 
   // Fetch all approved, published job slugs with dates for this tenant
