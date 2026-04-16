@@ -174,6 +174,41 @@ export async function getApprovedJobs(
 }
 
 /**
+ * Get freshness stats: most recent job + count of new jobs today.
+ */
+export async function getFreshnessStats(tenantId: string): Promise<{
+  lastUpdatedAt: string | null
+  newToday: number
+}> {
+  const supabase = createPublicClient()
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
+  const [latestResult, newTodayResult] = await Promise.all([
+    supabase
+      .from('job_postings')
+      .select('published_at')
+      .eq('platform_id', tenantId)
+      .eq('review_status', 'approved')
+      .not('published_at', 'is', null)
+      .order('published_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('job_postings')
+      .select('id', { count: 'exact', head: true })
+      .eq('platform_id', tenantId)
+      .eq('review_status', 'approved')
+      .gte('published_at', todayStart.toISOString()),
+  ])
+
+  return {
+    lastUpdatedAt: latestResult.data?.published_at ?? null,
+    newToday: newTodayResult.count ?? 0,
+  }
+}
+
+/**
  * Count approved+published jobs for a tenant with the same filters as getApprovedJobs.
  */
 export async function getJobCount(

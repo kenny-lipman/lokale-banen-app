@@ -5,7 +5,7 @@ import { Bookmark, Briefcase, Clock, GraduationCap } from 'lucide-react'
 import type { JobPosting } from '@/lib/queries'
 import { CompanyLogo } from './company-logo'
 import { DistanceChip } from './distance-chip'
-import { formatEmploymentLabel } from '@/lib/utils'
+import { formatEmploymentLabel, formatSalary } from '@/lib/utils'
 
 /** Strip HTML tags and decode entities for plain-text excerpt. */
 function stripHtml(html: string): string {
@@ -100,7 +100,7 @@ export function EditorialJobCard({
     borderRadius: variant === 'mobile' ? 'var(--r-md)' : 'var(--r-lg)',
     padding: variant === 'mobile' ? '16px 16px 14px' : '18px 20px 16px',
     cursor: 'pointer',
-    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease',
   }
 
   const hasSalary =
@@ -115,20 +115,21 @@ export function EditorialJobCard({
       data-active={isActive || undefined}
     >
       {/* Active-state left accent bar */}
-      {isActive && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: -1,
-            top: -1,
-            bottom: -1,
-            width: 4,
-            background: 'var(--primary)',
-            borderRadius: 'var(--r-lg) 0 0 var(--r-lg)',
-          }}
-        />
-      )}
+      {/* Left accent bar — 3px default (hover via CSS), 4px when active */}
+      <span
+        aria-hidden="true"
+        className="card-accent-bar"
+        style={{
+          position: 'absolute',
+          left: -1,
+          top: -1,
+          bottom: -1,
+          width: isActive ? 4 : 3,
+          background: isActive ? 'var(--primary)' : 'transparent',
+          borderRadius: 'var(--r-lg) 0 0 var(--r-lg)',
+          transition: 'background 0.15s ease, width 0.15s ease',
+        }}
+      />
 
       {/* Top row: logo + title/company + bookmark */}
       <div className="flex items-start gap-3.5">
@@ -143,7 +144,7 @@ export function EditorialJobCard({
             style={{
               fontWeight: 700,
               fontSize: '1rem',
-              lineHeight: 1.25,
+              lineHeight: 1.3,
               color: 'var(--text)',
               letterSpacing: '-0.005em',
               marginBottom: 3,
@@ -242,20 +243,36 @@ export function EditorialJobCard({
       )}
 
       {/* Salary row — mono, compact */}
-      {hasSalary && (
-        <div
-          className="mt-2.5"
-          style={{
-            fontFamily: 'var(--font-mono-stack)',
-            fontSize: '0.9375rem',
-            color: 'var(--text)',
-            fontWeight: 500,
-            letterSpacing: '-0.01em',
-          }}
-        >
-          {job.salary}
-        </div>
-      )}
+      {hasSalary && (() => {
+        const formatted = formatSalary(job.salary!)
+        return (
+          <div
+            className="mt-2.5"
+            style={{
+              fontFamily: 'var(--font-mono-stack)',
+              fontSize: '0.9375rem',
+              color: 'var(--text)',
+              fontWeight: 500,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {formatted ? (
+              <>
+                {formatted.amount}
+                <span style={{
+                  fontFamily: 'var(--font-body-stack)',
+                  fontWeight: 400,
+                  color: 'var(--text-muted)',
+                  fontSize: '0.8125rem',
+                  marginLeft: 2,
+                }}>
+                  {formatted.suffix}
+                </span>
+              </>
+            ) : job.salary}
+          </div>
+        )
+      })()}
 
       {/* Facets row (only if we have 1+ facets) */}
       {facets.length > 0 && (

@@ -30,26 +30,26 @@ const config: Config = {
         // t-display: section hero headline
         't-display': ['clamp(1.75rem, 3.2vw, 2.5rem)', { lineHeight: '1.08', letterSpacing: '-0.018em', fontWeight: '500' }],
         // t-h1: primary page headline
-        't-h1': ['1.625rem', { lineHeight: '1.18', letterSpacing: '-0.012em', fontWeight: '500' }],
+        't-h1': ['2.8rem', { lineHeight: '1.1', letterSpacing: '-0.015em', fontWeight: '700' }],
         // t-h2: sub-section head
-        't-h2': ['1.125rem', { lineHeight: '1.3', letterSpacing: '-0.005em', fontWeight: '600' }],
+        't-h2': ['1.5rem', { lineHeight: '1.25', letterSpacing: '-0.008em', fontWeight: '700' }],
         // t-card: card title
-        't-card': ['1rem', { lineHeight: '1.3', fontWeight: '600' }],
+        't-card': ['1rem', { lineHeight: '1.3', fontWeight: '700' }],
         // t-body: prose paragraphs
-        't-body': ['0.9375rem', { lineHeight: '1.55', fontWeight: '400' }],
+        't-body': ['1rem', { lineHeight: '1.6', fontWeight: '400' }],
         // t-meta: tertiary info
-        't-meta': ['0.8125rem', { lineHeight: '1.4', fontWeight: '400' }],
+        't-meta': ['0.875rem', { lineHeight: '1.45', fontWeight: '400' }],
         // t-label: section eyebrows
-        't-label': ['0.6875rem', { lineHeight: '1.3', fontWeight: '600', letterSpacing: '0.09em' }],
+        't-label': ['0.75rem', { lineHeight: '1.3', fontWeight: '400', letterSpacing: '0.09em' }],
         // t-mono: numeric data
-        't-mono': ['0.75rem', { lineHeight: '1.4', fontWeight: '500', letterSpacing: '0' }],
+        't-mono': ['0.75rem', { lineHeight: '1.4', fontWeight: '400', letterSpacing: '0' }],
 
         // ── Back-compat aliases (used by existing components) ──────────
         'display': ['clamp(1.75rem, 3.2vw, 2.5rem)', { lineHeight: '1.08', letterSpacing: '-0.018em', fontWeight: '500' }],
-        'h1': ['1.625rem', { lineHeight: '1.18', letterSpacing: '-0.012em', fontWeight: '500' }],
-        'h2': ['1.125rem', { lineHeight: '1.3', letterSpacing: '-0.005em', fontWeight: '600' }],
-        'card-title': ['1rem', { lineHeight: '1.3', fontWeight: '600' }],
-        'body': ['0.9375rem', { lineHeight: '1.55', fontWeight: '400' }],
+        'h1': ['2.8rem', { lineHeight: '1.1', letterSpacing: '-0.015em', fontWeight: '700' }],
+        'h2': ['1.5rem', { lineHeight: '1.25', letterSpacing: '-0.008em', fontWeight: '700' }],
+        'card-title': ['1rem', { lineHeight: '1.3', fontWeight: '700' }],
+        'body': ['1rem', { lineHeight: '1.6', fontWeight: '400' }],
         'body-medium': ['0.9375rem', { lineHeight: '1.55', fontWeight: '500' }],
         'meta': ['0.8125rem', { lineHeight: '1.4', fontWeight: '400', letterSpacing: '0.01em' }],
         'salary': ['0.9375rem', { lineHeight: '1.4', fontWeight: '500' }],

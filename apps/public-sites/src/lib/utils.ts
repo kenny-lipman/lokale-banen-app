@@ -134,6 +134,28 @@ export function formatEmploymentLabel(
 }
 
 /**
+ * Format a raw salary string ("2600 - 3000") into editorial display format.
+ * Output: "€2.600 – €3.000 bruto p/m" (Dutch locale, en-dash).
+ */
+export function formatSalary(raw: string): { amount: string; suffix: string } | null {
+  const match = raw.match(/(\d[\d.]*)\s*[-–]\s*(\d[\d.]*)/)
+  if (!match) return null
+
+  const min = parseInt(match[1].replace(/\./g, ''), 10)
+  const max = parseInt(match[2].replace(/\./g, ''), 10)
+
+  if (isNaN(min) || isNaN(max)) return null
+
+  const fmt = (n: number) => n.toLocaleString('nl-NL')
+
+  const amount = min === max
+    ? `€${fmt(min)}`
+    : `€${fmt(min)} – €${fmt(max)}`
+
+  return { amount, suffix: 'bruto p/m' }
+}
+
+/**
  * Sanitize raw HTML by stripping dangerous tags and attributes.
  * Used when rendering scraped job descriptions that are not markdown.
  */

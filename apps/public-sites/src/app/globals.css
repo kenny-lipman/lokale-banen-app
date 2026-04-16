@@ -121,6 +121,12 @@
   body:has(.mobile-filter-bar) { padding-bottom: 72px; }
 }
 
+/* ── Card hover effects ────────────────────────────────────────────── */
+.group:hover .card-accent-bar {
+  background: var(--secondary) !important;
+  width: 3px !important;
+}
+
 /* ── Reduced motion ─────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

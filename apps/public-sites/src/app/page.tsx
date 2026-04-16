@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import { getTenant } from '@/lib/tenant'
 import { buildWebSiteSchema } from '@lokale-banen/shared'
-import { getJobCount, getFilterFacets, getMasterJobCount, getTopPlatforms, getJobsAcrossAllPlatforms } from '@/lib/queries'
+import { getJobCount, getFilterFacets, getFreshnessStats, getMasterJobCount, getTopPlatforms, getJobsAcrossAllPlatforms } from '@/lib/queries'
 import { TenantHeader } from '@/components/tenant-header'
 import { FilterBar } from '@/components/filter-bar'
 import { EditorialSearchBar } from '@/components/editorial-search-bar'
@@ -126,10 +126,25 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     userLng: userLng && !isNaN(userLng) ? userLng : undefined,
   }
 
-  const [totalJobCount, facets] = await Promise.all([
+  const [totalJobCount, facets, freshness] = await Promise.all([
     getJobCount(tenant.id, {}),
     getFilterFacets(tenant.id),
+    getFreshnessStats(tenant.id),
   ])
+
+  // Build "Bijgewerkt X min geleden" label
+  let updatedLabel: string | null = null
+  if (freshness.lastUpdatedAt) {
+    const diffMs = Date.now() - new Date(freshness.lastUpdatedAt).getTime()
+    const diffMin = Math.floor(diffMs / 60_000)
+    if (diffMin < 1) updatedLabel = 'Bijgewerkt zojuist'
+    else if (diffMin < 60) updatedLabel = `Bijgewerkt ${diffMin} min geleden`
+    else if (diffMin < 1440) updatedLabel = `Bijgewerkt ${Math.floor(diffMin / 60)} uur geleden`
+    else updatedLabel = `Bijgewerkt ${Math.floor(diffMin / 1440)}d geleden`
+  }
+  const subLabel = freshness.newToday > 0
+    ? `${freshness.newToday} nieuw vandaag`
+    : null
 
   // Count active filters for mobile badge
   const activeFilterCount =
@@ -171,6 +186,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         region={tenant.central_place || tenant.name}
         emphasis={tenant.central_place || tenant.name}
         jobCount={totalJobCount}
+        updatedLabel={updatedLabel}
+        subLabel={subLabel}
       />
 
       <EditorialSearchBar
