@@ -142,6 +142,9 @@ export default function RootLayout({
               fontFamily: 'var(--font-body)',
               borderRadius: '8px',
             },
+            elements: {
+              headerSubtitle: { display: 'none' },
+            },
           }}
           dynamic
         >
