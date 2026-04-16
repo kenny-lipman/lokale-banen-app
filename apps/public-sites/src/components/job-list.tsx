@@ -1,9 +1,10 @@
 import { Suspense } from 'react'
-import { getApprovedJobs, type JobFilter } from '@/lib/queries'
+import { getApprovedJobs, type JobFilter, type JobPosting } from '@/lib/queries'
 import { EditorialJobCard } from './editorial-job-card'
 import { NoResultsState } from './job-detail-panel'
 import { JobListSkeleton } from './job-list-skeleton'
 import { SortSelect } from './sort-select'
+import { haversineKm } from '@/lib/utils'
 import Link from 'next/link'
 
 interface JobListProps {
@@ -23,6 +24,19 @@ export function JobList({ tenantId, filter, selectedSlug }: JobListProps) {
       <JobListContent tenantId={tenantId} filter={filter} selectedSlug={selectedSlug} />
     </Suspense>
   )
+}
+
+/** Compute distance (km) between user location and a job. Returns null when no coords available. */
+function jobDistanceKm(
+  job: JobPosting,
+  userLat: number | undefined,
+  userLng: number | undefined
+): number | null {
+  if (userLat == null || userLng == null) return null
+  const lat = job.latitude ? parseFloat(job.latitude) : (job.company?.latitude ?? null)
+  const lng = job.longitude ? parseFloat(job.longitude) : (job.company?.longitude ?? null)
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return null
+  return haversineKm(userLat, userLng, lat, lng)
 }
 
 async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) {
@@ -61,6 +75,7 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
           const selectParams = new URLSearchParams(baseParams)
           selectParams.set('selected', job.slug || job.id)
           const selectHref = `/?${selectParams.toString()}`
+          const distanceKm = jobDistanceKm(job, filter.userLat, filter.userLng)
 
           return (
             <EditorialJobCard
@@ -69,6 +84,7 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
               variant="list"
               isActive={selectedSlug === (job.slug || job.id)}
               href={selectHref}
+              distanceKm={distanceKm}
             />
           )
         })}
@@ -76,9 +92,12 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
 
       {/* Mobile: full-width cards */}
       <div className="lg:hidden flex flex-col gap-2 px-4 py-4">
-        {jobs.map((job) => (
-          <EditorialJobCard key={job.id} job={job} variant="mobile" />
-        ))}
+        {jobs.map((job) => {
+          const distanceKm = jobDistanceKm(job, filter.userLat, filter.userLng)
+          return (
+            <EditorialJobCard key={job.id} job={job} variant="mobile" distanceKm={distanceKm} />
+          )
+        })}
       </div>
 
       {/* Load more — accumulating pagination, SEO-friendly via real URL */}

@@ -55,6 +55,9 @@ export interface JobFilter {
   type?: string
   page?: number
   sort?: SortOption
+  /** User's geolocation for distance chip — from URL ?lat=X&lng=Y. */
+  userLat?: number
+  userLng?: number
 }
 
 const JOBS_PER_PAGE = 20
@@ -82,10 +85,12 @@ export async function getApprovedJobs(
     .select(
       `
       id, title, slug, company_id, city, state,
+      latitude, longitude,
       employment, job_type, salary,
       description, url, published_at, end_date, created_at,
       companies!company_id (
-        id, name, slug, logo_url, website, linkedin_url, description, city
+        id, name, slug, logo_url, website, linkedin_url, description, city,
+        latitude, longitude
       )
     `,
       { count: 'exact' }
@@ -707,4 +712,332 @@ export function mapEmploymentType(type: string | null): string | undefined {
     if (lower.includes(key)) return value
   }
   return undefined
+}
+
+// ---------------------------------------------------------------------------
+// Master aggregator queries (lokalebanen.nl — tier='master')
+// ---------------------------------------------------------------------------
+
+/** Job row returned by master aggregator queries — includes primary platform info. */
+export interface MasterJobPosting extends JobPosting {
+  primary_platform: {
+    id: string
+    name: string
+    domain: string | null
+    preview_domain: string | null
+  } | null
+}
+
+/** Summary row for a platform in the master aggregator grid. */
+export interface PlatformSummary {
+  id: string
+  name: string
+  domain: string | null
+  preview_domain: string | null
+  central_place: string | null
+  job_count: number
+}
+
+interface MasterJobsOptions {
+  limit?: number
+  offset?: number
+  city?: string
+  /** Filter to a single primary platform id. */
+  platformId?: string
+}
+
+/**
+ * Master: fetch approved+published jobs across all regio platforms.
+ * Joins via `job_posting_platforms` where `is_primary=true` to surface the
+ * canonical owner platform alongside each job (for badges + canonical URL).
+ */
+export async function getJobsAcrossAllPlatforms(
+  options: MasterJobsOptions = {}
+): Promise<{ jobs: MasterJobPosting[]; total: number }> {
+  'use cache'
+  cacheTag('master:jobs')
+  cacheLife('minutes')
+
+  const limit = options.limit ?? 20
+  const offset = options.offset ?? 0
+  const from = offset
+  const to = offset + limit - 1
+
+  const supabase = createPublicClient()
+
+  // Base query: jobs via is_primary junction, filtered on approved+published.
+  let query = supabase
+    .from('job_posting_platforms')
+    .select(
+      `
+      is_primary,
+      platforms:platform_id (
+        id, regio_platform, domain, preview_domain, central_place, tier, is_public
+      ),
+      job_postings!inner (
+        id, title, slug, company_id, city, state,
+        employment, job_type, salary,
+        description, url, published_at, end_date, created_at,
+        review_status,
+        companies!company_id (
+          id, name, slug, logo_url, website, linkedin_url, description, city
+        )
+      )
+    `,
+      { count: 'exact' }
+    )
+    .eq('is_primary', true)
+    .eq('job_postings.review_status', 'approved')
+    .not('job_postings.published_at', 'is', null)
+
+  if (options.platformId) {
+    query = query.eq('platform_id', options.platformId)
+  }
+
+  if (options.city) {
+    query = query.ilike('job_postings.city', `%${options.city}%`)
+  }
+
+  query = query
+    .order('published_at', {
+      ascending: false,
+      referencedTable: 'job_postings',
+      nullsFirst: false,
+    })
+    .range(from, to)
+
+  const { data, count, error } = await query
+
+  if (error || !data) {
+    if (error) console.error('[master] getJobsAcrossAllPlatforms error:', error)
+    return { jobs: [], total: 0 }
+  }
+
+  const jobs: MasterJobPosting[] = []
+  for (const row of data as Record<string, unknown>[]) {
+    const jp = Array.isArray(row.job_postings)
+      ? (row.job_postings[0] as Record<string, unknown> | undefined)
+      : (row.job_postings as Record<string, unknown> | undefined)
+    if (!jp) continue
+
+    // Skip jobs from non-public platforms (shouldn't happen given seed, but defensive).
+    const plat = Array.isArray(row.platforms)
+      ? (row.platforms[0] as Record<string, unknown> | undefined)
+      : (row.platforms as Record<string, unknown> | undefined)
+    if (!plat || plat.is_public === false) continue
+
+    const company = Array.isArray(jp.companies) ? jp.companies[0] : jp.companies
+
+    jobs.push({
+      ...(jp as unknown as JobPosting),
+      company: (company ?? null) as JobPosting['company'],
+      primary_platform: {
+        id: plat.id as string,
+        name: plat.regio_platform as string,
+        domain: (plat.domain as string | null) ?? null,
+        preview_domain: (plat.preview_domain as string | null) ?? null,
+      },
+    } as MasterJobPosting)
+  }
+
+  return { jobs, total: count || jobs.length }
+}
+
+/**
+ * Master: list all public regio platforms (tier='free') with their approved
+ * primary job count, sorted by count desc. Used for the master homepage grid.
+ */
+export async function getTopPlatforms(): Promise<PlatformSummary[]> {
+  'use cache'
+  cacheTag('master:platforms')
+  cacheLife('minutes')
+
+  const supabase = createPublicClient()
+
+  const { data: platforms, error } = await supabase
+    .from('platforms')
+    .select('id, regio_platform, domain, preview_domain, central_place, tier')
+    .eq('is_public', true)
+    .eq('tier', 'free')
+    .order('regio_platform', { ascending: true })
+
+  if (error || !platforms || platforms.length === 0) {
+    if (error) console.error('[master] getTopPlatforms error:', error)
+    return []
+  }
+
+  // Count approved primary jobs per platform in parallel.
+  const counts = await Promise.all(
+    platforms.map(async (p) => {
+      const { count } = await supabase
+        .from('job_posting_platforms')
+        .select('job_posting_id, job_postings!inner(review_status, published_at)', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('platform_id', p.id)
+        .eq('is_primary', true)
+        .eq('job_postings.review_status', 'approved')
+        .not('job_postings.published_at', 'is', null)
+      return { id: p.id, count: count ?? 0 }
+    })
+  )
+  const countById = new Map(counts.map((c) => [c.id, c.count]))
+
+  return (platforms as Record<string, unknown>[])
+    .map((p) => ({
+      id: p.id as string,
+      name: p.regio_platform as string,
+      domain: (p.domain as string | null) ?? null,
+      preview_domain: (p.preview_domain as string | null) ?? null,
+      central_place: (p.central_place as string | null) ?? null,
+      job_count: countById.get(p.id as string) ?? 0,
+    }))
+    .sort((a, b) => b.job_count - a.job_count || a.name.localeCompare(b.name))
+}
+
+/**
+ * Master: aggregate top cities across all public regio platforms.
+ * Counts approved+published jobs grouped by lower(city).
+ */
+export async function getTopCitiesAcrossPlatforms(
+  limit = 20
+): Promise<{ city: string; count: number }[]> {
+  'use cache'
+  cacheTag('master:cities')
+  cacheLife('minutes')
+
+  const supabase = createPublicClient()
+
+  // Pull only the city column from approved primary junction rows. Lightweight.
+  const { data, error } = await supabase
+    .from('job_posting_platforms')
+    .select(
+      `
+      job_postings!inner (
+        city, review_status, published_at
+      )
+    `
+    )
+    .eq('is_primary', true)
+    .eq('job_postings.review_status', 'approved')
+    .not('job_postings.published_at', 'is', null)
+    .not('job_postings.city', 'is', null)
+    .limit(50000)
+
+  if (error || !data) {
+    if (error) console.error('[master] getTopCitiesAcrossPlatforms error:', error)
+    return []
+  }
+
+  const counts = new Map<string, { display: string; count: number }>()
+  for (const row of data as Record<string, unknown>[]) {
+    const jp = Array.isArray(row.job_postings) ? row.job_postings[0] : row.job_postings
+    const city = (jp as { city?: string } | null | undefined)?.city
+    if (!city) continue
+    const key = city.toLowerCase()
+    const existing = counts.get(key)
+    if (existing) {
+      existing.count += 1
+    } else {
+      counts.set(key, { display: city, count: 1 })
+    }
+  }
+
+  return Array.from(counts.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+    .map(({ display, count }) => ({ city: display, count }))
+}
+
+/**
+ * Master: total approved+published jobs across all public regio platforms.
+ */
+export async function getMasterJobCount(): Promise<number> {
+  'use cache'
+  cacheTag('master:jobs')
+  cacheLife('minutes')
+
+  const supabase = createPublicClient()
+  const { count, error } = await supabase
+    .from('job_posting_platforms')
+    .select('job_posting_id, job_postings!inner(review_status, published_at)', {
+      count: 'exact',
+      head: true,
+    })
+    .eq('is_primary', true)
+    .eq('job_postings.review_status', 'approved')
+    .not('job_postings.published_at', 'is', null)
+
+  if (error) return 0
+  return count ?? 0
+}
+
+/**
+ * Master: fetch a single approved job by slug across all platforms.
+ * Returns the job with its primary platform info (for canonical + badge).
+ */
+export async function getMasterJobBySlug(
+  slug: string
+): Promise<MasterJobPosting | null> {
+  'use cache'
+  cacheTag(`master:job:${slug}`)
+  cacheLife('hours')
+
+  const supabase = createPublicClient()
+
+  const { data, error } = await supabase
+    .from('job_postings')
+    .select(
+      `
+      id, title, slug, company_id, city, state, zipcode, street,
+      latitude, longitude,
+      employment, job_type, salary, categories,
+      description, content_md, header_image_url, url, published_at, end_date, created_at,
+      seo_title, seo_description, education_level, career_level,
+      working_hours_min, working_hours_max,
+      companies!company_id (
+        id, name, slug, logo_url, website, linkedin_url, description, city,
+        kvk, latitude, longitude, postal_code, street_address
+      ),
+      job_posting_platforms!inner (
+        is_primary,
+        platforms:platform_id (
+          id, regio_platform, domain, preview_domain, is_public
+        )
+      )
+    `
+    )
+    .eq('slug', slug)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .eq('job_posting_platforms.is_primary', true)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  const row = data as Record<string, unknown>
+  const junction = Array.isArray(row.job_posting_platforms)
+    ? (row.job_posting_platforms[0] as Record<string, unknown> | undefined)
+    : (row.job_posting_platforms as Record<string, unknown> | undefined)
+  const plat = junction
+    ? Array.isArray(junction.platforms)
+      ? (junction.platforms[0] as Record<string, unknown> | undefined)
+      : (junction.platforms as Record<string, unknown> | undefined)
+    : undefined
+
+  return {
+    ...(row as unknown as JobPosting),
+    company: Array.isArray(row.companies)
+      ? (row.companies[0] as JobPosting['company'])
+      : (row.companies as JobPosting['company']),
+    primary_platform: plat
+      ? {
+          id: plat.id as string,
+          name: plat.regio_platform as string,
+          domain: (plat.domain as string | null) ?? null,
+          preview_domain: (plat.preview_domain as string | null) ?? null,
+        }
+      : null,
+  } as MasterJobPosting
 }

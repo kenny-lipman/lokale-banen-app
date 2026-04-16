@@ -46,7 +46,7 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
             helperText="Toont in de header. Aanbevolen 200 × 60 px — PNG of SVG."
             aspectRatio="auto"
             onUpload={(url) => onChange({ logo_url: url })}
-            onRemove={() => onChange({ logo_url: null })}
+            onRemove={() => onChange({ logo_url: "" })}
           />
 
           <ImageUpload
@@ -58,7 +58,7 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
             aspectRatio="1:1"
             acceptedFormats={["image/png", "image/x-icon", "image/svg+xml"]}
             onUpload={(url) => onChange({ favicon_url: url })}
-            onRemove={() => onChange({ favicon_url: null })}
+            onRemove={() => onChange({ favicon_url: "" })}
           />
 
           <ImageUpload
@@ -69,7 +69,7 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
             helperText="1200 × 630 px — toont in LinkedIn/Twitter/WhatsApp previews."
             aspectRatio="16:9"
             onUpload={(url) => onChange({ og_image_url: url })}
-            onRemove={() => onChange({ og_image_url: null })}
+            onRemove={() => onChange({ og_image_url: "" })}
           />
         </CardContent>
       </Card>

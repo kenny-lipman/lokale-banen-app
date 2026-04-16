@@ -33,6 +33,9 @@ interface HomePageProps {
     page?: string
     selected?: string
     sort?: string
+    /** User geolocation injected by GeolocateButton */
+    lat?: string
+    lng?: string
   }>
 }
 
@@ -59,12 +62,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const pageNum = parseInt(params.page || '1', 10)
   const page = isNaN(pageNum) || pageNum < 1 ? 1 : pageNum
 
+  const userLat = params.lat ? parseFloat(params.lat) : undefined
+  const userLng = params.lng ? parseFloat(params.lng) : undefined
+
   const filter: JobFilter = {
     query: params.q,
     location: params.location,
     type: params.type,
     page,
     sort,
+    userLat: userLat && !isNaN(userLat) ? userLat : undefined,
+    userLng: userLng && !isNaN(userLng) ? userLng : undefined,
   }
 
   // Parallel fetch: selected job for split-view + total count for context strip

@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import { Search, MapPin } from 'lucide-react'
 import { DesktopFilterSelect } from './filter-select'
+import { GeolocateButton } from './geolocate-button'
 import type { Tenant } from '@/lib/tenant'
 
 const DIENSTVERBAND_OPTIONS = [
@@ -85,6 +87,11 @@ export function FilterBar({ filters, tenant }: FilterBarProps) {
             Zoeken
           </button>
         </form>
+
+        {/* Geolocation button — outside the form, updates URL directly */}
+        <Suspense fallback={null}>
+          <GeolocateButton />
+        </Suspense>
       </div>
 
       {/* Mobile filter bar */}
