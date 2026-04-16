@@ -13,11 +13,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3, Eye } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3, Eye, ArrowUpRight } from "lucide-react"
 import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useToast } from "@/hooks/use-toast"
 import { MultiSelect } from "@/components/ui/multi-select"
+import { PipedriveSyncDialog } from "@/components/pipedrive-sync-dialog"
 import { useRecommendedPlatform } from "@/hooks/use-recommended-platform"
 import { EditContactModal } from "@/components/contacts/edit-contact-modal"
 import { ContactDetailsDrawer } from "@/components/contacts/contact-details-drawer"
@@ -179,6 +180,7 @@ export default function ContactsPage() {
   const [isQualificationModalOpen, setIsQualificationModalOpen] = useState(false)
   const [selectedQualificationStatus, setSelectedQualificationStatus] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isPipedriveSyncOpen, setIsPipedriveSyncOpen] = useState(false)
 
   // Edit contact modal state
   const [editContactModal, setEditContactModal] = useState<{
@@ -744,6 +746,26 @@ export default function ContactsPage() {
                 </div>
               </DialogContent>
             </Dialog>
+
+          <Button
+            variant="outline"
+            disabled={selectedContacts.size === 0}
+            className={selectedContacts.size === 0 ? "opacity-50 cursor-not-allowed" : ""}
+            onClick={() => setIsPipedriveSyncOpen(true)}
+          >
+            <ArrowUpRight className="w-4 h-4 mr-2" />
+            Sync Pipedrive {selectedContacts.size > 0 ? `(${selectedContacts.size})` : ""}
+          </Button>
+          <PipedriveSyncDialog
+            open={isPipedriveSyncOpen}
+            onOpenChange={setIsPipedriveSyncOpen}
+            contactIds={getSelectedContactsData().map(c => c.id)}
+            alreadySyncedCount={getSelectedContactsData().filter(c => c.pipedrive_synced).length}
+            onComplete={() => {
+              setSelectedContacts(new Set())
+              window.location.reload()
+            }}
+          />
         </div>
       </div>
 
