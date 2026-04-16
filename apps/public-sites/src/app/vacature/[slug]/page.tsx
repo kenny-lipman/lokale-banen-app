@@ -1,9 +1,9 @@
 import { Suspense } from 'react'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Image from 'next/image'
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
-import { getJobBySlug, getRelatedJobs, parseSalary, mapEmploymentType } from '@/lib/queries'
+import { getJobBySlug, getMasterJobBySlug, getRelatedJobs, parseSalary, mapEmploymentType } from '@/lib/queries'
 import { getCanonicalInfo } from '@/lib/canonical'
 import { buildJobPostingSchema, buildBreadcrumbSchema } from '@lokale-banen/shared'
 import { slugifyCity } from '@lokale-banen/database'
@@ -50,8 +50,9 @@ export async function generateMetadata({
   // Multi-regio canonical: resolve primary platform for this job posting.
   // Falls back to the current tenant host if no junction/platform info is available.
   const canonical = await getCanonicalInfo(job.id, slug)
-  const canonicalUrl = canonical?.canonicalUrl ?? `https://${tenant.domain}/vacature/${slug}`
-  const ogUrl = `https://${tenant.domain}/vacature/${slug}`
+  const effectiveDomain = tenant.domain ?? tenant.preview_domain
+  const canonicalUrl = canonical?.canonicalUrl ?? (effectiveDomain ? `https://${effectiveDomain}/vacature/${slug}` : undefined)
+  const ogUrl = effectiveDomain ? `https://${effectiveDomain}/vacature/${slug}` : undefined
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
 
   // Per-vacature header image overruled tenant fallback for social cards.
@@ -80,12 +81,12 @@ export async function generateMetadata({
       description,
       images: ogImages?.map((i) => i.url),
     },
-    alternates: {
+    alternates: canonicalUrl ? {
       canonical: canonicalUrl,
       types: {
         'text/markdown': `${canonicalUrl}/md`,
       },
-    },
+    } : undefined,
   }
 }
 
@@ -95,6 +96,15 @@ export default async function JobPage({ params }: JobPageProps) {
 
   if (!tenant) {
     notFound()
+  }
+
+  // Master aggregator heeft geen eigen vacature detail pages — redirect naar primary platform
+  if (tenant.tier === 'master') {
+    const masterJob = await getMasterJobBySlug(slug)
+    if (!masterJob) notFound()
+    const primaryDomain = masterJob.primary_platform?.domain ?? masterJob.primary_platform?.preview_domain
+    if (!primaryDomain) notFound()
+    redirect(`https://${primaryDomain}/vacature/${slug}`)
   }
 
   const job = await getJobBySlug(tenant.id, slug)
@@ -119,10 +129,10 @@ export default async function JobPage({ params }: JobPageProps) {
   const lat = job.latitude ? parseFloat(job.latitude) : (job.company?.latitude ?? null)
   const lng = job.longitude ? parseFloat(job.longitude) : (job.company?.longitude ?? null)
 
-  const cleanDescription = (job.content_md || job.description || '')
+  const cleanDescription = ((job.content_md || job.description || '')
     .replace(/<[^>]+>/g, '')
     .replace(/\s+/g, ' ')
-    .trim()
+    .trim()) || `${job.title} bij ${companyName}`
 
   const validThrough = job.end_date
     ? new Date(job.end_date).toISOString()
@@ -131,15 +141,16 @@ export default async function JobPage({ params }: JobPageProps) {
       : new Date(Date.now() + 30 * 86400000).toISOString()
 
   // --- Build BreadcrumbList JSON-LD (3-level: Home > City > Job) ---
-  const baseUrl = `https://${tenant.domain}`
+  const effectiveDomain = tenant.domain ?? tenant.preview_domain
+  const baseUrl = effectiveDomain ? `https://${effectiveDomain}` : ''
   const citySlug = job.city ? slugifyCity(job.city) : null
-  const breadcrumbItems = [
+  const breadcrumbItems = baseUrl ? [
     { name: tenant.name, url: `${baseUrl}/` },
     ...(citySlug && job.city
       ? [{ name: `Vacatures in ${job.city}`, url: `${baseUrl}/vacatures/${citySlug}` }]
       : []),
     { name: job.title, url: `${baseUrl}/vacature/${slug}` },
-  ]
+  ] : []
   const breadcrumbJsonLd = buildBreadcrumbSchema(breadcrumbItems)
 
   const jsonLd = {
@@ -264,7 +275,7 @@ export default async function JobPage({ params }: JobPageProps) {
 
         {/* Share buttons below job detail */}
         <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-          <ShareButtons url={`${baseUrl}/vacature/${slug}`} title={job.title} />
+          <ShareButtons url={baseUrl ? `${baseUrl}/vacature/${slug}` : `/vacature/${slug}`} title={job.title} />
         </div>
       </main>
 
