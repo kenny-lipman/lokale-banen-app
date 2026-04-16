@@ -132,7 +132,6 @@ async function updateVacatureHandler(
       header_image_url,
       seo_title,
       seo_description,
-      content_enriched_at,
     } = body
 
     // Get current data to check if slug needs regeneration
@@ -172,6 +171,7 @@ async function updateVacatureHandler(
       city: city || null,
       zipcode: zipcode || null,
       street: street || null,
+      state: state || null,
       location,
       description: description || null,
       salary: salary || null,
@@ -188,10 +188,13 @@ async function updateVacatureHandler(
     }
 
     // Optional fields — only set when explicitly sent
-    if (content_md !== undefined) updateFields.content_md = content_md || null
+    if (content_md !== undefined) {
+      updateFields.content_md = content_md || null
+      // Auto-set enrichment timestamp server-side when content_md is written
+      if (content_md) updateFields.content_enriched_at = new Date().toISOString()
+    }
     if (seo_title !== undefined) updateFields.seo_title = seo_title || null
     if (seo_description !== undefined) updateFields.seo_description = seo_description || null
-    if (content_enriched_at !== undefined) updateFields.content_enriched_at = content_enriched_at
 
     // Only touch header_image_url when the client explicitly sent it.
     // `undefined` leaves the DB value untouched; `null` clears it on remove.

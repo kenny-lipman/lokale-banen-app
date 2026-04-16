@@ -155,23 +155,38 @@ ${contextBlock}
 Vacaturetekst:
 ${truncated}`
 
-  const response = await fetch(MISTRAL_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'mistral-small-latest',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 4000,
-    }),
-  })
+  // 30s timeout to avoid hanging on Mistral downtime
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+
+  let response: Response
+  try {
+    response = await fetch(MISTRAL_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'mistral-small-latest',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 4000,
+      }),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Mistral API timeout (30s) — probeer het later opnieuw')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
@@ -185,7 +200,12 @@ ${truncated}`
     throw new Error('Leeg antwoord van Mistral API')
   }
 
-  const parsed = JSON.parse(rawContent)
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(rawContent)
+  } catch {
+    throw new Error(`Mistral gaf geen valide JSON: ${rawContent.substring(0, 200)}`)
+  }
 
   if (!parsed.content_md || typeof parsed.content_md !== 'string') {
     throw new Error('AI response bevat geen content_md veld')

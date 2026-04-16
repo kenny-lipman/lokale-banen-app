@@ -50,7 +50,7 @@ export function AIRewritePanel({
   const [showExtracted, setShowExtracted] = React.useState(false)
 
   const handleRewrite = React.useCallback(async () => {
-    if (loading) return
+    if (loading || saving) return
     setLoading(true)
     setResult(null)
 
@@ -84,7 +84,6 @@ export function AIRewritePanel({
       // Build update payload — only include extracted fields that have values
       const payload: Record<string, unknown> = {
         content_md: result.content_md,
-        content_enriched_at: new Date().toISOString(),
       }
 
       const ex = result.extracted

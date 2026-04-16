@@ -87,6 +87,31 @@ interface JobPostingDrawerProps {
   onJobChange?: () => void | Promise<void>
 }
 
+/**
+ * Sanitize HTML from scraped descriptions — strip script/style tags and
+ * event handler attributes to prevent XSS from third-party data.
+ */
+function sanitizeHtml(html: string): string {
+  return html
+    // Remove script, style, iframe, object, embed tags entirely
+    .replace(/<(script|style|iframe|object|embed|noscript)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<(script|style|iframe|object|embed|noscript)[^>]*\/?>/gi, '')
+    // Remove event handler attributes (on*)
+    .replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+    // Remove javascript: protocol in href/src
+    .replace(/(href|src)\s*=\s*["']?\s*javascript:/gi, '$1="')
+    // Decode common HTML entities for display
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&eacute;/g, 'é')
+    .replace(/&euml;/g, 'ë')
+    .replace(/&iuml;/g, 'ï')
+    .replace(/\n/g, '<br/>')
+}
+
 export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChange }: JobPostingDrawerProps) {
   if (!job) return null
 
@@ -353,16 +378,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
                 <div
                   className="text-sm text-gray-700 prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{
-                    __html: job.description
-                      .replace(/&amp;/g, '&')
-                      .replace(/&lt;/g, '<')
-                      .replace(/&gt;/g, '>')
-                      .replace(/&quot;/g, '"')
-                      .replace(/&#39;/g, "'")
-                      .replace(/&eacute;/g, 'é')
-                      .replace(/&euml;/g, 'ë')
-                      .replace(/&iuml;/g, 'ï')
-                      .replace(/\n/g, '<br/>')
+                    __html: sanitizeHtml(job.description)
                   }}
                 />
               </div>
