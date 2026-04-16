@@ -13,7 +13,7 @@
     /* Ink */
     --text: #1A1815;
     --text-2: #3E3A34;
-    --text-muted: #78716A;
+    --text-muted: #635C55;
     --text-faint: #A8A29B;
 
     /* Lines */
@@ -115,6 +115,11 @@
   -ms-overflow-style: none;
 }
 .scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ── Mobile bottom bar spacing (only when bar is present) ──────────── */
+@media (max-width: 1023px) {
+  body:has(.mobile-filter-bar) { padding-bottom: 72px; }
+}
 
 /* ── Reduced motion ─────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

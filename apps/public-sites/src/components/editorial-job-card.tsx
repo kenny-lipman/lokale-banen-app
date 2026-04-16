@@ -5,6 +5,19 @@ import { CompanyLogo } from './company-logo'
 import { DistanceChip } from './distance-chip'
 import { formatEmploymentLabel } from '@/lib/utils'
 
+/** Strip HTML tags and decode entities for plain-text excerpt. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 interface EditorialJobCardProps {
   job: JobPosting
   /** Layout variant — `list` for desktop split-view, `mobile` for stacked. */
@@ -126,7 +139,7 @@ export function EditorialJobCard({
           <h2
             className="text-card-title"
             style={{
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: '1rem',
               lineHeight: 1.25,
               color: 'var(--text)',
@@ -205,6 +218,25 @@ export function EditorialJobCard({
             </span>
           )}
         </div>
+      )}
+
+      {/* Excerpt — 2-line clamp from description */}
+      {job.description && (
+        <p
+          style={{
+            fontSize: '0.875rem',
+            color: 'var(--text-muted)',
+            lineHeight: 1.55,
+            margin: 0,
+            marginTop: 10,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {stripHtml(job.description).slice(0, 200)}
+        </p>
       )}
 
       {/* Salary row — mono, compact */}

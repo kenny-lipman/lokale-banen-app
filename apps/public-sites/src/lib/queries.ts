@@ -53,11 +53,19 @@ export interface JobFilter {
   query?: string
   location?: string
   type?: string
+  hours?: string          // 'lt32' | '32-40' | 'gt40'
+  education?: string[]    // education_level values
+  sector?: string[]       // categories values
   page?: number
   sort?: SortOption
   /** User's geolocation for distance chip — from URL ?lat=X&lng=Y. */
   userLat?: number
   userLng?: number
+}
+
+/** Escape ILIKE wildcard characters in user input. */
+function escapeIlike(s: string): string {
+  return s.replace(/%/g, '\\%').replace(/_/g, '\\_')
 }
 
 const JOBS_PER_PAGE = 20
@@ -88,6 +96,7 @@ export async function getApprovedJobs(
       latitude, longitude,
       employment, job_type, salary,
       description, url, published_at, end_date, created_at,
+      education_level, working_hours_min, working_hours_max, categories,
       companies!company_id (
         id, name, slug, logo_url, website, linkedin_url, description, city,
         latitude, longitude
@@ -111,23 +120,46 @@ export async function getApprovedJobs(
 
   query = query.range(from, to)
 
-  // Filter by employment type (match against job_type array or employment field)
+  // Filter by employment type (strict validation to prevent injection)
   if (filter.type && filter.type !== 'alle') {
-    const normalizedType = filter.type.toLowerCase()
-    if (VALID_TYPES.some(t => normalizedType.includes(t))) {
-      const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
-      query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
+    const normalizedType = filter.type.toLowerCase() as typeof VALID_TYPES[number]
+    if (VALID_TYPES.includes(normalizedType)) {
+      const typeLabel = normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1)
+      query = query.or(`employment.ilike.%${normalizedType}%,job_type.cs.{"${typeLabel}"}`)
     }
   }
 
-  // Text search on title
+  // Text search on title (escape ILIKE wildcards)
   if (filter.query) {
-    query = query.ilike('title', `%${filter.query}%`)
+    const q = escapeIlike(filter.query)
+    query = query.ilike('title', `%${q}%`)
   }
 
-  // Location search on city
+  // Location search on city (escape ILIKE wildcards)
   if (filter.location) {
-    query = query.ilike('city', `%${filter.location}%`)
+    const loc = escapeIlike(filter.location)
+    query = query.ilike('city', `%${loc}%`)
+  }
+
+  // Working hours filter
+  if (filter.hours) {
+    if (filter.hours === 'lt32') {
+      query = query.lt('working_hours_max', 32)
+    } else if (filter.hours === '32-40') {
+      query = query.gte('working_hours_min', 32).lte('working_hours_max', 40)
+    } else if (filter.hours === 'gt40') {
+      query = query.gt('working_hours_min', 40)
+    }
+  }
+
+  // Education level filter
+  if (filter.education && filter.education.length > 0) {
+    query = query.in('education_level', filter.education)
+  }
+
+  // Sector/categories filter
+  if (filter.sector && filter.sector.length > 0) {
+    query = query.in('categories', filter.sector)
   }
 
   const { data, count, error } = await query
@@ -166,24 +198,80 @@ export async function getJobCount(
     .not('published_at', 'is', null)
 
   if (filter.type && filter.type !== 'alle') {
-    const normalizedType = filter.type.toLowerCase()
-    if (VALID_TYPES.some(t => normalizedType.includes(t))) {
-      const typeLabel = filter.type.charAt(0).toUpperCase() + filter.type.slice(1)
-      query = query.or(`employment.ilike.%${filter.type}%,job_type.cs.{"${typeLabel}"}`)
+    const normalizedType = filter.type.toLowerCase() as typeof VALID_TYPES[number]
+    if (VALID_TYPES.includes(normalizedType)) {
+      const typeLabel = normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1)
+      query = query.or(`employment.ilike.%${normalizedType}%,job_type.cs.{"${typeLabel}"}`)
     }
   }
 
   if (filter.query) {
-    query = query.ilike('title', `%${filter.query}%`)
+    const q = escapeIlike(filter.query)
+    query = query.ilike('title', `%${q}%`)
   }
 
   if (filter.location) {
-    query = query.ilike('city', `%${filter.location}%`)
+    const loc = escapeIlike(filter.location)
+    query = query.ilike('city', `%${loc}%`)
   }
 
   const { count, error } = await query
   if (error) return 0
   return count ?? 0
+}
+
+/**
+ * Filter facet counts for the sidebar — one DB round-trip via RPC.
+ */
+export interface FilterFacets {
+  employment: { value: string; count: number }[]
+  education: { value: string; count: number }[]
+  sector: { value: string; count: number }[]
+  hours: { value: string; count: number }[]
+}
+
+export async function getFilterFacets(tenantId: string): Promise<FilterFacets> {
+  'use cache'
+  cacheTag(`jobs:${tenantId}`)
+  cacheLife('minutes')
+
+  const supabase = createPublicClient()
+  const { data, error } = await supabase.rpc('get_job_filter_facets', {
+    p_platform_id: tenantId,
+  })
+
+  if (error || !data) {
+    console.error('Error fetching filter facets:', error)
+    return { employment: [], education: [], sector: [], hours: [] }
+  }
+
+  const facets: FilterFacets = { employment: [], education: [], sector: [], hours: [] }
+  for (const row of data as { facet_group: string; facet_value: string; facet_count: number }[]) {
+    if (!row.facet_value) continue
+    const entry = { value: row.facet_value, count: row.facet_count }
+    switch (row.facet_group) {
+      case 'employment':
+        facets.employment.push(entry)
+        break
+      case 'education_level':
+        facets.education.push(entry)
+        break
+      case 'categories':
+        facets.sector.push(entry)
+        break
+      case 'hours':
+        facets.hours.push(entry)
+        break
+    }
+  }
+
+  // Sort by count descending
+  facets.employment.sort((a, b) => b.count - a.count)
+  facets.education.sort((a, b) => b.count - a.count)
+  facets.sector.sort((a, b) => b.count - a.count)
+  facets.hours.sort((a, b) => b.count - a.count)
+
+  return facets
 }
 
 /**

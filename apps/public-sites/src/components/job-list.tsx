@@ -10,18 +10,18 @@ import Link from 'next/link'
 interface JobListProps {
   tenantId: string
   filter: JobFilter
-  /** Currently selected job slug (for split-view highlight) */
+  /** Currently selected job slug (for split-view highlight) — deprecated, kept for compat */
   selectedSlug?: string | null
 }
 
 /**
  * Server component that fetches and renders the job list.
- * Supports split-view mode: cards link to ?selected=slug on desktop.
+ * Single responsive column — cards link to /vacature/[slug].
  */
 export function JobList({ tenantId, filter, selectedSlug }: JobListProps) {
   return (
     <Suspense fallback={<JobListSkeleton />}>
-      <JobListContent tenantId={tenantId} filter={filter} selectedSlug={selectedSlug} />
+      <JobListContent tenantId={tenantId} filter={filter} />
     </Suspense>
   )
 }
@@ -39,14 +39,13 @@ function jobDistanceKm(
   return haversineKm(userLat, userLng, lat, lng)
 }
 
-async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) {
+async function JobListContent({ tenantId, filter }: Omit<JobListProps, 'selectedSlug'>) {
   const { jobs: rawJobs, total } = await getApprovedJobs(tenantId, filter)
   const currentPage = filter.page || 1
   const hasMore = currentPage * 20 < total
   const hasLocation = filter.userLat != null && filter.userLng != null
 
   // Client-side sort by distance when ?sort=nearest and location is available.
-  // The DB returns newest-first; we re-sort within the page by ascending distance.
   const jobs =
     filter.sort === 'nearest' && hasLocation
       ? [...rawJobs].sort((a, b) => {
@@ -78,54 +77,66 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
 
   return (
     <div>
-      {/* Result count + sort */}
-      <div className="flex items-center justify-between px-4 lg:px-6 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <p className="text-body-medium text-muted">
-          {total} vacature{total !== 1 ? 's' : ''} gevonden
-        </p>
+      {/* List header: result count + sort */}
+      <div
+        className="flex items-baseline justify-between"
+        style={{
+          padding: '8px 4px 14px',
+          borderBottom: '1px solid var(--border-ink)',
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.09em',
+              color: 'var(--text)',
+            }}
+          >
+            Vacatures
+          </div>
+          <div
+            className="font-mono"
+            style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+          >
+            Toont {(currentPage - 1) * 20 + 1}–{Math.min(currentPage * 20, total)} van {total.toLocaleString('nl-NL')}
+          </div>
+        </div>
         <SortSelect current={filter.sort || 'newest'} hasLocation={hasLocation} />
       </div>
 
-      {/* Desktop: list items for split-view */}
-      <div className="hidden lg:flex flex-col gap-2 px-4 lg:px-6 py-4">
+      {/* Job cards — single responsive column */}
+      <div className="flex flex-col gap-2">
         {jobs.map((job) => {
-          const selectParams = new URLSearchParams(baseParams)
-          selectParams.set('selected', job.slug || job.id)
-          const selectHref = `/?${selectParams.toString()}`
           const distanceKm = jobDistanceKm(job, filter.userLat, filter.userLng)
-
           return (
             <EditorialJobCard
               key={job.id}
               job={job}
               variant="list"
-              isActive={selectedSlug === (job.slug || job.id)}
-              href={selectHref}
               distanceKm={distanceKm}
+              href={`/vacature/${job.slug || job.id}`}
             />
           )
         })}
       </div>
 
-      {/* Mobile: full-width cards */}
-      <div className="lg:hidden flex flex-col gap-2 px-4 py-4">
-        {jobs.map((job) => {
-          const distanceKm = jobDistanceKm(job, filter.userLat, filter.userLng)
-          return (
-            <EditorialJobCard key={job.id} job={job} variant="mobile" distanceKm={distanceKm} />
-          )
-        })}
-      </div>
-
-      {/* Load more — accumulating pagination, SEO-friendly via real URL */}
+      {/* Load more */}
       {hasMore && (
         <div
-          className="flex flex-col items-center gap-2 py-6 px-4"
-          style={{ borderTop: '1px dashed var(--border)' }}
+          className="flex flex-col items-center gap-2"
+          style={{
+            marginTop: 20,
+            paddingTop: 24,
+            borderTop: '1px dashed var(--border)',
+          }}
         >
           <Link
             href={`/?${nextParams.toString()}`}
-            className="inline-flex items-center gap-2 rounded-full transition-all"
+            className="inline-flex items-center gap-2 rounded-full transition-all hover:border-primary hover:text-primary-dark hover:bg-primary-tint"
             style={{
               padding: '11px 22px',
               background: 'var(--surface)',
@@ -152,9 +163,9 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
           </Link>
           <p
             className="font-mono"
-            style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}
+            style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
           >
-            Volledige lijst doorzoekbaar voor zoekmachines
+            Volledige lijst ook doorzoekbaar voor Google
           </p>
         </div>
       )}

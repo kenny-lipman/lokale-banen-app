@@ -33,7 +33,7 @@ export const PAPER = {
   surface2: '#F9F7F1',
   text: '#1A1815',
   text2: '#3E3A34',
-  textMuted: '#78716A',
+  textMuted: '#635C55',
   textFaint: '#A8A29B',
   border: '#E8E3DA',
   borderStrong: '#D4CCBF',

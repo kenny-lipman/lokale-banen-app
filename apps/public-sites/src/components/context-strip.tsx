@@ -53,7 +53,7 @@ export function ContextStrip({
           className="text-foreground"
           style={{
             fontFamily: 'var(--font-display-stack)',
-            fontWeight: 500,
+            fontWeight: 700,
             fontSize: 'clamp(1.5rem, 2.4vw, 1.9rem)',
             letterSpacing: '-0.015em',
             lineHeight: 1.1,
@@ -66,7 +66,7 @@ export function ContextStrip({
               style={{
                 fontStyle: 'italic',
                 color: 'var(--primary-dark)',
-                fontWeight: 500,
+                fontWeight: 700,
               }}
             >
               {emphasis}
@@ -76,7 +76,7 @@ export function ContextStrip({
               style={{
                 fontStyle: 'italic',
                 color: 'var(--primary-dark)',
-                fontWeight: 500,
+                fontWeight: 700,
               }}
             >
               {region}
