@@ -178,8 +178,10 @@ export default function BewerkVacaturePage() {
         setCity(data.city || "")
         setZipcode(data.zipcode || "")
         setStreet(data.street || "")
-        // Try to extract state from location
-        if (data.location) {
+        // Use state field directly, fallback to extracting from location
+        if (data.state) {
+          setState(data.state)
+        } else if (data.location) {
           const parts = data.location.split(", ")
           if (parts.length > 1 && PROVINCES.includes(parts[parts.length - 1])) {
             setState(parts[parts.length - 1])

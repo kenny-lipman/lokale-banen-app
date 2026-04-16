@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, Suspense } from "react"
+import { useState, useEffect, useCallback, useRef, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { JobPostingsTable } from "@/components/job-postings-table"
 import { JobPostingDrawer } from "@/components/job-posting-drawer"
@@ -105,10 +105,13 @@ function JobPostingsContent() {
     fetchCounts()
   }, [fetchCounts, refreshTick])
 
-  // Handle URL query param for job ID
+  // Handle URL query param for job ID — always fetch full data from API
+  // so the drawer gets platform domain, slug, published_at, header_image_url etc.
+  const fetchJobIdRef = useRef<string | null>(null)
   useEffect(() => {
     const jobId = searchParams.get("id")
-    if (jobId && selectedJobForDrawer?.id !== jobId && !loadingJobFromUrl) {
+    if (jobId && fetchJobIdRef.current !== jobId && !loadingJobFromUrl) {
+      fetchJobIdRef.current = jobId
       setLoadingJobFromUrl(true)
       authFetch(`/api/job-postings/${jobId}`)
         .then((res) => res.json())
@@ -122,11 +125,14 @@ function JobPostingsContent() {
     }
     if (!jobId && selectedJobForDrawer) {
       setSelectedJobForDrawer(null)
+      fetchJobIdRef.current = null
     }
   }, [searchParams])
 
   const handleOpenJobDrawer = (job: JobPosting) => {
-    setSelectedJobForDrawer(job)
+    // Set table data as quick preview, then URL change triggers full API fetch
+    setSelectedJobForDrawer(job as any)
+    fetchJobIdRef.current = null // Reset so useEffect fetches full data
     const params = new URLSearchParams(searchParams.toString())
     params.set("id", job.id)
     router.push(`/job-postings?${params.toString()}`, { scroll: false })
@@ -205,6 +211,18 @@ function JobPostingsContent() {
         job={selectedJobForDrawer}
         open={!!selectedJobForDrawer}
         onClose={handleCloseJobDrawer}
+        onJobChange={async () => {
+          // Refetch full job data + update counts
+          const jobId = selectedJobForDrawer?.id
+          if (jobId) {
+            const res = await authFetch(`/api/job-postings/${jobId}`)
+            const result = await res.json()
+            if (result.success && result.data) {
+              setSelectedJobForDrawer(result.data)
+            }
+          }
+          setRefreshTick((t) => t + 1)
+        }}
       />
     </div>
   )

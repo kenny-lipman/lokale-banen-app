@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { VacatureActionBar } from "@/components/vacature/action-bar"
+import { AIRewritePanel } from "@/components/vacature/ai-rewrite-panel"
 import { LivePreview } from "@/components/vacature/live-preview"
 import { ActivityLog } from "@/components/vacature/activity-log"
 import {
@@ -71,6 +72,10 @@ interface JobPosting {
   reviewed_by?: string | null
   slug?: string | null
   header_image_url?: string | null
+  content_md?: string | null
+  content_enriched_at?: string | null
+  seo_title?: string | null
+  seo_description?: string | null
   job_sources?: { name: string | null } | null
 }
 
@@ -326,14 +331,25 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             )}
           </div>
 
+          {/* AI Rewrite Panel */}
+          <div className="border border-purple-100 rounded-lg p-4 bg-purple-50/30">
+            <AIRewritePanel
+              vacatureId={job.id}
+              hasDescription={!!job.description}
+              currentContentMd={job.content_md ?? null}
+              contentEnrichedAt={job.content_enriched_at ?? null}
+              onAccepted={async () => { await onJobChange?.() }}
+            />
+          </div>
+
           {/* Description */}
           {job.description && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2">
                 <FileText className="w-4 h-4" />
-                Vacaturetekst
+                Ruwe vacaturetekst (bron)
               </h4>
-              <div className="bg-gray-50 rounded-lg p-4 max-h-80 overflow-y-auto">
+              <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
                 <div
                   className="text-sm text-gray-700 prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{

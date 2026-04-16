@@ -31,6 +31,7 @@ async function getVacatureHandler(
         salary,
         url,
         description,
+        content_md,
         company_id,
         source_id,
         platform_id,
@@ -44,8 +45,13 @@ async function getVacatureHandler(
         city,
         zipcode,
         street,
+        state,
         country,
         slug,
+        header_image_url,
+        seo_title,
+        seo_description,
+        content_enriched_at,
         companies (
           id,
           name,
@@ -112,6 +118,7 @@ async function updateVacatureHandler(
       street,
       state,
       description,
+      content_md,
       salary,
       employment,
       working_hours_min,
@@ -123,6 +130,9 @@ async function updateVacatureHandler(
       platform_id,
       review_status,
       header_image_url,
+      seo_title,
+      seo_description,
+      content_enriched_at,
     } = body
 
     // Get current data to check if slug needs regeneration
@@ -176,6 +186,12 @@ async function updateVacatureHandler(
       review_status: review_status || current.review_status,
       updated_at: new Date().toISOString(),
     }
+
+    // Optional fields — only set when explicitly sent
+    if (content_md !== undefined) updateFields.content_md = content_md || null
+    if (seo_title !== undefined) updateFields.seo_title = seo_title || null
+    if (seo_description !== undefined) updateFields.seo_description = seo_description || null
+    if (content_enriched_at !== undefined) updateFields.content_enriched_at = content_enriched_at
 
     // Only touch header_image_url when the client explicitly sent it.
     // `undefined` leaves the DB value untouched; `null` clears it on remove.

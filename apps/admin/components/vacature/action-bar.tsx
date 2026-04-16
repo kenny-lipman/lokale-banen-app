@@ -18,6 +18,7 @@ import * as React from "react"
 import Link from "next/link"
 import {
   Archive,
+  ArchiveRestore,
   Circle,
   ExternalLink,
   Loader2,
@@ -192,6 +193,7 @@ export function VacatureActionBar({
   const [publishing, setPublishing] = React.useState(false)
   const [unpublishing, setUnpublishing] = React.useState(false)
   const [archiving, setArchiving] = React.useState(false)
+  const [restoring, setRestoring] = React.useState(false)
   const [unpublishDialogOpen, setUnpublishDialogOpen] = React.useState(false)
   const [archiveDialogOpen, setArchiveDialogOpen] = React.useState(false)
 
@@ -295,6 +297,34 @@ export function VacatureActionBar({
       setArchiving(false)
     }
   }, [archiving, vacature.id, onChange])
+
+  // ----------------------------- Restore ---------------------------------
+
+  const handleRestore = React.useCallback(async () => {
+    if (restoring) return
+    setRestoring(true)
+    try {
+      const res = await authFetch(`/api/vacatures/${vacature.id}/restore`, {
+        method: "POST",
+      })
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok || result?.success === false) {
+        toast.error(
+          result?.error ?? "Herstellen mislukt",
+          result?.details ? { description: String(result.details) } : undefined
+        )
+        return
+      }
+      toast.success("Vacature hersteld naar review")
+      await onChange?.()
+    } catch (err) {
+      toast.error("Herstellen mislukt", {
+        description: err instanceof Error ? err.message : "Onbekende fout",
+      })
+    } finally {
+      setRestoring(false)
+    }
+  }, [restoring, vacature.id, onChange])
 
   // --------------------------- Shared helpers -----------------------------
 
@@ -504,6 +534,23 @@ export function VacatureActionBar({
             <span>Bewerk</span>
           </Link>
         </Button>
+
+        {/* Restore button — only for archived/rejected vacatures */}
+        {isArchived && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={restoring}
+            onClick={handleRestore}
+          >
+            {restoring ? (
+              <Loader2 className="animate-spin" aria-hidden="true" />
+            ) : (
+              <ArchiveRestore aria-hidden="true" />
+            )}
+            <span>Herstel</span>
+          </Button>
+        )}
 
         <AlertDialog
           open={archiveDialogOpen}
