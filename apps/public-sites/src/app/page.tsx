@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { connection } from 'next/server'
 import { getTenant } from '@/lib/tenant'
 import { buildWebSiteSchema } from '@lokale-banen/shared'
-
-export const dynamic = 'force-dynamic'
 import { getJobCount, getFilterFacets, getMasterJobCount, getTopPlatforms, getJobsAcrossAllPlatforms } from '@/lib/queries'
 import { TenantHeader } from '@/components/tenant-header'
 import { FilterBar } from '@/components/filter-bar'
@@ -62,6 +61,7 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
+  await connection()
   const params = await searchParams
   const tenant = await getTenant()
 
