@@ -47,7 +47,7 @@ export interface JobPosting {
   } | null
 }
 
-export type SortOption = 'newest' | 'salary_desc' | 'oldest'
+export type SortOption = 'newest' | 'salary_desc' | 'oldest' | 'nearest'
 
 export interface JobFilter {
   query?: string

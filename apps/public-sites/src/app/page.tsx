@@ -3,6 +3,7 @@ import { getTenant } from '@/lib/tenant'
 import { getJobBySlug, getJobCount, getMasterJobCount, getTopPlatforms, getJobsAcrossAllPlatforms } from '@/lib/queries'
 import { TenantHeader } from '@/components/tenant-header'
 import { FilterBar } from '@/components/filter-bar'
+import { EditorialSearchBar } from '@/components/editorial-search-bar'
 import { ContextStrip } from '@/components/context-strip'
 import { JobList } from '@/components/job-list'
 import { JobDetailPanel, EmptyDetailState } from '@/components/job-detail-panel'
@@ -10,7 +11,7 @@ import { Footer } from '@/components/footer'
 import { MasterHomepage } from '@/components/master-homepage'
 import type { JobFilter, SortOption } from '@/lib/queries'
 
-const VALID_SORTS = ['newest', 'salary_desc', 'oldest'] as const
+const VALID_SORTS = ['newest', 'salary_desc', 'oldest', 'nearest'] as const
 type ValidSort = typeof VALID_SORTS[number]
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -127,17 +128,24 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         jobCount={totalJobCount}
       />
 
-      <FilterBar
-        filters={{
-          query: params.q,
-          location: params.location,
-          type: params.type,
-        }}
-        tenant={tenant}
+      {/* Big "Wat / Waar" search bar — matches design prototype */}
+      <EditorialSearchBar
+        defaultQuery={params.q}
+        defaultLocation={params.location}
+        locationPlaceholder={tenant.central_place || 'Postcode of plaats'}
       />
 
-      {/* Split view container */}
-      <div className="flex-1 flex" style={{ height: 'calc(100vh - 108px)' }}>
+      {/* Sticky filter chips bar — type filter + geolocate */}
+      <FilterBar
+        activeType={params.type}
+        query={params.q}
+        location={params.location}
+        lat={params.lat}
+        lng={params.lng}
+      />
+
+      {/* Split view container — height = 100vh minus 56px header minus 44px filter bar */}
+      <div className="flex-1 flex" style={{ height: 'calc(100vh - 100px)' }}>
         {/* Left: job list panel (desktop) */}
         <div className="hidden lg:block w-[420px] xl:w-[440px] flex-shrink-0 overflow-y-auto scrollbar-thin bg-surface" style={{ overscrollBehavior: 'contain', borderRight: '1px solid var(--border)' }}>
           <JobList

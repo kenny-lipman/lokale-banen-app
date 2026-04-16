@@ -1,6 +1,12 @@
 'use client'
 
-export function SortSelect({ current }: { current: string }) {
+interface SortSelectProps {
+  current: string
+  /** Show the "Dichtstbijzijnd" option only when user location is available. */
+  hasLocation?: boolean
+}
+
+export function SortSelect({ current, hasLocation = false }: SortSelectProps) {
   return (
     <select
       defaultValue={current}
@@ -12,6 +18,7 @@ export function SortSelect({ current }: { current: string }) {
       className="text-meta bg-transparent border border-border rounded-lg px-2 py-1"
     >
       <option value="newest">Nieuwste eerst</option>
+      {(hasLocation || current === 'nearest') && <option value="nearest">Dichtstbijzijnd</option>}
       <option value="salary_desc">Salaris (hoog &rarr; laag)</option>
       <option value="oldest">Oudste eerst</option>
     </select>

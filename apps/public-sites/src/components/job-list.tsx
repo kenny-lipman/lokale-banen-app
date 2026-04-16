@@ -40,9 +40,24 @@ function jobDistanceKm(
 }
 
 async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) {
-  const { jobs, total } = await getApprovedJobs(tenantId, filter)
+  const { jobs: rawJobs, total } = await getApprovedJobs(tenantId, filter)
   const currentPage = filter.page || 1
   const hasMore = currentPage * 20 < total
+  const hasLocation = filter.userLat != null && filter.userLng != null
+
+  // Client-side sort by distance when ?sort=nearest and location is available.
+  // The DB returns newest-first; we re-sort within the page by ascending distance.
+  const jobs =
+    filter.sort === 'nearest' && hasLocation
+      ? [...rawJobs].sort((a, b) => {
+          const da = jobDistanceKm(a, filter.userLat, filter.userLng)
+          const db = jobDistanceKm(b, filter.userLat, filter.userLng)
+          if (da == null && db == null) return 0
+          if (da == null) return 1
+          if (db == null) return -1
+          return da - db
+        })
+      : rawJobs
 
   if (jobs.length === 0) {
     return <NoResultsState />
@@ -54,6 +69,8 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
   if (filter.location) baseParams.set('location', filter.location)
   if (filter.type && filter.type !== 'alle') baseParams.set('type', filter.type)
   if (filter.sort && filter.sort !== 'newest') baseParams.set('sort', filter.sort)
+  if (filter.userLat != null) baseParams.set('lat', String(filter.userLat))
+  if (filter.userLng != null) baseParams.set('lng', String(filter.userLng))
 
   // Build next page params
   const nextParams = new URLSearchParams(baseParams)
@@ -66,7 +83,7 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
         <p className="text-body-medium text-muted">
           {total} vacature{total !== 1 ? 's' : ''} gevonden
         </p>
-        <SortSelect current={filter.sort || 'newest'} />
+        <SortSelect current={filter.sort || 'newest'} hasLocation={hasLocation} />
       </div>
 
       {/* Desktop: list items for split-view */}
