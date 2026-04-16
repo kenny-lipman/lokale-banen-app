@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -45,4 +47,20 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+const sentryOptions = {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: '/monitoring',
+  disableLogger: true,
+  automaticVercelMonitors: false,
+}
+
+const shouldWrapSentry =
+  Boolean(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) &&
+  Boolean(process.env.SENTRY_AUTH_TOKEN)
+
+export default shouldWrapSentry
+  ? withSentryConfig(nextConfig, sentryOptions)
+  : nextConfig

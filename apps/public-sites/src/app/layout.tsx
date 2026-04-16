@@ -3,6 +3,8 @@ import type { Metadata } from 'next'
 import { Source_Sans_3, Newsreader, JetBrains_Mono } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { nlNL } from '@clerk/localizations'
+import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { hexToLightVariant, darkenHex, hexToMutedVariant } from '@/lib/utils'
 import { buildTenantThemeCss } from '@/lib/theme'
 import { CookieConsent } from '@/components/cookie-consent'
@@ -15,13 +17,13 @@ const sourceSans = Source_Sans_3({
   weight: ['300', '400', '500', '600', '700'],
 })
 
-// Editorial display serif — variable optical-size (opsz 6..72), weights 400-700 + italic 500.
+// Editorial display serif — variable optical-size (opsz 6..72) + variable weight 200-800.
 // `display: 'optional'` avoids blocking LCP; falls back to system serif until ready.
+// NB: when `axes` is set, weight must be 'variable' (or omitted) — not specific values.
 const newsreader = Newsreader({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'optional',
-  weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
   axes: ['opsz'],
 })
@@ -146,6 +148,8 @@ export default function RootLayout({
           {children}
           <CookieConsent />
         </ClerkProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
