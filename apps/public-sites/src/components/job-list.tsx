@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { getApprovedJobs, type JobFilter } from '@/lib/queries'
-import { JobCard } from './job-card'
+import { EditorialJobCard } from './editorial-job-card'
 import { NoResultsState } from './job-detail-panel'
 import { JobListSkeleton } from './job-list-skeleton'
 import { SortSelect } from './sort-select'
@@ -56,18 +56,18 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
       </div>
 
       {/* Desktop: list items for split-view */}
-      <div className="hidden lg:block">
+      <div className="hidden lg:flex flex-col gap-2 px-4 lg:px-6 py-4">
         {jobs.map((job) => {
           const selectParams = new URLSearchParams(baseParams)
           selectParams.set('selected', job.slug || job.id)
           const selectHref = `/?${selectParams.toString()}`
 
           return (
-            <JobCard
+            <EditorialJobCard
               key={job.id}
               job={job}
               variant="list"
-              isSelected={selectedSlug === (job.slug || job.id)}
+              isActive={selectedSlug === (job.slug || job.id)}
               href={selectHref}
             />
           )
@@ -75,22 +75,51 @@ async function JobListContent({ tenantId, filter, selectedSlug }: JobListProps) 
       </div>
 
       {/* Mobile: full-width cards */}
-      <div className="lg:hidden">
+      <div className="lg:hidden flex flex-col gap-2 px-4 py-4">
         {jobs.map((job) => (
-          <JobCard key={job.id} job={job} variant="mobile" />
+          <EditorialJobCard key={job.id} job={job} variant="mobile" />
         ))}
       </div>
 
-      {/* Pagination */}
+      {/* Load more — accumulating pagination, SEO-friendly via real URL */}
       {hasMore && (
-        <div className="flex justify-center py-4 px-4" style={{ borderTop: '1px solid var(--border)' }}>
+        <div
+          className="flex flex-col items-center gap-2 py-6 px-4"
+          style={{ borderTop: '1px dashed var(--border)' }}
+        >
           <Link
             href={`/?${nextParams.toString()}`}
-            className="inline-flex items-center justify-center h-9 px-5 rounded-lg text-button text-primary transition-colors hover:bg-primary-light"
-            style={{ border: '1px solid var(--primary)' }}
+            className="inline-flex items-center gap-2 rounded-full transition-all"
+            style={{
+              padding: '11px 22px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-strong)',
+              fontSize: '0.9375rem',
+              fontWeight: 500,
+              color: 'var(--text)',
+            }}
           >
-            Meer vacatures
+            Nog {Math.max(0, total - currentPage * 20).toLocaleString('nl-NL')} vacatures tonen
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </Link>
+          <p
+            className="font-mono"
+            style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}
+          >
+            Volledige lijst doorzoekbaar voor zoekmachines
+          </p>
         </div>
       )}
     </div>

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
-import { getJobBySlug } from '@/lib/queries'
+import { getJobBySlug, getJobCount } from '@/lib/queries'
 import { TenantHeader } from '@/components/tenant-header'
 import { FilterBar } from '@/components/filter-bar'
+import { ContextStrip } from '@/components/context-strip'
 import { JobList } from '@/components/job-list'
 import { JobDetailPanel, EmptyDetailState } from '@/components/job-detail-panel'
 import { Footer } from '@/components/footer'
@@ -66,11 +67,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     sort,
   }
 
-  // Fetch selected job for split-view detail panel (desktop)
+  // Parallel fetch: selected job for split-view + total count for context strip
   const selectedSlug = params.selected || null
-  const selectedJob = selectedSlug
-    ? await getJobBySlug(tenant.id, selectedSlug)
-    : null
+  const [selectedJob, totalJobCount] = await Promise.all([
+    selectedSlug ? getJobBySlug(tenant.id, selectedSlug) : Promise.resolve(null),
+    getJobCount(tenant.id, {}), // unfiltered tenant total
+  ])
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -78,6 +80,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         tenant={tenant}
         defaultQuery={params.q}
         defaultLocation={params.location}
+      />
+
+      {/* Context strip: editorial fold-1 element ("not-a-hero") */}
+      <ContextStrip
+        region={tenant.central_place || tenant.name}
+        emphasis={tenant.central_place || tenant.name}
+        jobCount={totalJobCount}
       />
 
       <FilterBar
