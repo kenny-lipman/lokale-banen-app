@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
+
+export const dynamic = 'force-dynamic'
 import { getJobBySlug, getJobCount, getMasterJobCount, getTopPlatforms, getJobsAcrossAllPlatforms } from '@/lib/queries'
 import { TenantHeader } from '@/components/tenant-header'
 import { FilterBar } from '@/components/filter-bar'
