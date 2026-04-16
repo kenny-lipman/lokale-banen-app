@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import { Bookmark, Briefcase, Clock, GraduationCap } from 'lucide-react'
 import type { JobPosting } from '@/lib/queries'
