@@ -1,4 +1,3 @@
-import { cacheLife, cacheTag } from 'next/cache'
 import { createPublicClient } from './supabase'
 
 export interface CanonicalInfo {
@@ -27,10 +26,6 @@ export async function getCanonicalInfo(
   jobPostingId: string,
   slug: string,
 ): Promise<CanonicalInfo | null> {
-  'use cache'
-  cacheTag(`job:${jobPostingId}`)
-  cacheLife('hours')
-
   const supabase = createPublicClient()
 
   let platform: PlatformLite | null = null

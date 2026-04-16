@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { cacheLife, cacheTag } from 'next/cache'
 import { createPublicClient } from './supabase'
 
 export interface Tenant {
@@ -58,10 +57,6 @@ export async function getTenant(): Promise<Tenant | null> {
  * Invalidate via tag `platform:host:${host}` when a platform's config changes.
  */
 export async function getTenantByHost(host: string): Promise<Tenant | null> {
-  'use cache'
-  cacheTag(`platform:host:${host}`)
-  cacheLife('hours')
-
   const supabase = createPublicClient()
   const { data, error } = await supabase
     .from('platforms')

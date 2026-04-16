@@ -2,7 +2,7 @@ import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs'
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
+  // cacheComponents: true,  // disabled — re-enable after full RSC audit
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
