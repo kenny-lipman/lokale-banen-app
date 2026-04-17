@@ -6,9 +6,10 @@
  */
 
 import Image from 'next/image'
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getTenant, getTenantById } from '@/lib/tenant'
+import { getTenantById, getTenantByHostForPreview } from '@/lib/tenant'
 import { getJobByIdForPreview } from '@/lib/queries'
 import { verifyPreviewToken } from '@lokale-banen/shared'
 import { TenantHeader } from '@/components/tenant-header'
@@ -22,7 +23,7 @@ import { AlertTriangle } from 'lucide-react'
 
 interface PreviewPageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ token?: string; platform?: string; debug?: string }>
+  searchParams: Promise<{ token?: string; platform?: string }>
 }
 
 // Always noindex — draft content, must never be public
@@ -33,45 +34,23 @@ export const metadata: Metadata = {
 
 export default async function PreviewPage({ params, searchParams }: PreviewPageProps) {
   const { id } = await params
-  const { token, platform, debug } = await searchParams
+  const { token, platform } = await searchParams
 
-  const tokenValid = token ? verifyPreviewToken(id, token) : false
-  if (!token || !tokenValid) {
-    if (debug === '1') {
-      return (
-        <pre className="p-8 text-sm">{`PREVIEW DEBUG
+  if (!token || !verifyPreviewToken(id, token)) notFound()
 
-token present: ${!!token}
-token first 40: ${token?.substring(0, 40) ?? 'none'}
-tokenValid: ${tokenValid}
-secret set: ${!!process.env.VACATURE_PREVIEW_SECRET}
-secret len: ${process.env.VACATURE_PREVIEW_SECRET?.length ?? 0}
-job id: ${id}
-platform: ${platform ?? 'none'}
-`}</pre>
-      )
-    }
-    notFound()
-  }
-
-  // Prefer tenant by platform query param (for previews on fallback host).
-  // Falls back to host-based tenant resolution for platforms with domains.
+  // Tenant resolution for preview:
+  // 1. If ?platform= query param is set, look up by ID (no filters)
+  // 2. Otherwise, look up by host WITHOUT is_public filter (so freshly
+  //    provisioned regio sites like apeldoornsebanen.vercel.app work)
   let tenant = platform ? await getTenantById(platform) : null
-  if (!tenant) tenant = await getTenant()
   if (!tenant) {
-    if (debug === '1') {
-      return <pre className="p-8 text-sm">{`PREVIEW DEBUG: tenant not found (platform=${platform})`}</pre>
-    }
-    notFound()
+    const host = (await headers()).get('x-tenant-host')
+    if (host) tenant = await getTenantByHostForPreview(host)
   }
+  if (!tenant) notFound()
 
   const job = await getJobByIdForPreview(id)
-  if (!job) {
-    if (debug === '1') {
-      return <pre className="p-8 text-sm">{`PREVIEW DEBUG: job not found (id=${id})`}</pre>
-    }
-    notFound()
-  }
+  if (!job) notFound()
 
   const relatedJobs: [] = []
   const isExpired = job.end_date && new Date(job.end_date) < new Date()

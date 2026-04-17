@@ -73,6 +73,24 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
 }
 
 /**
+ * Host-based tenant lookup WITHOUT is_public filter.
+ * Used by the admin draft preview route so that non-public platforms
+ * (like freshly-provisioned regio sites on *.vercel.app) still render.
+ */
+export async function getTenantByHostForPreview(host: string): Promise<Tenant | null> {
+  const supabase = createPublicClient()
+  const { data, error } = await supabase
+    .from('platforms')
+    .select(TENANT_SELECT)
+    .or(`domain.eq.${host},preview_domain.eq.${host}`)
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return mapTenantRow(data as PlatformRow)
+}
+
+/**
  * Tenant lookup by platform ID, bypassing is_public and host filters.
  * Used by the admin draft preview route to render with the correct tenant
  * theme when the vacancy's platform has no domain configured yet.
