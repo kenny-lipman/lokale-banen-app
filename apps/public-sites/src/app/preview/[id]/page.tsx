@@ -36,20 +36,30 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
   const { id } = await params
   const { token, platform } = await searchParams
 
-  if (!token || !verifyPreviewToken(id, token)) notFound()
+  const tokenValid = token ? verifyPreviewToken(id, token) : false
+  const host = (await headers()).get('x-tenant-host')
 
-  // Tenant resolution for preview:
-  // 1. If ?platform= query param is set, look up by ID (no filters)
-  // 2. Otherwise, look up by host WITHOUT is_public filter (so freshly
-  //    provisioned regio sites like apeldoornsebanen.vercel.app work)
   let tenant = platform ? await getTenantById(platform) : null
-  if (!tenant) {
-    const host = (await headers()).get('x-tenant-host')
-    if (host) tenant = await getTenantByHostForPreview(host)
-  }
-  if (!tenant) notFound()
+  if (!tenant && host) tenant = await getTenantByHostForPreview(host)
 
   const job = await getJobByIdForPreview(id)
+
+  // DEBUG: always return diagnostics for now
+  const debug = `PREVIEW DEBUG
+token: ${token ? 'present' : 'missing'} (valid=${tokenValid})
+host: ${host ?? 'null'}
+platform param: ${platform ?? 'null'}
+tenant: ${tenant ? `found (${tenant.name}, id=${tenant.id})` : 'null'}
+job: ${job ? `found (${job.title})` : 'null'}
+secret_len: ${process.env.VACATURE_PREVIEW_SECRET?.length ?? 0}
+`
+  return (
+    <pre style={{ padding: 24, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap' }}>{debug}</pre>
+  )
+
+  // eslint-disable-next-line @typescript-eslint/no-unreachable-code
+  if (!token || !tokenValid) notFound()
+  if (!tenant) notFound()
   if (!job) notFound()
 
   const relatedJobs: [] = []
