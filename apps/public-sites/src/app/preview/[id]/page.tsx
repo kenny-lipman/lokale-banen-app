@@ -22,7 +22,7 @@ import { AlertTriangle } from 'lucide-react'
 
 interface PreviewPageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ token?: string; platform?: string }>
+  searchParams: Promise<{ token?: string; platform?: string; debug?: string }>
 }
 
 // Always noindex — draft content, must never be public
@@ -33,9 +33,24 @@ export const metadata: Metadata = {
 
 export default async function PreviewPage({ params, searchParams }: PreviewPageProps) {
   const { id } = await params
-  const { token, platform } = await searchParams
+  const { token, platform, debug } = await searchParams
 
-  if (!token || !verifyPreviewToken(id, token)) {
+  const tokenValid = token ? verifyPreviewToken(id, token) : false
+  if (!token || !tokenValid) {
+    if (debug === '1') {
+      return (
+        <pre className="p-8 text-sm">{`PREVIEW DEBUG
+
+token present: ${!!token}
+token first 40: ${token?.substring(0, 40) ?? 'none'}
+tokenValid: ${tokenValid}
+secret set: ${!!process.env.VACATURE_PREVIEW_SECRET}
+secret len: ${process.env.VACATURE_PREVIEW_SECRET?.length ?? 0}
+job id: ${id}
+platform: ${platform ?? 'none'}
+`}</pre>
+      )
+    }
     notFound()
   }
 
@@ -43,10 +58,20 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
   // Falls back to host-based tenant resolution for platforms with domains.
   let tenant = platform ? await getTenantById(platform) : null
   if (!tenant) tenant = await getTenant()
-  if (!tenant) notFound()
+  if (!tenant) {
+    if (debug === '1') {
+      return <pre className="p-8 text-sm">{`PREVIEW DEBUG: tenant not found (platform=${platform})`}</pre>
+    }
+    notFound()
+  }
 
   const job = await getJobByIdForPreview(id)
-  if (!job) notFound()
+  if (!job) {
+    if (debug === '1') {
+      return <pre className="p-8 text-sm">{`PREVIEW DEBUG: job not found (id=${id})`}</pre>
+    }
+    notFound()
+  }
 
   const relatedJobs: [] = []
   const isExpired = job.end_date && new Date(job.end_date) < new Date()
