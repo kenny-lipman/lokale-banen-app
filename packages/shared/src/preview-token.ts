@@ -8,7 +8,7 @@
  * admin and public-sites apps via VACATURE_PREVIEW_SECRET env var.
  */
 
-import { createHmac, timingSafeEqual } from 'crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 const TOKEN_TTL_MS = 60 * 60 * 1000 // 1 hour
 

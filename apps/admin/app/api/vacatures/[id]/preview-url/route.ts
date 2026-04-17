@@ -54,12 +54,12 @@ async function previewUrlHandler(
     const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/$/, '')
 
     const token = generatePreviewToken(id)
-    const params = new URLSearchParams({ token })
+    const queryParams = new URLSearchParams({ token })
     // Pass platform id so preview page can apply correct tenant theme
     // when the host is the fallback (multi-tenant-unaware) domain.
-    if (platform?.id) params.set('platform', platform.id)
+    if (platform?.id) queryParams.set('platform', platform.id)
 
-    const url = `https://${cleanHost}/preview/${id}?${params.toString()}`
+    const url = `https://${cleanHost}/preview/${id}?${queryParams.toString()}`
 
     return NextResponse.json({
       success: true,
