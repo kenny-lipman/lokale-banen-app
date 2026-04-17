@@ -406,7 +406,13 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
           {/* Actions */}
           <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
             <LivePreview
-              vacature={{ id: job.id, slug: job.slug ?? null, title: job.title }}
+              vacature={{
+                id: job.id,
+                slug: job.slug ?? null,
+                title: job.title,
+                review_status: job.review_status,
+                published_at: job.published_at ?? null,
+              }}
               platform={job.platform ?? null}
               trigger={
                 <Button variant="outline">

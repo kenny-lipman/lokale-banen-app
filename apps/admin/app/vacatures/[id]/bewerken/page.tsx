@@ -29,7 +29,7 @@ import {
 import { Combobox } from "@/components/ui/combobox"
 import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, Trash2, Briefcase, ImageIcon } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Briefcase, ImageIcon, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { HeaderImageField } from "@/components/vacature/header-image-field"
 
@@ -113,6 +113,9 @@ export default function BewerkVacaturePage() {
   const [platformId, setPlatformId] = useState("")
   const [reviewStatus, setReviewStatus] = useState("pending")
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null)
+  const [contentMd, setContentMd] = useState("")
+  const [contentEnrichedAt, setContentEnrichedAt] = useState<string | null>(null)
+  const [aiRewriting, setAiRewriting] = useState(false)
 
   // Load companies for combobox
   const searchCompanies = useCallback(async (search: string) => {
@@ -121,22 +124,30 @@ export default function BewerkVacaturePage() {
       const res = await authFetch(`/api/companies/search?${params}`)
       const result = await res.json()
       if (result.success && result.companies) {
-        setCompanies(
-          result.companies.map((c: { id: string; name: string }) => ({
+        setCompanies((prev) => {
+          const searched = result.companies.map((c: { id: string; name: string }) => ({
             value: c.id,
             label: c.name,
           }))
-        )
+          // Preserve the currently selected company in options if not in search results
+          // (otherwise Combobox can't render its label)
+          const current = prev.find((c) => c.value === companyId)
+          if (current && !searched.find((c: CompanyOption) => c.value === current.value)) {
+            return [current, ...searched]
+          }
+          return searched
+        })
       }
     } catch {
       // Silently fail
     }
-  }, [])
+  }, [companyId])
 
   // Load initial companies
   useEffect(() => {
     searchCompanies("")
   }, [searchCompanies])
+
 
   // Load platforms via authenticated API
   useEffect(() => {
@@ -175,6 +186,16 @@ export default function BewerkVacaturePage() {
         const data = result.data
         setTitle(data.title || "")
         setCompanyId(data.company_id || "")
+        // Seed company option with the one attached to this vacancy, so the
+        // Combobox can render its label immediately (avoids empty selection
+        // when the current company is outside the top-50 search results).
+        if (data.company_id && (data.company_name || data.companies?.name)) {
+          const label = data.company_name || data.companies?.name
+          setCompanies((prev) => {
+            if (prev.find((c) => c.value === data.company_id)) return prev
+            return [{ value: data.company_id, label }, ...prev]
+          })
+        }
         setCity(data.city || "")
         setZipcode(data.zipcode || "")
         setStreet(data.street || "")
@@ -201,6 +222,8 @@ export default function BewerkVacaturePage() {
         setPlatformId(data.platform_id || "")
         setReviewStatus(data.review_status || "pending")
         setHeaderImageUrl(data.header_image_url ?? null)
+        setContentMd(data.content_md || "")
+        setContentEnrichedAt(data.content_enriched_at || null)
       } catch {
         toast.error("Fout bij laden vacature")
       } finally {
@@ -209,6 +232,41 @@ export default function BewerkVacaturePage() {
     }
     fetchVacature()
   }, [id, router])
+
+  const handleAIRewrite = async () => {
+    if (aiRewriting) return
+    if (!description.trim()) {
+      toast.error("Ruwe vacaturetekst is leeg — niks om te herschrijven")
+      return
+    }
+    setAiRewriting(true)
+    try {
+      const res = await authFetch(`/api/vacatures/${id}/ai-rewrite`, {
+        method: "POST",
+      })
+      const result = await res.json()
+      if (!res.ok || !result.success) {
+        toast.error(result.error || "AI herschrijving mislukt")
+        return
+      }
+      setContentMd(result.data.content_md)
+      // Prefill missing metadata from AI extraction
+      const ex = result.data.extracted
+      if (ex.employment && !employment) setEmployment(ex.employment)
+      if (ex.education_level && !educationLevel) setEducationLevel(ex.education_level)
+      if (ex.categories && !categories) setCategories(ex.categories)
+      if (ex.salary && !salary) setSalary(ex.salary)
+      if (ex.working_hours_min != null && !workingHoursMin)
+        setWorkingHoursMin(String(ex.working_hours_min))
+      if (ex.working_hours_max != null && !workingHoursMax)
+        setWorkingHoursMax(String(ex.working_hours_max))
+      toast.success("AI herschrijving gegenereerd — controleer en sla op")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "AI herschrijving mislukt")
+    } finally {
+      setAiRewriting(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -241,6 +299,7 @@ export default function BewerkVacaturePage() {
           platform_id: platformId || undefined,
           review_status: reviewStatus,
           header_image_url: headerImageUrl,
+          content_md: contentMd.trim() || null,
         }),
       })
 
@@ -455,14 +514,89 @@ export default function BewerkVacaturePage() {
           </CardContent>
         </Card>
 
-        {/* Description */}
+        {/* AI Herschrijving — publicatie-tekst (content_md) */}
+        <Card className="border-purple-200 bg-purple-50/20">
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  AI Herschrijving (publicatietekst)
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Deze tekst wordt getoond op de publieke site. Laat AI de ruwe bron
+                  herschrijven naar een gestructureerd markdown format met 3 secties.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAIRewrite}
+                disabled={aiRewriting || !description.trim()}
+                className="border-purple-300 text-purple-700 hover:bg-purple-100"
+              >
+                {aiRewriting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                {aiRewriting
+                  ? "Herschrijven..."
+                  : contentMd
+                    ? "Opnieuw herschrijven"
+                    : "AI Herschrijf"}
+              </Button>
+            </div>
+            {contentEnrichedAt && (
+              <p className="text-xs text-purple-700 mt-1">
+                Laatst herschreven op{" "}
+                {new Date(contentEnrichedAt).toLocaleString("nl-NL", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label htmlFor="content_md" className="sr-only">
+              Publicatietekst (markdown)
+            </Label>
+            <textarea
+              id="content_md"
+              value={contentMd}
+              onChange={(e) => setContentMd(e.target.value)}
+              placeholder={
+                "## Wat ga je doen?\n- ...\n\n## Wie zoeken we?\n- ...\n\n## Wat bieden we?\n- ..."
+              }
+              rows={18}
+              className="w-full rounded-md border border-purple-200 bg-white px-3 py-2 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400"
+            />
+            <p className="text-xs text-muted-foreground">
+              Markdown-formaat. Gebruik{" "}
+              <code className="bg-muted px-1 rounded">## Wat ga je doen?</code>,{" "}
+              <code className="bg-muted px-1 rounded">## Wie zoeken we?</code>,{" "}
+              <code className="bg-muted px-1 rounded">## Wat bieden we?</code> voor
+              secties.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Ruwe beschrijving (bron) */}
         <Card>
           <CardHeader>
-            <CardTitle>Beschrijving</CardTitle>
+            <CardTitle>Ruwe vacaturetekst (bron)</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gescrapete tekst van de originele bron. Niet zichtbaar op de publieke
+              site — dient als referentie voor de AI herschrijving en handmatige
+              controle.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="description">Vacature beschrijving</Label>
+              <Label htmlFor="description">Bron-tekst</Label>
               <DescriptionEditor
                 value={description}
                 onChange={setDescription}

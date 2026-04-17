@@ -341,6 +341,44 @@ export async function getJobBySlug(
 }
 
 /**
+ * Fetch a job posting by ID, bypassing review_status and published_at filters.
+ * Only used for the admin draft preview endpoint. Never expose this via
+ * a public route without token validation.
+ */
+export async function getJobByIdForPreview(
+  jobId: string
+): Promise<(JobPosting & { review_status?: string | null }) | null> {
+  const supabase = createPublicClient()
+
+  const { data, error } = await supabase
+    .from('job_postings')
+    .select(
+      `
+      id, title, slug, company_id, city, state, zipcode, street,
+      latitude, longitude,
+      employment, job_type, salary, categories,
+      description, content_md, header_image_url, url, published_at, end_date, created_at,
+      seo_title, seo_description, education_level, career_level,
+      working_hours_min, working_hours_max, review_status,
+      companies!company_id (
+        id, name, slug, logo_url, website, linkedin_url, description, city,
+        kvk, latitude, longitude, postal_code, street_address
+      )
+    `
+    )
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  const row = data as Record<string, unknown>
+  return {
+    ...row,
+    company: Array.isArray(row.companies) ? row.companies[0] : row.companies,
+  } as unknown as JobPosting
+}
+
+/**
  * Fetch related jobs in the same city, excluding the current job.
  * Returns up to 3 results for the "Vergelijkbare banen" section.
  */

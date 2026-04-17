@@ -151,12 +151,11 @@ export function AIRewritePanel({
         )}
       </div>
 
-      {/* Current content_md preview */}
+      {/* Current content_md preview — full text, scrollable */}
       {currentContentMd && !result && (
-        <div className="bg-purple-50/50 rounded-lg p-4 max-h-60 overflow-y-auto border border-purple-100">
-          <div className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-            {currentContentMd.substring(0, 800)}
-            {currentContentMd.length > 800 && "..."}
+        <div className="bg-purple-50/50 rounded-lg p-4 max-h-96 overflow-y-auto border border-purple-100">
+          <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+            {currentContentMd}
           </div>
         </div>
       )}

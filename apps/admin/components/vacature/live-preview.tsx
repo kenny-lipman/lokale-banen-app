@@ -13,16 +13,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
+import { authFetch } from "@/lib/authenticated-fetch"
+import { toast } from "sonner"
 
 export interface LivePreviewProps {
-  vacature: { id: string; slug: string | null; title: string }
+  vacature: {
+    id: string
+    slug: string | null
+    title: string
+    review_status?: string | null
+    published_at?: string | null
+  }
   platform: {
     id: string
     regio_platform: string
@@ -40,73 +41,93 @@ const VIEWPORTS: Record<ViewportKey, { label: string; width: number; height: num
 }
 
 /**
- * Build the public-site URL for a vacature. Prefers `preview_domain`
- * (Vercel preview URL) so we stay on a host that we control, falling
- * back to the production `.nl` domain.
+ * Build the PUBLISHED public-site URL for a vacature.
+ * Only works for approved + published vacatures.
  */
-function buildPreviewUrl(
+function buildPublishedUrl(
   platform: LivePreviewProps["platform"],
   slug: string | null,
 ): string | null {
   if (!platform || !slug) return null
   const host = platform.preview_domain ?? platform.domain
   if (!host) return null
-  return `https://${host}/vacature/${slug}`
+  const cleanHost = host.replace(/^https?:\/\//, "").replace(/\/$/, "")
+  return `https://${cleanHost}/vacature/${slug}`
 }
 
 export function LivePreview({ vacature, platform, trigger }: LivePreviewProps) {
-  const url = buildPreviewUrl(platform, vacature.slug)
-  const disabled = !url
+  const isPublished = !!vacature.published_at && vacature.review_status === 'approved'
+  const publishedUrl = buildPublishedUrl(platform, vacature.slug)
 
   const [open, setOpen] = React.useState(false)
   const [viewport, setViewport] = React.useState<ViewportKey>("desktop")
   const [loaded, setLoaded] = React.useState(false)
+  const [draftUrl, setDraftUrl] = React.useState<string | null>(null)
+  const [loadingUrl, setLoadingUrl] = React.useState(false)
 
-  // Reset loading spinner whenever the dialog opens or the viewport/URL
-  // changes so each iframe load is tracked independently.
+  // Fetch draft preview URL when opening dialog for unpublished vacature
   React.useEffect(() => {
-    if (open) setLoaded(false)
-  }, [open, viewport, url])
+    if (!open) return
+    setLoaded(false)
+
+    // Published: use direct slug URL
+    if (isPublished && publishedUrl) {
+      setDraftUrl(publishedUrl)
+      return
+    }
+
+    // Draft: fetch signed preview URL from admin API
+    setLoadingUrl(true)
+    setDraftUrl(null)
+    authFetch(`/api/vacatures/${vacature.id}/preview-url`)
+      .then((res) => res.json())
+      .then((result) => {
+        if (result.success && result.data?.url) {
+          setDraftUrl(result.data.url)
+        } else {
+          toast.error(result.error || "Preview URL genereren mislukt")
+        }
+      })
+      .catch((err) => {
+        toast.error("Preview URL genereren mislukt", {
+          description: err instanceof Error ? err.message : "Onbekende fout",
+        })
+      })
+      .finally(() => setLoadingUrl(false))
+  }, [open, viewport, isPublished, publishedUrl, vacature.id])
 
   const viewportConfig = VIEWPORTS[viewport]
+  const url = draftUrl
 
+  // Trigger is always enabled now — draft preview works for any job with platform
+  const hasPlatform = !!platform
   const triggerNode = trigger ?? (
-    <Button variant="outline" size="sm" disabled={disabled}>
+    <Button variant="outline" size="sm" disabled={!hasPlatform}>
       <Eye className="mr-2 h-4 w-4" />
       Live preview
     </Button>
   )
 
-  if (disabled) {
-    // When there is no URL, wrap the (disabled) trigger in a tooltip so the
-    // user understands why. We don't open the dialog.
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex" tabIndex={0} aria-disabled>
-              {triggerNode}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>Preview beschikbaar na publicatie</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    )
+  if (!hasPlatform) {
+    return triggerNode
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{triggerNode}</DialogTrigger>
-      <DialogContent
-        className="max-w-[95vw] p-0 sm:max-w-[1320px]"
-        // The built-in close button lives in DialogContent; we still render our
-        // own "Open in nieuw tabblad" link alongside it.
-      >
+      <DialogContent className="max-w-[95vw] p-0 sm:max-w-[1320px]">
         <DialogHeader className="flex-row items-start justify-between gap-4 border-b p-4 pr-14">
           <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-base">{vacature.title}</DialogTitle>
+            <DialogTitle className="truncate text-base">
+              {vacature.title}
+              {!isPublished && (
+                <span className="ml-2 inline-block align-middle rounded bg-amber-100 text-amber-800 text-xs font-medium px-2 py-0.5">
+                  Draft preview
+                </span>
+              )}
+            </DialogTitle>
             <DialogDescription className="truncate text-xs">
-              {platform?.regio_platform ?? "Platform onbekend"} - {url}
+              {platform?.regio_platform ?? "Platform onbekend"} — {url || "URL laden..."}
             </DialogDescription>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -125,50 +146,50 @@ export function LivePreview({ vacature, platform, trigger }: LivePreviewProps) {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open in nieuw tabblad
-            </a>
+            {url && (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open in nieuw tabblad
+              </a>
+            )}
           </div>
         </DialogHeader>
 
         <div className="flex max-h-[calc(90vh-64px)] items-start justify-center overflow-auto bg-muted/30 p-4">
           <div
-            className={cn(
-              "relative overflow-hidden rounded-lg border bg-background shadow-sm transition-all",
-            )}
+            className="relative overflow-hidden rounded-lg border bg-background shadow-sm transition-all"
             style={{
               width: `${viewportConfig.width}px`,
               maxWidth: "100%",
               height: `${viewportConfig.height}px`,
             }}
           >
-            {!loaded && (
+            {(loadingUrl || !loaded) && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80 backdrop-blur-sm">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  Preview laden...
+                  {loadingUrl ? "Preview genereren..." : "Preview laden..."}
                 </span>
               </div>
             )}
-            <iframe
-              key={`${url}-${viewport}`}
-              src={url}
-              title={`Preview: ${vacature.title}`}
-              onLoad={() => setLoaded(true)}
-              sandbox="allow-scripts allow-same-origin"
-              referrerPolicy="no-referrer"
-              className="h-full w-full border-0"
-              // Explicit dimensions keep the iframe the exact viewport size
-              // even if the outer div is scaled via CSS.
-              width={viewportConfig.width}
-              height={viewportConfig.height}
-            />
+            {url && (
+              <iframe
+                key={`${url}-${viewport}`}
+                src={url}
+                title={`Preview: ${vacature.title}`}
+                onLoad={() => setLoaded(true)}
+                sandbox="allow-scripts allow-same-origin"
+                referrerPolicy="no-referrer"
+                className="h-full w-full border-0"
+                width={viewportConfig.width}
+                height={viewportConfig.height}
+              />
+            )}
           </div>
         </div>
       </DialogContent>
