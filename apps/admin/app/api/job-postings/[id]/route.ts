@@ -67,7 +67,7 @@ export async function GET(
           id,
           name
         ),
-        platforms (
+        platforms!job_postings_platform_id_fkey (
           id,
           regio_platform,
           domain,

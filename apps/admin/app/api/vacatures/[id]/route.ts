@@ -58,7 +58,7 @@ async function getVacatureHandler(
           website,
           logo_url
         ),
-        platforms (
+        platforms!job_postings_platform_id_fkey (
           id,
           regio_platform
         )
