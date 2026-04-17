@@ -76,18 +76,34 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
  * Host-based tenant lookup WITHOUT is_public filter.
  * Used by the admin draft preview route so that non-public platforms
  * (like freshly-provisioned regio sites on *.vercel.app) still render.
+ *
+ * Uses separate queries instead of .or() because PostgREST's or-filter
+ * has issues with dots in hostnames (treats them as resource separators).
  */
 export async function getTenantByHostForPreview(host: string): Promise<Tenant | null> {
   const supabase = createPublicClient()
-  const { data, error } = await supabase
+
+  // Try preview_domain first (most common for admin previews on vercel.app)
+  const { data: previewMatch } = await supabase
     .from('platforms')
     .select(TENANT_SELECT)
-    .or(`domain.eq.${host},preview_domain.eq.${host}`)
+    .eq('preview_domain', host)
     .limit(1)
     .maybeSingle()
 
-  if (error || !data) return null
-  return mapTenantRow(data as PlatformRow)
+  if (previewMatch) return mapTenantRow(previewMatch as PlatformRow)
+
+  // Fall back to domain
+  const { data: domainMatch } = await supabase
+    .from('platforms')
+    .select(TENANT_SELECT)
+    .eq('domain', host)
+    .limit(1)
+    .maybeSingle()
+
+  if (domainMatch) return mapTenantRow(domainMatch as PlatformRow)
+
+  return null
 }
 
 /**
