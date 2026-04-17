@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3, Eye, ArrowUpRight } from "lucide-react"
 import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
 import { useDebounce } from "@/hooks/use-debounce"
+import { authFetch } from "@/lib/authenticated-fetch"
 import { useToast } from "@/hooks/use-toast"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { PipedriveSyncDialog } from "@/components/pipedrive-sync-dialog"
@@ -163,6 +164,8 @@ export default function ContactsPage() {
   const [categoryStatusFilter, setCategoryStatusFilter] = useState<string[]>([])
   const [pipedriveFilter, setPipedriveFilter] = useState<string>("all")
   const [instantlyFilter, setInstantlyFilter] = useState<string>("all")
+  const [platformFilter, setPlatformFilter] = useState<string[]>([])
+  const [platformOptions, setPlatformOptions] = useState<{ value: string; label: string }[]>([])
   const [dateFrom, setDateFrom] = useState<string | null>(null)
   const [dateTo, setDateTo] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -229,6 +232,7 @@ export default function ContactsPage() {
     categoryStatusFilter,
     pipedriveFilter,
     instantlyFilter,
+    platformFilter,
     dateFrom,
     dateTo
   ])
@@ -244,6 +248,7 @@ export default function ContactsPage() {
     categoryStatus: categoryStatusFilter.length > 0 ? categoryStatusFilter.join(',') : undefined,
     pipedriveFilter: pipedriveFilter !== "all" ? pipedriveFilter : undefined,
     instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined,
+    platformId: platformFilter.length > 0 ? platformFilter.join(',') : undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined
   }
@@ -345,6 +350,23 @@ export default function ContactsPage() {
     }
     loadCampaigns()
   }, [toast])
+
+  // Load platforms once for the platform filter
+  useEffect(() => {
+    const loadPlatforms = async () => {
+      try {
+        const response = await authFetch('/api/platforms')
+        const data = await response.json()
+        const options = (data?.platforms || [])
+          .filter((p: any) => p?.id && p?.regio_platform)
+          .map((p: any) => ({ value: p.id as string, label: p.regio_platform as string }))
+        setPlatformOptions(options)
+      } catch (error) {
+        console.error('Error loading platforms for filter:', error)
+      }
+    }
+    loadPlatforms()
+  }, [])
   
   // Update campaigns when toggle changes
   useEffect(() => {
@@ -397,6 +419,7 @@ export default function ContactsPage() {
     setCategoryStatusFilter([])
     setPipedriveFilter("all")
     setInstantlyFilter("all")
+    setPlatformFilter([])
     setDateFrom(null)
     setDateTo(null)
     setCurrentPage(1)
@@ -414,6 +437,7 @@ export default function ContactsPage() {
     if (categoryStatusFilter.length > 0) count++
     if (pipedriveFilter !== "all") count++
     if (instantlyFilter !== "all") count++
+    if (platformFilter.length > 0) count++
     if (dateFrom || dateTo) count++
     return count
   }
@@ -859,6 +883,15 @@ export default function ContactsPage() {
                     />
                   </Badge>
                 )}
+                {platformFilter.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    Platform: {platformFilter.length} geselecteerd
+                    <X
+                      className="h-3 w-3 cursor-pointer ml-1"
+                      onClick={() => setPlatformFilter([])}
+                    />
+                  </Badge>
+                )}
                 {(dateFrom || dateTo) && (
                   <Badge variant="secondary" className="gap-1">
                     Aangemaakt: {dateFrom && dateTo
@@ -1008,6 +1041,14 @@ export default function ContactsPage() {
                 <SelectItem value="not_synced">Niet in Instantly</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Platform Filter (regio-platform, via mv_company_platforms) */}
+            <MultiSelect
+              options={platformOptions}
+              selected={platformFilter}
+              onChange={setPlatformFilter}
+              placeholder="Platform"
+            />
 
             {/* Date Range Filter */}
             <DateRangeFilter

@@ -18,13 +18,14 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || ''
     const pipedriveFilter = searchParams.get('pipedriveFilter') || ''
     const instantlyFilter = searchParams.get('instantlyFilter') || ''
+    const platformId = searchParams.get('platformId') || ''
     const dateFrom = searchParams.get('dateFrom') || ''
     const dateTo = searchParams.get('dateTo') || ''
 
     console.log("API: Starting to fetch contacts with filters:", {
-      page, limit, search, inCampaign, hasEmail, companyStatus, companyStart, companySize, categoryStatus, status, pipedriveFilter, instantlyFilter, dateFrom, dateTo
+      page, limit, search, inCampaign, hasEmail, companyStatus, companyStart, companySize, categoryStatus, status, pipedriveFilter, instantlyFilter, platformId, dateFrom, dateTo
     })
-    
+
     const filters = {
       search: search || undefined,
       inCampaign: inCampaign || undefined,
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest) {
       categoryStatus: categoryStatus || undefined,
       status: status || undefined,
       pipedriveFilter: pipedriveFilter || undefined,
-      instantlyFilter: instantlyFilter || undefined
+      instantlyFilter: instantlyFilter || undefined,
+      platformId: platformId || undefined
     }
 
     // Remove empty filters
@@ -51,6 +53,31 @@ export async function GET(req: NextRequest) {
       filters.companyStart ||
       filters.companySize
     )
+
+    // Resolve platform filter → company_ids via mv_company_platforms (OR-semantiek).
+    // Empty result = geen matches → vroeg uit met lege response.
+    let platformCompanyIds: string[] | null = null
+    if (filters.platformId) {
+      const platformIds = filters.platformId.split(',').filter(Boolean)
+      const { data: mappingRows, error: mappingError } = await supabaseService.serviceClient
+        .from('mv_company_platforms')
+        .select('company_id')
+        .in('platform_id', platformIds)
+
+      if (mappingError) {
+        console.error('API: platform mapping query error:', mappingError)
+        throw mappingError
+      }
+
+      platformCompanyIds = Array.from(new Set((mappingRows || []).map(r => r.company_id)))
+
+      if (platformCompanyIds.length === 0) {
+        return NextResponse.json({
+          data: [],
+          pagination: { page, limit, total: 0, totalPages: 0 }
+        })
+      }
+    }
 
     // Build query with service role client
     let query = supabaseService.serviceClient
@@ -152,6 +179,11 @@ export async function GET(req: NextRequest) {
       query = query.eq('instantly_synced', true)
     } else if (filters.instantlyFilter === 'not_synced') {
       query = query.or('instantly_synced.is.null,instantly_synced.eq.false')
+    }
+
+    // Apply platform filter (OR-logica: contact zit op minstens één van de gekozen platforms)
+    if (platformCompanyIds) {
+      query = query.in('company_id', platformCompanyIds)
     }
 
     // Apply date range filter (created_at)

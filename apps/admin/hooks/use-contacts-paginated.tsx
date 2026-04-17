@@ -12,6 +12,7 @@ interface ContactsFilters {
   status?: string
   pipedriveFilter?: string
   instantlyFilter?: string
+  platformId?: string
   dateFrom?: string
   dateTo?: string
 }
@@ -65,6 +66,7 @@ export function useContactsPaginated(
       if (filters.status) params.append('status', filters.status)
       if (filters.pipedriveFilter) params.append('pipedriveFilter', filters.pipedriveFilter)
       if (filters.instantlyFilter) params.append('instantlyFilter', filters.instantlyFilter)
+      if (filters.platformId) params.append('platformId', filters.platformId)
       if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
       if (filters.dateTo) params.append('dateTo', filters.dateTo)
 

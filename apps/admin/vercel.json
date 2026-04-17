@@ -8,7 +8,8 @@
     { "path": "/api/cron/postcode-backfill", "schedule": "*/2 * * * *" },
     { "path": "/api/cron/refresh-contact-stats", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/watchdog", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/daily-campaign-report", "schedule": "0 8 * * *" }
+    { "path": "/api/cron/daily-campaign-report", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/refresh-company-platforms", "schedule": "0 10 * * *" }
   ],
   "functions": {
     "app/api/cron/campaign-assignment/route.ts": { "maxDuration": 300 },
