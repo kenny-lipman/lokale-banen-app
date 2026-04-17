@@ -1,4 +1,4 @@
-import { createPublicClient } from './supabase'
+import { createPublicClient, createPreviewServiceClient } from './supabase'
 import { slugifyCity } from '@lokale-banen/database'
 
 export interface JobPosting {
@@ -348,7 +348,8 @@ export async function getJobBySlug(
 export async function getJobByIdForPreview(
   jobId: string
 ): Promise<(JobPosting & { review_status?: string | null }) | null> {
-  const supabase = createPublicClient()
+  // Uses service role to bypass RLS (preview is behind HMAC token verification).
+  const supabase = createPreviewServiceClient()
 
   const { data, error } = await supabase
     .from('job_postings')

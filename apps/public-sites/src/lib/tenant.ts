@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { createPublicClient } from './supabase'
+import { createPublicClient, createPreviewServiceClient } from './supabase'
 
 export interface Tenant {
   id: string
@@ -81,7 +81,8 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
  * has issues with dots in hostnames (treats them as resource separators).
  */
 export async function getTenantByHostForPreview(host: string): Promise<Tenant | null> {
-  const supabase = createPublicClient()
+  // Uses service role to bypass RLS (preview is behind HMAC token verification).
+  const supabase = createPreviewServiceClient()
 
   // Try preview_domain first (most common for admin previews on vercel.app)
   const { data: previewMatch } = await supabase
@@ -112,7 +113,8 @@ export async function getTenantByHostForPreview(host: string): Promise<Tenant | 
  * theme when the vacancy's platform has no domain configured yet.
  */
 export async function getTenantById(platformId: string): Promise<Tenant | null> {
-  const supabase = createPublicClient()
+  // Uses service role to bypass RLS (preview is behind HMAC token verification).
+  const supabase = createPreviewServiceClient()
   const { data, error } = await supabase
     .from('platforms')
     .select(TENANT_SELECT)
