@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns"
 import { nl } from "date-fns/locale"
 
 import { cn } from "@/lib/utils"
+import { authFetch } from "@/lib/authenticated-fetch"
 
 export interface ActivityLogProps {
   vacature: {
@@ -84,9 +85,9 @@ function useReviewerName(reviewedBy: string | null): string {
 
     ;(async () => {
       try {
-        const res = await fetch(
+        const res = await authFetch(
           `/api/users/${encodeURIComponent(reviewedBy)}/profile`,
-          { signal: controller.signal, credentials: "include" },
+          { signal: controller.signal },
         )
         if (!res.ok) return
         const body = await res.json()

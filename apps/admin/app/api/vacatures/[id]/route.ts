@@ -183,12 +183,20 @@ async function updateVacatureHandler(
         const postcode = zipcodeVal.substring(0, 4)
         const { data: lookup } = await supabase
           .from('postcode_platform_lookup')
-          .select('platform_id')
+          .select('regio_platform')
           .eq('postcode', postcode)
           .order('distance', { ascending: true })
           .limit(1)
         if (lookup && lookup.length > 0) {
-          finalPlatformId = lookup[0].platform_id
+          const { data: platformRow } = await supabase
+            .from('platforms')
+            .select('id')
+            .eq('regio_platform', lookup[0].regio_platform)
+            .limit(1)
+            .maybeSingle()
+          if (platformRow) {
+            finalPlatformId = platformRow.id
+          }
         }
       }
       updateFields.platform_id = finalPlatformId
