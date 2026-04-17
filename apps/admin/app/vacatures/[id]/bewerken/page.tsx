@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -116,6 +116,15 @@ export default function BewerkVacaturePage() {
   const [contentMd, setContentMd] = useState("")
   const [contentEnrichedAt, setContentEnrichedAt] = useState<string | null>(null)
   const [aiRewriting, setAiRewriting] = useState(false)
+  // Track current company separately — survives race conditions with search
+  const [currentCompany, setCurrentCompany] = useState<CompanyOption | null>(null)
+
+  // Derived options list: always includes the current company if one is set
+  const companyOptions = useMemo<CompanyOption[]>(() => {
+    if (!currentCompany) return companies
+    if (companies.find((c) => c.value === currentCompany.value)) return companies
+    return [currentCompany, ...companies]
+  }, [companies, currentCompany])
 
   // Load companies for combobox
   const searchCompanies = useCallback(async (search: string) => {
@@ -124,24 +133,17 @@ export default function BewerkVacaturePage() {
       const res = await authFetch(`/api/companies/search?${params}`)
       const result = await res.json()
       if (result.success && result.companies) {
-        setCompanies((prev) => {
-          const searched = result.companies.map((c: { id: string; name: string }) => ({
+        setCompanies(
+          result.companies.map((c: { id: string; name: string }) => ({
             value: c.id,
             label: c.name,
           }))
-          // Preserve the currently selected company in options if not in search results
-          // (otherwise Combobox can't render its label)
-          const current = prev.find((c) => c.value === companyId)
-          if (current && !searched.find((c: CompanyOption) => c.value === current.value)) {
-            return [current, ...searched]
-          }
-          return searched
-        })
+        )
       }
     } catch {
       // Silently fail
     }
-  }, [companyId])
+  }, [])
 
   // Load initial companies
   useEffect(() => {
@@ -186,15 +188,13 @@ export default function BewerkVacaturePage() {
         const data = result.data
         setTitle(data.title || "")
         setCompanyId(data.company_id || "")
-        // Seed company option with the one attached to this vacancy, so the
-        // Combobox can render its label immediately (avoids empty selection
-        // when the current company is outside the top-50 search results).
-        if (data.company_id && (data.company_name || data.companies?.name)) {
+        // Persist current company in a dedicated state so it survives any
+        // race with the companies search useEffect. companyOptions merges.
+        if (data.company_id) {
           const label = data.company_name || data.companies?.name
-          setCompanies((prev) => {
-            if (prev.find((c) => c.value === data.company_id)) return prev
-            return [{ value: data.company_id, label }, ...prev]
-          })
+          if (label) {
+            setCurrentCompany({ value: data.company_id, label })
+          }
         }
         setCity(data.city || "")
         setZipcode(data.zipcode || "")
@@ -412,7 +412,7 @@ export default function BewerkVacaturePage() {
             <div className="space-y-2">
               <Label>Bedrijf *</Label>
               <Combobox
-                options={companies}
+                options={companyOptions}
                 value={companyId}
                 onValueChange={setCompanyId}
                 placeholder="Zoek een bedrijf..."

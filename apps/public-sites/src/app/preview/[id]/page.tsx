@@ -8,7 +8,7 @@
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getTenant } from '@/lib/tenant'
+import { getTenant, getTenantById } from '@/lib/tenant'
 import { getJobByIdForPreview } from '@/lib/queries'
 import { verifyPreviewToken } from '@lokale-banen/shared'
 import { TenantHeader } from '@/components/tenant-header'
@@ -22,7 +22,7 @@ import { AlertTriangle } from 'lucide-react'
 
 interface PreviewPageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ token?: string }>
+  searchParams: Promise<{ token?: string; platform?: string }>
 }
 
 // Always noindex — draft content, must never be public
@@ -33,13 +33,16 @@ export const metadata: Metadata = {
 
 export default async function PreviewPage({ params, searchParams }: PreviewPageProps) {
   const { id } = await params
-  const { token } = await searchParams
+  const { token, platform } = await searchParams
 
   if (!token || !verifyPreviewToken(id, token)) {
     notFound()
   }
 
-  const tenant = await getTenant()
+  // Prefer tenant by platform query param (for previews on fallback host).
+  // Falls back to host-based tenant resolution for platforms with domains.
+  let tenant = platform ? await getTenantById(platform) : null
+  if (!tenant) tenant = await getTenant()
   if (!tenant) notFound()
 
   const job = await getJobByIdForPreview(id)

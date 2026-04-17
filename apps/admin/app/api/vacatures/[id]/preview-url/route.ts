@@ -46,28 +46,28 @@ async function previewUrlHandler(
       preview_domain: string | null
     } | null
 
-    if (!platform) {
-      return NextResponse.json(
-        { success: false, error: 'Geen platform gekoppeld aan deze vacature' },
-        { status: 400 }
-      )
-    }
-
-    const host = platform.preview_domain ?? platform.domain
-    if (!host) {
-      return NextResponse.json(
-        { success: false, error: 'Platform heeft geen domain geconfigureerd' },
-        { status: 400 }
-      )
-    }
+    // Fallback: if platform has no domain configured, use the main
+    // public-sites Vercel alias. The preview route accepts a ?platform=
+    // query param to render with that tenant's theme regardless of host.
+    const FALLBACK_HOST = 'lokale-banen-public.vercel.app'
+    const host = platform?.preview_domain ?? platform?.domain ?? FALLBACK_HOST
+    const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/$/, '')
 
     const token = generatePreviewToken(id)
-    const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/$/, '')
-    const url = `https://${cleanHost}/preview/${id}?token=${token}`
+    const params = new URLSearchParams({ token })
+    // Pass platform id so preview page can apply correct tenant theme
+    // when the host is the fallback (multi-tenant-unaware) domain.
+    if (platform?.id) params.set('platform', platform.id)
+
+    const url = `https://${cleanHost}/preview/${id}?${params.toString()}`
 
     return NextResponse.json({
       success: true,
-      data: { url, expiresInMinutes: 60 },
+      data: {
+        url,
+        expiresInMinutes: 60,
+        usedFallback: !platform?.preview_domain && !platform?.domain,
+      },
     })
   } catch (error) {
     console.error('Error generating preview URL:', error)
