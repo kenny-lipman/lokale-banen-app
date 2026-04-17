@@ -110,34 +110,17 @@ async function updateVacatureHandler(
       return NextResponse.json({ success: false, error: 'ID is verplicht' }, { status: 400 })
     }
 
-    const {
-      title,
-      company_id,
-      city,
-      zipcode,
-      street,
-      state,
-      description,
-      content_md,
-      salary,
-      employment,
-      working_hours_min,
-      working_hours_max,
-      education_level,
-      categories,
-      url,
-      end_date,
-      platform_id,
-      review_status,
-      header_image_url,
-      seo_title,
-      seo_description,
-    } = body
+    // PARTIAL UPDATE: only write fields that are explicitly present in the body.
+    // `undefined` = field not sent = leave DB value untouched
+    // `null` or empty string = field explicitly cleared = write null to DB
+    // This prevents accidental data wipes when a partial payload is sent
+    // (e.g. AI rewrite panel sending only content_md).
+    const hasField = (key: string) => Object.prototype.hasOwnProperty.call(body, key)
 
     // Get current data to check if slug needs regeneration
     const { data: current } = await supabase
       .from('job_postings')
-      .select('title, city, slug, review_status, platform_id')
+      .select('title, city, slug, review_status, platform_id, zipcode, state')
       .eq('id', id)
       .single()
 
@@ -145,67 +128,80 @@ async function updateVacatureHandler(
       return NextResponse.json({ success: false, error: 'Vacature niet gevonden' }, { status: 404 })
     }
 
-    // Build location string
-    const locationParts = [city, state].filter(Boolean)
-    const location = locationParts.join(', ') || null
-
-    // Auto-assign platform via postcode if platform changed to auto
-    let finalPlatformId = platform_id || null
-    if (!finalPlatformId && zipcode) {
-      const postcode = zipcode.substring(0, 4)
-      const { data: lookup } = await supabase
-        .from('postcode_platform_lookup')
-        .select('platform_id')
-        .eq('postcode', postcode)
-        .order('distance', { ascending: true })
-        .limit(1)
-
-      if (lookup && lookup.length > 0) {
-        finalPlatformId = lookup[0].platform_id
-      }
-    }
-
     const updateFields: Record<string, unknown> = {
-      title,
-      company_id: company_id || null,
-      city: city || null,
-      zipcode: zipcode || null,
-      street: street || null,
-      state: state || null,
-      location,
-      description: description || null,
-      salary: salary || null,
-      employment: employment || null,
-      working_hours_min: working_hours_min ? parseInt(working_hours_min) : null,
-      working_hours_max: working_hours_max ? parseInt(working_hours_max) : null,
-      education_level: education_level || null,
-      categories: categories || null,
-      url: url || null,
-      end_date: end_date || null,
-      platform_id: finalPlatformId,
-      review_status: review_status || current.review_status,
       updated_at: new Date().toISOString(),
     }
 
-    // Optional fields — only set when explicitly sent
-    if (content_md !== undefined) {
-      updateFields.content_md = content_md || null
-      // Auto-set enrichment timestamp server-side when content_md is written
-      if (content_md) updateFields.content_enriched_at = new Date().toISOString()
-    }
-    if (seo_title !== undefined) updateFields.seo_title = seo_title || null
-    if (seo_description !== undefined) updateFields.seo_description = seo_description || null
+    // Simple string fields — null if empty, skip if not sent
+    if (hasField('title')) updateFields.title = body.title
+    if (hasField('company_id')) updateFields.company_id = body.company_id || null
+    if (hasField('city')) updateFields.city = body.city || null
+    if (hasField('zipcode')) updateFields.zipcode = body.zipcode || null
+    if (hasField('street')) updateFields.street = body.street || null
+    if (hasField('state')) updateFields.state = body.state || null
+    if (hasField('description')) updateFields.description = body.description || null
+    if (hasField('salary')) updateFields.salary = body.salary || null
+    if (hasField('employment')) updateFields.employment = body.employment || null
+    if (hasField('education_level')) updateFields.education_level = body.education_level || null
+    if (hasField('categories')) updateFields.categories = body.categories || null
+    if (hasField('url')) updateFields.url = body.url || null
+    if (hasField('end_date')) updateFields.end_date = body.end_date || null
+    if (hasField('review_status') && body.review_status) updateFields.review_status = body.review_status
+    if (hasField('header_image_url')) updateFields.header_image_url = body.header_image_url
+    if (hasField('seo_title')) updateFields.seo_title = body.seo_title || null
+    if (hasField('seo_description')) updateFields.seo_description = body.seo_description || null
 
-    // Only touch header_image_url when the client explicitly sent it.
-    // `undefined` leaves the DB value untouched; `null` clears it on remove.
-    if (header_image_url !== undefined) {
-      updateFields.header_image_url = header_image_url
+    // Numeric fields
+    if (hasField('working_hours_min')) {
+      updateFields.working_hours_min = body.working_hours_min ? parseInt(body.working_hours_min) : null
+    }
+    if (hasField('working_hours_max')) {
+      updateFields.working_hours_max = body.working_hours_max ? parseInt(body.working_hours_max) : null
     }
 
-    // Regenerate slug if title or city changed
-    if (title !== current.title || city !== current.city) {
-      const titlePart = (title || 'vacature').substring(0, 60).toLowerCase()
-      const cityPart = (city || 'onbekend').toLowerCase()
+    // content_md: auto-set enrichment timestamp when written
+    if (hasField('content_md')) {
+      updateFields.content_md = body.content_md || null
+      if (body.content_md) updateFields.content_enriched_at = new Date().toISOString()
+    }
+
+    // Rebuild location if city or state is being updated
+    if (hasField('city') || hasField('state')) {
+      const cityVal = hasField('city') ? body.city : current.city
+      const stateVal = hasField('state') ? body.state : (current as { state?: string | null }).state ?? null
+      const locationParts = [cityVal, stateVal].filter(Boolean)
+      updateFields.location = locationParts.join(', ') || null
+    }
+
+    // Platform: auto-assign via postcode if not explicitly set
+    let finalPlatformId: string | null = current.platform_id
+    if (hasField('platform_id')) {
+      finalPlatformId = body.platform_id || null
+      // If cleared and zipcode available, auto-assign
+      const zipcodeVal = hasField('zipcode') ? body.zipcode : (current as { zipcode?: string | null }).zipcode
+      if (!finalPlatformId && zipcodeVal) {
+        const postcode = zipcodeVal.substring(0, 4)
+        const { data: lookup } = await supabase
+          .from('postcode_platform_lookup')
+          .select('platform_id')
+          .eq('postcode', postcode)
+          .order('distance', { ascending: true })
+          .limit(1)
+        if (lookup && lookup.length > 0) {
+          finalPlatformId = lookup[0].platform_id
+        }
+      }
+      updateFields.platform_id = finalPlatformId
+    }
+
+    // Regenerate slug only if title or city was explicitly changed
+    const titleChanged = hasField('title') && body.title !== current.title
+    const cityChanged = hasField('city') && body.city !== current.city
+    if (titleChanged || cityChanged) {
+      const titleVal = hasField('title') ? body.title : current.title
+      const cityVal = hasField('city') ? body.city : current.city
+      const titlePart = (titleVal || 'vacature').substring(0, 60).toLowerCase()
+      const cityPart = (cityVal || 'onbekend').toLowerCase()
       const idPart = id.replace(/-/g, '').substring(0, 8)
       const rawSlug = `${titlePart}-${cityPart}-${idPart}`
       updateFields.slug = rawSlug
@@ -215,7 +211,7 @@ async function updateVacatureHandler(
     }
 
     // Set published_at if status changed to approved
-    if (review_status === 'approved' && current.review_status !== 'approved') {
+    if (hasField('review_status') && body.review_status === 'approved' && current.review_status !== 'approved') {
       updateFields.published_at = new Date().toISOString()
       updateFields.reviewed_at = new Date().toISOString()
     }
@@ -236,8 +232,8 @@ async function updateVacatureHandler(
       }, { status: 500 })
     }
 
-    // Update job_posting_platforms junction
-    if (finalPlatformId && finalPlatformId !== current.platform_id) {
+    // Update job_posting_platforms junction — only if platform was touched
+    if (hasField('platform_id') && finalPlatformId && finalPlatformId !== current.platform_id) {
       // Remove old platform assignment
       if (current.platform_id) {
         await supabase
