@@ -19,10 +19,13 @@ import Link from "next/link"
 import {
   Archive,
   ArchiveRestore,
+  ChevronDown,
   Circle,
   ExternalLink,
+  Globe,
   Loader2,
   Pencil,
+  Rocket,
   Send,
   EyeOff,
 } from "lucide-react"
@@ -38,6 +41,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -328,55 +339,136 @@ export function VacatureActionBar({
 
   // --------------------------- Shared helpers -----------------------------
 
+  const [openingPreview, setOpeningPreview] = React.useState(false)
+
+  // Open Vercel draft preview — fetches signed URL, then opens in new tab.
+  const handleOpenVercelPreview = React.useCallback(async () => {
+    if (openingPreview) return
+    setOpeningPreview(true)
+    try {
+      const res = await authFetch(`/api/vacatures/${vacature.id}/preview-url`)
+      const result = await res.json()
+      if (!res.ok || !result.success || !result.data?.url) {
+        toast.error(result?.error || "Preview URL genereren mislukt")
+        return
+      }
+      window.open(result.data.url, "_blank", "noopener,noreferrer")
+    } catch (err) {
+      toast.error("Preview URL genereren mislukt", {
+        description: err instanceof Error ? err.message : "Onbekende fout",
+      })
+    } finally {
+      setOpeningPreview(false)
+    }
+  }, [openingPreview, vacature.id])
+
+  const hasProductionUrl = !!publicUrl
+  const hasPlatform = !!platform
+  const canPreview = hasPlatform || hasProductionUrl
+
   const viewOnSiteButton = (() => {
-    const disabled = !publicUrl
-    const label = "Bekijk op site"
+    const size = variant === "compact" ? "sm" : "default"
 
-    const button = (
-      <Button
-        type="button"
-        variant="outline"
-        size={variant === "compact" ? "sm" : "default"}
-        disabled={disabled}
-        asChild={!disabled}
-        className={disabled ? "opacity-50 cursor-not-allowed" : undefined}
-      >
-        {disabled ? (
-          <span>
-            <ExternalLink aria-hidden="true" />
-            <span className={variant === "compact" ? "sr-only" : undefined}>
-              {label}
-            </span>
-          </span>
-        ) : (
-          <a
-            href={publicUrl ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink aria-hidden="true" />
-            <span className={variant === "compact" ? "sr-only" : undefined}>
-              {label}
-            </span>
-          </a>
-        )}
-      </Button>
-    )
+    if (!canPreview) {
+      // Neither production URL nor platform — fully disabled with tooltip
+      return (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size={size}
+                  disabled
+                  className="opacity-50 cursor-not-allowed"
+                >
+                  <ExternalLink aria-hidden="true" />
+                  <span className={variant === "compact" ? "sr-only" : undefined}>
+                    Bekijk op site
+                  </span>
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {!vacature.slug
+                ? "Geen slug beschikbaar"
+                : "Geen platform aan vacature gekoppeld"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
 
-    if (!disabled) return button
     return (
-      <TooltipProvider delayDuration={200}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>{button}</span>
-          </TooltipTrigger>
-          <TooltipContent>
-            {!vacature.slug
-              ? "Geen slug beschikbaar"
-              : "Geen domain ingesteld voor dit platform"}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size={size}
+            disabled={openingPreview}
+          >
+            {openingPreview ? (
+              <Loader2 className="animate-spin" aria-hidden="true" />
+            ) : (
+              <ExternalLink aria-hidden="true" />
+            )}
+            <span className={variant === "compact" ? "sr-only" : undefined}>
+              Bekijk op site
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-60" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-64">
+          <DropdownMenuLabel>Open vacature</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={!hasProductionUrl}
+            onSelect={(e) => {
+              if (!publicUrl) {
+                e.preventDefault()
+                return
+              }
+              window.open(publicUrl, "_blank", "noopener,noreferrer")
+            }}
+            className="flex-col items-start gap-0.5 cursor-pointer"
+          >
+            <div className="flex items-center gap-2 font-medium">
+              <Globe className="h-4 w-4" aria-hidden="true" />
+              <span>Productie</span>
+              {!hasProductionUrl && (
+                <span className="ml-auto text-xs text-muted-foreground">(n.v.t.)</span>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground pl-6">
+              {hasProductionUrl
+                ? "Live URL op het platform domein"
+                : !vacature.slug
+                  ? "Geen slug (nog niet gepubliceerd)"
+                  : "Platform heeft geen domain"}
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              handleOpenVercelPreview()
+            }}
+            className="flex-col items-start gap-0.5 cursor-pointer"
+          >
+            <div className="flex items-center gap-2 font-medium">
+              <Rocket className="h-4 w-4" aria-hidden="true" />
+              <span>Vercel preview</span>
+              <span className="ml-auto text-xs text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                draft
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground pl-6">
+              Werkt altijd — signed URL, 1u geldig
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     )
   })()
 
