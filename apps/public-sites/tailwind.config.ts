@@ -1,130 +1,83 @@
 import type { Config } from 'tailwindcss'
 
 /**
- * Tailwind theme for the public-sites app.
+ * Tailwind theme — Eyeron design system.
  *
- * All colors reference CSS custom properties so per-tenant theming happens
- * purely at runtime via `buildTenantThemeCss()` in `src/lib/theme.ts`.
+ * Alle kleuren mappen op CSS custom properties zodat per-tenant theming
+ * zuiver via runtime CSS-vars gebeurt (zie `lib/theme.ts` →
+ * `buildTenantThemeCss()`).
  *
- * Typography scale mirrors the editorial-regional design prototype in
- * `.branding-staging/design-prototype/styles.css` (t-mega/display/h1/h2/card/
- * body/meta/label/mono).
+ * Type-schaal en spacing volgen de Eyeron brand-spec
+ * (`.branding-staging/eyeron-mockups/tokens.css`).
  */
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       fontFamily: {
-        // Primary body font — Source Sans 3 via next/font
-        sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
-        body: ['var(--font-body)', 'system-ui', 'sans-serif'],
-        // Editorial display serif — Newsreader via next/font, variable opsz.
-        display: ['var(--font-display)', 'Iowan Old Style', 'Charter', 'Georgia', 'serif'],
-        // Monospace for numeric data (salary, distance, counts).
-        mono: ['var(--font-mono)', 'SF Mono', 'Menlo', 'monospace'],
+        sans: ['Tomica', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
       fontSize: {
-        // ── Editorial typography scale (prototype-authoritative) ────────
-        // t-mega: city-hero headline
-        't-mega': ['clamp(3rem, 7.5vw, 6rem)', { lineHeight: '0.95', letterSpacing: '-0.025em', fontWeight: '500' }],
-        // t-display: section hero headline
-        't-display': ['clamp(1.75rem, 3.2vw, 2.5rem)', { lineHeight: '1.08', letterSpacing: '-0.018em', fontWeight: '500' }],
-        // t-h1: primary page headline
-        't-h1': ['2.8rem', { lineHeight: '1.1', letterSpacing: '-0.015em', fontWeight: '700' }],
-        // t-h2: sub-section head
-        't-h2': ['1.5rem', { lineHeight: '1.25', letterSpacing: '-0.008em', fontWeight: '700' }],
-        // t-card: card title
-        't-card': ['1rem', { lineHeight: '1.3', fontWeight: '700' }],
-        // t-body: prose paragraphs
-        't-body': ['1rem', { lineHeight: '1.6', fontWeight: '400' }],
-        // t-meta: tertiary info
-        't-meta': ['0.875rem', { lineHeight: '1.45', fontWeight: '400' }],
-        // t-label: section eyebrows
-        't-label': ['0.75rem', { lineHeight: '1.3', fontWeight: '400', letterSpacing: '0.09em' }],
-        // t-mono: numeric data
-        't-mono': ['0.75rem', { lineHeight: '1.4', fontWeight: '400', letterSpacing: '0' }],
-
-        // ── Back-compat aliases (used by existing components) ──────────
-        'display': ['clamp(1.75rem, 3.2vw, 2.5rem)', { lineHeight: '1.08', letterSpacing: '-0.018em', fontWeight: '500' }],
-        'h1': ['2.8rem', { lineHeight: '1.1', letterSpacing: '-0.015em', fontWeight: '700' }],
-        'h2': ['1.5rem', { lineHeight: '1.25', letterSpacing: '-0.008em', fontWeight: '700' }],
-        'card-title': ['1rem', { lineHeight: '1.3', fontWeight: '700' }],
-        'body': ['1rem', { lineHeight: '1.6', fontWeight: '400' }],
-        'body-medium': ['0.9375rem', { lineHeight: '1.55', fontWeight: '500' }],
-        'meta': ['0.8125rem', { lineHeight: '1.4', fontWeight: '400', letterSpacing: '0.01em' }],
-        'salary': ['0.9375rem', { lineHeight: '1.4', fontWeight: '500' }],
-        'caption': ['0.75rem', { lineHeight: '1.4', fontWeight: '400', letterSpacing: '0.02em' }],
-        'button': ['0.9375rem', { lineHeight: '1.4', fontWeight: '600', letterSpacing: '0.01em' }],
+        // Eyeron type-scale (gekoppeld aan CSS vars voor flexibele clamp)
+        'h1':    ['var(--fs-h1)',  { lineHeight: '1.15', letterSpacing: '-0.025em' }],
+        'h2':    ['var(--fs-h2)',  { lineHeight: '1.4',  letterSpacing: '-0.012em' }],
+        'h3':    ['var(--fs-h3)',  { lineHeight: '1.4' }],
+        'body':  ['1rem',          { lineHeight: '1.6' }],
+        'meta':  ['0.875rem',      { lineHeight: '1.5' }],
+        'small': ['0.75rem',       { lineHeight: '1.4' }],
+        'input': ['1.125rem',      { lineHeight: '1.4' }],
       },
       colors: {
-        // Paper canvas
-        background: 'var(--bg)',
-        'bg-tint': 'var(--bg-tint)',
-        surface: 'var(--surface)',
-        'surface-2': 'var(--surface-2)',
-
-        // Ink
-        foreground: 'var(--text)',
-        'text-2': 'var(--text-2)',
-        muted: 'var(--text-muted)',
-        'muted-foreground': 'var(--text-faint)',
-
-        // Lines
-        border: 'var(--border)',
-        'border-strong': 'var(--border-strong)',
-        'border-ink': 'var(--border-ink)',
-        'border-subtle': 'var(--border-subtle)',
-
-        // Brand — primary
+        // ── Brand: per-tenant ─────────────────────────────────────────
         primary: {
-          DEFAULT: 'var(--primary)',
-          foreground: 'var(--primary-ink)',
-          ink: 'var(--primary-ink)',
-          hover: 'var(--primary-hover)',
-          light: 'var(--primary-tint)',
-          tint: 'var(--primary-tint)',
-          muted: 'var(--primary-muted)',
-          dark: 'var(--primary-dark)',
+          DEFAULT:      'var(--primary)',
+          hover:        'var(--primary-hover)',
+          active:       'var(--primary-active)',
+          ink:          'var(--primary-ink)',
+          foreground:   'var(--primary-ink)',
+          tint:         'var(--primary-tint-08)',
+          'tint-strong':'var(--primary-tint-16)',
         },
-        // Brand — secondary (editorial accent)
         secondary: {
-          DEFAULT: 'var(--secondary)',
-          foreground: 'var(--secondary-ink)',
-          ink: 'var(--secondary-ink)',
-          tint: 'var(--secondary-tint)',
-          dark: 'var(--secondary-dark)',
-        },
-        // Brand — tertiary (warm cream)
-        tertiary: {
-          DEFAULT: 'var(--tertiary)',
+          DEFAULT:      'var(--secondary)',
+          hover:        'var(--secondary-hover)',
+          active:       'var(--secondary-active)',
+          ink:          'var(--secondary-ink)',
+          foreground:   'var(--secondary-ink)',
         },
 
-        // Semantic tokens
-        salary: 'var(--text)',
-        'card-hover': 'var(--surface-2)',
-        'card-selected': 'var(--primary-tint)',
-        success: 'var(--success)',
-        warning: 'var(--warning)',
-        danger: 'var(--danger)',
-      },
-      boxShadow: {
-        'sm': 'var(--shadow-sm)',
-        'card': 'var(--shadow-card)',
-        'card-hover': 'var(--shadow-card-hover)',
+        // ── Neutralen (statisch) ──────────────────────────────────────
+        page:         'var(--bg-page)',
+        surface:      'var(--bg-surface)',
+        body:         'var(--text-body)',
+        placeholder:  'var(--text-placeholder)',
+        'on-dark':    'var(--text-on-dark)',
+        divider:      'var(--border-medium)',
+        'divider-subtle': 'var(--border-subtle)',
       },
       borderRadius: {
-        DEFAULT: 'var(--radius)',
-        'sm': 'var(--r-sm)',
-        'md': 'var(--r-md)',
-        'lg': 'var(--r-lg)',
-        'xl': 'var(--r-xl)',
+        'card':   '0',
+        'input':  '1.5rem',     /* 24px */
+        'button': '1.25rem',    /* 20px */
+        'pill':   '0.9375rem',  /* 15px */
+      },
+      boxShadow: {
+        'card':       'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card-hover)',
       },
       maxWidth: {
-        'content': '640px',
-        'max': 'var(--max)',
+        'content': 'var(--max-content-width)',
+        'main':    'var(--content-main-width)',
+        'sidebar': 'var(--content-sidebar-width)',
       },
       spacing: {
-        'pad': 'var(--pad)',
+        'pad':          'var(--container-pad)',
+        'header-desk':  'var(--header-height-desk)',
+        'header-mob':   'var(--header-height-mob)',
+        'gap-content':  'var(--content-gap)',
+      },
+      transitionTimingFunction: {
+        'eyeron': 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

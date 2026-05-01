@@ -2,136 +2,149 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Tomica — self-hosted webfont (5 weights, woff2)
+   ========================================================================== */
+@font-face {
+  font-family: "Tomica";
+  src: url("/fonts/Tomica-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Tomica";
+  src: url("/fonts/Tomica-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Tomica";
+  src: url("/fonts/Tomica-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Tomica";
+  src: url("/fonts/Tomica-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Tomica";
+  src: url("/fonts/Tomica-Thin.woff2") format("woff2");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   Eyeron design tokens
+   ========================================================================== */
 @layer base {
   :root {
-    /* ── Paper aesthetic — warm off-white canvas & ink ────────────────── */
-    --bg: #FAF8F4;
-    --bg-tint: #F5F1E8;
-    --surface: #FFFFFF;
-    --surface-2: #F9F7F1;
+    /* ── BRAND — per-tenant overschreven via <TenantTheme> ──────────── */
+    --primary:           #0A6333;
+    --primary-hover:     #094B27;
+    --primary-active:    #073A1E;
+    --primary-tint-08:   #EEF6F0;
+    --primary-tint-16:   #DEEDE2;
+    --primary-ink:       #FFFFFF;
 
-    /* Ink */
-    --text: #1A1815;
-    --text-2: #3E3A34;
-    --text-muted: #635C55;
-    --text-faint: #A8A29B;
+    --secondary:         #7BC142;
+    --secondary-hover:   #6CAA3B;
+    --secondary-active:  #5D9333;
+    --secondary-ink:     #FFFFFF;
 
-    /* Lines */
-    --border: #E8E3DA;
-    --border-strong: #D4CCBF;
-    --border-ink: #1A1815;
-    --border-subtle: #F1EDE5;
+    /* ── NEUTRALEN (statisch over alle portals) ─────────────────────── */
+    --bg-page:           #F8FAFC;
+    --bg-surface:        #FFFFFF;
+    --text-body:         #7C7C7C;
+    --text-placeholder:  #999999;
+    --text-on-dark:      #FFFFFF;
+    --border-subtle:     #EEF2F7;
+    --border-medium:     #E5E7EB;
 
-    /* State */
-    --success: #2D7D46;
-    --warning: #B8860B;
-    --danger: #A3281D;
+    /* ── TYPOGRAPHY ──────────────────────────────────────────────────── */
+    --font-family: "Tomica", "Inter", system-ui, -apple-system, sans-serif;
 
-    /* ── Legacy tokens kept for back-compat with existing TSX ─────────── */
-    --background: var(--bg);
-    --surface: var(--surface);
-    --foreground: var(--text);
-    --muted: var(--text-muted);
-    --muted-foreground: var(--text-faint);
-    --ring: var(--primary);
-    --salary: var(--text);
-    --card-hover: var(--surface-2);
-    --card-selected: var(--primary-tint);
-    --card-selected-border: var(--primary);
+    --fs-h1:    clamp(1.75rem, 2.4vw + 0.5rem, 2.8rem);
+    --fs-h2:    clamp(1.25rem, 1.2vw + 0.5rem, 1.5rem);
+    --fs-h3:    1.125rem;
+    --fs-body:  1rem;
+    --fs-meta:  0.875rem;
+    --fs-small: 0.75rem;
+    --fs-input: 1.125rem;
 
-    /* ── Per-tenant color tokens — overridden via layout.tsx ──────────── */
-    --primary: #006B5E;
-    --primary-ink: #FFFFFF;
-    --primary-foreground: #FFFFFF;
-    --primary-hover: #005A4F;
-    --primary-light: #E8F5F2;
-    --primary-tint: #E8F5F2;
-    --primary-muted: #B2DDD5;
-    --primary-dark: #004842;
+    --tracking-tight:   -0.025em;
+    --tracking-tighter: -0.05em;
 
-    /* Secondary — defaults to neutral ink when tenant lacks a value */
-    --secondary: #1A1815;
-    --secondary-ink: #FFFFFF;
-    --secondary-foreground: #FFFFFF;
-    --secondary-tint: #F1EDE5;
-    --secondary-dark: #000000;
+    /* ── SHADOWS ─────────────────────────────────────────────────────── */
+    --shadow-card:        0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-card-hover:  0 4px 16px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
 
-    /* Tertiary — defaults to warm cream */
-    --tertiary: #F6F1E3;
+    /* ── LAYOUT ──────────────────────────────────────────────────────── */
+    --max-content-width:     1299px;
+    --content-main-width:    917px;
+    --content-sidebar-width: 344px;
+    --content-gap:           38px;
+    --header-height-desk:    99px;
+    --header-height-mob:     64px;
+    --container-pad:         clamp(20px, 4vw, 48px);
 
-    /* Shadows — almost none, we use rules */
-    --shadow-sm: 0 1px 2px rgba(26, 24, 21, 0.04), 0 1px 1px rgba(26, 24, 21, 0.02);
-    --shadow-card: 0 2px 8px rgba(26, 24, 21, 0.05), 0 4px 16px rgba(26, 24, 21, 0.03);
-    --shadow-card-hover: 0 4px 24px rgba(26, 24, 21, 0.06), 0 0 0 1px var(--border);
-
-    /* Radii — 4px grid */
-    --radius: 10px;
-    --r-sm: 6px;
-    --r-md: 10px;
-    --r-lg: 14px;
-    --r-xl: 20px;
-
-    /* Layout */
-    --list-col: 460px;
-    --max: 1440px;
-    --pad: clamp(16px, 2.4vw, 32px);
-
-    /* Font families — wired to next/font CSS vars */
-    --font-display-stack: var(--font-display), 'Iowan Old Style', 'Charter', Georgia, serif;
-    --font-body-stack: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-mono-stack: var(--font-mono), 'SF Mono', 'Menlo', monospace;
+    /* ── MOTION ──────────────────────────────────────────────────────── */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --dur-fast: 150ms;
+    --dur-base: 200ms;
   }
-}
 
-@layer base {
   body {
-    background-color: var(--bg);
-    color: var(--text);
-    font-family: var(--font-body-stack);
-    font-feature-settings: "ss01" on, "cv11" on;
+    font-family: var(--font-family);
+    font-weight: 400;
+    font-size: var(--fs-body);
+    color: var(--primary);
+    background: var(--bg-page);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
   }
 
-  /* Display headings use Newsreader by default */
-  h1, h2, h3 {
-    font-family: var(--font-display-stack);
-    font-weight: 500;
-    letter-spacing: -0.012em;
+  ::selection {
+    background: color-mix(in srgb, var(--secondary) 30%, transparent);
+    color: var(--primary);
   }
 }
 
-/* ── Scroll utilities ───────────────────────────────────────────────── */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+/* ── A11y: skip-link & sr-only ──────────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--primary);
+  color: var(--primary-ink);
+  padding: 12px 20px;
+  z-index: 100;
+  font-weight: 700;
 }
-.scrollbar-thin::-webkit-scrollbar { width: 6px; }
-.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.skip-link:focus { left: 0; }
 
-.scrollbar-none {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.scrollbar-none::-webkit-scrollbar { display: none; }
-
-/* ── Mobile bottom bar spacing (only when bar is present) ──────────── */
-@media (max-width: 1023px) {
-  body:has(.mobile-filter-bar) { padding-bottom: 72px; }
-}
-
-/* ── Card hover effects ────────────────────────────────────────────── */
-.group:hover .card-accent-bar {
-  background: var(--secondary) !important;
-  width: 3px !important;
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
 }
 
-/* ── Reduced motion ─────────────────────────────────────────────────── */
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

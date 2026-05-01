@@ -1,50 +1,24 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { Source_Sans_3, Newsreader, JetBrains_Mono } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { nlNL } from '@clerk/localizations'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
-import { hexToLightVariant, darkenHex, hexToMutedVariant } from '@/lib/utils'
-import { buildTenantThemeCss } from '@/lib/theme'
+import { buildTenantThemeCss, buildTenantThemeStyle } from '@/lib/theme'
 import { CookieConsent } from '@/components/cookie-consent'
 import './globals.css'
 
-const sourceSans = Source_Sans_3({
-  subsets: ['latin'],
-  variable: '--font-body',
-  display: 'swap',
-  weight: ['300', '400', '500', '600', '700'],
-})
-
-// Editorial display serif — variable optical-size (opsz 6..72) + variable weight 200-800.
-// `display: 'optional'` avoids blocking LCP; falls back to system serif until ready.
-// NB: when `axes` is set, weight must be 'variable' (or omitted) — not specific values.
-const newsreader = Newsreader({
-  subsets: ['latin'],
-  variable: '--font-display',
-  display: 'optional',
-  style: ['normal', 'italic'],
-  axes: ['opsz'],
-})
-
-// Editorial monospace — used for salary, distance-chip, counts.
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  display: 'optional',
-  weight: ['400', '500'],
-})
-
-// Default brand color used during static prerender; the TenantTheme below
-// streams in per-tenant overrides at request time without blocking the shell.
-const DEFAULT_PRIMARY = '#006B5E'
-const DEFAULT_SECONDARY: string | null = null
-const DEFAULT_TERTIARY: string | null = null
+/**
+ * Default brand-kleuren tijdens static prerender — Achterhoek-groen
+ * (de facto LokaleBanen-merkkleur, gebruikt in alle Eyeron brand-docs).
+ * Wordt request-time overschreven door <TenantTheme>.
+ */
+const DEFAULT_PRIMARY = '#0A6333'
+const DEFAULT_SECONDARY = '#7BC142'
 
 /**
- * Safely attempt to resolve tenant data.
- * Returns null during static prerendering (/_not-found) when headers() is unavailable.
+ * Veilige tenant-resolve: returnt null tijdens static prerender wanneer
+ * `headers()` niet beschikbaar is (bv. /_not-found).
  */
 async function safeTenant() {
   try {
@@ -67,19 +41,15 @@ export async function generateMetadata(): Promise<Metadata> {
     robots: {
       index: true,
       follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-      },
+      googleBot: { index: true, follow: true },
     },
   }
 }
 
 /**
- * Dynamic theme override component. Streams per-tenant CSS variables into
- * the document head at request time. The static shell ships with
- * DEFAULT_PRIMARY so the page remains useful even before this component
- * resolves.
+ * Per-tenant CSS variabelen die request-time worden geinjecteerd. De static
+ * shell ship met DEFAULT_PRIMARY/SECONDARY zodat de pagina al bruikbaar is
+ * voordat dit component is opgelost.
  */
 async function TenantTheme() {
   const tenant = await safeTenant()
@@ -87,8 +57,7 @@ async function TenantTheme() {
 
   const css = buildTenantThemeCss({
     primary: tenant.primary_color || DEFAULT_PRIMARY,
-    secondary: tenant.secondary_color,
-    tertiary: tenant.tertiary_color,
+    secondary: tenant.secondary_color || DEFAULT_SECONDARY,
   })
 
   return (
@@ -104,43 +73,46 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Static shell with default theme vars — safe to prerender.
-  // Uses the paper/warm-neutral fallbacks from theme.ts so the shell already
-  // honours the editorial palette before tenant data streams in.
-  const defaultThemeStyle: React.CSSProperties = {
-    '--primary': DEFAULT_PRIMARY,
-    '--primary-hover': darkenHex(DEFAULT_PRIMARY, 0.1),
-    '--primary-light': hexToLightVariant(DEFAULT_PRIMARY, 0.08),
-    '--primary-tint': hexToLightVariant(DEFAULT_PRIMARY, 0.08),
-    '--primary-muted': hexToMutedVariant(DEFAULT_PRIMARY),
-    '--primary-dark': darkenHex(DEFAULT_PRIMARY, 0.25),
-  } as React.CSSProperties
-
-  const fontVars = [
-    sourceSans.variable,
-    newsreader.variable,
-    jetbrainsMono.variable,
-  ].join(' ')
+  // Static shell met default brand-kleuren — veilig prerenderbaar.
+  const defaultThemeStyle = buildTenantThemeStyle({
+    primary: DEFAULT_PRIMARY,
+    secondary: DEFAULT_SECONDARY,
+  }) as React.CSSProperties
 
   return (
-    <html lang="nl" className={fontVars} style={defaultThemeStyle}>
+    <html lang="nl" style={defaultThemeStyle}>
       <head>
-        {/* Tenant-specific CSS variables stream in at request time */}
+        {/* Preload de twee meest-gebruikte Tomica weights voor LCP-snelheid */}
+        <link
+          rel="preload"
+          href="/fonts/Tomica-Regular.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/Tomica-Bold.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        {/* Tenant-specifieke CSS-variabelen streamen in op request-time */}
         <Suspense fallback={null}>
           <TenantTheme />
         </Suspense>
       </head>
-      <body className="font-sans">
+      <body>
         <ClerkProvider
           localization={nlNL}
           appearance={{
             variables: {
               colorPrimary: DEFAULT_PRIMARY,
-              colorText: '#1A1815',
+              colorText: '#0A6333',
               colorInputBackground: '#FFFFFF',
-              colorInputText: '#1A1815',
-              fontFamily: 'var(--font-body)',
-              borderRadius: '8px',
+              colorInputText: '#0A6333',
+              fontFamily: 'Tomica, Inter, system-ui, sans-serif',
+              borderRadius: '20px',
             },
             elements: {
               headerSubtitle: { display: 'none' },

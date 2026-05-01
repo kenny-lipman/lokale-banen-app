@@ -54,34 +54,44 @@ export function darkenHex(hex: string, factor: number): string {
 }
 
 /**
- * Generate a muted (desaturated lighter) variant of a hex color.
+ * Compute WCAG relative luminance (0-1) of a hex color.
  */
-export function hexToMutedVariant(hex: string): string {
+function relativeLuminance(hex: string): number | null {
   const parsed = parseHex(hex)
-  if (!parsed) return '#B2DDD5'
-  // Mix with a light gray at ~35% opacity
-  const r = 200 * 0.65 + parsed.r * 0.35
-  const g = 210 * 0.65 + parsed.g * 0.35
-  const b = 205 * 0.65 + parsed.b * 0.35
-  return toHex(r, g, b)
-}
-
-/**
- * Return the best contrast ink color (#FFFFFF or #1A1815) for a given
- * background hex. Uses WCAG relative luminance.
- */
-export function getContrastInk(hex: string): string {
-  const parsed = parseHex(hex)
-  if (!parsed) return '#FFFFFF'
+  if (!parsed) return null
   const toLinear = (c: number) => {
     const s = c / 255
     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
   }
-  const L =
+  return (
     0.2126 * toLinear(parsed.r) +
     0.7152 * toLinear(parsed.g) +
     0.0722 * toLinear(parsed.b)
-  return L > 0.45 ? '#1A1815' : '#FFFFFF'
+  )
+}
+
+/**
+ * Return the best contrast ink color (#FFFFFF or #0A0A0A) for a given
+ * background hex. Uses WCAG relative luminance.
+ */
+export function getContrastInk(hex: string): string {
+  const L = relativeLuminance(hex)
+  if (L === null) return '#FFFFFF'
+  return L > 0.45 ? '#0A0A0A' : '#FFFFFF'
+}
+
+/**
+ * Pick the right link-kleur op witte achtergrond. Een aantal portals
+ * (OssenseBanen, HoornseBanen, ZaanstadseBanen, ZaanstreekseBanen) hebben
+ * een te lichte secondary om als body-link op witte bg te gebruiken
+ * (WCAG AA fail). Fallback naar primary in die gevallen.
+ *
+ * Werkt op luminance: > 0.45 = te licht voor witte bg.
+ */
+export function getLinkColor(secondary: string, primary: string): string {
+  const L = relativeLuminance(secondary)
+  if (L === null) return primary
+  return L > 0.45 ? primary : secondary
 }
 
 /**
