@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "preprocess-logos": "node scripts/preprocess-logos.mjs"
   },
   "dependencies": {
     "@clerk/localizations": "^4.4.0",
