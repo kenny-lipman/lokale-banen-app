@@ -9,6 +9,7 @@ import {
   Checkbox,
   PortalLogo,
   MasterLogo,
+  SearchBanner,
 } from '@/components/eyeron'
 import { resolveTheme } from '@/lib/theme'
 
@@ -61,6 +62,14 @@ function VariantBlock({ variant }: { variant: typeof VARIANTS[number] }) {
         {/* PortalLogo */}
         <Row label="PortalLogo (SVG)">
           <PortalLogo tenantName={variant.name} height={43} />
+        </Row>
+
+        {/* SearchBanner */}
+        <Row label="SearchBanner">
+          <SearchBanner
+            region={variant.name.replace(/seBanen$/, '').replace(/Banen$/, '')}
+            jobCount={25}
+          />
         </Row>
 
         {/* PillButton */}
