@@ -8,6 +8,10 @@ interface UnsaveButtonProps {
   jobId: string
 }
 
+/**
+ * Verwijder-knop voor opgeslagen vacatures. Eyeron-styled met primary
+ * hover-tint; subtiel maar duidelijk herkenbaar als destructieve actie.
+ */
 export function UnsaveButton({ jobId }: UnsaveButtonProps) {
   const [isPending, startTransition] = useTransition()
 
@@ -19,12 +23,13 @@ export function UnsaveButton({ jobId }: UnsaveButtonProps) {
 
   return (
     <button
+      type="button"
       onClick={handleUnsave}
       disabled={isPending}
       aria-label="Verwijder uit opgeslagen"
-      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+      className="inline-flex items-center justify-center min-w-11 min-h-11 text-body hover:text-primary hover:bg-primary-tint transition-colors shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-[-3px]"
     >
-      <X className="h-4 w-4" />
+      <X className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
     </button>
   )
 }
