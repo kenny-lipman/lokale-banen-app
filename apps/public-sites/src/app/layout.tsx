@@ -4,7 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import { nlNL } from '@clerk/localizations'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
-import { buildTenantThemeCss, buildTenantThemeStyle } from '@/lib/theme'
+import { buildTenantThemeCss } from '@/lib/theme'
 import { CookieConsent } from '@/components/cookie-consent'
 import './globals.css'
 
@@ -73,14 +73,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Static shell met default brand-kleuren — veilig prerenderbaar.
-  const defaultThemeStyle = buildTenantThemeStyle({
-    primary: DEFAULT_PRIMARY,
-    secondary: DEFAULT_SECONDARY,
-  }) as React.CSSProperties
-
   return (
-    <html lang="nl" style={defaultThemeStyle}>
+    <html lang="nl">
       <head>
         {/* Preload de twee meest-gebruikte Tomica weights voor LCP-snelheid */}
         <link

@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import type { Tenant } from '@/lib/tenant'
-import { Wordmark } from './wordmark'
-import { MasterLogo } from './portal-logo'
+import { MasterLogo, PortalLogo } from './portal-logo'
 
 interface SiteFooterProps {
   tenant: Tenant
@@ -48,7 +47,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr] gap-8 sm:gap-9 pb-9 border-b border-[rgba(255,255,255,0.18)]">
           {/* Brand-kolom */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Wordmark name={tenant.name} onDark className="text-2xl mb-3" />
+            <PortalLogo tenantName={tenant.name} height={36} className="mb-3" />
             <p className="text-meta font-light leading-relaxed max-w-[24ch]">
               Onderdeel van het LokaleBanen-netwerk. Tientallen regionale sites,
               één missie: werk dichtbij huis vinden.
@@ -95,7 +94,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
               className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
               aria-label="LokaleBanen netwerk"
             >
-              <MasterLogo height={28} className="filter brightness-0 invert" />
+              <MasterLogo height={28} />
             </Link>
           )}
         </div>
