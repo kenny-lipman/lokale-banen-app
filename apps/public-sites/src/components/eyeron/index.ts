@@ -46,3 +46,6 @@ export { CompanyProfile } from './company-profile'
 export { ApplyButton } from './apply-button'
 export { ApplyLink } from './apply-link'
 export { ShareButtons } from './share-buttons'
+
+// Static content (fase 9)
+export { ProseContent } from './prose-content'

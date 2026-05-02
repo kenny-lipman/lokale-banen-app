@@ -1,78 +1,79 @@
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
-import { TenantHeader } from '@/components/tenant-header'
-import { Footer } from '@/components/footer'
-import { renderMarkdown } from '@/lib/utils'
-import Link from 'next/link'
+import { getCitiesWithJobCounts } from '@/lib/queries'
+import {
+  SiteHeader,
+  SiteFooter,
+  Breadcrumbs,
+  PageHero,
+  ProseContent,
+  PillButton,
+  ArrowRight,
+} from '@/components/eyeron'
 
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenant()
   return {
     title: `Over ons | ${tenant?.name || 'Lokale Banen'}`,
-    description: tenant?.seo_description || `Meer informatie over ${tenant?.name || 'ons platform'}`,
+    description:
+      tenant?.seo_description ||
+      `Meer informatie over ${tenant?.name || 'ons platform'}`,
     alternates: {
       canonical: tenant?.domain ? `https://${tenant.domain}/over-ons` : undefined,
     },
   }
 }
 
-const DEFAULT_ABOUT = `## Over ons
+const DEFAULT_ABOUT = `## Onze missie
 
-Welkom bij ons vacatureplatform. Wij verbinden werkzoekenden met lokale werkgevers in de regio.
+Wij geloven dat de beste banen dicht bij huis te vinden zijn. Ons platform maakt het eenvoudig om vacatures in jouw regio te ontdekken — zonder ruis, zonder dezelfde vacature in tien tabbladen.
 
-### Onze missie
-
-Wij geloven dat de beste banen dicht bij huis te vinden zijn. Ons platform maakt het eenvoudig om vacatures in jouw regio te ontdekken.
-
-### Wat wij doen
+## Wat wij doen
 
 - Dagelijks nieuwe vacatures uit de regio
-- Eenvoudig zoeken op functie en locatie
-- Direct solliciteren bij de werkgever`
+- Eenvoudig zoeken op functie, locatie en uren
+- Direct solliciteren bij de werkgever
+- Lokale werkgevers, lokale banen — niet de grote landelijke spelers
+
+## Onderdeel van het LokaleBanen-netwerk
+
+We zijn één van de tientallen regionale jobboards binnen het LokaleBanen-netwerk. Eén missie, tientallen regio's: werk dichtbij huis vinden.`
 
 export default async function OverOnsPage() {
   const tenant = await getTenant()
-
   if (!tenant) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-body text-muted-foreground">Platform niet gevonden.</p>
+        <p className="text-meta font-light text-body">Platform niet gevonden.</p>
       </div>
     )
   }
 
+  const cities = await getCitiesWithJobCounts(tenant.id)
   const content = tenant.about_text || DEFAULT_ABOUT
-  const html = renderMarkdown(content)
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface">
-      <TenantHeader tenant={tenant} showSearch={false} />
+    <div className="flex flex-col min-h-screen">
+      <SiteHeader tenant={tenant} />
 
-      <main className="flex-1 max-w-content mx-auto w-full py-8 px-4 lg:px-8">
-        {/* Hero */}
-        <div className="mb-8">
-          <h1 className="text-display text-foreground">Over {tenant.name}</h1>
-        </div>
-
-        {/* Content */}
-        <div
-          className="text-body text-foreground"
-          dangerouslySetInnerHTML={{ __html: html }}
+      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8">
+        <Breadcrumbs
+          className="mb-5"
+          items={[{ label: tenant.name, href: '/' }, { label: 'Over ons' }]}
         />
+        <PageHero title={`Over ${tenant.name}`} />
 
-        {/* CTA */}
-        <div className="mt-12 pt-8" style={{ borderTop: '1px solid var(--border)' }}>
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center h-10 px-6 rounded-lg text-button text-primary-foreground transition-colors"
-            style={{ backgroundColor: 'var(--primary)' }}
-          >
+        <ProseContent>{content}</ProseContent>
+
+        <div className="mt-12 pt-8 border-t border-divider-subtle">
+          <PillButton href="/" variant="primary">
             Bekijk onze vacatures
-          </Link>
+            <ArrowRight />
+          </PillButton>
         </div>
       </main>
 
-      <Footer tenant={tenant} />
+      <SiteFooter tenant={tenant} cities={cities} />
     </div>
   )
 }

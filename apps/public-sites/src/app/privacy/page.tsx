@@ -1,8 +1,13 @@
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
-import { TenantHeader } from '@/components/tenant-header'
-import { Footer } from '@/components/footer'
-import { renderMarkdown } from '@/lib/utils'
+import { getCitiesWithJobCounts } from '@/lib/queries'
+import {
+  SiteHeader,
+  SiteFooter,
+  Breadcrumbs,
+  PageHero,
+  ProseContent,
+} from '@/components/eyeron'
 
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenant()
@@ -17,40 +22,38 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function PrivacyPage() {
   const tenant = await getTenant()
-
   if (!tenant) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-body text-muted-foreground">Platform niet gevonden.</p>
+        <p className="text-meta font-light text-body">Platform niet gevonden.</p>
       </div>
     )
   }
 
+  const cities = await getCitiesWithJobCounts(tenant.id)
   const hasContent = !!tenant.privacy_text
-  const html = hasContent ? renderMarkdown(tenant.privacy_text!) : null
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface">
-      <TenantHeader tenant={tenant} showSearch={false} />
+    <div className="flex flex-col min-h-screen">
+      <SiteHeader tenant={tenant} />
 
-      <main className="flex-1 max-w-content mx-auto w-full py-8 px-4 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-display text-foreground">Privacybeleid</h1>
-        </div>
+      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8">
+        <Breadcrumbs
+          className="mb-5"
+          items={[{ label: tenant.name, href: '/' }, { label: 'Privacybeleid' }]}
+        />
+        <PageHero title="Privacybeleid" />
 
         {hasContent ? (
-          <div
-            className="text-body text-foreground"
-            dangerouslySetInnerHTML={{ __html: html! }}
-          />
+          <ProseContent>{tenant.privacy_text!}</ProseContent>
         ) : (
-          <p className="text-body text-muted">
+          <p className="text-meta font-light text-body max-w-prose">
             Het privacybeleid wordt binnenkort gepubliceerd.
           </p>
         )}
       </main>
 
-      <Footer tenant={tenant} />
+      <SiteFooter tenant={tenant} cities={cities} />
     </div>
   )
 }
