@@ -39,3 +39,10 @@ export { Breadcrumbs } from './breadcrumbs'
 export type { BreadcrumbItem } from './breadcrumbs'
 export { Pagination } from './pagination'
 export { PageHero } from './page-hero'
+
+// Detail-routes (fase 8)
+export { JobDetail } from './job-detail'
+export { CompanyProfile } from './company-profile'
+export { ApplyButton } from './apply-button'
+export { ApplyLink } from './apply-link'
+export { ShareButtons } from './share-buttons'
