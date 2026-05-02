@@ -2,16 +2,23 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTenant } from '@/lib/tenant'
-import { getJobsByCitySlug, getNearbyCities } from '@/lib/queries'
+import {
+  getJobsByCitySlug,
+  getNearbyCities,
+  getCitiesWithJobCounts,
+} from '@/lib/queries'
 import { buildBreadcrumbSchema, buildItemListSchema } from '@lokale-banen/shared'
-import { TenantHeader } from '@/components/tenant-header'
-import { Wegwijzer } from '@/components/wegwijzer'
-import { CityHero } from '@/components/city-hero'
-import { RuleBreak } from '@/components/rule-break'
-import { EditorialJobCard } from '@/components/editorial-job-card'
-import { Pagination } from '@/components/pagination'
-import { NearbyCities } from '@/components/nearby-cities'
-import { Footer } from '@/components/footer'
+import {
+  SiteHeader,
+  SiteFooter,
+  Breadcrumbs,
+  PageHero,
+  VacatureCard,
+  Pagination,
+  EmptyState,
+  PillButton,
+  ArrowRight,
+} from '@/components/eyeron'
 
 interface CityPageProps {
   params: Promise<{ 'city-slug': string }>
@@ -54,37 +61,26 @@ export async function generateMetadata({ params, searchParams }: CityPageProps):
 export default async function CityPage({ params, searchParams }: CityPageProps) {
   const [{ 'city-slug': citySlug }, sp] = await Promise.all([params, searchParams])
   const tenant = await getTenant()
-
-  if (!tenant) {
-    notFound()
-  }
+  if (!tenant) notFound()
 
   const pageNum = parseInt(sp.page || '1', 10)
   const page = isNaN(pageNum) || pageNum < 1 ? 1 : pageNum
 
-  const { jobs, total, cityName } = await getJobsByCitySlug(tenant.id, citySlug, page)
-
-  if (!cityName) {
-    notFound()
-  }
+  const [{ jobs, total, cityName }, nearbyCities, cities] = await Promise.all([
+    getJobsByCitySlug(tenant.id, citySlug, page),
+    getNearbyCities(tenant.id, citySlug),
+    getCitiesWithJobCounts(tenant.id),
+  ])
+  if (!cityName) notFound()
 
   const totalPages = Math.ceil(total / 20)
+  if (page > 1 && page > totalPages) notFound()
 
-  // 404 for out-of-range pages (but allow page 1 on empty results for nearby cities)
-  if (page > 1 && page > totalPages) {
-    notFound()
-  }
-
-  const nearbyCities = await getNearbyCities(tenant.id, citySlug)
   const baseUrl = `https://${tenant.domain}`
-
-  // JSON-LD: BreadcrumbList
   const breadcrumbJsonLd = buildBreadcrumbSchema([
     { name: tenant.name, url: `${baseUrl}/` },
     { name: `Vacatures in ${cityName}`, url: `${baseUrl}/vacatures/${citySlug}` },
   ])
-
-  // JSON-LD: ItemList
   const itemListJsonLd = buildItemListSchema({
     name: `Vacatures in ${cityName}`,
     description: `${total} vacatures in ${cityName} bij ${tenant.name}`,
@@ -96,91 +92,88 @@ export default async function CityPage({ params, searchParams }: CityPageProps) 
     })),
   })
 
-  // Distinct employer count for city — conditioneel stat in CityHero
-  const employerSet = new Set(jobs.map((j) => j.company?.id).filter(Boolean))
-
   return (
-    <div className="flex flex-col min-h-screen bg-surface">
-      <TenantHeader tenant={tenant} showSearch={false} />
+    <div className="flex flex-col min-h-screen">
+      <SiteHeader tenant={tenant} />
 
-      {/* Wegwijzer — back to overview, mention region context */}
-      <Wegwijzer
-        back={{ label: 'Alle vacatures', href: '/' }}
-        items={[
-          { id: 'city', label: cityName, icon: 'map' },
-          { id: 'count', label: `${total.toLocaleString('nl-NL')} vacatures`, mono: true },
-        ]}
-      />
-
-      <main className="flex-1 max-w-[1280px] mx-auto w-full pb-12">
-        {/* JSON-LD */}
+      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, '\\u003c') }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, '\\u003c'),
+          }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd).replace(/</g, '\\u003c') }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(itemListJsonLd).replace(/</g, '\\u003c'),
+          }}
         />
 
-        {/* Editorial city hero — mega-display name + stats */}
-        <CityHero
-          eyebrow={`Vacatures in regio ${tenant.name}`}
-          name={cityName}
-          accent={cityName}
-          description={
-            total > 0
-              ? `Bekijk de ${total} actuele vacature${total !== 1 ? 's' : ''} in ${cityName}. Lokaal werk, dichter bij huis.`
-              : `Op dit moment geen vacatures in ${cityName}.`
-          }
-          stats={[
-            { value: total.toLocaleString('nl-NL'), label: total === 1 ? 'Open vacature' : 'Open vacatures' },
-            ...(employerSet.size > 0
-              ? [{ value: employerSet.size.toLocaleString('nl-NL'), label: 'Werkgevers (deze pagina)' }]
-              : []),
+        <Breadcrumbs
+          className="mb-5"
+          items={[
+            { label: tenant.name, href: '/' },
+            { label: 'Steden', href: '/vacatures' },
+            { label: cityName },
           ]}
         />
 
-        <RuleBreak label={total > 0 ? '◇ Vacatures' : '◇ Geen resultaten'} />
+        <PageHero
+          eyebrow={`Vacatures in regio ${tenant.name}`}
+          title={`Vacatures in ${cityName}`}
+          accent={cityName}
+          description={
+            total > 0
+              ? `${total.toLocaleString('nl-NL')} actuele vacature${total !== 1 ? 's' : ''} in ${cityName}. Lokaal werk, dichter bij huis.`
+              : `Op dit moment geen vacatures in ${cityName}.`
+          }
+        />
 
-        {/* Job list or empty state */}
         {jobs.length > 0 ? (
-          <div className="flex flex-col gap-2 px-4 lg:px-8 pt-4">
+          <div className="flex flex-col gap-[18px]">
             {jobs.map((job) => (
-              <EditorialJobCard key={job.id} job={job} variant="list" />
+              <VacatureCard key={job.id} job={job} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 px-4">
-            <p className="text-body text-muted">
-              Er zijn momenteel geen vacatures in {cityName}.
-            </p>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center mt-4 h-9 px-5 rounded-lg text-button text-primary transition-colors hover:bg-primary-light"
-              style={{ border: '1px solid var(--primary)' }}
-            >
-              Bekijk alle vacatures
-            </Link>
-          </div>
+          <EmptyState
+            title={`Geen vacatures in ${cityName}`}
+            body="Probeer een nabijgelegen stad of bekijk alle vacatures in de regio."
+            action={<PillButton href="/">Bekijk alle vacatures</PillButton>}
+          />
         )}
 
-        {/* Pagination */}
-        <div className="px-4 lg:px-8 pt-4">
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            basePath={`/vacatures/${citySlug}`}
-          />
-        </div>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          basePath={`/vacatures/${citySlug}`}
+        />
 
-        {/* Nearby cities */}
-        <div className="px-4 lg:px-8 pt-6">
-          <NearbyCities cities={nearbyCities} />
-        </div>
+        {nearbyCities.length > 0 && (
+          <section className="mt-12 pt-8 border-t border-divider">
+            <h2 className="text-h2 font-bold text-primary tracking-tight m-0 mb-4">
+              Nabijgelegen plaatsen
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {nearbyCities.map((c) => (
+                <li key={c.slug}>
+                  <Link
+                    href={`/vacatures/${c.slug}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-primary text-meta font-bold tracking-tight text-primary hover:bg-primary-tint transition-colors"
+                  >
+                    {c.city}
+                    <span className="text-body font-light">({c.count})</span>
+                    <ArrowRight width={11} height={8} className="text-secondary" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
 
-      <Footer tenant={tenant} />
+      <SiteFooter tenant={tenant} cities={cities} />
     </div>
   )
 }

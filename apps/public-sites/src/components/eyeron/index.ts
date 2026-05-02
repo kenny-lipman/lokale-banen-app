@@ -33,3 +33,9 @@ export { FilterPanel } from './filter-panel'
 export type { FilterPanelProps } from './filter-panel'
 export { SortToolbar } from './sort-toolbar'
 export { MobileBottomBar } from './mobile-bottom-bar'
+
+// List-route helpers (fase 7)
+export { Breadcrumbs } from './breadcrumbs'
+export type { BreadcrumbItem } from './breadcrumbs'
+export { Pagination } from './pagination'
+export { PageHero } from './page-hero'

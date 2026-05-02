@@ -1,7 +1,15 @@
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
-import { TenantHeader } from '@/components/tenant-header'
-import { Footer } from '@/components/footer'
+import { getCitiesWithJobCounts } from '@/lib/queries'
+import {
+  SiteHeader,
+  SiteFooter,
+  Breadcrumbs,
+  PageHero,
+  EmptyState,
+  PillButton,
+  ArrowRight,
+} from '@/components/eyeron'
 
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenant()
@@ -17,45 +25,39 @@ export default async function BedrijvenPage() {
   const tenant = await getTenant()
   if (!tenant) return null
 
+  const cities = await getCitiesWithJobCounts(tenant.id)
+  const place = tenant.central_place || 'de regio'
+
   return (
     <div className="flex flex-col min-h-screen">
-      <TenantHeader tenant={tenant} showSearch={false} />
+      <SiteHeader tenant={tenant} />
 
-      <main className="flex-1 flex items-center justify-center" style={{ padding: 'var(--pad)' }}>
-        <div className="text-center" style={{ maxWidth: 480 }}>
-          <h1
-            className="font-display"
-            style={{
-              fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
-              fontWeight: 500,
-              letterSpacing: '-0.015em',
-              color: 'var(--text)',
-              marginBottom: 12,
-            }}
-          >
-            Bedrijven in {tenant.central_place || 'de regio'}
-          </h1>
-          <p style={{ fontSize: '0.9375rem', color: 'var(--text-2)', lineHeight: 1.6 }}>
-            Binnenkort kun je hier lokale werkgevers ontdekken en hun
-            openstaande vacatures bekijken. Wil je nu al zoeken?
-          </p>
-          <a
-            href="/"
-            className="inline-flex items-center gap-2 rounded-full mt-6"
-            style={{
-              padding: '11px 22px',
-              background: 'var(--primary)',
-              color: 'var(--primary-ink)',
-              fontWeight: 600,
-              fontSize: '0.9375rem',
-            }}
-          >
-            Bekijk vacatures
-          </a>
-        </div>
+      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8">
+        <Breadcrumbs
+          className="mb-5"
+          items={[
+            { label: tenant.name, href: '/' },
+            { label: 'Bedrijven' },
+          ]}
+        />
+        <PageHero
+          title={`Bedrijven in ${place}`}
+          description={`Ontdek lokale werkgevers bij ${tenant.name} en bekijk hun openstaande vacatures.`}
+        />
+
+        <EmptyState
+          title="Binnenkort beschikbaar"
+          body="We werken aan een complete bedrijven-overzichtspagina waar je werkgevers per branche, locatie en grootte kunt filteren. In de tussentijd kun je vacatures rechtstreeks doorzoeken."
+          action={
+            <PillButton href="/" variant="primary">
+              Naar de vacatures
+              <ArrowRight />
+            </PillButton>
+          }
+        />
       </main>
 
-      <Footer tenant={tenant} />
+      <SiteFooter tenant={tenant} cities={cities} />
     </div>
   )
 }
