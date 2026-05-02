@@ -1,7 +1,8 @@
 /**
- * Eyeron design-system primitives + chrome.
+ * Eyeron design-system primitives + chrome + composities.
  *
- * Atomic en composiet componenten gedeeld door alle public-site routes.
+ * Atomic, chrome en composiet componenten gedeeld door alle public-site
+ * routes.
  */
 
 // Atomic primitives (fase 2)
@@ -18,3 +19,10 @@ export { SearchBanner } from './search-banner'
 export { SiteFooter } from './site-footer'
 export { MobileMenu } from './mobile-menu'
 export { UserNav } from './user-nav'
+
+// Vacature-listing (fase 4)
+export { VacatureCard } from './vacature-card'
+export { VacatureCardSkeleton } from './vacature-card-skeleton'
+export { JobList } from './job-list'
+export { EmptyState } from './empty-state'
+export { SaveJobButton } from './save-job-button'
