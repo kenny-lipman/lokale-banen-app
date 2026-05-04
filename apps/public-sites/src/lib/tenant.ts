@@ -57,16 +57,32 @@ export async function getTenant(): Promise<Tenant | null> {
 }
 
 async function fetchTenantByHostUncached(host: string): Promise<Tenant | null> {
+  // Separate queries instead of .or() — PostgREST's or-filter mis-parses
+  // dots in hostnames as resource separators, causing lookups for hosts like
+  // `bollenstreeksebanen.vercel.app` to silently fail.
   const supabase = createPublicClient()
-  const { data, error } = await supabase
+
+  const { data: domainMatch } = await supabase
     .from('platforms')
     .select(TENANT_SELECT)
-    .or(`domain.eq.${host},preview_domain.eq.${host}`)
+    .eq('domain', host)
     .eq('is_public', true)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
-  if (error || !data) return null
-  return mapTenantRow(data as PlatformRow)
+  if (domainMatch) return mapTenantRow(domainMatch as PlatformRow)
+
+  const { data: previewMatch } = await supabase
+    .from('platforms')
+    .select(TENANT_SELECT)
+    .eq('preview_domain', host)
+    .eq('is_public', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (previewMatch) return mapTenantRow(previewMatch as PlatformRow)
+
+  return null
 }
 
 /**
