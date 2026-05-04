@@ -57,6 +57,10 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
     (effectiveDomain ? `https://${effectiveDomain}/vacature/${slug}` : undefined)
   const ogUrl = effectiveDomain ? `https://${effectiveDomain}/vacature/${slug}` : undefined
   const isExpired = !!(job.end_date && new Date(job.end_date) < new Date())
+  const isArchived = !!job.archived_at
+  const archivedNoindex =
+    isArchived &&
+    new Date(job.archived_at!).getTime() > Date.now() - 30 * 86_400_000
 
   const headerImage = job.header_image_url?.trim() || null
   const ogImages = headerImage
@@ -68,7 +72,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
   return {
     title,
     description,
-    robots: isExpired ? { index: false, follow: false } : undefined,
+    robots: isExpired || archivedNoindex ? { index: false, follow: false } : undefined,
     openGraph: {
       title,
       description,
@@ -110,6 +114,16 @@ export default async function JobPage({ params }: JobPageProps) {
 
   const job = await getJobBySlug(tenant.id, slug)
   if (!job) notFound()
+
+  // Drie-staten archief: actief / grace 30d / permanent gone
+  const archivedAt = job.archived_at ? new Date(job.archived_at) : null
+  const archiveAgeMs = archivedAt ? Date.now() - archivedAt.getTime() : 0
+  const isInGrace = archivedAt && archiveAgeMs < 30 * 86_400_000
+  const isPermanentlyGone = archivedAt && !isInGrace
+
+  // Permanent gone — Next.js heeft geen native 410, dus 404 (Google
+  // de-indexeert beide statussen).
+  if (isPermanentlyGone) notFound()
 
   const isExpired = !!(job.end_date && new Date(job.end_date) < new Date())
 
@@ -194,6 +208,15 @@ export default async function JobPage({ params }: JobPageProps) {
       <SiteHeader tenant={tenant} />
 
       <main className="flex-1 max-w-content mx-auto w-full px-pad py-8 pb-24 lg:pb-8">
+        {isInGrace && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            <h2 className="text-lg font-semibold">Deze vacature is afgelopen</h2>
+            <p className="mt-1 text-sm text-amber-800">
+              Deze positie is niet meer beschikbaar. Bekijk{' '}
+              <a href="/vacatures" className="underline">andere vacatures</a>.
+            </p>
+          </div>
+        )}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

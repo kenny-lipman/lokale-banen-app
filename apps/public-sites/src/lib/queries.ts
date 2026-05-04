@@ -23,6 +23,7 @@ export interface JobPosting {
   published_at: string | null
   end_date: string | null
   created_at: string
+  archived_at: string | null
   seo_title: string | null
   seo_description: string | null
   education_level: string | null
@@ -341,7 +342,7 @@ export async function getJobBySlug(
       employment, job_type, salary, categories,
       description, content_md, header_image_url, url, published_at, end_date, created_at,
       seo_title, seo_description, education_level, career_level,
-      working_hours_min, working_hours_max,
+      working_hours_min, working_hours_max, archived_at,
       companies!company_id (
         id, name, slug, logo_url, website, linkedin_url, description, city,
         kvk, latitude, longitude, postal_code, street_address
