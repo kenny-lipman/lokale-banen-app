@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   Check,
+  ChevronDown,
   ExternalLink,
   Loader2,
   Rocket,
@@ -13,6 +14,13 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import type { GoLiveCheckResponse, PlatformDetail } from "../types"
@@ -93,11 +101,11 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
     }
   }, [checks?.all_required_passed, platform.id, fetchChecks, onPublished, onRefresh])
 
-  const publicUrl = platform.domain
-    ? `https://${platform.domain}`
-    : platform.preview_domain
-      ? `https://${platform.preview_domain}`
-      : null
+  const previewUrl = platform.preview_domain
+    ? `https://${platform.preview_domain}`
+    : null
+  const productionUrl = platform.domain ? `https://${platform.domain}` : null
+  const primaryViewUrl = previewUrl ?? productionUrl
 
   return (
     <div className="space-y-6">
@@ -212,13 +220,51 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
               {checks?.is_public ? "Al live" : "Live zetten"}
             </Button>
 
-            {publicUrl && (
-              <Button type="button" size="lg" variant="outline" asChild>
-                <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Bekijk site
-                </a>
-              </Button>
+            {primaryViewUrl && (
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  asChild
+                  className={productionUrl && previewUrl ? "rounded-r-none border-r-0" : ""}
+                >
+                  <a href={primaryViewUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Bekijk site
+                  </a>
+                </Button>
+                {productionUrl && previewUrl && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant="outline"
+                        className="rounded-l-none px-3"
+                        aria-label="Kies domein"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Preview-domein
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <a href={productionUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Productiedomein
+                        </a>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             )}
           </div>
 

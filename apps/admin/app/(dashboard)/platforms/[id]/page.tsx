@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   CircleDashed,
   ExternalLink,
   Loader2,
@@ -23,6 +24,13 @@ import {
   Type,
   TriangleAlert,
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   DEFAULT_FORM_VALUES,
   formToPatchPayload,
@@ -117,11 +125,11 @@ export default function PlatformDetailPage() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [autoSave])
 
-  const publicUrl = platform?.domain
-    ? `https://${platform.domain}`
-    : platform?.preview_domain
-      ? `https://${platform.preview_domain}`
-      : null
+  const previewUrl = platform?.preview_domain
+    ? `https://${platform.preview_domain}`
+    : null
+  const productionUrl = platform?.domain ? `https://${platform.domain}` : null
+  const primaryViewUrl = previewUrl ?? productionUrl
 
   if (loading) {
     return (
@@ -174,13 +182,49 @@ export default function PlatformDetailPage() {
         >
           {values.is_public ? "Publiek" : "Niet publiek"}
         </Badge>
-        {publicUrl && (
-          <Button size="sm" variant="outline" asChild>
-            <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Bekijk site
-            </a>
-          </Button>
+        {primaryViewUrl && (
+          <div className="flex items-center">
+            <Button
+              size="sm"
+              variant="outline"
+              asChild
+              className={productionUrl && previewUrl ? "rounded-r-none border-r-0" : ""}
+            >
+              <a href={primaryViewUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Bekijk site
+              </a>
+            </Button>
+            {productionUrl && previewUrl && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-l-none px-2"
+                    aria-label="Kies domein"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Preview-domein
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <a href={productionUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Productiedomein
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         )}
       </div>
 

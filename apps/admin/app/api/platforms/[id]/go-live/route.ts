@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 import { revalidatePublicSite } from "@/lib/services/public-site-revalidate.service"
+import { ensureVercelAlias } from "@/lib/services/vercel-domain.service"
 
 export const dynamic = "force-dynamic"
 
@@ -84,8 +85,33 @@ async function postHandler(
       )
     }
 
-    // 3. Best-effort cache revalidation on the public-sites app.
-    const revalidate = await revalidatePublicSite({ platformIds: [id] })
+    // 3. Ensure the preview_domain is attached as a Vercel alias on the
+    //    public-sites project. Idempotent — safe to call for already-aliased
+    //    hosts. Best-effort: failure does not block publish.
+    const previewHost =
+      typeof updated.preview_domain === "string" && updated.preview_domain
+        ? updated.preview_domain
+        : null
+    const aliasResult = previewHost ? await ensureVercelAlias(previewHost) : null
+    if (aliasResult && !aliasResult.ok && !aliasResult.skipped) {
+      console.warn(
+        `[go-live] vercel alias failed for ${previewHost}:`,
+        aliasResult,
+      )
+    }
+
+    // 4. Cache revalidation on the public-sites app — include hosts so the
+    //    per-host tenant cache (`platform:host:<host>`) is busted; without
+    //    this, a previously-cached `null` result keeps the site stale up to
+    //    1h after publish.
+    const hosts = [updated.preview_domain, updated.domain].filter(
+      (h): h is string => typeof h === "string" && h.length > 0,
+    )
+    const revalidate = await revalidatePublicSite({
+      platformIds: [id],
+      hosts,
+      paths: ["/"],
+    })
     if (!revalidate.ok && !revalidate.skipped) {
       console.warn(`[go-live] revalidate failed for platform ${id}:`, revalidate.error)
     }
@@ -100,6 +126,7 @@ async function postHandler(
       data: { ...updated, approved_count: freshCount ?? 0 },
       message: "Platform is live",
       revalidate,
+      alias: aliasResult,
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error"
