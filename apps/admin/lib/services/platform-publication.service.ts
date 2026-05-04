@@ -39,6 +39,9 @@ export interface ValidatePublicationResult {
   all_required_passed: boolean
   approved_vacancy_count: number
   checks: CheckItem[]
+  /** Hosts uit dezelfde DB-snapshot als de checks — voorkomt TOCTOU. */
+  domain: string | null
+  preview_domain: string | null
 }
 
 const hasValue = (v: string | null | undefined): boolean =>
@@ -135,6 +138,8 @@ export async function validatePublication(
     all_required_passed: allRequiredPassed,
     approved_vacancy_count: vacancyCount,
     checks,
+    domain: platform.domain ?? null,
+    preview_domain: platform.preview_domain ?? null,
   }
 }
 
@@ -191,56 +196,43 @@ export async function publishPlatform(
     }
   }
 
-  // Read current row to know preview_domain + published_at vóór update.
-  const { data: current } = await supabase
-    .from("platforms")
-    .select("preview_domain, domain, published_at")
-    .eq("id", platformId)
-    .single()
-
-  if (!current) {
-    return { ok: false, status: 404, error: "Platform niet gevonden" }
-  }
-
-  const previewHost =
-    typeof current.preview_domain === "string" && current.preview_domain
-      ? current.preview_domain
-      : null
+  // Hosts uit het validatie-resultaat halen — geen tweede DB-read, dus
+  // geen TOCTOU tussen validate en de alias-call. M1: alias-call voor
+  // zowel preview_domain als (custom) domain als beide gezet zijn.
+  const aliasHosts = [validation.preview_domain, validation.domain].filter(
+    (h): h is string => typeof h === "string" && h.length > 0,
+  )
 
   // Alias-first: bij hard conflict niets in DB veranderen.
-  const aliasResult = previewHost ? await ensureVercelAlias(previewHost) : null
-  if (aliasResult && !aliasResult.ok && !aliasResult.skipped) {
-    return {
-      ok: false,
-      status: 502,
-      code: "ALIAS_PROVISIONING_FAILED",
-      error: aliasResult.error ?? "Vercel alias kon niet worden aangemaakt",
-      alias: aliasResult,
+  let aliasResult: Awaited<ReturnType<typeof ensureVercelAlias>> | null = null
+  for (const host of aliasHosts) {
+    const r = await ensureVercelAlias(host)
+    if (!r.ok && !r.skipped) {
+      return {
+        ok: false,
+        status: 502,
+        code: "ALIAS_PROVISIONING_FAILED",
+        error: r.error ?? "Vercel alias kon niet worden aangemaakt",
+        alias: r,
+      }
+    }
+    if (!aliasResult || (aliasResult.alreadyExists && !r.alreadyExists)) {
+      aliasResult = r
     }
   }
 
-  // Strikte non-overschrijving: published_at blijft staan na first publish.
-  const nowIso = new Date().toISOString()
-  const updates: Record<string, unknown> = {
-    is_public: true,
-    updated_at: nowIso,
-  }
-  if (current.published_at == null) {
-    updates.published_at = nowIso
-  }
+  // Atomic publish via RPC — één UPDATE met COALESCE op published_at zodat
+  // parallelle publishes niet allebei een nieuwe timestamp kunnen schrijven.
+  const { data: updated, error: updateErr } = await supabase.rpc(
+    "publish_platform_atomic",
+    { p_id: platformId },
+  )
 
-  const { data: updated, error: updateErr } = await supabase
-    .from("platforms")
-    .update(updates)
-    .eq("id", platformId)
-    .select()
-    .single()
-
-  if (updateErr) {
+  if (updateErr || !updated) {
     return {
       ok: false,
       status: 500,
-      error: updateErr.message,
+      error: updateErr?.message ?? "Update mislukt",
       alias: aliasResult,
     }
   }

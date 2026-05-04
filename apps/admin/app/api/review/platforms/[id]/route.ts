@@ -101,29 +101,57 @@ async function patchHandler(
     }
 
     // is_public-transities lopen via de gedeelde publish/unpublish flow zodat
-    // de "Publiek"-toggle exact dezelfde safeguards heeft als de Go-Live tab:
-    // false→true valideert content + provisioneert de Vercel-alias eerst,
-    // true→false bust de host-cache. We doen dit eerst en strippen de flag
-    // uit de overige veldenset zodat we 'm niet dubbel updaten.
+    // de "Publiek"-toggle exact dezelfde safeguards heeft als de Go-Live tab.
+    // Volgorde is bewust: eerst gewone veld-updates schrijven, dan
+    // publish/unpublish op basis van de NIEUWE state (zo passeert validate
+    // niet ten onrechte met de oude content). Bij publish-fail blijven de
+    // velden wel correct opgeslagen; is_public blijft `false` zodat we niet
+    // half-live raken.
+    //
+    // M3: type-strict — alleen echte booleans tellen als transitie. `null`,
+    // strings of `undefined` worden genegeerd.
+    const isPublicTransition: boolean | null =
+      typeof updates.is_public === "boolean" ? updates.is_public : null
+    delete updates.is_public
+
+    updates.updated_at = new Date().toISOString()
+
+    const hasOtherUpdates = Object.keys(updates).some(
+      (k) => k !== "updated_at",
+    )
+
+    // Stap 1 — schrijf alle gewone velden, of pak gewoon de huidige rij.
+    const { data: afterFieldUpdates, error: fieldErr } = hasOtherUpdates
+      ? await supabase
+          .from("platforms")
+          .update(updates)
+          .eq("id", id)
+          .select()
+          .single()
+      : await supabase.from("platforms").select("*").eq("id", id).single()
+
+    if (fieldErr || !afterFieldUpdates) {
+      return NextResponse.json(
+        { error: "Fout bij opslaan", details: fieldErr?.message },
+        { status: fieldErr ? 500 : 404 },
+      )
+    }
+
+    // Stap 2 — publish/unpublish op basis van de zojuist geschreven state.
     let publicationFlow:
       | { kind: "publish"; resp: Awaited<ReturnType<typeof publishPlatform>> }
       | { kind: "unpublish"; resp: Awaited<ReturnType<typeof unpublishPlatform>> }
       | null = null
+    let data = afterFieldUpdates
 
-    if ("is_public" in updates) {
-      const desired = updates.is_public
-      // Lees huidige state om geen no-op via de zware flow te draaien.
-      const { data: current } = await supabase
-        .from("platforms")
-        .select("is_public")
-        .eq("id", id)
-        .single()
-      const currentPublic = current?.is_public ?? false
-      delete updates.is_public
-
-      if (desired === true && !currentPublic) {
+    if (isPublicTransition !== null) {
+      const currentPublic = afterFieldUpdates.is_public ?? false
+      if (isPublicTransition === true && !currentPublic) {
         const resp = await publishPlatform(supabase, id)
         if (!resp.ok) {
+          // Veld-updates zijn al gecommit; alleen publish faalde. Dat is
+          // de gewenste eindtoestand: content opgeslagen, platform niet
+          // live. Caller krijgt de error met missing_checks.
           return NextResponse.json(
             {
               error: resp.error,
@@ -137,7 +165,8 @@ async function patchHandler(
           )
         }
         publicationFlow = { kind: "publish", resp }
-      } else if (desired === false && currentPublic) {
+        data = resp.data
+      } else if (isPublicTransition === false && currentPublic) {
         const resp = await unpublishPlatform(supabase, id)
         if (!resp.ok) {
           return NextResponse.json(
@@ -146,30 +175,9 @@ async function patchHandler(
           )
         }
         publicationFlow = { kind: "unpublish", resp }
+        data = resp.data
       }
-      // desired === currentPublic: niets te doen.
-    }
-
-    updates.updated_at = new Date().toISOString()
-
-    const hasOtherUpdates = Object.keys(updates).some(
-      (k) => k !== "updated_at",
-    )
-
-    const { data, error } = hasOtherUpdates
-      ? await supabase
-          .from("platforms")
-          .update(updates)
-          .eq("id", id)
-          .select()
-          .single()
-      : await supabase.from("platforms").select("*").eq("id", id).single()
-
-    if (error) {
-      return NextResponse.json(
-        { error: "Fout bij opslaan", details: error.message },
-        { status: 500 }
-      )
+      // isPublicTransition === currentPublic: niets te doen.
     }
 
     // Best-effort: invalidate public-site caches voor de platform-tag. De
