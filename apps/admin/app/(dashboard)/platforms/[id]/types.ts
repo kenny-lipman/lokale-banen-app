@@ -171,7 +171,7 @@ export function formToPatchPayload(
 }
 
 export const GO_LIVE_CHECKS = [
-  { key: "domain", label: "Domein gezet", required: true },
+  { key: "host", label: "Domein of preview-domein gezet", required: true },
   { key: "primary_color", label: "Primary color", required: true },
   { key: "logo_url", label: "Logo url aanwezig", required: false },
   { key: "hero_title", label: "Hero title", required: true },

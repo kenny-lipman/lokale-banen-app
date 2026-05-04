@@ -1,0 +1,348 @@
+/**
+ * Shared publication flow voor platforms — gebruikt door go-live, take-offline,
+ * en de PATCH-toggle in /api/review/platforms/[id]. Eén plek voor:
+ *   - readiness-checks (validatePublication)
+ *   - publish-flow (alias-first, immutable published_at, host-cache bust)
+ *   - unpublish-flow (cache bust, alias blijft staan)
+ */
+
+import type { SupabaseClient } from "@supabase/supabase-js"
+import { ensureVercelAlias } from "./vercel-domain.service"
+import {
+  revalidatePublicSite,
+  type RevalidateResult,
+} from "./public-site-revalidate.service"
+
+export const MIN_APPROVED_VACANCIES = 10
+
+export type CheckKey =
+  | "host"
+  | "primary_color"
+  | "logo_url"
+  | "hero_title"
+  | "seo_description"
+  | "min_approved_vacancies"
+  | "about_text"
+
+export interface CheckItem {
+  key: CheckKey
+  label: string
+  required: boolean
+  passed: boolean
+  value?: string | number | null
+}
+
+export interface ValidatePublicationResult {
+  platform_id: string
+  is_public: boolean
+  published_at: string | null
+  all_required_passed: boolean
+  approved_vacancy_count: number
+  checks: CheckItem[]
+}
+
+const hasValue = (v: string | null | undefined): boolean =>
+  typeof v === "string" && v.trim().length > 0
+
+/**
+ * Run alle go-live checks zonder side-effects. Ook de bron van waarheid voor
+ * `failedRequiredKeys()` zodat publishPlatform exact dezelfde definitie van
+ * "klaar voor publicatie" hanteert als de check-endpoint.
+ */
+export async function validatePublication(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, "public", any>,
+  platformId: string,
+): Promise<ValidatePublicationResult | null> {
+  const { data: platform } = await supabase
+    .from("platforms")
+    .select(
+      "id, is_public, published_at, domain, preview_domain, primary_color, logo_url, hero_title, seo_description, about_text",
+    )
+    .eq("id", platformId)
+    .single()
+
+  if (!platform) return null
+
+  const { count: approvedCount } = await supabase
+    .from("job_postings")
+    .select("id", { count: "exact", head: true })
+    .eq("platform_id", platformId)
+    .eq("review_status", "approved")
+
+  const vacancyCount = approvedCount ?? 0
+
+  const hostValue = platform.domain || platform.preview_domain
+  const checks: CheckItem[] = [
+    {
+      key: "host",
+      label: "Domein of preview-domein gezet",
+      required: true,
+      passed: hasValue(platform.domain) || hasValue(platform.preview_domain),
+      value: hostValue,
+    },
+    {
+      key: "primary_color",
+      label: "Primary color",
+      required: true,
+      passed: hasValue(platform.primary_color),
+      value: platform.primary_color,
+    },
+    {
+      key: "logo_url",
+      label: "Logo url aanwezig",
+      required: false,
+      passed: hasValue(platform.logo_url),
+      value: platform.logo_url,
+    },
+    {
+      key: "hero_title",
+      label: "Hero title",
+      required: true,
+      passed: hasValue(platform.hero_title),
+      value: platform.hero_title,
+    },
+    {
+      key: "seo_description",
+      label: "SEO description",
+      required: true,
+      passed: hasValue(platform.seo_description),
+      value: platform.seo_description,
+    },
+    {
+      key: "min_approved_vacancies",
+      label: `Min. ${MIN_APPROVED_VACANCIES} approved vacatures`,
+      required: true,
+      passed: vacancyCount >= MIN_APPROVED_VACANCIES,
+      value: vacancyCount,
+    },
+    {
+      key: "about_text",
+      label: "About text ingevuld",
+      required: true,
+      passed: hasValue(platform.about_text),
+    },
+  ]
+
+  const allRequiredPassed = checks
+    .filter((c) => c.required)
+    .every((c) => c.passed)
+
+  return {
+    platform_id: platform.id,
+    is_public: platform.is_public ?? false,
+    published_at: platform.published_at,
+    all_required_passed: allRequiredPassed,
+    approved_vacancy_count: vacancyCount,
+    checks,
+  }
+}
+
+/** Lijst van required-keys die nog open staan. Lege array = klaar. */
+export function failedRequiredKeys(result: ValidatePublicationResult): CheckKey[] {
+  return result.checks
+    .filter((c) => c.required && !c.passed)
+    .map((c) => c.key)
+}
+
+export interface PublishPlatformResult {
+  ok: boolean
+  /** HTTP status hint — 200 ok, 409 niet-klaar, 502 alias-conflict, 500 db. */
+  status: number
+  error?: string
+  code?: string
+  missing?: CheckKey[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any
+  alias?: Awaited<ReturnType<typeof ensureVercelAlias>> | null
+  revalidate?: RevalidateResult
+  approvedCount?: number
+}
+
+/**
+ * Volledige publish-flow:
+ *   1. validatePublication — alle required checks groen?
+ *   2. ensureVercelAlias — eerst alias provisionen; faalt dit met
+ *      conflict-by-different-project, breken we af zonder DB-update.
+ *   3. is_public=true; published_at alleen op first publish
+ *   4. revalidatePublicSite met host-tags
+ *
+ * `approvedCount` wordt apart geteld zodat de caller hem in de response
+ * kan opnemen (UI toont 'em na publish).
+ */
+export async function publishPlatform(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, "public", any>,
+  platformId: string,
+): Promise<PublishPlatformResult> {
+  const validation = await validatePublication(supabase, platformId)
+  if (!validation) {
+    return { ok: false, status: 404, error: "Platform niet gevonden" }
+  }
+
+  const missing = failedRequiredKeys(validation)
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      status: 409,
+      code: "GO_LIVE_REQUIREMENTS_NOT_MET",
+      error: "Platform is nog niet klaar voor publicatie",
+      missing,
+    }
+  }
+
+  // Read current row to know preview_domain + published_at vóór update.
+  const { data: current } = await supabase
+    .from("platforms")
+    .select("preview_domain, domain, published_at")
+    .eq("id", platformId)
+    .single()
+
+  if (!current) {
+    return { ok: false, status: 404, error: "Platform niet gevonden" }
+  }
+
+  const previewHost =
+    typeof current.preview_domain === "string" && current.preview_domain
+      ? current.preview_domain
+      : null
+
+  // Alias-first: bij hard conflict niets in DB veranderen.
+  const aliasResult = previewHost ? await ensureVercelAlias(previewHost) : null
+  if (aliasResult && !aliasResult.ok && !aliasResult.skipped) {
+    return {
+      ok: false,
+      status: 502,
+      code: "ALIAS_PROVISIONING_FAILED",
+      error: aliasResult.error ?? "Vercel alias kon niet worden aangemaakt",
+      alias: aliasResult,
+    }
+  }
+
+  // Strikte non-overschrijving: published_at blijft staan na first publish.
+  const nowIso = new Date().toISOString()
+  const updates: Record<string, unknown> = {
+    is_public: true,
+    updated_at: nowIso,
+  }
+  if (current.published_at == null) {
+    updates.published_at = nowIso
+  }
+
+  const { data: updated, error: updateErr } = await supabase
+    .from("platforms")
+    .update(updates)
+    .eq("id", platformId)
+    .select()
+    .single()
+
+  if (updateErr) {
+    return {
+      ok: false,
+      status: 500,
+      error: updateErr.message,
+      alias: aliasResult,
+    }
+  }
+
+  // Tag-based revalidation; geen `paths` — andere tenants moeten hun cache
+  // behouden.
+  const hosts = [updated.preview_domain, updated.domain].filter(
+    (h: unknown): h is string => typeof h === "string" && h.length > 0,
+  )
+  const revalidate = await revalidatePublicSite({
+    platformIds: [platformId],
+    hosts,
+  })
+  if (!revalidate.ok && !revalidate.skipped) {
+    console.warn(
+      `[publishPlatform] revalidate failed for ${platformId}:`,
+      revalidate.error,
+    )
+  }
+
+  const { count: freshCount } = await supabase
+    .from("job_postings")
+    .select("id", { count: "exact", head: true })
+    .eq("platform_id", platformId)
+    .eq("review_status", "approved")
+
+  return {
+    ok: true,
+    status: 200,
+    data: updated,
+    alias: aliasResult,
+    revalidate,
+    approvedCount: freshCount ?? 0,
+  }
+}
+
+export interface UnpublishPlatformResult {
+  ok: boolean
+  status: number
+  error?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any
+  revalidate?: RevalidateResult
+  approvedCount?: number
+}
+
+/**
+ * Offline-flow:
+ *   1. is_public=false (geen content-checks — offline halen moet altijd kunnen)
+ *   2. Cache-bust voor host-tags zodat de site direct "Domein niet gevonden"
+ *      toont i.p.v. tot 1u stale tenant te serveren.
+ *
+ * `published_at` blijft staan (immutable na first publish). De Vercel-alias
+ * blijft ook actief — bij her-publish hoeft `ensureVercelAlias` alleen het
+ * idempotente 409-pad te raken.
+ */
+export async function unpublishPlatform(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, "public", any>,
+  platformId: string,
+): Promise<UnpublishPlatformResult> {
+  const nowIso = new Date().toISOString()
+  const { data: updated, error: updateErr } = await supabase
+    .from("platforms")
+    .update({ is_public: false, updated_at: nowIso })
+    .eq("id", platformId)
+    .select()
+    .single()
+
+  if (updateErr || !updated) {
+    return {
+      ok: false,
+      status: updateErr ? 500 : 404,
+      error: updateErr?.message ?? "Platform niet gevonden",
+    }
+  }
+
+  const hosts = [updated.preview_domain, updated.domain].filter(
+    (h: unknown): h is string => typeof h === "string" && h.length > 0,
+  )
+  const revalidate = await revalidatePublicSite({
+    platformIds: [platformId],
+    hosts,
+  })
+  if (!revalidate.ok && !revalidate.skipped) {
+    console.warn(
+      `[unpublishPlatform] revalidate failed for ${platformId}:`,
+      revalidate.error,
+    )
+  }
+
+  const { count: freshCount } = await supabase
+    .from("job_postings")
+    .select("id", { count: "exact", head: true })
+    .eq("platform_id", platformId)
+    .eq("review_status", "approved")
+
+  return {
+    ok: true,
+    status: 200,
+    data: updated,
+    revalidate,
+    approvedCount: freshCount ?? 0,
+  }
+}

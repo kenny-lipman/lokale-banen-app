@@ -61,17 +61,19 @@ export async function ensureVercelAlias(
     }
     const code = body?.error?.code
 
-    // Domain owned by a different project — admin must intervene.
-    if (code === "domain_already_in_use_by_different_project") {
-      return {
-        ok: false,
-        status: 409,
-        error: body.error?.message ?? "domain_already_in_use_by_different_project",
-      }
+    // Alleen "owned by this project" telt als idempotente success. Vercel
+    // geeft hiervoor `domain_already_in_use_by_this_project`. Andere 409-codes
+    // (different project, validation issue, …) moeten doorbubbelen zodat de
+    // caller niet stilletjes verder gaat met een onwerkende alias.
+    if (code === "domain_already_in_use_by_this_project") {
+      return { ok: true, status: 409, alreadyExists: true }
     }
 
-    // Already attached to this project (or unknown 409): treat as success.
-    return { ok: true, status: 409, alreadyExists: true }
+    return {
+      ok: false,
+      status: 409,
+      error: body.error?.message ?? code ?? "vercel_409",
+    }
   }
 
   const text = await res.text().catch(() => "")
