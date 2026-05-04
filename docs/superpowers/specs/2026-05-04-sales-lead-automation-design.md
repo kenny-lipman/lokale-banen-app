@@ -117,7 +117,7 @@ Per-bron-resultaat schrijven gaat via `jsonb_set` (sectie 6.3). Apollo `matchPer
 
 ## 4. Data model
 
-4 tabellen, RLS aan met service-role-only policies. (`company_career_sources` is voorbereid voor V2-monitoring — zie sectie 17.)
+3 nieuwe tabellen + 1 ALTER op bestaande `job_sources`. RLS aan met service-role-only policies. De bestaande `job_sources` wordt uitgebreid om óók per-bedrijf-werkenbij-pagina's te bevatten — zo blijft de bestaande `job_postings.source_id` FK-relatie ongewijzigd voor zowel aggregator- als career-page-vacatures (zie sectie 17 voor V2-monitoring).
 
 ```sql
 -- Hoofdtabel: 1 rij per ingevoerde URL
@@ -188,34 +188,52 @@ CREATE INDEX idx_enrichment_cache_expires ON enrichment_cache(expires_at);
 -- source-waardes: 'kvk_basisprofiel' | 'kvk_zoeken' | 'apollo_org' | 'google_maps_place'
 --               | 'pipedrive_users' | 'pipedrive_pipelines' | 'pipedrive_stages' | 'pipedrive_deal_fields'
 
--- 4. Career-page registry (V1: alleen rij aanmaken bij sync; V2: cron-driven scrapen — sectie 17)
-CREATE TABLE company_career_sources (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id           uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  url                  text NOT NULL,
-  discovery_method     text NOT NULL CHECK (discovery_method IN ('sitemap','robots','common_path','html_link','manual')),
-  is_external_ats      boolean NOT NULL DEFAULT false,
-  ats_type             text,
-  is_active            boolean NOT NULL DEFAULT true,
-  scrape_frequency     text NOT NULL DEFAULT 'weekly' CHECK (scrape_frequency IN ('daily','weekly','monthly','manual')),
-  last_scraped_at      timestamptz,
-  last_scrape_status   text,
-  last_scrape_count    int,
-  consecutive_failures int NOT NULL DEFAULT 0,
-  created_via          text NOT NULL CHECK (created_via IN ('sales_lead_run','manual','admin_bulk_import')),
-  source_run_id        uuid REFERENCES sales_lead_runs(id),
-  created_at           timestamptz NOT NULL DEFAULT now(),
-  updated_at           timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (company_id, url)
+-- 4. ALTER bestaande job_sources — voeg career-page-velden toe
+-- Bestaande 8 rijen (LinkedIn, Indeed, Nationale Vacaturebank, etc.) krijgen via DEFAULT
+-- automatisch kind='aggregator'. Geen data-migratie. job_postings.source_id blijft werken.
+
+ALTER TABLE job_sources ADD COLUMN kind text NOT NULL DEFAULT 'aggregator'
+  CHECK (kind IN ('aggregator','company_career_page'));
+
+-- Velden alleen voor kind='company_career_page' (NULL voor aggregators):
+ALTER TABLE job_sources ADD COLUMN company_id uuid REFERENCES companies(id) ON DELETE CASCADE;
+ALTER TABLE job_sources ADD COLUMN url text;
+ALTER TABLE job_sources ADD COLUMN discovery_method text
+  CHECK (discovery_method IS NULL OR discovery_method IN ('sitemap','robots','common_path','html_link','manual'));
+ALTER TABLE job_sources ADD COLUMN is_external_ats boolean DEFAULT false;
+ALTER TABLE job_sources ADD COLUMN ats_type text;            -- 'greenhouse' | 'lever' | 'personio' | 'recruitee' | 'homerun' | null
+ALTER TABLE job_sources ADD COLUMN created_via text
+  CHECK (created_via IS NULL OR created_via IN ('sales_lead_run','manual','seed'));
+ALTER TABLE job_sources ADD COLUMN source_run_id uuid REFERENCES sales_lead_runs(id);
+
+-- Monitoring (V2 cron-driven; ook bruikbaar voor aggregators als health-track):
+ALTER TABLE job_sources ADD COLUMN scrape_frequency text DEFAULT 'weekly'
+  CHECK (scrape_frequency IN ('daily','weekly','monthly','manual'));
+ALTER TABLE job_sources ADD COLUMN last_scraped_at timestamptz;
+ALTER TABLE job_sources ADD COLUMN last_scrape_status text;
+ALTER TABLE job_sources ADD COLUMN last_scrape_count int;
+ALTER TABLE job_sources ADD COLUMN consecutive_failures int NOT NULL DEFAULT 0;
+ALTER TABLE job_sources ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE job_sources ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+
+-- Constraint: career-pages moeten company_id + url hebben; aggregators niet
+ALTER TABLE job_sources ADD CONSTRAINT job_sources_career_page_completeness CHECK (
+  (kind = 'aggregator')
+  OR (kind = 'company_career_page' AND company_id IS NOT NULL AND url IS NOT NULL AND discovery_method IS NOT NULL)
 );
-CREATE INDEX idx_company_career_sources_active_next ON company_career_sources(scrape_frequency, last_scraped_at) WHERE is_active;
+
+CREATE INDEX idx_job_sources_kind ON job_sources(kind);
+CREATE INDEX idx_job_sources_company ON job_sources(company_id) WHERE kind='company_career_page';
+CREATE INDEX idx_job_sources_active_next ON job_sources(scrape_frequency, last_scraped_at)
+  WHERE kind='company_career_page' AND active=true;
+CREATE UNIQUE INDEX idx_job_sources_company_url ON job_sources(company_id, url) WHERE kind='company_career_page';
 
 -- RLS
 ALTER TABLE sales_lead_runs           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_lead_owner_config   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrichment_cache          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE company_career_sources    ENABLE ROW LEVEL SECURITY;
 -- (geen policies = alleen service_role kan lezen/schrijven)
+-- job_sources had al RLS aan; geen wijziging
 ```
 
 ### 4.1 Shape van `sales_lead_runs.enrichments`
@@ -728,18 +746,35 @@ async function syncLeadToPipedrive(runId, force_duplicate=false) {
     await pipedrive.addNoteToDeal(run.pipedrive_deal_id, run.master_record.deal_note_text)
   }
 
-  // 6. Persisteer in interne `companies` + `job_postings` (V1 — voor latere monitoring)
-  const company = await upsertCompanyFromRun(run)         // matcht op domain, anders insert
+  // 6. Persisteer in interne tabellen (V1 — companies + job_sources + job_postings)
+  const company = await upsertCompanyFromRun(run)
+  // companies krijgt freshly-created pipedrive_id + meegenomen kvk + hoofddomein etc.
+
+  let careerSource = null
   if (run.master_record.career_page_url) {
-    await upsertCompanyCareerSource(company.id, {
+    careerSource = await upsertCareerPageSource({
+      kind: 'company_career_page',
+      company_id: company.id,
       url: run.master_record.career_page_url,
-      method: run.master_record.career_page_method,
+      discovery_method: run.master_record.career_page_method,
+      is_external_ats: run.master_record.career_page_external ?? false,
+      ats_type: run.master_record.career_page_ats_type,
       created_via: 'sales_lead_run',
-      run_id: run.id
-    })
+      source_run_id: run.id,
+      active: true,
+      scrape_frequency: 'weekly',
+    })  // → row in job_sources met kind='company_career_page'
   }
+
   for (const v of run.master_record.vacancies ?? []) {
-    if (v.url) await upsertJobPosting(company.id, v)        // dedupe op (company_id, url)
+    if (v.url) await upsertJobPosting({
+      company_id: company.id,
+      source_id: careerSource?.id,    // ← bestaande FK, werkt automatisch ook voor career-page-vacatures
+      title: v.title,
+      url: v.url,
+      location: v.location,
+      // dedupe op (company_id, url)
+    })
   }
 
   await updateRun(runId, { status: 'completed' })
@@ -747,9 +782,9 @@ async function syncLeadToPipedrive(runId, force_duplicate=false) {
 ```
 
 **Internal-data linking** (V1):
-- `companies` tabel — bestaat al; we upserten op `domain` of `kvk_number` voor dedupe; veld `pipedrive_org_id` krijgt de freshly-created Pipedrive org-id, `career_page_url` wordt gevuld als gevonden
-- `job_postings` tabel — bestaat al; we upserten gevonden vacatures met `source = 'sales_lead_career_scrape'` en linking naar `company_id`. Voorkomt dat dezelfde vacature later via baanindebuurt/debanensite-scrapers dubbel wordt opgeslagen (bestaande dedupe-logica op title+company)
-- `company_career_sources` — **nieuwe tabel** (sectie 17) registreert de career-page-URL per bedrijf voor latere recurring monitoring
+- `companies` — bestaat al; upsert op `domain` of `kvk` voor dedupe; vul `pipedrive_id`, `kvk`, `hoofddomein`, `subdomeinen` als nog leeg
+- `job_sources` — uitgebreide bestaande tabel; nieuwe rij met `kind='company_career_page'` + `company_id` + `url` + `discovery_method`. Bestaande `name`-kolom wordt `"<Bedrijfsnaam> werkenbij"` of vergelijkbaar voor identificatie in lijsten
+- `job_postings` — bestaat al; insert gevonden vacatures met `source_id` linkend naar de zojuist aangemaakte `job_sources` row. Bestaande dedupe-logica (content_hash, title+company) blijft werken
 
 ### 8.2 Pipedrive payloads
 
@@ -975,7 +1010,8 @@ Altijd dedupe-check vóór create (klant brief expliciet). `force_duplicate=true
 ## 12. Implementatie-roadmap
 
 ### Fase 1 — Foundation (~0.5-1d)
-- 4 migrations: `sales_lead_runs`, `sales_lead_owner_config`, `enrichment_cache`, `company_career_sources`
+- 3 nieuwe tabellen: `sales_lead_runs`, `sales_lead_owner_config`, `enrichment_cache`
+- 1 ALTER op bestaande `job_sources` (kind + company_id + url + ATS + monitoring-velden, sectie 4)
 - TypeScript types via `mcp__supabase__generate_typescript_types`
 - `get_advisors` clean
 - Sidebar refactor → Sales parent + verplaats Campaign Assignment + Blocklist + Instantly Sync eronder
@@ -1010,13 +1046,14 @@ Altijd dedupe-check vóór create (klant brief expliciet). `force_duplicate=true
 - `PlatformMatcherService` (adres → Hoofddomein via bestaande `regio_platforms`)
 - API: `POST /sync-pipedrive`
 - UI Stap 3: loading, success, dedupe-warning, mid-flow-faal "Hervat"
-- **Internal-data sync** (sectie 8.1 onderkant): upsert `companies` + insert `company_career_sources` + insert `job_postings` rows voor gevonden vacatures (V1-onderdeel; V2 cron in aparte spec)
+- **Internal-data sync** (sectie 8.1 onderkant): upsert `companies` + upsert `job_sources` (kind=`company_career_page`) + insert `job_postings` met `source_id` link (V1-onderdeel; V2 cron in aparte spec)
 
-### Fase 6 — Run-historie + dashboards (~1d)
+### Fase 6 — Run-historie + scrape-bronnen + dashboards (~1.5-2d)
 - `/sales/lead-verrijking` lijst met filters + zoeken + pagination
 - Sub-tab "Statistieken" met cost-dashboards
 - Health-check endpoint + dashboard widget
 - Resume voor concept-runs
+- **Scrape-bronnen overzicht** (sectie 18): pagina `/job-postings/scrape-bronnen` + sidebar-uitbreiding onder Vacatures + sectie "Vacaturepagina's" in `company-details-drawer.tsx` + 4 API-routes (GET list, POST create, PATCH, DELETE)
 
 ### Fase 7 — Hardening (~1d)
 - `get_advisors` finale check
@@ -1026,7 +1063,7 @@ Altijd dedupe-check vóór create (klant brief expliciet). `force_duplicate=true
 - Penetratie-checklist (zie 11.6)
 - Sentry breadcrumbs `sales-leads`
 
-**Totaal**: ~10-12 werkdagen, parallelliseerbaar in fase 3 naar 7-9d.
+**Totaal**: ~11-13 werkdagen, parallelliseerbaar in fase 3 naar 8-10d. (+0.5-1d t.o.v. eerdere schatting door scrape-bronnen-overzicht in fase 6.)
 
 ## 13. Test-piramide
 
@@ -1072,55 +1109,23 @@ CI-gate: unit + integration moeten groen voor merge. Live alleen handmatig vóó
 
 ## 17. Future extension — Recurring career-page monitoring (V2)
 
-**Doel**: zodra een sales-lead-run een werkenbij-pagina heeft ontdekt, blijven we die periodiek scrapen om nieuwe vacatures van dat bedrijf in onze `job_postings` te krijgen, gekoppeld aan het bedrijf én (waar relevant) de Pipedrive-deal.
+**Doel**: zodra een sales-lead-run een werkenbij-pagina heeft ontdekt, blijven we die periodiek scrapen om nieuwe vacatures van dat bedrijf in onze `job_postings` te krijgen.
 
 ### 17.1 Scope V1 vs V2
 
 **V1 (in deze spec opgenomen):**
 - Discovery + 1× initiële scrape gebeurt al binnen Sales Lead Automation (sectie 6.5)
-- Vacatures worden bij sync opgeslagen in `job_postings` (sectie 8.1)
-- `company_career_sources` rij wordt aangemaakt — wordt nog niet gescrapet door cron
+- Vacatures worden bij sync opgeslagen in `job_postings` met `source_id` linkend naar de nieuwe `job_sources` row (sectie 8.1)
+- `job_sources` rij met `kind='company_career_page'` wordt aangemaakt — wordt nog niet automatisch gescrapet door cron
+- ATS-detectie (sectie 17.3) gebeurt al, flags worden gezet — V2 gebruikt deze
 
 **V2 (volgt op V1, aparte spec):**
-- Vercel Cron job die `company_career_sources WHERE is_active=true` periodiek opnieuw scrapet
-- Alerting bij nieuwe vacatures (bv ingesproken in bestaande Slack-alerts of Pipedrive-deal-notitie-update)
-- UI in `/sales/lead-verrijking/{run_id}` die de scrape-historie van het bedrijf toont
-- ATS-specific scrapers (Greenhouse, Lever, Personio, Recruitee) wanneer `career_page_external=true`
+- Vercel Cron job die `job_sources WHERE kind='company_career_page' AND active=true` periodiek opnieuw scrapet
+- Alerting bij nieuwe vacatures (bv via bestaande Slack-alerts of Pipedrive-deal-notitie-update)
+- UI in `/sales/lead-verrijking/{run_id}` + company-detail-drawer toont scrape-historie
+- ATS-specific scrapers (Greenhouse, Lever, Personio, Recruitee) wanneer `is_external_ats=true`
 
-### 17.2 Data model V2 (nieuwe tabel — al voorbereid in V1)
-
-```sql
-CREATE TABLE company_career_sources (
-  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id          uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  url                 text NOT NULL,                                  -- bv https://wetarget.nl/werkenbij
-  discovery_method    text NOT NULL CHECK (discovery_method IN ('sitemap','robots','common_path','html_link','manual')),
-  is_external_ats     boolean NOT NULL DEFAULT false,                 -- greenhouse / lever / personio
-  ats_type            text,                                            -- 'greenhouse' | 'lever' | 'personio' | 'recruitee' | null
-
-  -- Monitoring (V2 cron-driven)
-  is_active           boolean NOT NULL DEFAULT true,
-  scrape_frequency    text NOT NULL DEFAULT 'weekly'
-                      CHECK (scrape_frequency IN ('daily','weekly','monthly','manual')),
-  last_scraped_at     timestamptz,
-  last_scrape_status  text,                                            -- 'ok' | 'failed' | 'no_changes'
-  last_scrape_count   int,                                             -- # vacatures gevonden
-  consecutive_failures int NOT NULL DEFAULT 0,
-
-  -- Provenance
-  created_via         text NOT NULL CHECK (created_via IN ('sales_lead_run','manual','admin_bulk_import')),
-  source_run_id       uuid REFERENCES sales_lead_runs(id),
-
-  created_at          timestamptz NOT NULL DEFAULT now(),
-  updated_at          timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (company_id, url)
-);
-CREATE INDEX idx_company_career_sources_active_next ON company_career_sources(scrape_frequency, last_scraped_at) WHERE is_active;
-```
-
-**Belangrijk:** deze tabel komt al in **fase 1 of 5 van V1** zodat (a) bij sync-tijd de career-source-rij aangemaakt kan worden, en (b) we niet later een datamigratie hoeven te doen om bestaande runs te backfillen. Alleen het cron-deel + UI komt in V2.
-
-### 17.3 V2 Cron-architectuur (schets)
+### 17.2 V2 Cron-architectuur (schets)
 
 Volgt bestaand patroon van `/api/scrapers/baanindebuurt` en `/api/scrapers/debanensite`:
 
@@ -1128,23 +1133,24 @@ Volgt bestaand patroon van `/api/scrapers/baanindebuurt` en `/api/scrapers/deban
 Vercel Cron — daily 0 5 * * * (UTC) → /api/scrapers/career-pages
 
 Orchestrator endpoint:
-  1. Selecteer career_sources met scrape_frequency='daily' OR
-     scrape_frequency='weekly' AND last_scraped_at < now() - 7d OR
-     scrape_frequency='monthly' AND last_scraped_at < now() - 30d
+  1. SELECT * FROM job_sources WHERE kind='company_career_page' AND active=true
+       AND (scrape_frequency='daily'  AND last_scraped_at < now()-1d) OR
+           (scrape_frequency='weekly' AND last_scraped_at < now()-7d) OR
+           (scrape_frequency='monthly' AND last_scraped_at < now()-30d)
   2. Voor elke source: spawn worker via HTTP fan-out
      (zoals campaign-assignment-parallel pattern)
 
 Worker endpoint /api/scrapers/career-page-worker:
-  - Fetch URL via WebsiteService.crawlAndParse
+  - Fetch source.url via WebsiteService.crawlAndParse
   - Extract vacatures via Mistral
-  - Upsert job_postings (dedupe op company_id + title + url)
-  - Update company_career_sources.last_scraped_at + last_scrape_status + last_scrape_count
-  - Bij ≥3 consecutive failures: is_active=false + Slack alert
+  - Upsert job_postings met source_id=source.id (dedupe via bestaande logica)
+  - Update job_sources.last_scraped_at + last_scrape_status + last_scrape_count
+  - Bij ≥3 consecutive failures: active=false + Slack alert
 ```
 
-### 17.4 ATS-detectie
+Geen schema-wijziging nodig — `job_sources` heeft al alle benodigde kolommen vanaf V1 (sectie 4).
 
-Bij V1 al detecteren (en flag opslaan) zodat V2 weet welke scraper te gebruiken:
+### 17.3 ATS-detectie (V1 al actief)
 
 ```ts
 // In WebsiteService.discoverCareerPage
@@ -1159,8 +1165,81 @@ function detectATS(url: URL): { is_external: boolean; ats_type?: string } {
 }
 ```
 
-Voor V1 markeren we deze als `is_external_ats=true` maar scrapen ze nog gewoon via Mistral (werkt redelijk voor de meeste ATS-frontends). V2 kan optimaliseren met ATS-specifieke API's (de meeste hebben publieke job-list endpoints).
+V1 markeert ATS-pages met `is_external_ats=true` maar scrapt ze nog gewoon via Mistral. V2 kan optimaliseren met ATS-specifieke API's (Greenhouse/Lever hebben publieke job-list endpoints — vaak rijkere data dan HTML scrape).
 
-### 17.5 V2 effort-schatting
+### 17.4 V2 effort-schatting
 
-~3-5 werkdagen voor cron + worker + dedupe + UI uitbreiding. Aparte spec wanneer V1 stable is.
+~3-5 werkdagen voor cron-orchestrator + worker + ATS-specific scrapers + UI uitbreiding. Aparte spec wanneer V1 stable is.
+
+## 18. Scrape-bronnen overzicht (V1)
+
+Naast Sales Lead Automation maken we in V1 een centrale beheerpagina voor alle vacature-scrape-bronnen.
+
+### 18.1 Route + sidebar
+
+| Path | Plek | Toegang |
+|---|---|---|
+| `/job-postings/scrape-bronnen` | Onder **Vacatures** in sidebar | superadmin only (consistent met /sales/owner-mapping) |
+
+Sidebar-update (`apps/admin/components/Sidebar.tsx`): bestaand "Vacatures"-item krijgt children:
+- Overzicht (huidige `/job-postings`)
+- Nieuw aanmaken (huidig `/vacatures/nieuw`)
+- **Scrape-bronnen** (nieuw `/job-postings/scrape-bronnen`)
+
+### 18.2 UI
+
+**Tabel** met alle `job_sources` rows. Kolommen:
+| Kolom | Aggregator | Career-page |
+|---|---|---|
+| Naam | "Indeed", "Nationale Vacaturebank", … | "WeTarget B.V. — werkenbij" |
+| Type | aggregator | company_career_page |
+| Bedrijf | — | link naar company-drawer |
+| URL | — (bestaand veld leeg voor aggregators) | https://wetarget.nl/werkenbij |
+| Methode | scraping_method | discovery_method |
+| Actief | active | active |
+| Frequentie | (n.v.t. V1, beschikbaar voor V2-monitoring) | weekly/daily/monthly |
+| Laatst gescrapet | last_scraped_at | last_scraped_at |
+| # vacatures (totaal) | aggregate van `job_postings WHERE source_id=…` | idem |
+| ATS | — | "greenhouse" / "lever" / etc., of "—" |
+| Faal-count | consecutive_failures | consecutive_failures |
+| Acties | ✎ | ✎ + 🗑 |
+
+**Filters**:
+- Type: `aggregator | company_career_page | alle`
+- Status: actief / inactief
+- ATS-type
+- Zoek op naam / URL / bedrijfsnaam
+
+**Edit-modal** voor career-page-rows: URL aanpassen, frequency wijzigen, deactiveren. Voor aggregator-rows: alleen `active`-toggle (kerngegevens worden via code beheerd).
+
+**Bulk-actions** (V1 minimaal):
+- Activeren/deactiveren van geselecteerde rijen
+- (V2: handmatige re-scrape kicken voor career-pages)
+
+### 18.3 Op `company-details-drawer`
+
+Nieuwe sectie **"Vacaturepagina's"** onder de bestaande "Website"-link in `apps/admin/components/company-details-drawer.tsx`:
+
+```
+─── Bedrijfsgegevens ───
+Website:        https://wetarget.nl ↗
+
+─── Vacaturepagina's (2) ───              [+ Toevoegen]
+🟢 https://wetarget.nl/werkenbij           weekly · 5 vac     ✎ 🗑
+🟢 https://greenhouse.io/wetarget          weekly · 12 vac    ✎ 🗑
+                                           ATS: greenhouse
+```
+
+Inline edit/remove. Klik op een rij → modal met details (last_scraped_at, last_scrape_count, ATS-info).
+
+**API-routes**:
+- `GET /api/job-sources?type&company_id&search&page` — overzicht-tabel
+- `POST /api/job-sources` — nieuwe career-page (handmatig toevoegen, `created_via='manual'`)
+- `PATCH /api/job-sources/{id}` — edit (URL, frequency, active, ats_type)
+- `DELETE /api/job-sources/{id}` — alleen voor `kind='company_career_page'`; aggregators kunnen alleen geïnactiveerd
+
+Alle achter `withAuth` + superadmin-check.
+
+### 18.4 Effort
+
+~0.5-1 dag bovenop fase 6 (run-historie). Wordt onderdeel van fase 6 in de roadmap.
