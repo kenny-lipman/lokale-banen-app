@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ExternalLink,
   Loader2,
+  PowerOff,
   Rocket,
   RefreshCw,
   TriangleAlert,
@@ -21,8 +22,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
+import { warnIfPostPublishIssue } from "@/lib/publication-toasts"
 import type { GoLiveCheckResponse, PlatformDetail } from "../types"
 
 export interface GoLiveTabProps {
@@ -37,6 +50,8 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
   const [checks, setChecks] = useState<GoLiveCheckResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [publishing, setPublishing] = useState(false)
+  const [unpublishing, setUnpublishing] = useState(false)
+  const [confirmOffline, setConfirmOffline] = useState(false)
 
   const fetchChecks = useCallback(async () => {
     setLoading(true)
@@ -88,6 +103,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
         return
       }
       toast.success("Platform is live! 🚀")
+      warnIfPostPublishIssue(json.alias, json.revalidate)
       if (json.data) {
         onPublished(json.data as PlatformDetail)
       }
@@ -100,6 +116,33 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
       setPublishing(false)
     }
   }, [checks?.all_required_passed, platform.id, fetchChecks, onPublished, onRefresh])
+
+  const takeOffline = useCallback(async () => {
+    setUnpublishing(true)
+    try {
+      const res = await authFetch(`/api/platforms/${platform.id}/take-offline`, {
+        method: "POST",
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        toast.error(json.error || "Offline halen mislukt")
+        return
+      }
+      toast.success("Platform is offline gehaald.")
+      warnIfPostPublishIssue(null, json.revalidate)
+      if (json.data) {
+        onPublished(json.data as PlatformDetail)
+      }
+      await fetchChecks()
+      onRefresh?.()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      toast.error(`Fout bij offline halen: ${msg}`)
+    } finally {
+      setUnpublishing(false)
+      setConfirmOffline(false)
+    }
+  }, [platform.id, fetchChecks, onPublished, onRefresh])
 
   const previewUrl = platform.preview_domain
     ? `https://${platform.preview_domain}`
@@ -219,6 +262,51 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
               )}
               {checks?.is_public ? "Al live" : "Live zetten"}
             </Button>
+
+            {checks?.is_public && (
+              <AlertDialog open={confirmOffline} onOpenChange={setConfirmOffline}>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant="destructive"
+                    disabled={unpublishing || loading}
+                  >
+                    {unpublishing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <PowerOff className="h-4 w-4 mr-2" />
+                    )}
+                    Offline halen
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Platform offline halen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      De site is direct onbereikbaar voor bezoekers en bestaande
+                      bookmarks tonen "Domein niet gevonden". De Vercel-alias blijft
+                      staan, dus opnieuw live zetten is binnen seconden klaar.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={unpublishing}>
+                      Annuleren
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault()
+                        void takeOffline()
+                      }}
+                      disabled={unpublishing}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Offline halen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
 
             {primaryViewUrl && (
               <div className="flex items-center">

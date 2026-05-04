@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
+import { warnIfPostPublishIssue } from "@/lib/publication-toasts"
 
 export type AutoSaveStatus = "idle" | "dirty" | "saving" | "saved" | "error"
 
@@ -84,6 +85,11 @@ export function useAutoSave<T>({
 
         setStatus("saved")
         setLastSavedAt(new Date())
+        // alias is alleen aanwezig wanneer de PATCH een publish-flow trok
+        // (is_public false→true). Voor reguliere veld-edits is hij `undefined`,
+        // dus warnIfPostPublishIssue blijft stil. revalidate is altijd present
+        // — daar warnen we alleen op echte fails.
+        warnIfPostPublishIssue(result.alias, result.revalidate)
         if (result.data && onSaved) {
           onSaved(result.data)
         }
