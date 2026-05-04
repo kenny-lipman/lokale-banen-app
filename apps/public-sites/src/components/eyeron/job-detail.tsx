@@ -33,7 +33,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
       {/* ── Main column ── */}
       <div className="min-w-0">
         {isExpired && (
-          <div className="bg-surface border border-divider px-5 py-4 mb-6">
+          <div className="bg-surface shadow-card px-5 py-4 mb-6">
             <p className="m-0 text-meta font-bold text-primary">
               Deze vacature is verlopen en niet meer beschikbaar.
             </p>
@@ -58,7 +58,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
             )}
             {job.city && (
               <>
-                <span className="text-body font-light"> — </span>
+                <span className="text-body font-light mx-2" aria-hidden="true">·</span>
                 <Link
                   href={`/vacatures/${slugifyCity(job.city)}`}
                   className="text-body font-light hover:text-primary hover:underline underline-offset-2"
@@ -71,15 +71,18 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
           </p>
         </header>
 
+        {/* Key facts — mobile + tablet (op desktop dekt de sticky sidebar dit af) */}
+        <MobileFacts job={job} />
+
         {/* Description */}
-        <div className="mt-6">
+        <div className="mt-8">
           {!markdownContent ? (
             <p className="text-meta font-light text-body italic">
               Er is geen beschrijving beschikbaar voor deze vacature. Bezoek de
               website van de werkgever voor meer informatie.
             </p>
           ) : (
-            <div className="prose prose-sm max-w-none prose-headings:text-primary prose-headings:font-bold prose-h2:text-h2 prose-h3:text-h3 prose-p:text-meta prose-p:font-light prose-p:text-body prose-li:text-meta prose-li:font-light prose-li:text-body prose-strong:text-primary prose-strong:font-bold prose-a:text-secondary prose-a:no-underline hover:prose-a:underline">
+            <div className="prose max-w-none prose-headings:text-primary prose-headings:font-bold prose-headings:tracking-tight prose-h2:text-h2 prose-h2:mt-10 prose-h2:mb-4 prose-h3:text-h3 prose-h3:mt-8 prose-h3:mb-3 prose-p:text-[17px] prose-p:font-regular prose-p:text-[#1F2937] prose-p:leading-relaxed prose-li:text-[17px] prose-li:font-regular prose-li:text-[#1F2937] prose-li:leading-relaxed prose-strong:text-primary prose-strong:font-bold prose-a:text-secondary prose-a:no-underline hover:prose-a:underline">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                 {markdownContent}
               </ReactMarkdown>
@@ -89,7 +92,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
 
         {/* Company block */}
         {job.company && (
-          <section className="mt-10 bg-surface border border-divider-subtle px-6 py-5">
+          <section className="mt-10 bg-surface shadow-card px-6 py-5">
             <h2 className="m-0 text-h3 font-bold text-primary tracking-tight">
               Over {companyName}
             </h2>
@@ -133,12 +136,15 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
           </section>
         )}
 
-        {/* Related */}
+        {/* Related — query filtert alleen op city, dus copy is "andere in stad" ipv "vergelijkbaar" */}
         {relatedJobs.length > 0 && (
           <section className="mt-12 pt-8 border-t border-divider">
-            <h2 className="m-0 text-h2 font-bold text-primary tracking-tight mb-6">
-              Vergelijkbare vacatures
+            <h2 className="m-0 text-h2 font-bold text-primary tracking-tight">
+              {job.city ? `Andere vacatures in ${job.city}` : 'Andere vacatures'}
             </h2>
+            <p className="m-0 mt-1 mb-6 text-meta font-light text-body">
+              Vacatures bij andere werkgevers in dezelfde regio
+            </p>
             <div className="flex flex-col gap-[18px]">
               {relatedJobs.slice(0, 3).map((relatedJob) => (
                 <VacatureCard key={relatedJob.id} job={relatedJob} />
@@ -158,7 +164,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
         className="hidden lg:block lg:sticky"
         style={{ top: 'calc(var(--header-height-desk) + 24px)' }}
       >
-        <div className="bg-surface border border-divider-subtle p-6 flex flex-col gap-4">
+        <div className="bg-surface shadow-card p-6 flex flex-col gap-4">
           <ApplyButton
             jobUrl={job.url}
             jobId={job.id}
@@ -228,6 +234,36 @@ function FactRow({
   )
 }
 
+/**
+ * Key-facts blok dat boven de description verschijnt op mobile + tablet,
+ * zodat werkzoekenden salaris/dienstverband/uren/locatie zien voordat ze
+ * door de hele beschrijving scrollen. Op desktop dekt de sticky sidebar dit af.
+ */
+function MobileFacts({ job }: { job: JobPosting }) {
+  const hasSalary = !!(job.salary && job.salary.trim() !== '-' && job.salary.trim() !== '')
+  const hasHours = job.working_hours_min != null || job.working_hours_max != null
+  const hours = hasHours ? formatHours(job.working_hours_min, job.working_hours_max) : null
+
+  if (!hasSalary && !job.employment && !hours && !job.city) return null
+
+  return (
+    <dl className="lg:hidden mt-6 bg-surface shadow-card p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {hasSalary && <FactRow icon={MoneyIcon} label="Salaris" value={job.salary as string} />}
+      {job.employment && (
+        <FactRow icon={Briefcase} label="Dienstverband" value={job.employment} />
+      )}
+      {hours && <FactRow icon={Clock} label="Uren per week" value={hours} />}
+      {job.city && (
+        <FactRow
+          icon={MapPin}
+          label="Locatie"
+          value={[job.city, job.state].filter(Boolean).join(', ')}
+        />
+      )}
+    </dl>
+  )
+}
+
 function MoneyIcon({ className, strokeWidth }: { className?: string; strokeWidth?: number }) {
   return (
     <svg
@@ -248,6 +284,6 @@ function MoneyIcon({ className, strokeWidth }: { className?: string; strokeWidth
 
 function formatHours(min: number | null, max: number | null): string {
   if (min == null && max == null) return ''
-  if (min != null && max != null && min !== max) return `${min} - ${max} uur`
+  if (min != null && max != null && min !== max) return `${min} tot ${max} uur`
   return `${min ?? max} uur`
 }

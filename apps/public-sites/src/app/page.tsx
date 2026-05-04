@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (tenant.tier === 'master') {
     return {
-      title: tenant.hero_title || 'Lokale Banen — Vacatures door heel Nederland',
+      title: tenant.hero_title || 'Lokale Banen | Vacatures door heel Nederland',
       description:
         tenant.seo_description ||
         'Vind lokale vacatures in jouw regio. Honderden vacatures via tientallen regionale jobboards door heel Nederland.',
@@ -195,8 +195,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             />
 
             <p className="text-h2 font-regular text-primary leading-snug tracking-tight mt-7 mb-0 max-w-prose">
-              Wij verzamelen vacatures van lokale werkgevers in de {region} —
-              alle openstaande functies, dagelijks bijgewerkt.
+              Wij verzamelen vacatures van lokale werkgevers in de {region}.
+              Alle openstaande functies, dagelijks bijgewerkt.
             </p>
 
             <SortToolbar

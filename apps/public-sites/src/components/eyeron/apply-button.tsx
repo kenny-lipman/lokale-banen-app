@@ -10,7 +10,7 @@ interface ApplyButtonProps {
   jobTitle: string
   isExpired?: boolean
   /**
-   * "sticky-mobile" = sticky bottom bar op <sm (default).
+   * "sticky-mobile" = sticky bottom bar op <lg (mobile + tablet, default).
    * "inline" = inline button (gebruik op detail-page sidebar).
    */
   variant?: 'sticky-mobile' | 'inline'
@@ -64,11 +64,11 @@ export function ApplyButton({
     )
   }
 
-  // sticky-mobile
+  // sticky-mobile (mobile + tablet, vervalt op desktop waar sidebar de CTA toont)
   return (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-40 bg-surface p-3 sm:hidden',
+        'fixed bottom-0 left-0 right-0 z-40 bg-surface p-3 lg:hidden',
         'border-t border-divider shadow-card-hover'
       )}
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}

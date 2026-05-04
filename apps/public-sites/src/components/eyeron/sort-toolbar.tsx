@@ -86,7 +86,7 @@ export function SortToolbar({
         className="text-meta font-bold text-primary tracking-tight"
         aria-live="polite"
       >
-        Vacatures - Toont {from} - {to} van {total.toLocaleString('nl-NL')}
+        Toont {from} tot {to} van {total.toLocaleString('nl-NL')} vacatures
       </span>
 
       <div ref={containerRef} className="relative">

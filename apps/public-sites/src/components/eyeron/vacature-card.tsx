@@ -43,7 +43,9 @@ export function VacatureCard({ job, distanceKm }: VacatureCardProps) {
 
         <p className="m-0 mb-2 text-body tracking-tight font-light text-body">
           {company?.name && <strong className="font-bold text-primary">{company.name}</strong>}
-          {company?.name && (job.city || company.city) && ' - '}
+          {company?.name && (job.city || company.city) && (
+            <span className="mx-2" aria-hidden="true">·</span>
+          )}
           <span>{job.city || company?.city}</span>
         </p>
 
@@ -142,7 +144,7 @@ function formatEmployment(
 
 function formatHours(min: number | null, max: number | null): string | null {
   if (min == null && max == null) return null
-  if (min != null && max != null && min !== max) return `${min} - ${max} uur`
+  if (min != null && max != null && min !== max) return `${min} tot ${max} uur`
   return `${min ?? max} uur`
 }
 

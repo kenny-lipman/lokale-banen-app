@@ -58,8 +58,9 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
   const ogUrl = effectiveDomain ? `https://${effectiveDomain}/vacature/${slug}` : undefined
   const isExpired = !!(job.end_date && new Date(job.end_date) < new Date())
 
-  const ogImages = job.header_image_url
-    ? [{ url: job.header_image_url, width: 1600, height: 900 }]
+  const headerImage = job.header_image_url?.trim() || null
+  const ogImages = headerImage
+    ? [{ url: headerImage, width: 1600, height: 900 }]
     : tenant.og_image_url
     ? [{ url: tenant.og_image_url }]
     : undefined
@@ -183,7 +184,7 @@ export default async function JobPage({ params }: JobPageProps) {
       identifier: { name: tenant.name, value: job.id },
       applicantLocationCountry: 'NL',
     }),
-    ...(job.header_image_url ? { image: job.header_image_url } : {}),
+    ...(job.header_image_url?.trim() ? { image: job.header_image_url.trim() } : {}),
   }
 
   const pageUrl = baseUrl ? `${baseUrl}/vacature/${slug}` : `/vacature/${slug}`
@@ -192,7 +193,7 @@ export default async function JobPage({ params }: JobPageProps) {
     <div className="flex flex-col min-h-screen">
       <SiteHeader tenant={tenant} />
 
-      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8 pb-24 sm:pb-8">
+      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8 pb-24 lg:pb-8">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -217,10 +218,10 @@ export default async function JobPage({ params }: JobPageProps) {
           ]}
         />
 
-        {job.header_image_url && (
+        {job.header_image_url?.trim() && (
           <div className="relative w-full aspect-[16/9] mb-8 overflow-hidden">
             <Image
-              src={job.header_image_url}
+              src={job.header_image_url.trim()}
               alt={job.title}
               fill
               priority
@@ -235,7 +236,7 @@ export default async function JobPage({ params }: JobPageProps) {
 
       <SiteFooter tenant={tenant} cities={cities} />
 
-      {/* Sticky bottom apply CTA — alleen op mobile (sidebar heeft eigen CTA op desktop) */}
+      {/* Sticky bottom apply CTA — mobile + tablet (sidebar heeft eigen CTA op desktop) */}
       <ApplyButton
         jobUrl={job.url}
         jobId={job.id}
