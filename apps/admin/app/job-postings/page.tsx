@@ -49,18 +49,25 @@ interface JobPosting {
   created_at?: string
 }
 
-type ReviewStatusTab = "pending" | "approved" | "rejected" | "all"
+type ReviewStatusTab = "pending" | "approved" | "rejected" | "all" | "archived"
 
-const TAB_ORDER: ReviewStatusTab[] = ["pending", "approved", "rejected", "all"]
+const TAB_ORDER: ReviewStatusTab[] = ["pending", "approved", "rejected", "all", "archived"]
 const TAB_LABELS: Record<ReviewStatusTab, string> = {
   pending: "Pending",
   approved: "Approved",
   rejected: "Rejected",
   all: "Alle",
+  archived: "Archief",
 }
 
 function isReviewStatusTab(value: string | null): value is ReviewStatusTab {
-  return value === "pending" || value === "approved" || value === "rejected" || value === "all"
+  return (
+    value === "pending" ||
+    value === "approved" ||
+    value === "rejected" ||
+    value === "all" ||
+    value === "archived"
+  )
 }
 
 function JobPostingsContent() {

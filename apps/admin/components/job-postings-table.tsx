@@ -77,7 +77,7 @@ interface JobPostingsTableProps {
   data?: any[] // Optional: override data for custom use (e.g. Otis scraped jobs)
   onJobSelect?: (job: JobPosting) => void // Callback when a job is selected (for URL-based drawer)
   selectedJobId?: string // Currently selected job ID (for URL-based drawer)
-  reviewStatus?: "pending" | "approved" | "rejected" | "all" // Review status filter from tabs
+  reviewStatus?: "pending" | "approved" | "rejected" | "all" | "archived" // Review status filter from tabs
   onResetSelection?: number // Increment to force-reset selection state (e.g. on tab change)
   onBulkActionComplete?: () => void // Fires after a bulk approve/reject so parent can refresh counts
 }
@@ -151,7 +151,11 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
           limit: itemsPerPage,
           search: debouncedSearchTerm,
           status: statusFilter === "all" ? undefined : statusFilter,
-          review_status: reviewStatus && reviewStatus !== "all" ? reviewStatus : undefined,
+          review_status:
+            reviewStatus && reviewStatus !== "all" && reviewStatus !== "archived"
+              ? reviewStatus
+              : undefined,
+          archived_filter: reviewStatus === "archived" ? "archived" : "active",
           source_id: sourceFilter.length > 0 ? sourceFilter : undefined,
           platform_id: platformFilter.length > 0 ? platformFilter : undefined,
           // New filter parameters

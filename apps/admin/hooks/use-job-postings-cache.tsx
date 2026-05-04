@@ -22,6 +22,8 @@ export interface JobPostingsFilterParams {
   education_level?: string[] | null
   hours_min?: number | null
   hours_max?: number | null
+  // 'active' (default), 'archived', 'all'
+  archived_filter?: 'active' | 'archived' | 'all'
   // Flag to skip fetching (used when external data is provided)
   skipFetch?: boolean
 }
@@ -70,7 +72,8 @@ export function useJobPostingsCache(params: JobPostingsFilterParams) {
         career_level_filter: params.career_level && params.career_level.length > 0 ? params.career_level : null,
         education_level_filter: params.education_level && params.education_level.length > 0 ? params.education_level : null,
         hours_min: params.hours_min ?? null,
-        hours_max: params.hours_max ?? null
+        hours_max: params.hours_max ?? null,
+        archived_filter: params.archived_filter ?? 'active',
       }
 
       const { data, error } = await supabase.rpc('search_job_postings', rpcParams)
