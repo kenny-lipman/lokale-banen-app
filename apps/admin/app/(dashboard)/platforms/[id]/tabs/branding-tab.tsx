@@ -78,51 +78,41 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5" />
-            Primary color
+            Brand kleuren
           </CardTitle>
           <CardDescription>
-            Wordt gebruikt voor knoppen, links en accenten op de publieke site.
+            Primary wordt gebruikt voor knoppen en links. Secondary voor
+            editorial accenten. Tertiary is gereserveerd voor toekomstige
+            design-uitbreidingen — leeg laten = fallback gebruiken.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="primary_color">Hex kleur</Label>
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                id="primary_color"
-                value={values.primary_color || "#0066cc"}
-                onChange={(e) => onChange({ primary_color: e.target.value })}
-                className="h-10 w-10 cursor-pointer rounded border"
-              />
-              <Input
-                value={values.primary_color}
-                onChange={(e) => onChange({ primary_color: e.target.value })}
-                placeholder="#0066cc"
-                className="max-w-[160px] font-mono"
-              />
-              <div
-                className="h-10 flex-1 rounded border"
-                style={{ backgroundColor: values.primary_color || "#0066cc" }}
-              />
-            </div>
-          </div>
+        <CardContent className="space-y-6">
+          <ColorField
+            id="primary_color"
+            label="Primary"
+            placeholder="#0066cc"
+            value={values.primary_color}
+            onChange={(v) => onChange({ primary_color: v })}
+            showPresets
+          />
 
-          <div className="space-y-2">
-            <Label>Presets</Label>
-            <div className="flex flex-wrap gap-2">
-              {COLOR_PRESETS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  aria-label={`Preset ${color}`}
-                  onClick={() => onChange({ primary_color: color })}
-                  className="h-8 w-8 rounded-full border-2 border-white shadow-sm ring-1 ring-black/10 transition hover:scale-110"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </div>
+          <ColorField
+            id="secondary_color"
+            label="Secondary"
+            placeholder="#7BC142"
+            helperText="Editorial accent — knoppen, badges, callouts. Leeg = fallback (Achterhoek-groen)."
+            value={values.secondary_color}
+            onChange={(v) => onChange({ secondary_color: v })}
+          />
+
+          <ColorField
+            id="tertiary_color"
+            label="Tertiary"
+            placeholder="#F5EFE0"
+            helperText="Warm cream/paper accent. Nog niet actief in Eyeron design — wordt opgeslagen voor toekomstig gebruik."
+            value={values.tertiary_color}
+            onChange={(v) => onChange({ tertiary_color: v })}
+          />
 
           <div className="rounded-lg border p-4 space-y-3">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -134,7 +124,14 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
                 className="rounded-md px-3 py-1.5 text-sm font-medium text-white"
                 style={{ backgroundColor: values.primary_color || "#0066cc" }}
               >
-                Primaire knop
+                Primary knop
+              </button>
+              <button
+                type="button"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-white"
+                style={{ backgroundColor: values.secondary_color || "#7BC142" }}
+              >
+                Secondary knop
               </button>
               <a
                 style={{ color: values.primary_color || "#0066cc" }}
@@ -154,6 +151,68 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+interface ColorFieldProps {
+  id: string
+  label: string
+  placeholder: string
+  helperText?: string
+  value: string
+  onChange: (value: string) => void
+  showPresets?: boolean
+}
+
+function ColorField({
+  id,
+  label,
+  placeholder,
+  helperText,
+  value,
+  onChange,
+  showPresets,
+}: ColorFieldProps) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="flex items-center gap-3">
+        <input
+          type="color"
+          id={id}
+          value={value || placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-10 cursor-pointer rounded border"
+        />
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="max-w-[160px] font-mono"
+        />
+        <div
+          className="h-10 flex-1 rounded border"
+          style={{ backgroundColor: value || placeholder }}
+        />
+      </div>
+      {helperText && (
+        <p className="text-xs text-muted-foreground">{helperText}</p>
+      )}
+      {showPresets && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {COLOR_PRESETS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              aria-label={`Preset ${color}`}
+              onClick={() => onChange(color)}
+              className="h-7 w-7 rounded-full border-2 border-white shadow-sm ring-1 ring-black/10 transition hover:scale-110"
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -69,6 +69,8 @@ async function patchHandler(
       "favicon_url",
       "og_image_url",
       "primary_color",
+      "secondary_color",
+      "tertiary_color",
       // Content
       "hero_title",
       "hero_subtitle",
@@ -122,7 +124,11 @@ async function patchHandler(
     }
 
     // Best-effort: invalidate public-site caches for this platform.
-    const revalidate = await revalidatePublicSite({ platformIds: [id] })
+    // Geef ook hosts mee zodat `getTenantByHost` cache (per-host tag) bust.
+    const hosts = [data.domain, data.preview_domain].filter(
+      (h): h is string => typeof h === "string" && h.length > 0
+    )
+    const revalidate = await revalidatePublicSite({ platformIds: [id], hosts })
     if (!revalidate.ok && !revalidate.skipped) {
       console.warn(`[platforms PATCH] revalidate failed for ${id}:`, revalidate.error)
     }

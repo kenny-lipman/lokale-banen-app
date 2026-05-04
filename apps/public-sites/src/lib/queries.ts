@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { createPublicClient, createPreviewServiceClient } from './supabase'
 import { slugifyCity } from '@lokale-banen/database'
 
@@ -73,12 +74,30 @@ const VALID_TYPES = ['vast', 'tijdelijk', 'fulltime', 'parttime', 'stage', 'bijb
 
 /**
  * Fetch approved, published jobs for a tenant with optional filters.
+ *
+ * Cached per (tenantId, filter) combinatie en invalidated door
+ * tag `jobs:${tenantId}` zodra admin een platform-edit doet of nieuwe
+ * vacatures approved/unapproved worden.
  */
 export async function getApprovedJobs(
   tenantId: string,
   filter: JobFilter = {}
 ): Promise<{ jobs: JobPosting[]; total: number }> {
+  const cached = unstable_cache(
+    () => fetchApprovedJobsUncached(tenantId, filter),
+    [`jobs:${tenantId}`, JSON.stringify(filter)],
+    {
+      tags: [`jobs:${tenantId}`],
+      revalidate: 300,
+    }
+  )
+  return cached()
+}
 
+async function fetchApprovedJobsUncached(
+  tenantId: string,
+  filter: JobFilter
+): Promise<{ jobs: JobPosting[]; total: number }> {
   const supabase = createPublicClient()
   const page = filter.page || 1
   const from = (page - 1) * JOBS_PER_PAGE

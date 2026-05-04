@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { unstable_cache } from 'next/cache'
 import { createPublicClient, createPreviewServiceClient } from './supabase'
 
 export interface Tenant {
@@ -55,11 +56,7 @@ export async function getTenant(): Promise<Tenant | null> {
   return getTenantByHost(host)
 }
 
-/**
- * Cached tenant lookup by host. Key: host → platform row.
- * Invalidate via tag `platform:host:${host}` when a platform's config changes.
- */
-export async function getTenantByHost(host: string): Promise<Tenant | null> {
+async function fetchTenantByHostUncached(host: string): Promise<Tenant | null> {
   const supabase = createPublicClient()
   const { data, error } = await supabase
     .from('platforms')
@@ -70,6 +67,23 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
 
   if (error || !data) return null
   return mapTenantRow(data as PlatformRow)
+}
+
+/**
+ * Cached tenant lookup by host. Key: host → platform row.
+ * Invalidate via tag `platform:host:${host}` when a platform's config changes
+ * (admin PATCH /api/review/platforms/[id] triggert dit).
+ */
+export async function getTenantByHost(host: string): Promise<Tenant | null> {
+  const cached = unstable_cache(
+    () => fetchTenantByHostUncached(host),
+    [`tenant:host:${host}`],
+    {
+      tags: [`platform:host:${host}`],
+      revalidate: 3600,
+    }
+  )
+  return cached()
 }
 
 /**

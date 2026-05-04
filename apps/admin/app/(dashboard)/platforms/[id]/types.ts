@@ -18,6 +18,8 @@ export interface PlatformDetail {
   favicon_url: string | null
   og_image_url: string | null
   primary_color: string | null
+  secondary_color: string | null
+  tertiary_color: string | null
 
   // Content
   hero_title: string | null
@@ -55,6 +57,8 @@ export interface PlatformFormValues {
   favicon_url: string
   og_image_url: string
   primary_color: string
+  secondary_color: string
+  tertiary_color: string
 
   // Content
   hero_title: string
@@ -84,6 +88,8 @@ export const DEFAULT_FORM_VALUES: PlatformFormValues = {
   favicon_url: "",
   og_image_url: "",
   primary_color: "#0066cc",
+  secondary_color: "",
+  tertiary_color: "",
   hero_title: "",
   hero_subtitle: "",
   about_text: "",
@@ -114,6 +120,8 @@ export function platformToForm(platform: PlatformDetail): PlatformFormValues {
     favicon_url: platform.favicon_url ?? "",
     og_image_url: platform.og_image_url ?? "",
     primary_color: platform.primary_color ?? "#0066cc",
+    secondary_color: platform.secondary_color ?? "",
+    tertiary_color: platform.tertiary_color ?? "",
     hero_title: platform.hero_title ?? "",
     hero_subtitle: platform.hero_subtitle ?? "",
     about_text: platform.about_text ?? "",
@@ -144,6 +152,8 @@ export function formToPatchPayload(
     favicon_url: nullable(values.favicon_url),
     og_image_url: nullable(values.og_image_url),
     primary_color: nullable(values.primary_color) ?? "#0066cc",
+    secondary_color: nullable(values.secondary_color),
+    tertiary_color: nullable(values.tertiary_color),
     hero_title: nullable(values.hero_title),
     hero_subtitle: nullable(values.hero_subtitle),
     about_text: nullable(values.about_text),

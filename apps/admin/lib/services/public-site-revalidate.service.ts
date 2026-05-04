@@ -1,5 +1,11 @@
 export interface RevalidateRequest {
   platformIds?: string[]
+  /**
+   * Hosts (domain + preview_domain) waarvoor de tenant-by-host cache
+   * gebust moet worden. Public-sites cachet `getTenantByHost` per host —
+   * zonder host-tag blijft het tenant-record stale tot de TTL verloopt.
+   */
+  hosts?: string[]
   jobSlugs?: string[]
   companySlugs?: { platformId: string; slug: string }[]
   paths?: string[]
@@ -20,6 +26,7 @@ const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET
 
 export async function revalidatePublicSite({
   platformIds = [],
+  hosts = [],
   jobSlugs = [],
   companySlugs = [],
   paths = [],
@@ -30,6 +37,9 @@ export async function revalidatePublicSite({
     tags.add(`platform:${id}`)
     tags.add(`jobs:${id}`)
     tags.add(`sitemap:${id}`)
+  }
+  for (const host of hosts) {
+    if (host) tags.add(`platform:host:${host}`)
   }
   for (const slug of jobSlugs) {
     tags.add(`job:${slug}`)
