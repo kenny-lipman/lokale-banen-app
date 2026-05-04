@@ -85,6 +85,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
     .not('slug', 'is', null)
+    .is('archived_at', null)
     .order('published_at', { ascending: false })
     .limit(50000)
 
@@ -120,6 +121,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
     .not('company_id', 'is', null)
+    .is('archived_at', null)
     .limit(50000)
 
   if (companySlugs) {

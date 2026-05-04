@@ -122,6 +122,7 @@ async function fetchApprovedJobsUncached(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
 
   // Apply sort order
   const sort = filter.sort || 'newest'
@@ -210,6 +211,7 @@ export async function getFreshnessStats(tenantId: string): Promise<{
       .eq('platform_id', tenantId)
       .eq('review_status', 'approved')
       .not('published_at', 'is', null)
+      .is('archived_at', null)
       .order('published_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -218,6 +220,7 @@ export async function getFreshnessStats(tenantId: string): Promise<{
       .select('id', { count: 'exact', head: true })
       .eq('platform_id', tenantId)
       .eq('review_status', 'approved')
+      .is('archived_at', null)
       .gte('published_at', todayStart.toISOString()),
   ])
 
@@ -243,6 +246,7 @@ export async function getJobCount(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
 
   if (filter.type && filter.type !== 'alle') {
     const normalizedType = filter.type.toLowerCase() as typeof VALID_TYPES[number]
