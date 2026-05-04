@@ -1,70 +1,101 @@
 /**
- * PDF text extraction for Baanindebuurt.nl vacatures
- * Using pdfplumber via Python subprocess for reliable extraction
+ * PDF text extraction for Baanindebuurt.nl vacatures.
+ * Pure-JS pdf2json eerst; valt terug op Mistral OCR voor image-based scans.
  */
 
-import { exec } from "child_process";
-import { promisify } from "util";
-import { promises as fs } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
-import { randomUUID } from "crypto";
+import PDFParser from "pdf2json";
 
-const execAsync = promisify(exec);
+const PDF_PARSE_TIMEOUT_MS = 30_000;
+const MIN_TEXT_LENGTH = 50;
+const MISTRAL_OCR_URL = "https://api.mistral.ai/v1/ocr";
 
-/**
- * Download a PDF and extract text using pdfplumber (Python)
- */
 export async function downloadAndExtractPdf(pdfUrl: string): Promise<string> {
-  const tempPath = join(tmpdir(), `vacature-${randomUUID()}.pdf`);
-
-  try {
-    // Download PDF
-    const response = await fetch(pdfUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    await fs.writeFile(tempPath, buffer);
-
-    // Extract text using pdfplumber via Python
-    const pythonScript = `
-import pdfplumber
-import sys
-
-try:
-    with pdfplumber.open('${tempPath}') as pdf:
-        text = ''
-        for page in pdf.pages:
-            t = page.extract_text()
-            if t:
-                text += t + '\\n'
-        print(text)
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-`;
-
-    const { stdout, stderr } = await execAsync(`python3 -c "${pythonScript.replace(/"/g, '\\"')}"`, {
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-    });
-
-    if (stderr && !stdout) {
-      throw new Error(`PDF extraction failed: ${stderr}`);
-    }
-
-    return stdout.trim();
-  } catch (error) {
-    console.error(`Error downloading/extracting PDF from ${pdfUrl}:`, error);
-    throw error;
-  } finally {
-    // Clean up temp file
-    await fs.unlink(tempPath).catch(() => {
-      /* ignore cleanup errors */
-    });
+  const response = await fetch(pdfUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
   }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const fast = await extractTextFromBuffer(buffer);
+  if (fast.length >= MIN_TEXT_LENGTH) return fast;
+
+  // Image-based PDF (krantenscan etc.) — laat Mistral OCR het lezen.
+  return extractWithMistralOcr(pdfUrl);
+}
+
+function extractTextFromBuffer(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // pdf2json's typings expect EventEmitter-style; cast to any only at the seam.
+    const parser: any = new (PDFParser as any)(null, true);
+
+    const timer = setTimeout(() => {
+      reject(new Error("PDF extraction timed out"));
+    }, PDF_PARSE_TIMEOUT_MS);
+
+    parser.on("pdfParser_dataError", (errData: { parserError?: Error } | Error) => {
+      clearTimeout(timer);
+      const err = errData instanceof Error ? errData : errData.parserError;
+      reject(err ?? new Error("Unknown PDF parser error"));
+    });
+
+    parser.on("pdfParser_dataReady", () => {
+      clearTimeout(timer);
+      try {
+        const raw: string = parser.getRawTextContent();
+        resolve(normalizeText(raw));
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+
+    parser.parseBuffer(buffer);
+  });
+}
+
+async function extractWithMistralOcr(pdfUrl: string): Promise<string> {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) {
+    throw new Error("MISTRAL_API_KEY is not set");
+  }
+
+  const res = await fetch(MISTRAL_OCR_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "mistral-ocr-latest",
+      document: { type: "document_url", document_url: pdfUrl },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Mistral OCR ${res.status}: ${body.slice(0, 400)}`);
+  }
+
+  const data = (await res.json()) as { pages?: Array<{ markdown?: string }> };
+  const text = (data.pages ?? [])
+    .map((p) => p.markdown ?? "")
+    .join("\n\n")
+    .trim();
+
+  if (!text) {
+    throw new Error("Mistral OCR returned empty result");
+  }
+
+  return text;
+}
+
+function normalizeText(raw: string): string {
+  return raw
+    .replace(/----------------Page \(\d+\) Break----------------/g, "\n")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /**
