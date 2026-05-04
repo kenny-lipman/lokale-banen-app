@@ -8,6 +8,7 @@ import { AIRewritePanel } from "@/components/vacature/ai-rewrite-panel"
 import { LivePreview } from "@/components/vacature/live-preview"
 import { ActivityLog } from "@/components/vacature/activity-log"
 import {
+  Archive,
   Briefcase,
   ExternalLink,
   MapPin,
@@ -77,6 +78,9 @@ interface JobPosting {
   seo_title?: string | null
   seo_description?: string | null
   job_sources?: { name: string | null } | null
+  archived_at?: string | null
+  archived_by?: string | null
+  archived_reason?: string | null
 }
 
 interface JobPostingDrawerProps {
@@ -154,6 +158,18 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
         <SheetHeader className="space-y-4">
+          {job.archived_at && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <Archive className="h-4 w-4 shrink-0" />
+              <span className="font-medium">Gearchiveerd</span>
+              <span className="text-amber-700">
+                op {new Date(job.archived_at).toLocaleString("nl-NL")}
+              </span>
+              {job.archived_reason && (
+                <span className="text-amber-700">— {job.archived_reason}</span>
+              )}
+            </div>
+          )}
           <div>
             <SheetTitle className="text-xl leading-tight">{job.title}</SheetTitle>
             <SheetDescription className="mt-1">

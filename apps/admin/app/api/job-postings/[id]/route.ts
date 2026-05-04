@@ -55,6 +55,9 @@ export async function GET(
         seo_title,
         seo_description,
         content_enriched_at,
+        archived_at,
+        archived_by,
+        archived_reason,
         companies (
           id,
           name,
