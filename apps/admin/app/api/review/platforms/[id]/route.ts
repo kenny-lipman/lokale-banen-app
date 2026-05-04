@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 import { revalidatePublicSite } from "@/lib/services/public-site-revalidate.service"
+import {
+  publishPlatform,
+  unpublishPlatform,
+} from "@/lib/services/platform-publication.service"
 import type { TablesUpdate } from "@/lib/supabase"
 
 type PlatformUpdate = TablesUpdate<"platforms">
@@ -96,25 +100,70 @@ async function patchHandler(
       }
     }
 
-    // Keep published_at in sync with is_public toggles from the UI. The
-    // dedicated /go-live endpoint is still the canonical "publish" path but
-    // this keeps the toggle on the Basics tab functional too.
+    // is_public-transities lopen via de gedeelde publish/unpublish flow zodat
+    // de "Publiek"-toggle exact dezelfde safeguards heeft als de Go-Live tab:
+    // false→true valideert content + provisioneert de Vercel-alias eerst,
+    // true→false bust de host-cache. We doen dit eerst en strippen de flag
+    // uit de overige veldenset zodat we 'm niet dubbel updaten.
+    let publicationFlow:
+      | { kind: "publish"; resp: Awaited<ReturnType<typeof publishPlatform>> }
+      | { kind: "unpublish"; resp: Awaited<ReturnType<typeof unpublishPlatform>> }
+      | null = null
+
     if ("is_public" in updates) {
-      if (updates.is_public === true) {
-        updates.published_at = new Date().toISOString()
-      } else if (updates.is_public === false) {
-        updates.published_at = null
+      const desired = updates.is_public
+      // Lees huidige state om geen no-op via de zware flow te draaien.
+      const { data: current } = await supabase
+        .from("platforms")
+        .select("is_public")
+        .eq("id", id)
+        .single()
+      const currentPublic = current?.is_public ?? false
+      delete updates.is_public
+
+      if (desired === true && !currentPublic) {
+        const resp = await publishPlatform(supabase, id)
+        if (!resp.ok) {
+          return NextResponse.json(
+            {
+              error: resp.error,
+              code: resp.code,
+              details: resp.missing
+                ? { missing_checks: resp.missing }
+                : undefined,
+              alias: resp.alias ?? undefined,
+            },
+            { status: resp.status },
+          )
+        }
+        publicationFlow = { kind: "publish", resp }
+      } else if (desired === false && currentPublic) {
+        const resp = await unpublishPlatform(supabase, id)
+        if (!resp.ok) {
+          return NextResponse.json(
+            { error: resp.error },
+            { status: resp.status },
+          )
+        }
+        publicationFlow = { kind: "unpublish", resp }
       }
+      // desired === currentPublic: niets te doen.
     }
 
     updates.updated_at = new Date().toISOString()
 
-    const { data, error } = await supabase
-      .from("platforms")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single()
+    const hasOtherUpdates = Object.keys(updates).some(
+      (k) => k !== "updated_at",
+    )
+
+    const { data, error } = hasOtherUpdates
+      ? await supabase
+          .from("platforms")
+          .update(updates)
+          .eq("id", id)
+          .select()
+          .single()
+      : await supabase.from("platforms").select("*").eq("id", id).single()
 
     if (error) {
       return NextResponse.json(
@@ -123,14 +172,20 @@ async function patchHandler(
       )
     }
 
-    // Best-effort: invalidate public-site caches for this platform.
-    // Geef ook hosts mee zodat `getTenantByHost` cache (per-host tag) bust.
-    const hosts = [data.domain, data.preview_domain].filter(
-      (h): h is string => typeof h === "string" && h.length > 0
-    )
-    const revalidate = await revalidatePublicSite({ platformIds: [id], hosts })
-    if (!revalidate.ok && !revalidate.skipped) {
-      console.warn(`[platforms PATCH] revalidate failed for ${id}:`, revalidate.error)
+    // Best-effort: invalidate public-site caches voor de platform-tag. De
+    // host-tags zijn al gebust door de publish/unpublish-flow als die liep;
+    // hier bedekken we het normale veld-edit pad.
+    let revalidate
+    if (publicationFlow) {
+      revalidate = publicationFlow.resp.revalidate
+    } else {
+      const hosts = [data.domain, data.preview_domain].filter(
+        (h): h is string => typeof h === "string" && h.length > 0
+      )
+      revalidate = await revalidatePublicSite({ platformIds: [id], hosts })
+      if (!revalidate.ok && !revalidate.skipped) {
+        console.warn(`[platforms PATCH] revalidate failed for ${id}:`, revalidate.error)
+      }
     }
 
     const { count } = await supabase
@@ -142,6 +197,8 @@ async function patchHandler(
     return NextResponse.json({
       data: { ...data, approved_count: count || 0 },
       message: "Platform bijgewerkt",
+      alias: publicationFlow?.kind === "publish" ? publicationFlow.resp.alias : undefined,
+      revalidate,
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error"
