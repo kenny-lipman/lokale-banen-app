@@ -29,6 +29,7 @@ All cron jobs run via **Vercel Cron** (configured in `vercel.json`). Auth via `C
 | Postcode Backfill | `*/2 * * * *` | Elke 2 min | `/api/cron/postcode-backfill` |
 | Refresh Contact Stats | `*/5 * * * *` | Elke 5 min | `/api/cron/refresh-contact-stats` |
 | Watchdog | `*/15 * * * *` | Elke 15 min | `/api/cron/watchdog` |
+| Auto-archive Old | `0 4 * * *` | 05:00 | `/api/cron/auto-archive-old` |
 
 ### Remaining pg_cron Jobs (Supabase)
 
