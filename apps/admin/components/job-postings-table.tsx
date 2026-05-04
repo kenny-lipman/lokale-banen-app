@@ -606,7 +606,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
         </div>
       )}
 
-      {/* Bulk action bar — approve/reject for review workflow (shown when reviewStatus tabs are active) */}
+      {/* Bulk action bar — approve/reject/archive op review-tabs, activate op archief-tab */}
       {reviewStatus && selectedIds.size > 0 && (
         <BulkActionBar
           selectedIds={Array.from(selectedIds)}
@@ -617,6 +617,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
             if (refetch) refetch()
             if (onBulkActionComplete) onBulkActionComplete()
           }}
+          mode={reviewStatus === "archived" ? "archived" : "review"}
         />
       )}
 
