@@ -67,7 +67,7 @@ async function JobListContent({ tenantId, filter }: JobListProps) {
       </div>
 
       {hasMore && (
-        <div className="flex justify-center pt-7">
+        <div className="flex justify-center pt-7 pb-14">
           <PillButton href={`/?${nextParams.toString()}`}>
             Nog {Math.max(0, total - currentPage * PAGE_SIZE).toLocaleString('nl-NL')} vacatures tonen
             <ArrowDownIcon />
