@@ -114,8 +114,10 @@ export default function RootLayout({
           }}
           dynamic
         >
-          {children}
-          <CookieConsent />
+          <>
+            {children}
+            <CookieConsent />
+          </>
         </ClerkProvider>
         <Analytics />
         <SpeedInsights />
