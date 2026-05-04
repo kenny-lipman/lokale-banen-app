@@ -14,10 +14,11 @@ import { createClient } from '@supabase/supabase-js'
 
 const AGE_DAYS = 120
 const BATCH_SIZE = 2000
-// Hard cap zodat één run nooit meer dan 5 minuten draait. Vercel Pro
-// maxDuration is 300s, en bij ~30s per batch passen er ~10 in dat budget.
-// Wat overblijft pakt de volgende cron-run wel op.
-const MAX_BATCHES_PER_RUN = 8
+// Vercel maxDuration is 300s. Per batch is ~30-90s op grote tabel,
+// dus houd 3 batches aan = ~90-270s. Wat overblijft pakt de volgende
+// cron-run wel op.
+const MAX_BATCHES_PER_RUN = 3
+const SOFT_DEADLINE_MS = 240_000 // stop nieuwe batches als we al >4 min draaien
 
 async function autoArchiveHandler(_request: NextRequest) {
   const startTime = Date.now()
@@ -32,6 +33,7 @@ async function autoArchiveHandler(_request: NextRequest) {
   const errors: string[] = []
 
   for (let i = 0; i < MAX_BATCHES_PER_RUN; i++) {
+    if (Date.now() - startTime > SOFT_DEADLINE_MS) break
     const { data, error } = await supabase.rpc('auto_archive_old_postings', {
       age_days: AGE_DAYS,
       batch_size: BATCH_SIZE,
