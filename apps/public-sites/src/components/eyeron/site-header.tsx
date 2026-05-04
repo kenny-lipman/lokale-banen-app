@@ -32,8 +32,8 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
           <PortalLogo
             tenantName={tenant.name}
             logoUrl={tenant.logo_url}
-            height={36}
-            className="lg:h-[43px]"
+            height={48}
+            className="lg:h-[56px]"
           />
         </Link>
 
