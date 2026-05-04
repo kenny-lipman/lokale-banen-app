@@ -294,6 +294,36 @@ export async function unpublishPlatform(
   supabase: SupabaseClient<any, "public", any>,
   platformId: string,
 ): Promise<UnpublishPlatformResult> {
+  // No-op filter: als het platform al offline is, slaan we de UPDATE +
+  // revalidate over. Spaart een onnodige cache-bust en voorkomt dat
+  // dubbel-klikken een DB-write triggert.
+  const { data: pre } = await supabase
+    .from("platforms")
+    .select("is_public")
+    .eq("id", platformId)
+    .single()
+
+  if (!pre) {
+    return { ok: false, status: 404, error: "Platform niet gevonden" }
+  }
+
+  if (pre.is_public === false) {
+    const [{ data: current }, { count: noopCount }] = await Promise.all([
+      supabase.from("platforms").select("*").eq("id", platformId).single(),
+      supabase
+        .from("job_postings")
+        .select("id", { count: "exact", head: true })
+        .eq("platform_id", platformId)
+        .eq("review_status", "approved"),
+    ])
+    return {
+      ok: true,
+      status: 200,
+      data: current,
+      approvedCount: noopCount ?? 0,
+    }
+  }
+
   const nowIso = new Date().toISOString()
   const { data: updated, error: updateErr } = await supabase
     .from("platforms")

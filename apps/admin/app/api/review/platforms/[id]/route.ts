@@ -151,7 +151,8 @@ async function patchHandler(
         if (!resp.ok) {
           // Veld-updates zijn al gecommit; alleen publish faalde. Dat is
           // de gewenste eindtoestand: content opgeslagen, platform niet
-          // live. Caller krijgt de error met missing_checks.
+          // live. We sturen de huidige (niet-live) DB-state mee zodat de
+          // client zijn optimistische `is_public: true` kan rollbacken.
           return NextResponse.json(
             {
               error: resp.error,
@@ -160,6 +161,7 @@ async function patchHandler(
                 ? { missing_checks: resp.missing }
                 : undefined,
               alias: resp.alias ?? undefined,
+              data: afterFieldUpdates,
             },
             { status: resp.status },
           )
@@ -170,7 +172,7 @@ async function patchHandler(
         const resp = await unpublishPlatform(supabase, id)
         if (!resp.ok) {
           return NextResponse.json(
-            { error: resp.error },
+            { error: resp.error, data: afterFieldUpdates },
             { status: resp.status },
           )
         }

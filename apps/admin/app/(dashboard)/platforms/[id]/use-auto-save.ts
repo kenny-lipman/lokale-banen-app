@@ -76,10 +76,26 @@ export function useAutoSave<T>({
         })
         const result = await res.json()
         if (!res.ok || result.error) {
-          const msg = result.error || `HTTP ${res.status}`
+          const baseMsg = result.error || `HTTP ${res.status}`
+          // H6: missing_checks lijst meelopen in de toast zodat de gebruiker
+          // weet waarom de toggle weigerde te publishen.
+          const missingChecks: unknown = result?.details?.missing_checks
+          const missingMsg =
+            Array.isArray(missingChecks) && missingChecks.length > 0
+              ? ` (mist: ${missingChecks.join(", ")})`
+              : ""
+          const msg = `${baseMsg}${missingMsg}`
           setStatus("error")
           setError(msg)
           toast.error(`Opslaan mislukt: ${msg}`)
+          // H7: bij publish-fail stuurt de server zijn huidige (niet-live)
+          // platform-state mee in `data`. Pingen we `onSaved` daarmee, dan
+          // syncen de form-velden terug naar de werkelijke DB-state — de
+          // optimistische `is_public: true` toggle valt vanzelf terug naar
+          // `false`. Velden die wél opgeslagen zijn blijven correct.
+          if (result.data && onSaved) {
+            onSaved(result.data)
+          }
           return false
         }
 

@@ -144,10 +144,15 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
     }
   }, [platform.id, fetchChecks, onPublished, onRefresh])
 
-  const previewUrl = platform.preview_domain
-    ? `https://${platform.preview_domain}`
-    : null
-  const productionUrl = platform.domain ? `https://${platform.domain}` : null
+  // Live-state wordt door de checks-endpoint gerapporteerd; gebruik die als
+  // gating zodat de knop verdwijnt zodra een offline-flow geslaagd is.
+  const isLive = !!checks?.is_public
+  const previewUrl =
+    isLive && platform.preview_domain
+      ? `https://${platform.preview_domain}`
+      : null
+  const productionUrl =
+    isLive && platform.domain ? `https://${platform.domain}` : null
   const primaryViewUrl = previewUrl ?? productionUrl
 
   return (
@@ -263,8 +268,14 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
               {checks?.is_public ? "Al live" : "Live zetten"}
             </Button>
 
-            {checks?.is_public && (
-              <AlertDialog open={confirmOffline} onOpenChange={setConfirmOffline}>
+            {/*
+              AlertDialog blijft buiten de `checks?.is_public` conditional zodat
+              hij niet unmount terwijl een POST nog draait — dat gaf een
+              visuele flicker op snelle dubbelklik. De trigger-knop is wel
+              conditioneel: alleen tonen als het platform live is.
+            */}
+            <AlertDialog open={confirmOffline} onOpenChange={setConfirmOffline}>
+              {checks?.is_public && (
                 <AlertDialogTrigger asChild>
                   <Button
                     type="button"
@@ -280,33 +291,33 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
                     Offline halen
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Platform offline halen?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      De site is direct onbereikbaar voor bezoekers en bestaande
-                      bookmarks tonen "Domein niet gevonden". De Vercel-alias blijft
-                      staan, dus opnieuw live zetten is binnen seconden klaar.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={unpublishing}>
-                      Annuleren
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={(e) => {
-                        e.preventDefault()
-                        void takeOffline()
-                      }}
-                      disabled={unpublishing}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Offline halen
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+              )}
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Platform offline halen?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    De site is direct onbereikbaar voor bezoekers en bestaande
+                    bookmarks tonen "Domein niet gevonden". De Vercel-alias blijft
+                    staan, dus opnieuw live zetten is binnen seconden klaar.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={unpublishing}>
+                    Annuleren
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault()
+                      void takeOffline()
+                    }}
+                    disabled={unpublishing}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Offline halen
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             {primaryViewUrl && (
               <div className="flex items-center">

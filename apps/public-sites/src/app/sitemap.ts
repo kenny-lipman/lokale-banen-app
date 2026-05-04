@@ -18,13 +18,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const supabase = createPublicClient()
 
-  // Resolve tenant by domain or preview_domain
-  const { data: tenant } = await supabase
+  // Resolve tenant by domain or preview_domain. PostgREST .or() faalt op
+  // hostnames met punten — gebruik twee aparte queries.
+  const { data: domainMatch } = await supabase
     .from('platforms')
     .select('id, tier')
-    .or(`domain.eq.${host},preview_domain.eq.${host}`)
+    .eq('domain', host)
     .eq('is_public', true)
+    .limit(1)
     .maybeSingle()
+  const tenant =
+    domainMatch ??
+    (
+      await supabase
+        .from('platforms')
+        .select('id, tier')
+        .eq('preview_domain', host)
+        .eq('is_public', true)
+        .limit(1)
+        .maybeSingle()
+    ).data
 
   if (!tenant) {
     return [{ url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 }]

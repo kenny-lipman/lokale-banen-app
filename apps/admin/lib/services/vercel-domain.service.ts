@@ -21,6 +21,10 @@ export interface EnsureAliasResult {
   error?: string
 }
 
+// RFC 1035 / 1123 hostname (incl. punten): alleen letters, cijfers,
+// koppeltekens en punten; max 253 chars; geen leading/trailing dot.
+const HOST_REGEX = /^(?=.{1,253}$)(?!-)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/
+
 export async function ensureVercelAlias(
   host: string,
 ): Promise<EnsureAliasResult> {
@@ -29,6 +33,17 @@ export async function ensureVercelAlias(
       ok: false,
       skipped: true,
       reason: "config-missing",
+    }
+  }
+
+  // M5: input-validatie — voorkomt dat whitespace/garbage een raw 400-blob
+  // van Vercel oplevert die we nergens zinvol mee kunnen renderen.
+  const trimmed = typeof host === "string" ? host.trim() : ""
+  if (!trimmed || !HOST_REGEX.test(trimmed)) {
+    return {
+      ok: false,
+      reason: "invalid-host",
+      error: `Ongeldige hostname: "${host}"`,
     }
   }
 
@@ -45,7 +60,7 @@ export async function ensureVercelAlias(
         Authorization: `Bearer ${VERCEL_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: host }),
+      body: JSON.stringify({ name: trimmed }),
     })
   } catch (err) {
     return { ok: false, error: String(err) }
@@ -61,21 +76,36 @@ export async function ensureVercelAlias(
     }
     const code = body?.error?.code
 
-    // Alleen "owned by this project" telt als idempotente success. Vercel
-    // geeft hiervoor `domain_already_in_use_by_this_project`. Andere 409-codes
-    // (different project, validation issue, …) moeten doorbubbelen zodat de
-    // caller niet stilletjes verder gaat met een onwerkende alias.
+    // Alleen "owned by this project" telt als idempotente success.
     if (code === "domain_already_in_use_by_this_project") {
       return { ok: true, status: 409, alreadyExists: true }
     }
 
+    // M4: log de raw Vercel-foutmelding server-side (kan project-IDs of
+    // teamnamen bevatten) maar geef de admin-UI alleen een generieke
+    // boodschap met de error-code.
+    console.warn(
+      `[ensureVercelAlias] 409 from Vercel for host=${trimmed}:`,
+      body?.error?.message ?? body,
+    )
     return {
       ok: false,
       status: 409,
-      error: body.error?.message ?? code ?? "vercel_409",
+      error:
+        code === "domain_already_in_use_by_different_project"
+          ? "Dit domein is al gekoppeld aan een ander Vercel-project."
+          : `Vercel weigerde domain (${code ?? "onbekende reden"}).`,
     }
   }
 
-  const text = await res.text().catch(() => "")
-  return { ok: false, status: res.status, error: text }
+  const rawText = await res.text().catch(() => "")
+  console.warn(
+    `[ensureVercelAlias] ${res.status} from Vercel for host=${trimmed}:`,
+    rawText.slice(0, 500),
+  )
+  return {
+    ok: false,
+    status: res.status,
+    error: `Vercel API gaf ${res.status}; zie server-log.`,
+  }
 }

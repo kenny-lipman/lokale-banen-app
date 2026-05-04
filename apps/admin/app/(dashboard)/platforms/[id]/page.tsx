@@ -64,6 +64,12 @@ export default function PlatformDetailPage() {
       ...next,
       approved_count: prev?.approved_count ?? next.approved_count ?? 0,
     }))
+    // Re-sync `is_public` met de werkelijke DB-state. Bij een mislukte
+    // publish heeft de form-state nog de optimistische `true`-waarde,
+    // terwijl het platform op de server `false` is gebleven. Deze sync
+    // valt de toggle visueel terug. Andere form-velden laten we met
+    // rust omdat de gebruiker mogelijk nog aan het typen is.
+    setValues((prev) => ({ ...prev, is_public: next.is_public ?? false }))
   }, [])
 
   const autoSave = useAutoSave<PlatformFormValues>({
@@ -125,10 +131,16 @@ export default function PlatformDetailPage() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [autoSave])
 
-  const previewUrl = platform?.preview_domain
-    ? `https://${platform.preview_domain}`
-    : null
-  const productionUrl = platform?.domain ? `https://${platform.domain}` : null
+  // "Bekijk site" alleen tonen wanneer het platform daadwerkelijk live is.
+  // Bij offline platforms geeft de URL "Domein niet gevonden" — misleidend.
+  const previewUrl =
+    platform?.is_public && platform?.preview_domain
+      ? `https://${platform.preview_domain}`
+      : null
+  const productionUrl =
+    platform?.is_public && platform?.domain
+      ? `https://${platform.domain}`
+      : null
   const primaryViewUrl = previewUrl ?? productionUrl
 
   if (loading) {
