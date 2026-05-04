@@ -1753,6 +1753,9 @@ export type Database = {
       job_postings: {
         Row: {
           apify_run_id: string | null
+          archived_at: string | null
+          archived_by: string | null
+          archived_reason: string | null
           career_level: string | null
           categories: string | null
           city: string | null
@@ -1801,6 +1804,9 @@ export type Database = {
         }
         Insert: {
           apify_run_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_reason?: string | null
           career_level?: string | null
           categories?: string | null
           city?: string | null
@@ -1849,6 +1855,9 @@ export type Database = {
         }
         Update: {
           apify_run_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_reason?: string | null
           career_level?: string | null
           categories?: string | null
           city?: string | null
