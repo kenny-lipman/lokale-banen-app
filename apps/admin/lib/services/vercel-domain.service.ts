@@ -1,11 +1,18 @@
 /**
- * Adds a domain (alias) to the public-sites Vercel project so newly-published
- * platforms become reachable on their `<slug>.vercel.app` host without manual
- * intervention.
+ * Wijst een hostname (alias) toe aan de huidige production-deployment van het
+ * public-sites Vercel-project zodat een zojuist-gepublishte platform direct
+ * via zijn `<slug>.vercel.app` host bereikbaar is.
  *
- * Idempotent: if the domain is already attached to this project, treats it as
- * success. Only fails when the domain is owned by a different project or when
- * the API call itself errors.
+ * Implementatie via `POST /v2/deployments/{deploymentId}/aliases` — niet via
+ * `POST /v9/projects/{id}/domains`. Reden: alle bestaande preview_domains zijn
+ * historisch als deployment-aliases gepind. Een project-domain-add zou een
+ * 409 geven en de oude pin niet automatisch verschuiven, met als gevolg dat
+ * nieuwe code-deploys niet op de regio-URL's tot uiting komen.
+ *
+ * Vercel re-bindt een bestaande alias automatisch naar de nieuwe deployment
+ * (response bevat `oldDeploymentId`), dus deze flow is idempotent: bij een
+ * tweede aanroep met dezelfde host op dezelfde latest-prod is er simpelweg
+ * geen wijziging.
  */
 
 const VERCEL_TOKEN = process.env.VERCEL_API_TOKEN
@@ -19,11 +26,36 @@ export interface EnsureAliasResult {
   status?: number
   reason?: string
   error?: string
+  /** Welke deployment de alias daarvoor wees naar (handig voor logging). */
+  rebound_from?: string
+  /** Naar welke deployment de alias nu wijst. */
+  deployment?: string
 }
 
 // RFC 1035 / 1123 hostname (incl. punten): alleen letters, cijfers,
 // koppeltekens en punten; max 253 chars; geen leading/trailing dot.
 const HOST_REGEX = /^(?=.{1,253}$)(?!-)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/
+
+const teamQueryString = (sep: "?" | "&") =>
+  TEAM_ID ? `${sep}teamId=${encodeURIComponent(TEAM_ID)}` : ""
+
+/** Haalt de meest recente READY production-deployment van public-sites op. */
+async function getLatestProdDeploymentId(): Promise<string | null> {
+  if (!VERCEL_TOKEN || !PUBLIC_SITES_PROJECT_ID) return null
+  const url = `https://api.vercel.com/v6/deployments?projectId=${encodeURIComponent(
+    PUBLIC_SITES_PROJECT_ID,
+  )}&target=production&state=READY&limit=1${teamQueryString("&")}`
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+    })
+    if (!res.ok) return null
+    const json = (await res.json()) as { deployments?: { uid: string }[] }
+    return json.deployments?.[0]?.uid ?? null
+  } catch {
+    return null
+  }
+}
 
 export async function ensureVercelAlias(
   host: string,
@@ -36,8 +68,7 @@ export async function ensureVercelAlias(
     }
   }
 
-  // M5: input-validatie — voorkomt dat whitespace/garbage een raw 400-blob
-  // van Vercel oplevert die we nergens zinvol mee kunnen renderen.
+  // Input-validatie — voorkomt raw 400-bodies van Vercel.
   const trimmed = typeof host === "string" ? host.trim() : ""
   if (!trimmed || !HOST_REGEX.test(trimmed)) {
     return {
@@ -47,10 +78,19 @@ export async function ensureVercelAlias(
     }
   }
 
-  const teamQuery = TEAM_ID ? `?teamId=${encodeURIComponent(TEAM_ID)}` : ""
-  const url = `https://api.vercel.com/v10/projects/${encodeURIComponent(
-    PUBLIC_SITES_PROJECT_ID,
-  )}/domains${teamQuery}`
+  const deploymentId = await getLatestProdDeploymentId()
+  if (!deploymentId) {
+    return {
+      ok: false,
+      reason: "no-prod-deployment",
+      error:
+        "Kon geen READY production-deployment vinden voor public-sites project.",
+    }
+  }
+
+  const url = `https://api.vercel.com/v2/deployments/${encodeURIComponent(
+    deploymentId,
+  )}/aliases${teamQueryString("?")}`
 
   let res: Response
   try {
@@ -60,41 +100,42 @@ export async function ensureVercelAlias(
         Authorization: `Bearer ${VERCEL_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: trimmed }),
+      body: JSON.stringify({ alias: trimmed }),
     })
   } catch (err) {
     return { ok: false, error: String(err) }
   }
 
   if (res.ok) {
-    return { ok: true, status: res.status }
+    const body = (await res.json().catch(() => ({}))) as {
+      oldDeploymentId?: string
+    }
+    return {
+      ok: true,
+      status: res.status,
+      deployment: deploymentId,
+      rebound_from: body.oldDeploymentId,
+      alreadyExists: !!body.oldDeploymentId,
+    }
   }
 
+  // 409 = alias geclaimd door een ander project / kan niet worden verplaatst.
   if (res.status === 409) {
     const body = (await res.json().catch(() => ({}))) as {
       error?: { code?: string; message?: string }
     }
-    const code = body?.error?.code
-
-    // Alleen "owned by this project" telt als idempotente success.
-    if (code === "domain_already_in_use_by_this_project") {
-      return { ok: true, status: 409, alreadyExists: true }
-    }
-
-    // M4: log de raw Vercel-foutmelding server-side (kan project-IDs of
-    // teamnamen bevatten) maar geef de admin-UI alleen een generieke
-    // boodschap met de error-code.
     console.warn(
       `[ensureVercelAlias] 409 from Vercel for host=${trimmed}:`,
       body?.error?.message ?? body,
     )
+    const code = body?.error?.code
     return {
       ok: false,
       status: 409,
       error:
-        code === "domain_already_in_use_by_different_project"
-          ? "Dit domein is al gekoppeld aan een ander Vercel-project."
-          : `Vercel weigerde domain (${code ?? "onbekende reden"}).`,
+        code === "alias_in_use" || code === "forbidden"
+          ? "Dit domein is al gekoppeld aan een ander Vercel-project of team."
+          : `Vercel weigerde alias (${code ?? "onbekende reden"}).`,
     }
   }
 
