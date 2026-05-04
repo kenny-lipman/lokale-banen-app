@@ -217,6 +217,7 @@ async function main() {
       `job_postings?select=id,title,city` +
         `&platform_id=eq.${platform.id}` +
         `&review_status=eq.pending` +
+        `&archived_at=is.null` +
         `&scraped_at=gt.${cutoff}` +
         `&order=scraped_at.desc` +
         `&limit=${PER_PLATFORM}`
