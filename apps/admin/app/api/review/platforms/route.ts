@@ -11,7 +11,7 @@ async function getHandler(_request: NextRequest, _authResult: AuthResult) {
     // Get platforms with approved vacancy count
     const { data: platforms, error } = await supabase
       .from("platforms")
-      .select("id, regio_platform, central_place, domain, is_public, tier, logo_url, primary_color, hero_title, hero_subtitle, seo_description, published_at")
+      .select("id, regio_platform, central_place, domain, preview_domain, is_public, tier, logo_url, primary_color, hero_title, hero_subtitle, seo_description, published_at")
       .order("regio_platform")
 
     if (error) {

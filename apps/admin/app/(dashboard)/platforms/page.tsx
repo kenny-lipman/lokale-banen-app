@@ -31,6 +31,7 @@ interface PlatformRow {
   regio_platform: string
   central_place: string | null
   domain: string | null
+  preview_domain: string | null
   is_public: boolean
   tier: string | null
   logo_url: string | null
@@ -216,24 +217,39 @@ export default function PlatformsPage() {
                       {platform.central_place || "-"}
                     </TableCell>
                     <TableCell>
-                      {platform.domain ? (
-                        <div className="flex items-center gap-1">
-                          <Globe className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-sm">{platform.domain}</span>
+                      <div className="flex flex-col gap-1">
+                        {platform.preview_domain ? (
+                          <a
+                            href={`https://${platform.preview_domain}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground w-fit"
+                            title="Open preview (Vercel)"
+                          >
+                            <Monitor className="h-3 w-3" />
+                            <span className="font-mono">{platform.preview_domain}</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : null}
+                        {platform.domain ? (
                           <a
                             href={`https://${platform.domain}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-foreground"
+                            className="inline-flex items-center gap-1 text-sm font-medium hover:text-foreground w-fit"
+                            title="Open live domein"
                           >
+                            <Globe className="h-3 w-3 text-muted-foreground" />
+                            <span>{platform.domain}</span>
                             <ExternalLink className="h-3 w-3" />
                           </a>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">
-                          Niet ingesteld
-                        </span>
-                      )}
+                        ) : null}
+                        {!platform.preview_domain && !platform.domain && (
+                          <span className="text-muted-foreground text-sm">
+                            Niet ingesteld
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <Switch
