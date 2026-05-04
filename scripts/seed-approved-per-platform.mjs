@@ -216,7 +216,7 @@ async function main() {
     const jobs = await pg.select(
       `job_postings?select=id,title,city` +
         `&platform_id=eq.${platform.id}` +
-        `&review_status=in.(pending,still_pending)` +
+        `&review_status=eq.pending` +
         `&scraped_at=gt.${cutoff}` +
         `&order=scraped_at.desc` +
         `&limit=${PER_PLATFORM}`
