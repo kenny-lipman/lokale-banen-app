@@ -82,11 +82,13 @@ GET https://api.kvk.nl/api/v1/basisprofielen/{kvkNummer}
 
 ## 3. Authenticatie
 
-- Header **`apikey: <KEY>`** (KvK convention; te valideren via Swagger UI)
-- **Test environment:** `https://api.kvk.nl/test/api/v1/` — eigen test-key
-- **Productie:** `https://api.kvk.nl/api/v1/` — eigen prod-key
-- API key vraag je aan via [developers.kvk.nl](https://developers.kvk.nl) → "Get API key"
-- Vereist KvK-account (we hebben dit, want we hebben al een KvK-nummer)
+- Header **`apikey: <KEY>`** (lowercase, geverifieerd 2026-05-04)
+- **Productie endpoint:** `https://api.kvk.nl/api/v1/` en `/v2/` ✅
+- **Test endpoint:** `https://api.kvk.nl/test/api/...` — onze huidige key werkt **niet** op test (HTTP 401). Dit is een **productie-only key**.
+- **Live test:** zoeken op "WeTarget" gaf 7 resultaten incl. WeTarget B.V. (kvkNummer 87886022, Slotenmakerstraat Naaldwijk) ✅
+- API geconfigureerd in `.env.vercel.local`:
+  - `KVK_API_KEY`
+  - `KVK_API_BASE_URL=https://api.kvk.nl/api`
 
 ## 4. Pricing (te valideren — pricing pagina laadt dynamisch)
 

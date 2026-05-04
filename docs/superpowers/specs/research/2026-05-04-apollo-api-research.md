@@ -10,9 +10,10 @@
 
 - `APOLLO_WEBHOOK_URL` env var bestaat → loopt nu via een **externe webhook** (vermoedelijk Apify-actor of Make.com proxy), géén directe Apollo API
 - Endpoint `/api/apollo/enrich-selected` (referentie: `apps/admin/app/api/apollo/enrich-selected/route.ts`) post naar die webhook
-- **Voor de nieuwe feature:** we willen direct met Apollo API praten zodat we synchroon kunnen werken in de review-flow
-
-→ Vereist nieuwe env var: `APOLLO_API_KEY`. Te valideren of de bestaande webhook hergebruikt kan/moet worden of dat we direct gaan.
+- **Voor de nieuwe feature:** directe Apollo API geconfigureerd:
+  - `APOLLO_API_KEY` (gezet in `.env.vercel.local`)
+  - `APOLLO_API_BASE_URL=https://api.apollo.io/api/v1`
+- **Geverifieerd 2026-05-04** met live test-call op `wetarget.nl` → alle data correct (naam, employees, industry, founded_year, phone, LinkedIn URL).
 
 ## 2. Auth
 
@@ -44,24 +45,21 @@ POST https://api.apollo.io/api/v1/mixed_companies/search
   - `q_organization_keyword_tags[]` (industry keywords)
 - **Limit:** max 50.000 records (100/page × 500 pages)
 
-### 3.3 People Search (decision makers vinden)
+### 3.3 People Search (decision makers vinden) — ⚠ NIET BESCHIKBAAR op huidig plan
 ```
-POST https://api.apollo.io/api/v1/mixed_people/search
+POST https://api.apollo.io/api/v1/mixed_people/search   # 403
+POST https://api.apollo.io/api/v1/people/search          # 403
 ```
-*(URL-naamconventie analoog aan organization search; te valideren door eerst test-call te doen)*
+**Status (geverifieerd 2026-05-04 met master-API key):** HTTP 403 `API_INACCESSIBLE`. De Apollo-database-prospecting endpoints zijn een **plan-feature** (vereist hogere tier). Onze workspace heeft wel:
+- ✅ `/contacts/search` (eigen Apollo CRM-contactenlijst — bruikbaar voor "warm lead detection")
+- ✅ `/organizations/enrich`, `/organizations/search`, `/people/match`
 
-**Filters voor onze decision-maker discovery (zoals Make.com flow doet):**
-- `q_organization_domains_list[]` of `organization_ids[]` — vastpinnen op het juiste bedrijf
-- `person_titles[]` — specifieke titels (CEO, Owner, HR Manager, COO)
-- `person_seniorities[]` — `owner`, `founder`, `c_suite`, `vp`, `head`, `director`, `manager`, `senior`, `entry`, `intern`
-- `person_department_or_subdepartments[]` — `human_resources`, `executive`, `operations`, etc.
-- `contact_email_status[]` — `verified`, `unverified`, `likely_to_engage` (alleen verified levert betrouwbare emails op)
-- `q_keywords` — vrije tekst
-- `page`, `per_page`
+**Implicatie:** we kunnen geen bulk decision-maker search doen via Apollo. **Aangepaste strategie:**
+1. **Website-crawl + Mistral** vindt kandidaat-namen op `/over-ons`, `/team`, `/contact` pagina's (NL-bedrijven publiceren team prominent)
+2. Voor elke gevonden naam → call `/people/match` voor enrichment (LinkedIn, email, title)
+3. Mistral rangschikt de top-2 op basis van klant-prioriteit (HR Manager → Eigenaar → HR Medewerker → fallback "Afdeling Personeelszaken")
 
-**Strategie voor onze flow** (volgens klant brief: HR Manager → Eigenaar → HR Medewerker → fallback "Afdeling Personeelszaken"):
-1. Eerste call: `person_seniorities=[owner, founder, c_suite]` + `person_department_or_subdepartments=[human_resources, executive]`
-2. Mistral/AI selecteert top 2 uit resultaat (zoals Make.com OpenAI step doet)
+→ Apollo wordt zo een **enrichment-laag**, niet een ontdekking-laag. Past goed bij NL-context waar website-data sterker is dan Apollo's NL-people-database.
 
 ### 3.4 Person Enrichment / Match (single)
 ```
