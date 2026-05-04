@@ -91,9 +91,11 @@ async function fetchTenantByHostUncached(host: string): Promise<Tenant | null> {
  * (admin PATCH /api/review/platforms/[id] triggert dit).
  */
 export async function getTenantByHost(host: string): Promise<Tenant | null> {
+  // Cache-key version bump: invalidates entries cached under the previous
+  // (broken) PostgREST .or() lookup so hosts with dots are re-fetched.
   const cached = unstable_cache(
     () => fetchTenantByHostUncached(host),
-    [`tenant:host:${host}`],
+    [`tenant:host:v2:${host}`],
     {
       tags: [`platform:host:${host}`],
       revalidate: 3600,
