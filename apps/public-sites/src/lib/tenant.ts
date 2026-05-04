@@ -94,11 +94,15 @@ async function fetchTenantByHostUncached(host: string): Promise<Tenant | null> {
  * (admin PATCH /api/review/platforms/[id] triggert dit).
  */
 export async function getTenantByHost(host: string): Promise<Tenant | null> {
-  // Cache-key version bump: invalidates entries cached under the previous
-  // (broken) PostgREST .or() lookup so hosts with dots are re-fetched.
+  // Cache-key version: bump bij elke change in TENANT_SELECT of in de
+  // RLS/grants laag — Next.js' unstable_cache persisteert tussen
+  // deployments en serveert anders stale `null`-resultaten van een
+  // vorige (gebroken) query-versie.
+  // v2: PostgREST .or() bug fix.
+  // v3: indexnow_key uit TENANT_SELECT gehaald + column-grants op anon.
   const cached = unstable_cache(
     () => fetchTenantByHostUncached(host),
-    [`tenant:host:v2:${host}`],
+    [`tenant:host:v3:${host}`],
     {
       tags: [`platform:host:${host}`],
       revalidate: 3600,
