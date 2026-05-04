@@ -10,8 +10,7 @@ interface SiteHeaderProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Vacatures',  href: '/' },
-  { label: 'Steden',     href: '/vacatures' },
+  { label: 'Vacatures',  href: '/vacatures' },
   { label: 'Bedrijven',  href: '/bedrijven' },
   { label: 'Werkgevers', href: '/werkgevers' },
   { label: 'Hulp',       href: '/contact' },
