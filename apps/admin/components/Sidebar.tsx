@@ -33,12 +33,29 @@ const menu = [
     ],
     href: "/agents"
   },
-  { href: "/job-postings", icon: Briefcase, label: "Vacatures" },
+  {
+    label: "Vacatures",
+    icon: Briefcase,
+    href: "/job-postings",
+    children: [
+      { href: "/job-postings", icon: Briefcase, label: "Overzicht" },
+      { href: "/job-postings/scrape-bronnen", icon: Monitor, label: "Scrape-bronnen" },
+    ],
+  },
   { href: "/companies", icon: Building2, label: "Bedrijven" },
   { href: "/contacten", icon: Users, label: "Contacten" },
-  { href: "/blocklist", icon: Shield, label: "Blocklist" },
-  { href: "/instantly-sync", icon: ArrowLeftRight, label: "Instantly <> PD Sync" },
-  { href: "/campaign-assignment", icon: Mail, label: "Campaign Assignment" },
+  {
+    label: "Sales",
+    icon: Mail,
+    href: "/sales/lead-verrijking",
+    children: [
+      { href: "/sales/lead-verrijking", icon: Mail, label: "Lead Verrijking" },
+      { href: "/sales/owner-mapping", icon: Settings, label: "Owner Mapping" },
+      { href: "/campaign-assignment", icon: Mail, label: "Campaign Assignment" },
+      { href: "/blocklist", icon: Shield, label: "Blocklist" },
+      { href: "/instantly-sync", icon: ArrowLeftRight, label: "Instantly <> PD Sync" },
+    ],
+  },
   { href: "/mailerlite-sync", icon: Mail, label: "MailerLite Sync" },
   { href: "/platforms", icon: Monitor, label: "Platforms" },
   { href: "/regios", icon: MapPin, label: "Regio's" },
