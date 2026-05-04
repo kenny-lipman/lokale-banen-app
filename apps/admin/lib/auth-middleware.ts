@@ -38,17 +38,49 @@ export interface AuthResult {
 }
 
 /**
+ * Resolves a role for the current user.
+ *
+ * Lookup-volgorde (van veiligst naar minst veilig):
+ * 1. `user.app_metadata.role` — alleen schrijfbaar door service-role,
+ *    niet door de user zelf via Supabase JS client.
+ * 2. `ADMIN_EMAILS` env-var (komma-gescheiden whitelist) — als de user's
+ *    email matcht, krijgen ze 'admin'. Quick-fix totdat een echt
+ *    rolmodel-systeem op zijn plek is.
+ * 3. Default `'member'`.
+ *
+ * `user.user_metadata.role` wordt expliciet GENEGEERD: dat veld is
+ * via de gewone Supabase-client door de gebruiker zelf modificeerbaar
+ * en mag dus nooit autorisatie-beslissingen voeden.
+ */
+function resolveRole(user: User): string {
+  const appRole = (user.app_metadata as Record<string, unknown> | undefined)?.role
+  if (typeof appRole === 'string' && appRole.length > 0) {
+    return appRole
+  }
+
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0)
+  const email = user.email?.toLowerCase() ?? ''
+  if (email && adminEmails.includes(email)) {
+    return 'admin'
+  }
+
+  return 'member'
+}
+
+/**
  * Core authentication function - verifies user is logged in
  */
 export async function requireAuthentication(req: NextRequest): Promise<AuthResult> {
   try {
     const { user, supabase } = await getAuthenticatedClient(req)
 
-    // Create a simplified profile from user data
     const profile: UserProfile = {
       id: user.id,
       email: user.email || '',
-      role: 'member', // Default role for now
+      role: resolveRole(user),
       full_name: user.user_metadata?.full_name || user.email || ''
     }
 
