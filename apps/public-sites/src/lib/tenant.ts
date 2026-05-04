@@ -19,7 +19,6 @@ export interface Tenant {
   hero_subtitle: string | null
   seo_description: string | null
   central_place: string | null
-  indexnow_key: string | null
   about_text: string | null
   contact_email: string | null
   contact_phone: string | null
@@ -34,8 +33,12 @@ export interface Tenant {
   terms_text: string | null
 }
 
+// `indexnow_key` zit BEWUST niet in deze whitelist — die kolom is via
+// column-level GRANT niet leesbaar voor de anon-rol (zie migration
+// 20260504_platforms_anon_column_grants.sql) en wordt server-side via
+// service-role gelezen door de IndexNow-key handler.
 const TENANT_SELECT =
-  'id, regio_platform, central_place, domain, preview_domain, is_public, tier, logo_url, primary_color, secondary_color, tertiary_color, hero_title, hero_subtitle, seo_description, indexnow_key, about_text, contact_email, contact_phone, social_linkedin, social_instagram, social_facebook, social_tiktok, social_twitter, favicon_url, og_image_url, privacy_text, terms_text'
+  'id, regio_platform, central_place, domain, preview_domain, is_public, tier, logo_url, primary_color, secondary_color, tertiary_color, hero_title, hero_subtitle, seo_description, about_text, contact_email, contact_phone, social_linkedin, social_instagram, social_facebook, social_tiktok, social_twitter, favicon_url, og_image_url, privacy_text, terms_text'
 
 /**
  * Resolve the current tenant from the request's x-tenant-host header.
@@ -102,6 +105,36 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
     }
   )
   return cached()
+}
+
+/**
+ * Server-side lookup van een tenant's IndexNow-key via service-role —
+ * de kolom `indexnow_key` is via column-grants niet leesbaar voor anon.
+ * Returnt alleen de key (verder geen tenant-data) en filtert op
+ * `is_public=true` zodat een offline-platform geen key meer prijsgeeft.
+ */
+export async function getIndexnowKeyForHost(host: string): Promise<string | null> {
+  const supabase = createPreviewServiceClient()
+
+  const { data: domainMatch } = await supabase
+    .from('platforms')
+    .select('indexnow_key')
+    .eq('domain', host)
+    .eq('is_public', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (domainMatch?.indexnow_key) return domainMatch.indexnow_key
+
+  const { data: previewMatch } = await supabase
+    .from('platforms')
+    .select('indexnow_key')
+    .eq('preview_domain', host)
+    .eq('is_public', true)
+    .limit(1)
+    .maybeSingle()
+
+  return previewMatch?.indexnow_key ?? null
 }
 
 /**
@@ -172,7 +205,6 @@ type PlatformRow = {
   hero_subtitle: string | null
   seo_description: string | null
   central_place: string | null
-  indexnow_key: string | null
   about_text?: string | null
   contact_email?: string | null
   contact_phone?: string | null
@@ -203,7 +235,6 @@ function mapTenantRow(data: PlatformRow): Tenant {
     hero_subtitle: data.hero_subtitle,
     seo_description: data.seo_description,
     central_place: data.central_place,
-    indexnow_key: data.indexnow_key,
     about_text: data.about_text ?? null,
     contact_email: data.contact_email ?? null,
     contact_phone: data.contact_phone ?? null,

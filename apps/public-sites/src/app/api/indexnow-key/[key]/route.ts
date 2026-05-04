@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantByHost } from '@/lib/tenant'
+import { getIndexnowKeyForHost } from '@/lib/tenant'
 
 /**
  * IndexNow key-file handler.
@@ -16,8 +16,11 @@ import { getTenantByHost } from '@/lib/tenant'
  * Tenant resolution uses the `Host` header so that the same handler serves
  * per-tenant keys (every regio has its own `platforms.indexnow_key`).
  *
- * Caching: `getTenantByHost` is tagged `platform:host:{host}` and survives
- * until a platform config change revalidates that tag.
+ * `indexnow_key` is via column-level GRANT niet leesbaar voor de anon-rol;
+ * deze handler gebruikt daarom service-role via `getIndexnowKeyForHost`.
+ * De handler retourneert pas iets als de meegegeven `key` exact matcht met
+ * de in de DB opgeslagen waarde — er kan dus niets uitgelokt worden door
+ * een willekeurige UUID te raden.
  */
 export async function GET(
   req: Request,
@@ -33,13 +36,13 @@ export async function GET(
   // Strip port (localhost:3001 etc.) so cache-key matches tenant resolution.
   const hostname = host.split(':')[0]
 
-  const tenant = await getTenantByHost(hostname)
+  const storedKey = await getIndexnowKeyForHost(hostname)
 
-  if (!tenant || !tenant.indexnow_key || tenant.indexnow_key !== key) {
+  if (!storedKey || storedKey !== key) {
     return new NextResponse('Not Found', { status: 404 })
   }
 
-  return new NextResponse(tenant.indexnow_key, {
+  return new NextResponse(storedKey, {
     status: 200,
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
