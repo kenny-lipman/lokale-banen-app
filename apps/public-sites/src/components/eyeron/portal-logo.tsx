@@ -4,6 +4,11 @@ import { Wordmark } from './wordmark'
 interface PortalLogoProps {
   /** DB regio_platform — komt 1-op-1 overeen met de SVG-bestandsnaam. */
   tenantName: string
+  /**
+   * Custom uploaded logo (platforms.logo_url). Wordt verkozen boven de
+   * pre-processed SVG zodat per-platform branding via admin werkt.
+   */
+  logoUrl?: string | null
   className?: string
   /** Render-hoogte in px (default 43, per Eyeron-spec). */
   height?: number
@@ -17,16 +22,16 @@ interface PortalLogoProps {
 }
 
 /**
- * Per-portal logo, gerenderd vanuit een pre-processed SVG met
- * `var(--primary)` / `var(--secondary)` fills (zie
- * `scripts/preprocess-logos.mjs`).
+ * Per-portal logo. Voorkeur volgorde:
+ *   1. `logoUrl` (admin-geuploade afbeelding uit `platforms.logo_url`)
+ *   2. pre-processed SVG `/logos/${tenantName}.svg` met `var(--primary)` /
+ *      `var(--secondary)` fills (zie `scripts/preprocess-logos.mjs`)
  *
- * Bestandsnaam = exact `tenantName` (= DB `regio_platform`-string).
- * Als de SVG niet bestaat valt het terug op `<Wordmark>` via de browser
- * `onerror` (alt-tekst) — voor portals zonder gegenereerde SVG.
+ * Bij ontbreken van beide rendert browser de alt-tekst.
  */
 export function PortalLogo({
   tenantName,
+  logoUrl,
   className,
   height = 43,
   alt,
@@ -36,10 +41,12 @@ export function PortalLogo({
     return <Wordmark name={tenantName} className={className} />
   }
 
+  const src = logoUrl || `/logos/${encodeURIComponent(tenantName)}.svg`
+
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
-      src={`/logos/${encodeURIComponent(tenantName)}.svg`}
+      src={src}
       alt={alt ?? `${tenantName} logo`}
       style={{ height }}
       className={cn('w-auto block', className)}

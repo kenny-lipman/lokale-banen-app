@@ -31,6 +31,7 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
         <Link href="/" className="flex items-center gap-3 shrink-0" aria-label="Naar de homepage">
           <PortalLogo
             tenantName={tenant.name}
+            logoUrl={tenant.logo_url}
             height={36}
             className="lg:h-[43px]"
           />
