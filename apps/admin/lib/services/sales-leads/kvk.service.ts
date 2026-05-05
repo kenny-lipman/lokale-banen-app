@@ -106,9 +106,12 @@ export class KvkService {
    */
   async searchByName(naam: string): Promise<KvkZoekResultaat[]> {
     const { value } = await cachedFetch('kvk_zoeken', `naam:${naam.toLowerCase().trim()}`, '7d', async () => {
-      const params = new URLSearchParams({ naam, resultatenPerPagina: '10', actief: 'Yes' })
+      // NB: KvK Zoeken v2 ondersteunt de `actief` query-param niet meer (geeft 400
+      // met fout-code IPD1999). We filteren `actief=Yes` daarom client-side.
+      const params = new URLSearchParams({ naam, resultatenPerPagina: '10' })
       const data = await this.kvkFetch<KvkZoekResponse>(`/v2/zoeken?${params.toString()}`)
-      return data.resultaten ?? []
+      const all = data.resultaten ?? []
+      return all.filter((r) => r.actief !== 'No')
     })
     return value
   }

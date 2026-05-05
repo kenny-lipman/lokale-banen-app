@@ -154,8 +154,10 @@ export class EnrichmentOrchestratorService {
   private async runPersonMatching(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const enr = run.enrichments
-    const websiteContacts = enr.website?.parsed?.contacts ?? []
-    const apolloWarm = enr.apollo?.parsed?.contacts ?? []
+    // Defensief filter: zelfs als upstream parsers null-name contacts laten
+    // doorglippen, mag de orchestrator niet crashen.
+    const websiteContacts = (enr.website?.parsed?.contacts ?? []).filter((c) => !!c.name)
+    const apolloWarm = (enr.apollo?.parsed?.contacts ?? []).filter((c) => !!c.name)
     if (!websiteContacts.length) return // niets te matchen
 
     // Set warm-lead-namen om dubbel-match te voorkomen
@@ -207,7 +209,7 @@ export class EnrichmentOrchestratorService {
   private async runContactRanking(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const enr = run.enrichments
-    const contacts = enr.apollo?.parsed?.contacts ?? []
+    const contacts = (enr.apollo?.parsed?.contacts ?? []).filter((c) => !!c.name)
     if (!contacts.length) return
 
     const t0 = Date.now()

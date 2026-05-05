@@ -146,22 +146,28 @@ export class WebsiteService {
     e: MistralExtractResult,
     career: Awaited<ReturnType<typeof discoverCareerPage>>,
   ): NormalizedFields {
-    const contacts: NormalizedContact[] = (e.contacts ?? []).map((c) => ({
-      name: c.name,
-      title: c.title ?? undefined,
-      email: c.email ?? undefined,
-      phone_other: c.phone ?? undefined,
-      linkedin_url: c.linkedin_url ?? undefined,
-      department: c.department_guess ?? undefined,
-      source_origin: ['website'],
-    }))
+    // Mistral kan contacten met null name terugleveren — die zijn onbruikbaar
+    // (geen identiteit voor dedup of ranking). Filter ze hier weg.
+    const contacts: NormalizedContact[] = (e.contacts ?? [])
+      .filter((c): c is typeof c & { name: string } => typeof c.name === 'string' && c.name.trim().length > 0)
+      .map((c) => ({
+        name: c.name,
+        title: c.title ?? undefined,
+        email: c.email ?? undefined,
+        phone_other: c.phone ?? undefined,
+        linkedin_url: c.linkedin_url ?? undefined,
+        department: c.department_guess ?? undefined,
+        source_origin: ['website'],
+      }))
 
-    const vacancies: NormalizedVacancy[] = (e.vacancies ?? []).map((v) => ({
-      title: v.title,
-      url: v.url ?? undefined,
-      location: v.location ?? undefined,
-      source: 'website_werkenbij',
-    }))
+    const vacancies: NormalizedVacancy[] = (e.vacancies ?? [])
+      .filter((v): v is typeof v & { title: string } => typeof v.title === 'string' && v.title.trim().length > 0)
+      .map((v) => ({
+        title: v.title,
+        url: v.url ?? undefined,
+        location: v.location ?? undefined,
+        source: 'website_werkenbij',
+      }))
 
     const phones = (e.phones ?? []).filter(Boolean)
     const emails = (e.emails ?? []).filter(Boolean)
