@@ -14,7 +14,6 @@ export type CacheSource =
   | 'apollo_org' | 'apollo_contacts'
   | 'website_page'
   | 'pipedrive_users' | 'pipedrive_pipelines' | 'pipedrive_stages' | 'pipedrive_deal_fields_date'
-  | 'pipedrive_meta'
 
 export type TTL = '1h' | '24h' | '7d' | '30d'
 
@@ -44,7 +43,7 @@ export async function cachedFetch<T>(
     .select('source, cache_key, response, expires_at')
     .eq('source', source)
     .eq('cache_key', cacheKey)
-    .single<CacheRow>()
+    .maybeSingle<CacheRow>()
 
   if (row && new Date(row.expires_at).getTime() > Date.now()) {
     return { value: row.response as T, fromCache: true }
@@ -52,13 +51,16 @@ export async function cachedFetch<T>(
 
   const fresh = await fetcher()
 
-  await supabase.from('enrichment_cache').upsert({
+  const { error: upsertError } = await supabase.from('enrichment_cache').upsert({
     source,
     cache_key: cacheKey,
     response: fresh as unknown as Json,
     fetched_at: new Date().toISOString(),
     expires_at: new Date(Date.now() + TTL_MS[ttl]).toISOString(),
   })
+  if (upsertError) {
+    console.warn(`[enrichment_cache] upsert faalde source=${source} key=${cacheKey}: ${upsertError.message}`)
+  }
 
   return { value: fresh, fromCache: false }
 }

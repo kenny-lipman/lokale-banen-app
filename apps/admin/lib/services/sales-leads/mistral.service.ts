@@ -12,6 +12,13 @@ export type MistralCallResult<T> = {
   usage?: MistralResponse['usage']
 }
 
+class MistralNonRetryableError extends Error {
+  constructor(message: string, public httpStatus?: number) {
+    super(message)
+    this.name = 'MistralNonRetryableError'
+  }
+}
+
 export class MistralService {
   private readonly apiKey: string | undefined
 
@@ -56,22 +63,24 @@ export class MistralService {
         if (!res.ok) {
           if (res.status === 429 || res.status >= 500) {
             await new Promise((r) => setTimeout(r, (attempt + 1) * 1000))
+            lastErr = new Error(`Mistral ${res.status} (retried)`)
             continue
           }
           const text = await res.text()
-          throw new Error(`Mistral ${res.status}: ${text.slice(0, 200)}`)
+          throw new MistralNonRetryableError(`Mistral ${res.status}: ${text.slice(0, 200)}`, res.status)
         }
         const data = (await res.json()) as MistralResponse
         const content = data.choices?.[0]?.message?.content
-        if (!content) throw new Error('Mistral lege response')
+        if (!content) throw new MistralNonRetryableError('Mistral lege response')
         let parsed: T
         try {
           parsed = JSON.parse(content) as T
         } catch {
-          throw new Error(`Mistral non-JSON response: ${content.slice(0, 200)}`)
+          throw new MistralNonRetryableError(`Mistral non-JSON response: ${content.slice(0, 200)}`)
         }
         return { parsed, raw_content: content, usage: data.usage }
       } catch (e) {
+        if (e instanceof MistralNonRetryableError) throw e
         lastErr = e
         if (attempt === 2) break
       }
