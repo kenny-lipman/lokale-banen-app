@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
 
 type PollingState = {
@@ -20,8 +20,17 @@ export function usePollingRun(runId: string | null) {
   })
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startedAtRef = useRef<number>(Date.now())
+  const mountedRef = useRef<boolean>(true)
+  const currentRunIdRef = useRef<string | null>(null)
 
-  async function fetchOnce(id: string) {
+  const stop = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const fetchOnce = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/sales-leads/${id}`, { cache: 'no-store' })
       if (!res.ok) {
@@ -29,44 +38,53 @@ export function usePollingRun(runId: string | null) {
         throw new Error(body?.error ?? `HTTP ${res.status}`)
       }
       const json = (await res.json()) as RunDetailResponse
+      if (!mountedRef.current || currentRunIdRef.current !== id) return null
       setState({ run: json.run, loading: false, error: null })
       return json.run
     } catch (e) {
+      if (!mountedRef.current || currentRunIdRef.current !== id) return null
       setState((s) => ({ ...s, loading: false, error: (e as Error).message }))
       return null
     }
-  }
+  }, [])
 
-  function stop() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
+  // Mount/unmount tracking
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
     }
-  }
+  }, [])
 
   useEffect(() => {
     stop()
+    currentRunIdRef.current = runId
     if (!runId) {
       setState({ run: null, loading: false, error: null })
       return
     }
     startedAtRef.current = Date.now()
     void fetchOnce(runId).then((run) => {
+      if (currentRunIdRef.current !== runId) return
       if (!run || run.status !== 'enriching') return
       timerRef.current = setInterval(async () => {
+        if (currentRunIdRef.current !== runId) return stop()
         const r = await fetchOnce(runId)
+        if (currentRunIdRef.current !== runId) return stop()
         if (!r) return stop()
         if (r.status !== 'enriching') return stop()
         if (Date.now() - startedAtRef.current > MAX_DURATION_MS) return stop()
       }, POLL_MS)
     })
-    return stop
-  }, [runId])
+    return () => {
+      stop()
+    }
+  }, [runId, stop, fetchOnce])
 
-  async function refetch() {
+  const refetch = useCallback(async () => {
     if (!runId) return null
     return fetchOnce(runId)
-  }
+  }, [runId, fetchOnce])
 
   return { ...state, refetch }
 }
