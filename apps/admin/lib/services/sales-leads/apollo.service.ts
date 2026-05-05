@@ -145,12 +145,16 @@ export class ApolloService {
     return (await res.json()) as T
   }
 
+  private stripDomain(domain: string): string {
+    return domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+  }
+
   /**
    * Org enrich op domein. 1 credit per call. Cache 24u.
    */
-  async enrichOrganization(domain: string): Promise<{ normalized: NormalizedFields; raw: ApolloOrg | null; usage: ApolloUsageMeta }> {
+  async enrichOrganization(domain: string): Promise<{ normalized: NormalizedFields; raw: ApolloOrg; usage: ApolloUsageMeta }> {
     const t0 = Date.now()
-    const stripped = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+    const stripped = this.stripDomain(domain)
     const cacheResult = await cachedFetch('apollo_org', stripped, '24h', async () => {
       const data = await this.apolloFetch<ApolloOrgEnrichResponse>(
         'GET',
@@ -247,7 +251,7 @@ export class ApolloService {
    */
   async searchContactsByDomain(domain: string): Promise<{ contacts: NormalizedContact[]; usage: ApolloUsageMeta }> {
     const t0 = Date.now()
-    const stripped = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+    const stripped = this.stripDomain(domain)
     const data = await this.apolloFetch<ApolloContactsSearchResponse>('POST', '/contacts/search', {
       q_organization_domains_list: [stripped],
       per_page: 25,
