@@ -1,3 +1,6 @@
+import type { ContactRankingResult } from './types'
+import { CONTACT_RANKING_PROMPT_V1 } from './prompts/contact-ranking.v1'
+
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions'
 const DEFAULT_MODEL = 'mistral-small-latest'
 
@@ -114,6 +117,56 @@ export class MistralService {
         ok: false,
         latency_ms: Date.now() - t0,
         message: e instanceof Error ? e.message : String(e),
+      }
+    }
+  }
+
+  /**
+   * Rangschik kandidaten op WeTarget-prioriteit. Geeft top-2 + reden.
+   * Bij Mistral-fail: alfabetische top-2 fallback (sectie 6.6 spec).
+   */
+  async rankContacts(opts: {
+    contacts: Array<{
+      name: string
+      title?: string
+      seniority?: string
+      department?: string
+      email?: string
+      email_verified?: boolean
+      linkedin_url?: string
+      source_origin: string[]
+    }>
+    company_name?: string
+    industry?: string
+    employee_count?: number
+    departmental_head_count?: Record<string, number>
+  }): Promise<ContactRankingResult> {
+    if (opts.contacts.length === 0) {
+      return { person_1: null, person_2: null, fallback_used: false }
+    }
+    const userPrompt = CONTACT_RANKING_PROMPT_V1
+      .replace('{json_array_of_contacts_with_metadata}', JSON.stringify(opts.contacts, null, 2))
+      .replace('{company_name}', opts.company_name ?? 'onbekend')
+      .replace('{industry}', opts.industry ?? 'onbekend')
+      .replace('{employee_count}', String(opts.employee_count ?? '?'))
+      .replace('{departmental_head_count_apollo}', JSON.stringify(opts.departmental_head_count ?? {}))
+    try {
+      const r = await this.completeJson<ContactRankingResult>({
+        systemPrompt: 'Je bent een B2B sales-strategie expert. Geef alleen geldig JSON terug.',
+        userPrompt,
+      })
+      return r.parsed
+    } catch {
+      // Fallback: alfabetische top-2 (sectie 6.6)
+      const sorted = [...opts.contacts].sort((a, b) => a.name.localeCompare(b.name))
+      return {
+        person_1: sorted[0]
+          ? { name: sorted[0].name, score: 50, reason: 'Mistral-fallback: alfabetisch' }
+          : null,
+        person_2: sorted[1]
+          ? { name: sorted[1].name, score: 50, reason: 'Mistral-fallback: alfabetisch' }
+          : null,
+        fallback_used: true,
       }
     }
   }

@@ -202,3 +202,61 @@ export type SourceHealth = {
   message?: string
   credits_remaining?: number
 }
+
+// ─── Run-enrichments shape (sectie 4.1 spec) ────────────────────────────────
+
+export type RunEnrichments = {
+  kvk?: PerSourceEnrichment
+  google_maps?: PerSourceEnrichment
+  apollo?: PerSourceEnrichment
+  website?: PerSourceEnrichment
+}
+
+export type SourceKey = 'kvk' | 'google_maps' | 'apollo' | 'website' | 'custom'
+
+// ─── Master record (sectie 4.3 spec) ────────────────────────────────────────
+
+export type MasterRecord = NormalizedFields & {
+  // Per-veld bron-attributie. Niet alle NormalizedFields keys hoeven hier in
+  // (alleen velden waar daadwerkelijk een bron is gekozen).
+  source_overrides: Partial<Record<keyof NormalizedFields, SourceKey>>
+  hoofddomein: string | null
+  deal_note_text: string
+}
+
+// ─── Contact-ranking output (sectie 7.2 spec) ──────────────────────────────
+
+export type ContactRankingPick = {
+  name: string
+  score: number
+  reason: string
+}
+
+export type ContactRankingResult = {
+  person_1: ContactRankingPick | null
+  person_2: ContactRankingPick | null
+  fallback_used: boolean
+}
+
+// ─── Run-detail-response shape (voor GET /api/sales-leads/{id}) ────────────
+
+export type RunDetailResponse = {
+  run: {
+    id: string
+    status: string
+    input_url: string
+    input_domain: string
+    owner_config_id: string
+    scrape_vacancies: boolean
+    manual_vacancies: NormalizedVacancy[]
+    enrichments: RunEnrichments
+    master_record: MasterRecord | null
+    selected_contacts: NormalizedContact[]
+    pipedrive_org_id: number | null
+    pipedrive_deal_id: number | null
+    existing_pipedrive_org_id: number | null
+    error: string | null
+    created_at: string
+    updated_at: string
+  }
+}
