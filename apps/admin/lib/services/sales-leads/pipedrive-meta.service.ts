@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase-server'
-import type { Json } from '@/lib/supabase'
+import { cachedFetch, invalidateCacheSource, type CacheSource } from './cache'
 import type {
   PipedriveUser,
   PipedrivePipeline,
@@ -12,39 +12,12 @@ const PIPEDRIVE_API_KEY = process.env.PIPEDRIVE_API_KEY
 const PIPEDRIVE_V1_BASE = (process.env.PIPEDRIVE_API_URL ?? 'https://lokalebanen.pipedrive.com/api/v2')
   .replace(/\/v2\/?$/, '/v1')
 
-const CACHE_TTL_MS = 60 * 60 * 1000 // 1 uur
-
-type CacheRow = { source: string; cache_key: string; response: unknown; expires_at: string }
-
 export class PipedriveMetaService {
   private supabase = createServiceRoleClient()
 
-  private async cachedFetch<T>(source: string, cacheKey: string, fetcher: () => Promise<T>): Promise<T> {
-    // Try cache eerst
-    const { data: row } = await this.supabase
-      .from('enrichment_cache')
-      .select('source, cache_key, response, expires_at')
-      .eq('source', source)
-      .eq('cache_key', cacheKey)
-      .single<CacheRow>()
-
-    if (row && new Date(row.expires_at).getTime() > Date.now()) {
-      return row.response as T
-    }
-
-    // Fetch fresh
-    const fresh = await fetcher()
-
-    // Upsert in cache
-    await this.supabase.from('enrichment_cache').upsert({
-      source,
-      cache_key: cacheKey,
-      response: fresh as unknown as Json,
-      fetched_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + CACHE_TTL_MS).toISOString(),
-    })
-
-    return fresh
+  private async cached<T>(source: CacheSource, cacheKey: string, fetcher: () => Promise<T>): Promise<T> {
+    const { value } = await cachedFetch(source, cacheKey, '1h', fetcher)
+    return value
   }
 
   private async pdFetch(path: string): Promise<unknown> {
@@ -59,7 +32,7 @@ export class PipedriveMetaService {
   }
 
   async getUsers(): Promise<PipedriveUser[]> {
-    return this.cachedFetch('pipedrive_users', 'all', async () => {
+    return this.cached('pipedrive_users', 'all', async () => {
       const data = (await this.pdFetch('/users')) as Array<{
         id: number; name: string; email: string; active_flag: boolean
       }>
@@ -70,7 +43,7 @@ export class PipedriveMetaService {
   }
 
   async getPipelines(): Promise<PipedrivePipeline[]> {
-    return this.cachedFetch('pipedrive_pipelines', 'all', async () => {
+    return this.cached('pipedrive_pipelines', 'all', async () => {
       const data = (await this.pdFetch('/pipelines')) as Array<{
         id: number; name: string; active: boolean; order_nr: number
       }>
@@ -79,7 +52,7 @@ export class PipedriveMetaService {
   }
 
   async getStages(pipelineId: number): Promise<PipedriveStage[]> {
-    return this.cachedFetch('pipedrive_stages', String(pipelineId), async () => {
+    return this.cached('pipedrive_stages', String(pipelineId), async () => {
       const data = (await this.pdFetch(`/stages?pipeline_id=${pipelineId}`)) as Array<{
         id: number; name: string; pipeline_id: number; order_nr: number
       }>
@@ -88,7 +61,7 @@ export class PipedriveMetaService {
   }
 
   async getDateDealFields(): Promise<PipedriveDealField[]> {
-    return this.cachedFetch('pipedrive_deal_fields_date', 'all', async () => {
+    return this.cached('pipedrive_deal_fields_date', 'all', async () => {
       const data = (await this.pdFetch('/dealFields')) as Array<PipedriveDealField>
       return data.filter((f) => f.field_type === 'date' && f.edit_flag && !f.mandatory_flag)
     })
@@ -146,15 +119,17 @@ export class PipedriveMetaService {
     return result
   }
 
-  async invalidateCache(source?: string): Promise<void> {
+  async invalidateCache(source?: CacheSource): Promise<void> {
     if (source) {
-      await this.supabase.from('enrichment_cache').delete().eq('source', source)
+      await invalidateCacheSource(source)
     } else {
-      // Alleen pipedrive_-bronnen wissen, niet KvK/Apollo cache
-      await this.supabase
-        .from('enrichment_cache')
-        .delete()
-        .or('source.eq.pipedrive_users,source.eq.pipedrive_pipelines,source.eq.pipedrive_stages,source.eq.pipedrive_deal_fields_date')
+      const sources: CacheSource[] = [
+        'pipedrive_users',
+        'pipedrive_pipelines',
+        'pipedrive_stages',
+        'pipedrive_deal_fields_date',
+      ]
+      for (const s of sources) await invalidateCacheSource(s)
     }
   }
 }
