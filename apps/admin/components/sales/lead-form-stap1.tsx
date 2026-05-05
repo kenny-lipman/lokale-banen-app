@@ -41,12 +41,22 @@ export function LeadFormStap1() {
 
   useEffect(() => {
     fetch('/api/sales-leads/owner-config')
-      .then((r) => r.json())
-      .then((j: { configs?: OwnerOption[] }) => {
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json() as Promise<{ configs?: OwnerOption[] }>
+      })
+      .then((j) => {
         setOwners((j.configs ?? []).filter((c) => c.is_active))
       })
+      .catch((e) => {
+        toast({
+          title: 'Kon dealeigenaren niet laden',
+          description: (e as Error).message,
+          variant: 'destructive',
+        })
+      })
       .finally(() => setLoadingOwners(false))
-  }, [])
+  }, [toast])
 
   function addVacancy() {
     const t = vacancyTitle.trim()
@@ -78,7 +88,7 @@ export function LeadFormStap1() {
         toast({
           title: 'Recent voltooide run gevonden',
           description:
-            'We sturen je naar de bestaande run. Wil je tóch opnieuw verrijken? Klik op "Nieuwe lead" en vink force_recreate aan in de URL.',
+            'We sturen je naar de bestaande run. Wacht 24u of overleg met admin om dit domein opnieuw te verrijken.',
           variant: 'default',
         })
         router.push(`/sales/lead-verrijking/${body.recent_run_id}`)
