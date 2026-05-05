@@ -432,6 +432,7 @@ export async function getRelatedJobs(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
     .ilike('city', city)
     .neq('id', excludeId)
     .order('published_at', { ascending: false })
@@ -467,6 +468,7 @@ export async function getSitemapJobs(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
     .not('slug', 'is', null)
     .order('published_at', { ascending: false })
     .limit(50000)
@@ -507,6 +509,7 @@ export async function getLlmsJobs(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
     .not('slug', 'is', null)
     .order('published_at', { ascending: false })
     .limit(limit)
@@ -541,6 +544,7 @@ export async function getApprovedJobCount(tenantId: string): Promise<number> {
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
 
   if (error) return 0
   return count ?? 0
@@ -642,6 +646,7 @@ export async function getJobsByCitySlug(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
     .ilike('city', match.city)
     .order('published_at', { ascending: false })
     .range(from, to)
@@ -720,6 +725,7 @@ export async function getCompanyBySlug(
     .eq('company_id', company.id)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
 
   if (!count || count === 0) return null
 
@@ -756,6 +762,7 @@ export async function getJobsByCompany(
     .eq('company_id', companyId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
     .order('published_at', { ascending: false })
     .range(from, to)
 
@@ -787,6 +794,7 @@ export async function getTopCities(
     .eq('platform_id', tenantId)
     .eq('review_status', 'approved')
     .not('published_at', 'is', null)
+    .is('archived_at', null)
     .not('city', 'is', null)
 
   if (!data || data.length === 0) return []
@@ -929,6 +937,7 @@ export async function getJobsAcrossAllPlatforms(
     .eq('is_primary', true)
     .eq('job_postings.review_status', 'approved')
     .not('job_postings.published_at', 'is', null)
+    .is('job_postings.archived_at', null)
 
   if (options.platformId) {
     query = query.eq('platform_id', options.platformId)
@@ -1008,7 +1017,7 @@ export async function getTopPlatforms(): Promise<PlatformSummary[]> {
     platforms.map(async (p) => {
       const { count } = await supabase
         .from('job_posting_platforms')
-        .select('job_posting_id, job_postings!inner(review_status, published_at)', {
+        .select('job_posting_id, job_postings!inner(review_status, published_at, archived_at)', {
           count: 'exact',
           head: true,
         })
@@ -1016,6 +1025,7 @@ export async function getTopPlatforms(): Promise<PlatformSummary[]> {
         .eq('is_primary', true)
         .eq('job_postings.review_status', 'approved')
         .not('job_postings.published_at', 'is', null)
+        .is('job_postings.archived_at', null)
       return { id: p.id, count: count ?? 0 }
     })
   )
@@ -1049,13 +1059,14 @@ export async function getTopCitiesAcrossPlatforms(
     .select(
       `
       job_postings!inner (
-        city, review_status, published_at
+        city, review_status, published_at, archived_at
       )
     `
     )
     .eq('is_primary', true)
     .eq('job_postings.review_status', 'approved')
     .not('job_postings.published_at', 'is', null)
+    .is('job_postings.archived_at', null)
     .not('job_postings.city', 'is', null)
     .limit(50000)
 
@@ -1092,13 +1103,14 @@ export async function getMasterJobCount(): Promise<number> {
   const supabase = createPublicClient()
   const { count, error } = await supabase
     .from('job_posting_platforms')
-    .select('job_posting_id, job_postings!inner(review_status, published_at)', {
+    .select('job_posting_id, job_postings!inner(review_status, published_at, archived_at)', {
       count: 'exact',
       head: true,
     })
     .eq('is_primary', true)
     .eq('job_postings.review_status', 'approved')
     .not('job_postings.published_at', 'is', null)
+    .is('job_postings.archived_at', null)
 
   if (error) return 0
   return count ?? 0
@@ -1122,6 +1134,7 @@ export async function getMasterJobBySlug(
       latitude, longitude,
       employment, job_type, salary, categories,
       description, content_md, header_image_url, url, published_at, end_date, created_at,
+      archived_at,
       seo_title, seo_description, education_level, career_level,
       working_hours_min, working_hours_max,
       companies!company_id (

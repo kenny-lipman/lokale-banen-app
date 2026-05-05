@@ -106,6 +106,13 @@ export default async function JobPage({ params }: JobPageProps) {
   if (tenant.tier === 'master') {
     const masterJob = await getMasterJobBySlug(slug)
     if (!masterJob) notFound()
+    // Permanent gone (>30d archived) → 404 ipv 301 → 404 round-trip via regio-host.
+    // 0-30d grace: laat redirect doorgaan zodat regio-host het amber-bordje toont.
+    const masterArchivedAt = masterJob.archived_at ? new Date(masterJob.archived_at) : null
+    const masterArchiveAge = masterArchivedAt ? Date.now() - masterArchivedAt.getTime() : 0
+    if (masterArchivedAt && masterArchiveAge >= 30 * 86_400_000) {
+      notFound()
+    }
     const primaryDomain =
       masterJob.primary_platform?.domain ?? masterJob.primary_platform?.preview_domain
     if (!primaryDomain) notFound()
