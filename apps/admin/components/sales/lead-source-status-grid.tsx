@@ -49,6 +49,7 @@ type Props = {
 export function LeadSourceStatusGrid({ enrichments }: Props) {
   const [open, setOpen] = useState<SourceKey | null>(null)
   const sources: SourceKey[] = ['kvk', 'google_maps', 'apollo', 'website']
+  const openEntry = open ? enrichments[open] : null
   return (
     <div className="space-y-3 mb-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -77,9 +78,7 @@ export function LeadSourceStatusGrid({ enrichments }: Props) {
           )
         })}
       </div>
-      {open && enrichments[open] && (
-        <LeadSourceDetailPanel source={open} entry={enrichments[open]!} />
-      )}
+      {open && openEntry && <LeadSourceDetailPanel source={open} entry={openEntry} />}
     </div>
   )
 }

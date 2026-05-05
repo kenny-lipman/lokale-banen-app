@@ -240,10 +240,18 @@ export type ContactRankingResult = {
 
 // ─── Run-detail-response shape (voor GET /api/sales-leads/{id}) ────────────
 
+export type SalesLeadRunStatus =
+  | 'enriching'
+  | 'review'
+  | 'syncing'
+  | 'completed'
+  | 'failed'
+  | 'duplicate'
+
 export type RunDetailResponse = {
   run: {
     id: string
-    status: string
+    status: SalesLeadRunStatus
     input_url: string
     input_domain: string
     owner_config_id: string

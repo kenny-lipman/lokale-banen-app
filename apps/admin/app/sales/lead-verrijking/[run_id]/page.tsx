@@ -63,6 +63,11 @@ export default function RunDetailPage({ params }: PageProps) {
         </div>
       )}
       {showStep3 && <LeadStep3Placeholder run={run} />}
+      {!showReview && !showStep3 && (
+        <div className="rounded-md border border-dashed p-6 text-sm text-gray-500">
+          Status: <span className="font-mono">{run.status}</span>
+        </div>
+      )}
     </div>
   )
 }

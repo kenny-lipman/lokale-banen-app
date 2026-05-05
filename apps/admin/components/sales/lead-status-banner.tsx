@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
-import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
+import type { RunDetailResponse, SalesLeadRunStatus } from '@/lib/services/sales-leads/types'
 
-const STATUS_LABEL: Record<string, { label: string; className: string; Icon: typeof Loader2 }> = {
+const STATUS_LABEL: Record<SalesLeadRunStatus, { label: string; className: string; Icon: typeof Loader2 }> = {
   enriching: { label: 'Verrijken…', className: 'bg-orange-100 text-orange-700', Icon: Loader2 },
   review: { label: 'Klaar voor review', className: 'bg-green-100 text-green-700', Icon: CheckCircle2 },
   syncing: { label: 'Pipedrive sync…', className: 'bg-blue-100 text-blue-700', Icon: Loader2 },
@@ -21,11 +21,7 @@ type Props = {
 }
 
 export function LeadStatusBanner({ run, onCancel }: Props) {
-  const meta = STATUS_LABEL[run.status] ?? {
-    label: run.status,
-    className: 'bg-gray-100 text-gray-700',
-    Icon: Loader2,
-  }
+  const meta = STATUS_LABEL[run.status]
   const { Icon } = meta
   const spinning = run.status === 'enriching' || run.status === 'syncing'
   return (
