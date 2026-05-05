@@ -439,6 +439,7 @@ interface TableFiltersProps {
   filters?: FilterProps[]
   bulkActions?: ReactNode
   totalCount?: number
+  isCapped?: boolean
   resultText?: string
   className?: string
   onResetFilters?: () => void
@@ -453,6 +454,7 @@ export function TableFilters({
   filters = [],
   bulkActions,
   totalCount,
+  isCapped = false,
   resultText,
   className = "",
   onResetFilters,
@@ -488,9 +490,13 @@ export function TableFilters({
             {showResults && (
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-white border-gray-200 text-gray-700 font-medium">
-                  {totalCount === 0 ? "Geen resultaten" : `${totalCount.toLocaleString('nl-NL')} ${resultText || "resultaten"}`}
+                  {totalCount === 0
+                    ? "Geen resultaten"
+                    : isCapped
+                      ? `10.000+ ${resultText || "resultaten"}`
+                      : `${totalCount!.toLocaleString('nl-NL')} ${resultText || "resultaten"}`}
                 </Badge>
-                {totalCount > 1000 && (
+                {isCapped && (
                   <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
                     Gebruik filters om resultaten te beperken
                   </Badge>
@@ -581,6 +587,7 @@ interface TablePaginationProps {
   currentPage: number
   totalPages: number
   totalCount: number
+  isCapped?: boolean
   itemsPerPage: number
   onPageChange: (page: number) => void
   onItemsPerPageChange: (items: number) => void
@@ -591,20 +598,22 @@ export function TablePagination({
   currentPage,
   totalPages,
   totalCount,
+  isCapped = false,
   itemsPerPage,
   onPageChange,
   onItemsPerPageChange,
   className = ""
 }: TablePaginationProps) {
+  const totalLabel = isCapped ? "10.000+" : totalCount.toLocaleString('nl-NL')
   return (
     <div className={`flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${className}`}>
       {/* Info & Items per page */}
       <div className="flex items-center gap-4 text-sm text-gray-600">
         <span>
-          Pagina {currentPage} van {totalPages} ({totalCount.toLocaleString('nl-NL')} totaal)
+          Pagina {currentPage} van {isCapped ? `${totalPages.toLocaleString('nl-NL')}+` : totalPages.toLocaleString('nl-NL')} ({totalLabel} totaal)
         </span>
         <span className="text-gray-500">
-          {((currentPage - 1) * itemsPerPage + 1).toLocaleString('nl-NL')} - {Math.min(currentPage * itemsPerPage, totalCount).toLocaleString('nl-NL')} van {totalCount.toLocaleString('nl-NL')}
+          {((currentPage - 1) * itemsPerPage + 1).toLocaleString('nl-NL')} - {Math.min(currentPage * itemsPerPage, totalCount).toLocaleString('nl-NL')} van {totalLabel}
         </span>
         <div className="flex items-center gap-2">
           <label>Per pagina:</label>

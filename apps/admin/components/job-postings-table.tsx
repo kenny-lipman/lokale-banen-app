@@ -97,6 +97,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
+  const [isCapped, setIsCapped] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
   const [jobSourceMap, setJobSourceMap] = useState<{ [id: string]: string }>({})
   const [error, setError] = useState<any>(null)
@@ -216,6 +217,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
     setError(errorFromHook)
     setJobPostings(jobPostingsResult?.data || [])
     setTotalCount(jobPostingsResult?.count || 0)
+    setIsCapped(jobPostingsResult?.isCapped || false)
     setTotalPages(jobPostingsResult?.totalPages || 1)
   }, [jobPostingsResult, loadingFromHook, errorFromHook])
 
@@ -410,6 +412,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
         onSearchChange={setSearchTerm}
         searchPlaceholder="Zoek op vacaturetitel, locatie of bedrijf..."
         totalCount={totalCount}
+        isCapped={isCapped}
         resultText="vacatures"
         onResetFilters={() => {
           setSearchTerm("")
@@ -855,6 +858,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
           currentPage={currentPage}
           totalPages={totalPages}
           totalCount={totalCount}
+          isCapped={isCapped}
           itemsPerPage={itemsPerPage}
           onPageChange={setCurrentPage}
           onItemsPerPageChange={(newItemsPerPage) => {

@@ -3792,6 +3792,7 @@ export type Database = {
       }
       search_job_postings: {
         Args: {
+          archived_filter?: string
           career_level_filter?: string[]
           date_from?: string
           date_to?: string
@@ -3810,6 +3811,7 @@ export type Database = {
           status_filter?: string
         }
         Returns: {
+          archived_at: string | null
           career_level: string
           categories: string
           city: string
@@ -3826,6 +3828,7 @@ export type Database = {
           employment: string
           end_date: string
           id: string
+          is_capped: boolean
           job_type: string[]
           location: string
           lokalebanen_pushed_at: string

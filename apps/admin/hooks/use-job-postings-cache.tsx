@@ -83,8 +83,9 @@ export function useJobPostingsCache(params: JobPostingsFilterParams) {
         throw new Error(error.message || 'Database error')
       }
 
-      // Get total count from the first row (all rows have the same count)
+      // Get total count + cap-flag from the first row (all rows share these)
       const totalCount = data && data.length > 0 ? data[0].total_count : 0
+      const isCapped = data && data.length > 0 ? !!data[0].is_capped : false
 
       // Format the data to match the expected structure
       const formattedData = data?.map(item => ({
@@ -127,6 +128,7 @@ export function useJobPostingsCache(params: JobPostingsFilterParams) {
       const formattedResult = {
         data: formattedData,
         count: totalCount,
+        isCapped,
         totalPages: Math.ceil(totalCount / limit)
       }
 
