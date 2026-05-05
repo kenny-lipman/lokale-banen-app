@@ -79,7 +79,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Build query with service role client
+    // Build query with service role client. We blijven `count: 'planned'`
+    // doorgeven (planner stat, near-zero cost) — dit behoudt PostgREST's
+    // "single relation" type-inference én voorkomt het oude timeout-pad van
+    // count: 'exact' op 595k contacts. De échte capped count komt uit RPC
+    // get_contact_count() hieronder (cap=10001 → UI "10.000+").
     let query = supabaseService.serviceClient
       .from("contacts")
       .select(`
@@ -112,7 +116,7 @@ export async function GET(req: NextRequest) {
           status,
           start
         )
-      `, { count: 'exact' })
+      `, { count: 'planned' })
 
     // Apply search filter - note: can't search on related table (companies.name) in .or() with PostgREST
     // So we only search on contacts fields directly
@@ -203,10 +207,28 @@ export async function GET(req: NextRequest) {
       range: [(page - 1) * limit, page * limit - 1]
     })
 
-    const { data: contacts, error, count } = await query
-      .order('created_at', { ascending: false })
-      .range((page - 1) * limit, page * limit - 1)
+    // List + count parallel uitvoeren. Count via RPC met cap-pattern (10001).
+    const [listResult, countResult] = await Promise.all([
+      query
+        .order('created_at', { ascending: false })
+        .range((page - 1) * limit, page * limit - 1),
+      supabaseService.serviceClient.rpc('get_contact_count', {
+        search_term: filters.search || null,
+        in_campaign: filters.inCampaign || null,
+        has_email: filters.hasEmail || null,
+        category_status: filters.categoryStatus ? filters.categoryStatus.split(',').filter(Boolean) : null,
+        company_status: filters.companyStatus ? filters.companyStatus.split(',').filter(Boolean) : null,
+        company_start: filters.companyStart ? filters.companyStart.split(',').filter(Boolean) : null,
+        company_size: filters.companySize ? filters.companySize.split(',').filter(Boolean) : null,
+        pipedrive_filter: filters.pipedriveFilter || null,
+        instantly_filter: filters.instantlyFilter || null,
+        platform_company_ids: platformCompanyIds,
+        date_from: dateFrom ? `${dateFrom}T00:00:00Z` : null,
+        date_to: dateTo ? `${dateTo}T23:59:59Z` : null,
+      }),
+    ])
 
+    const { data: contacts, error } = listResult
     if (error) {
       console.error("API: Supabase query error:", {
         error,
@@ -219,14 +241,21 @@ export async function GET(req: NextRequest) {
       throw error
     }
 
-    // Format contacts to match frontend expectations
-    const formattedContacts = (contacts || []).map(contact => ({
+    if (countResult.error) {
+      console.error("API: get_contact_count RPC error:", countResult.error)
+    }
+    const countRow = countResult.data?.[0] as { row_count: number; is_capped: boolean } | undefined
+    const total = countRow?.row_count ?? 0
+    const isCapped = countRow?.is_capped ?? false
+
+    // Format contacts to match frontend expectations.
+    // PostgREST infert companies als array zonder count-meta; cast naar single.
+    const formattedContacts = (contacts || []).map((contact: any) => ({
       ...contact,
       companies_name: contact.companies?.name || null,
       companies_size: contact.companies?.category_size || null,
       companies_status: contact.companies?.status || null,
       companies_start: contact.companies?.start || null,
-      // Keep the companies object for backward compatibility
       companies: contact.companies
     }))
 
@@ -235,8 +264,9 @@ export async function GET(req: NextRequest) {
       pagination: {
         page,
         limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit)
+        total,
+        isCapped,
+        totalPages: Math.ceil(total / limit) || 1
       }
     }
 

@@ -253,7 +253,7 @@ export default function ContactsPage() {
     dateTo: dateTo || undefined
   }
 
-  const { data: contacts, loading, error, count, totalPages } = useContactsPaginated(
+  const { data: contacts, loading, error, count, isCapped, totalPages } = useContactsPaginated(
     currentPage,
     itemsPerPage,
     filters
@@ -598,7 +598,7 @@ export default function ContactsPage() {
         <div>
           <h1 className="text-3xl font-bold">Contactenoverzicht</h1>
           <p className="text-gray-600">
-            {count} contacten gevonden
+            {isCapped ? "10.000+" : count.toLocaleString("nl-NL")} contacten gevonden
             {selectedContacts.size > 0 && ` • ${selectedContacts.size} geselecteerd`}
           </p>
         </div>
@@ -1358,7 +1358,7 @@ export default function ContactsPage() {
               {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-4">
                   <div className="text-sm text-gray-600">
-                    Toont {((currentPage - 1) * itemsPerPage) + 1} tot {Math.min(currentPage * itemsPerPage, count)} van {count} contacten
+                    Toont {((currentPage - 1) * itemsPerPage) + 1} tot {Math.min(currentPage * itemsPerPage, count).toLocaleString("nl-NL")} van {isCapped ? "10.000+" : count.toLocaleString("nl-NL")} contacten
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
@@ -1371,7 +1371,7 @@ export default function ContactsPage() {
                       Vorige
                     </Button>
                     <span className="text-sm">
-                      Pagina {currentPage} van {totalPages}
+                      Pagina {currentPage} van {isCapped ? `${totalPages.toLocaleString("nl-NL")}+` : totalPages.toLocaleString("nl-NL")}
                     </span>
                     <Button
                       variant="outline"

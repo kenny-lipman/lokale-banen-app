@@ -37,6 +37,7 @@ export function useContactsPaginated(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<any>(null)
   const [count, setCount] = useState(0)
+  const [isCapped, setIsCapped] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
   const [currentPage, setCurrentPage] = useState(page)
   const fetchRef = useRef(0)
@@ -88,6 +89,7 @@ export function useContactsPaginated(
         setData(result?.data || [])
         // Handle both old and new API response format
         setCount(result?.pagination?.total || result?.count || 0)
+        setIsCapped(!!result?.pagination?.isCapped)
         setTotalPages(result?.pagination?.totalPages || result?.totalPages || 1)
         setCurrentPage(page)
         setLoading(false)
@@ -113,6 +115,7 @@ export function useContactsPaginated(
     loading,
     error,
     count,
+    isCapped,
     totalPages,
     currentPage,
     refetch: fetchContacts,
