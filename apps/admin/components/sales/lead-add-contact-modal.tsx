@@ -56,32 +56,59 @@ export function LeadAddContactModal({ open, onOpenChange, onAdd }: Props) {
           <DialogTitle>Handmatig contact toevoegen</DialogTitle>
           <DialogDescription>Gebruik dit voor contacten die niet uit Apollo of website komen.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Naam *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+        <form onSubmit={(e) => { e.preventDefault(); submit() }}>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="lead-contact-name">Naam *</Label>
+              <Input
+                id="lead-contact-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="lead-contact-title">Functie</Label>
+              <Input
+                id="lead-contact-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="lead-contact-email">E-mail</Label>
+              <Input
+                id="lead-contact-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="lead-contact-phone">Telefoon</Label>
+              <Input
+                id="lead-contact-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="lead-contact-linkedin">LinkedIn URL</Label>
+              <Input
+                id="lead-contact-linkedin"
+                value={linkedin}
+                onChange={(e) => setLinkedin(e.target.value)}
+              />
+            </div>
           </div>
-          <div>
-            <Label>Functie</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div>
-            <Label>E-mail</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <Label>Telefoon</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-          <div>
-            <Label>LinkedIn URL</Label>
-            <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Annuleren</Button>
-          <Button onClick={submit} disabled={!name.trim()}>Toevoegen</Button>
-        </DialogFooter>
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Annuleren
+            </Button>
+            <Button type="submit" disabled={!name.trim()}>
+              Toevoegen
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
