@@ -22,6 +22,40 @@ type OwnerConfig = {
   hoofddomein_fixed_value: string | null
 }
 
+// Backend POST /create slaat manual_vacancies op zonder `source`-veld. Hier
+// wordt het op `'manual'` gezet zodat NormalizedVacancy-shape compleet is en
+// de UI-source-badge correct rendert.
+function normalizeManualVacancies(raw: unknown): NormalizedVacancy[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((v): NormalizedVacancy[] => {
+    if (!v || typeof v !== 'object') return []
+    const r = v as { title?: unknown; url?: unknown; location?: unknown }
+    if (typeof r.title !== 'string' || !r.title.trim()) return []
+    return [
+      {
+        title: r.title,
+        url: typeof r.url === 'string' ? r.url : undefined,
+        location: typeof r.location === 'string' ? r.location : undefined,
+        source: 'manual',
+      },
+    ]
+  })
+}
+
+// Dedupe op `title.trim().toLowerCase()`. Eerste voorkomen wint — gebruik
+// dus volgorde manual-eerst zodat manual-source en -url winnen bij conflict.
+function dedupeVacancies(list: NormalizedVacancy[]): NormalizedVacancy[] {
+  const seen = new Set<string>()
+  const out: NormalizedVacancy[] = []
+  for (const v of list) {
+    const k = v.title.trim().toLowerCase()
+    if (!k || seen.has(k)) continue
+    seen.add(k)
+    out.push(v)
+  }
+  return out
+}
+
 export default function RunDetailPage({ params }: PageProps) {
   const { run_id } = use(params)
   const router = useRouter()
@@ -42,9 +76,9 @@ export default function RunDetailPage({ params }: PageProps) {
     if (hydratedRef.current) return
     const initial = run.master_record ? { ...run.master_record } : null
     if (initial && (!initial.vacancies || initial.vacancies.length === 0)) {
-      const manual = (run.manual_vacancies ?? []) as NormalizedVacancy[]
+      const manual = normalizeManualVacancies(run.manual_vacancies)
       const auto = run.enrichments?.website?.parsed?.vacancies ?? []
-      initial.vacancies = [...manual, ...auto]
+      initial.vacancies = dedupeVacancies([...manual, ...auto])
     }
     setMaster(initial)
     setSelected((run.selected_contacts ?? []) as NormalizedContact[])
@@ -130,17 +164,22 @@ export default function RunDetailPage({ params }: PageProps) {
     run.status === 'duplicate'
 
   function renderReviewGrid(currentMaster: MasterRecord) {
-    const manualVacancies = (run!.manual_vacancies ?? []) as NormalizedVacancy[]
+    const manualVacancies = normalizeManualVacancies(run!.manual_vacancies)
     const websiteVacancies = run!.enrichments?.website?.parsed?.vacancies ?? []
-    const allVacancies: NormalizedVacancy[] = [...manualVacancies, ...websiteVacancies]
-    const selectedVacancyTitles = (currentMaster.vacancies ?? []).map((v) => v.title)
+    const allVacancies = dedupeVacancies([...manualVacancies, ...websiteVacancies])
+    const selectedTitleSet = new Set(
+      (currentMaster.vacancies ?? []).map((v) => v.title.trim().toLowerCase()),
+    )
+    const selectedVacancyTitles = allVacancies
+      .filter((v) => selectedTitleSet.has(v.title.trim().toLowerCase()))
+      .map((v) => v.title)
     const selectedVacancies = allVacancies.filter((v) =>
-      selectedVacancyTitles.map((t) => t.toLowerCase()).includes(v.title.trim().toLowerCase()),
+      selectedTitleSet.has(v.title.trim().toLowerCase()),
     )
 
     function setSelectedVacancyTitles(titles: string[]) {
-      const lower = titles.map((t) => t.toLowerCase())
-      const next = allVacancies.filter((v) => lower.includes(v.title.trim().toLowerCase()))
+      const lower = new Set(titles.map((t) => t.trim().toLowerCase()))
+      const next = allVacancies.filter((v) => lower.has(v.title.trim().toLowerCase()))
       setMaster({ ...currentMaster, vacancies: next })
     }
 

@@ -21,15 +21,20 @@ export function LeadDiscrepancyWarnings({ enrichments, master }: Props) {
           <AlertTriangle className="w-4 h-4" />
           {discrepancies.length} bron-discrepantie{discrepancies.length > 1 ? 's' : ''} gedetecteerd
         </div>
-        {discrepancies.map((d) => (
-          <div key={String(d.field)} className="text-xs text-yellow-900">
-            <span className="font-medium">{String(d.field)}:</span>{' '}
-            {d.values.map((v) => `${v.source}=${JSON.stringify(v.value).slice(0, 40)}`).join(' · ')}
-            {master.source_overrides[d.field] && (
-              <span className="ml-2 text-yellow-700">→ gekozen: {master.source_overrides[d.field]}</span>
-            )}
-          </div>
-        ))}
+        {discrepancies.map((d) => {
+          const chosen = master.source_overrides?.[d.field]
+          return (
+            <div key={String(d.field)} className="text-xs text-yellow-900">
+              <span className="font-medium">{String(d.field)}:</span>{' '}
+              {d.values
+                .map((v) => `${v.source}=${JSON.stringify(v.value).slice(0, 40)}`)
+                .join(' · ')}
+              {chosen && (
+                <span className="ml-2 text-yellow-700">→ gekozen: {chosen}</span>
+              )}
+            </div>
+          )
+        })}
       </CardContent>
     </Card>
   )

@@ -85,7 +85,7 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
   function setSource(field: keyof NormalizedFields, source: SourceKey) {
     const next: MasterRecord = {
       ...master,
-      source_overrides: { ...master.source_overrides, [field]: source },
+      source_overrides: { ...(master.source_overrides ?? {}), [field]: source },
     }
     if (source !== 'custom') {
       const alt = getSourceAlternatives(field, enrichments, undefined).find(
@@ -101,7 +101,7 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
   function setValue(field: keyof NormalizedFields, raw: string) {
     const next: MasterRecord = {
       ...master,
-      source_overrides: { ...master.source_overrides, [field]: 'custom' },
+      source_overrides: { ...(master.source_overrides ?? {}), [field]: 'custom' },
     }
     if (field === 'address') {
       next.address = { ...(master.address ?? {}), full: raw }
@@ -123,7 +123,7 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
       </CardHeader>
       <CardContent className="space-y-3">
         {FIELDS.map((f) => {
-          const currentSource = master.source_overrides[f.key]
+          const currentSource = master.source_overrides?.[f.key]
           const alts = getSourceAlternatives(f.key, enrichments, currentSource)
           const stringValue = getMasterValueAsString(master, f.key)
           return (

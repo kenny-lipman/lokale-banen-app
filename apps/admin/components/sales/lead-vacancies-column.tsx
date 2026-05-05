@@ -42,10 +42,10 @@ export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitl
         {unique.length === 0 && (
           <p className="text-xs text-gray-500">Geen vacatures gevonden.</p>
         )}
-        {unique.map((v) => {
+        {unique.map((v, idx) => {
           const checked = selectedSet.has(v.title.trim().toLowerCase())
           return (
-            <label key={v.title} className="flex items-start gap-2 cursor-pointer">
+            <label key={v.title || `vac-${idx}`} className="flex items-start gap-2 cursor-pointer">
               <Checkbox checked={checked} onCheckedChange={() => toggle(v.title)} />
               <div className="flex-1">
                 <p className="text-sm">
