@@ -52,8 +52,14 @@ async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: RouteConte
   }
 
   const supabase = createServiceRoleClient()
-  const { error } = await supabase.from('sales_lead_runs').update(update).eq('id', id)
+  const { data: updated, error } = await supabase
+    .from('sales_lead_runs')
+    .update(update)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!updated) return NextResponse.json({ error: 'Run niet gevonden' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }
 

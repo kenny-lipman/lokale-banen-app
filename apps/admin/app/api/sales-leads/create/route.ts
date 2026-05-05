@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import type { Json } from '@/lib/supabase'
 import { EnrichmentOrchestratorService } from '@/lib/services/sales-leads/enrichment-orchestrator.service'
 
 const PUBLIC_EMAIL_DOMAINS = new Set([
@@ -99,6 +100,15 @@ async function handler(req: NextRequest, auth: AuthResult) {
     }
   }
 
+  // Light shape-check op manual_vacancies: alleen objecten met een title
+  // door (verdere normalisatie gebeurt in fase 5 bij Pipedrive sync).
+  const cleanedVacancies: Array<{ title: string; url?: string; location?: string }> = Array.isArray(manual_vacancies)
+    ? (manual_vacancies as unknown[]).filter(
+        (v): v is { title: string; url?: string; location?: string } =>
+          typeof v === 'object' && v !== null && typeof (v as { title?: unknown }).title === 'string',
+      )
+    : []
+
   // Insert run met status='enriching'
   const { data: inserted, error } = await supabase
     .from('sales_lead_runs')
@@ -107,7 +117,7 @@ async function handler(req: NextRequest, auth: AuthResult) {
       input_url: norm.url,
       input_domain: norm.domain,
       owner_config_id,
-      manual_vacancies: (Array.isArray(manual_vacancies) ? manual_vacancies : []) as never,
+      manual_vacancies: cleanedVacancies as unknown as Json,
       scrape_vacancies: scrape_vacancies !== false,
       status: 'enriching',
     })

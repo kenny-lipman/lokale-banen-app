@@ -12,7 +12,8 @@ async function handler(_req: NextRequest, _auth: AuthResult, ctx: RouteContext) 
     .select('status')
     .eq('id', id)
     .maybeSingle()
-  if (error || !data) return NextResponse.json({ error: 'Run niet gevonden' }, { status: 404 })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data) return NextResponse.json({ error: 'Run niet gevonden' }, { status: 404 })
   if (data.status === 'completed' || data.status === 'syncing') {
     return NextResponse.json(
       { error: `Cannot cancel run met status=${data.status}` },
