@@ -9,6 +9,7 @@ import { LeadStatusBanner } from '@/components/sales/lead-status-banner'
 import { LeadSourceStatusGrid } from '@/components/sales/lead-source-status-grid'
 import { LeadStep3Placeholder } from '@/components/sales/lead-step3-placeholder'
 import { LeadMasterRecord } from '@/components/sales/lead-master-record'
+import { LeadContactsColumn } from '@/components/sales/lead-contacts-column'
 import type { MasterRecord, NormalizedContact } from '@/lib/services/sales-leads/types'
 
 type PageProps = { params: Promise<{ run_id: string }> }
@@ -140,9 +141,11 @@ export default function RunDetailPage({ params }: PageProps) {
             />
           </div>
           <div className="lg:col-span-2 space-y-6">
-            <div className="rounded-md border border-dashed p-6 text-sm text-gray-400">
-              Contacten — komt in taak 5
-            </div>
+            <LeadContactsColumn
+              enrichments={run.enrichments ?? {}}
+              selected={selected}
+              onChange={setSelected}
+            />
             <div className="rounded-md border border-dashed p-6 text-sm text-gray-400">
               Vacatures — komt in taak 6
             </div>
