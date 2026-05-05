@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withCronMonitoring } from '@/lib/cron-monitor'
 import { createClient } from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+
 const AGE_DAYS = 120
 const BATCH_SIZE = 2000
 // Vercel maxDuration is 300s. Per batch is ~30-90s op grote tabel,

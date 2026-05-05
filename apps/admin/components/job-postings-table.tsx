@@ -70,6 +70,9 @@ interface JobPosting {
   created_at?: string;
   lokalebanen_id?: string;
   lokalebanen_pushed_at?: string;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  archived_reason?: string | null;
 }
 
 interface JobPostingsTableProps {

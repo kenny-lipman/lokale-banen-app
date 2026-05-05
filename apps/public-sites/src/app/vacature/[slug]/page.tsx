@@ -25,6 +25,10 @@ interface JobPageProps {
   params: Promise<{ slug: string }>
 }
 
+/** Grace-window: gearchiveerde detail-pagina blijft 30 dagen bereikbaar
+ *  met noindex + "afgelopen"-bordje voordat hij 404 gaat. */
+const ARCHIVE_GRACE_MS = 30 * 86_400_000
+
 export async function generateMetadata({ params }: JobPageProps): Promise<Metadata> {
   const { slug } = await params
   const tenant = await getTenant()
@@ -60,7 +64,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
   const isArchived = !!job.archived_at
   const archivedNoindex =
     isArchived &&
-    new Date(job.archived_at!).getTime() > Date.now() - 30 * 86_400_000
+    new Date(job.archived_at!).getTime() > Date.now() - ARCHIVE_GRACE_MS
 
   const headerImage = job.header_image_url?.trim() || null
   const ogImages = headerImage
@@ -110,7 +114,7 @@ export default async function JobPage({ params }: JobPageProps) {
     // 0-30d grace: laat redirect doorgaan zodat regio-host het amber-bordje toont.
     const masterArchivedAt = masterJob.archived_at ? new Date(masterJob.archived_at) : null
     const masterArchiveAge = masterArchivedAt ? Date.now() - masterArchivedAt.getTime() : 0
-    if (masterArchivedAt && masterArchiveAge >= 30 * 86_400_000) {
+    if (masterArchivedAt && masterArchiveAge >= ARCHIVE_GRACE_MS) {
       notFound()
     }
     const primaryDomain =
@@ -125,7 +129,7 @@ export default async function JobPage({ params }: JobPageProps) {
   // Drie-staten archief: actief / grace 30d / permanent gone
   const archivedAt = job.archived_at ? new Date(job.archived_at) : null
   const archiveAgeMs = archivedAt ? Date.now() - archivedAt.getTime() : 0
-  const isInGrace = archivedAt && archiveAgeMs < 30 * 86_400_000
+  const isInGrace = archivedAt && archiveAgeMs < ARCHIVE_GRACE_MS
   const isPermanentlyGone = archivedAt && !isInGrace
 
   // Permanent gone — Next.js heeft geen native 410, dus 404 (Google
