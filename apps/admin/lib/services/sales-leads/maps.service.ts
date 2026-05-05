@@ -130,9 +130,10 @@ export class MapsService {
     const city = find('locality')?.long_name ?? find('postal_town')?.long_name
     const country = find('country')?.long_name
 
+    const phone = d.international_phone_number ?? d.formatted_phone_number
     return {
       company_name: d.name,
-      address: d.formatted_address || street || city
+      address: (d.formatted_address || street || city)
         ? {
             street,
             number,
@@ -146,10 +147,8 @@ export class MapsService {
         ? { lat: d.geometry.location.lat, lng: d.geometry.location.lng }
         : undefined,
       website: d.website,
-      phone: d.international_phone_number ?? d.formatted_phone_number,
-      phones_all: d.international_phone_number || d.formatted_phone_number
-        ? [d.international_phone_number ?? d.formatted_phone_number!]
-        : undefined,
+      phone,
+      phones_all: phone ? [phone] : undefined,
       rating: d.rating,
       ratings_total: d.user_ratings_total,
       business_status: d.business_status,
