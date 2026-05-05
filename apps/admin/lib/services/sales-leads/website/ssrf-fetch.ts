@@ -71,6 +71,12 @@ export type SafeFetchResult = {
  * - 15s totale timeout
  * - 5 MB body-cap (streaming check)
  * - User-Agent identificatie
+ *
+ * KNOWN LIMITATION (TOCTOU): assertPublicHost lookt het host op vóór de fetch,
+ * maar de daadwerkelijke socket-connect doet een tweede DNS-resolve. Een DNS-rebinding
+ * aanvaller kan tussen onze check en de connect een private IP terug-rollen.
+ * Voor v1 (admin-gated runs op user-input domains) acceptabel risico. Bij
+ * untrusted input → undici.Agent met connect.lookup pinning toepassen.
  */
 export async function safeFetch(
   rawUrl: string,

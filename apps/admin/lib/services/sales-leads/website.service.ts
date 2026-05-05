@@ -76,6 +76,10 @@ export class WebsiteService {
       throw new WebsiteServiceError('fetch_failed', e instanceof Error ? e.message : String(e))
     }
 
+    if (!home.html.trim()) {
+      throw new WebsiteServiceError('no_html', `Homepage levert lege body: ${homepageUrl}`)
+    }
+
     const [info, career] = await Promise.all([
       discoverInfoPages(home.url),
       scrapeVacancies ? discoverCareerPage(home.url, home.html) : Promise.resolve(null),
@@ -125,7 +129,7 @@ export class WebsiteService {
       throw new WebsiteServiceError('mistral_failed', e instanceof Error ? e.message : String(e))
     }
 
-    return this.mapToNormalized(home.url, fetched, pagesMd, extracted, career)
+    return this.mapToNormalized(home.url, pagesMd, extracted, career)
   }
 
   private normalizeUrl(input: string): string {
@@ -138,7 +142,6 @@ export class WebsiteService {
 
   private mapToNormalized(
     homepageUrl: string,
-    _fetched: Array<{ key: string; url: string; html: string }>,
     pagesMd: Array<{ key: string; url: string; md: string }>,
     e: MistralExtractResult,
     career: Awaited<ReturnType<typeof discoverCareerPage>>,

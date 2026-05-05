@@ -41,15 +41,14 @@ function detectAts(urlStr: string): { external: boolean; ats_type?: string } {
   }
 }
 
-const SITEMAP_MAX_BYTES = 5 * 1024 * 1024
 const SITEMAP_MAX_DEPTH = 3
 
 async function fetchSitemapUrls(sitemapUrl: string, depth = 0): Promise<string[]> {
   if (depth >= SITEMAP_MAX_DEPTH) return []
   let body = ''
   try {
+    // safeFetch werpt FetchSizeExceededError bij >5MB; we vangen dat hier op met return []
     const res = await safeFetch(sitemapUrl)
-    if (res.bytes > SITEMAP_MAX_BYTES) return []
     body = res.body
   } catch {
     return []
@@ -66,11 +65,15 @@ async function fetchSitemapUrls(sitemapUrl: string, depth = 0): Promise<string[]
 }
 
 async function tryFromSitemap(homepageUrl: string): Promise<CareerPageResult | null> {
-  const sitemapUrl = new URL('/sitemap.xml', homepageUrl).toString()
-  const urls = await fetchSitemapUrls(sitemapUrl)
-  const hit = urls.find((u) => CAREER_KEYWORD_REGEX.test(u))
-  if (!hit) return null
-  return { url: hit, method: 'sitemap', ...detectAts(hit) }
+  try {
+    const sitemapUrl = new URL('/sitemap.xml', homepageUrl).toString()
+    const urls = await fetchSitemapUrls(sitemapUrl)
+    const hit = urls.find((u) => CAREER_KEYWORD_REGEX.test(u))
+    if (!hit) return null
+    return { url: hit, method: 'sitemap', ...detectAts(hit) }
+  } catch {
+    return null
+  }
 }
 
 async function tryFromRobots(homepageUrl: string): Promise<CareerPageResult | null> {
