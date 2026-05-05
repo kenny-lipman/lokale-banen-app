@@ -65,7 +65,10 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
     setHoofddomein(master.hoofddomein ?? '')
   }, [master.hoofddomein])
 
-  // Bij init: als owner_config = 'fixed' en master.hoofddomein leeg → vul fixed_value
+  // Bij init: als owner_config = 'fixed' en master.hoofddomein leeg → vul fixed_value.
+  // Bewust alleen [ownerConfig] in deps: master/onChange in deps zou een infinite loop
+  // veroorzaken (effect muteert master via onChange → master verandert → effect runt opnieuw).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!ownerConfig) return
     if (
@@ -77,7 +80,6 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
       setHoofddomein(val)
       onChange({ ...master, hoofddomein: val })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerConfig])
 
   function setSource(field: keyof NormalizedFields, source: SourceKey) {
@@ -104,7 +106,8 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
     if (field === 'address') {
       next.address = { ...(master.address ?? {}), full: raw }
     } else if (field === 'employee_count') {
-      next.employee_count = raw ? Number.parseInt(raw, 10) : undefined
+      const n = raw ? Number.parseInt(raw, 10) : NaN
+      next.employee_count = Number.isFinite(n) ? n : undefined
     } else {
       ;(next as Record<string, unknown>)[field] = raw || undefined
     }
@@ -128,6 +131,8 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
               <label className="col-span-3 text-xs text-gray-600">{f.label}</label>
               <Input
                 className="col-span-6"
+                type={f.key === 'employee_count' ? 'number' : 'text'}
+                min={f.key === 'employee_count' ? 0 : undefined}
                 value={stringValue}
                 onChange={(e) => setValue(f.key, e.target.value)}
               />

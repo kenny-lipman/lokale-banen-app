@@ -62,6 +62,7 @@ export default function RunDetailPage({ params }: PageProps) {
   const debouncedMaster = useDebounce(master, 500)
   const debouncedSelected = useDebounce(selected, 500)
   const lastSentRef = useRef<string>('')
+  const seqRef = useRef(0)
   useEffect(() => {
     if (!hydratedRef.current || !run || run.status !== 'review') return
     const payload = JSON.stringify({
@@ -70,6 +71,7 @@ export default function RunDetailPage({ params }: PageProps) {
     })
     if (payload === lastSentRef.current) return
     lastSentRef.current = payload
+    const mySeq = ++seqRef.current
     void fetch(`/api/sales-leads/${run_id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -81,13 +83,14 @@ export default function RunDetailPage({ params }: PageProps) {
           throw new Error(body.error ?? `HTTP ${res.status}`)
         }
       })
-      .catch((e) =>
+      .catch((e) => {
+        if (seqRef.current !== mySeq) return // newer save in flight, swallow
         toast({
           title: 'Auto-save mislukt',
           description: (e as Error).message,
           variant: 'destructive',
-        }),
-      )
+        })
+      })
   }, [debouncedMaster, debouncedSelected, run_id, run, toast])
 
   const onCancel = useCallback(async () => {
