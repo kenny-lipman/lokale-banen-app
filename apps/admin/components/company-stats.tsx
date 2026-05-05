@@ -23,16 +23,17 @@ interface QualificationCounts {
   review: number
   disqualified: number
   enriched: number
+  is_capped: { pending: boolean; qualified: boolean; review: boolean; disqualified: boolean; enriched: boolean }
 }
+
+const formatCount = (n: number, capped: boolean) =>
+  capped ? "10.000+" : n.toLocaleString("nl-NL")
 
 export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
   const [stats, setStats] = useState<CompanyStatsData | null>(null)
-  const [qualificationCounts, setQualificationCounts] = useState<QualificationCounts>({ 
-    pending: 0, 
-    qualified: 0, 
-    review: 0, 
-    disqualified: 0,
-    enriched: 0 
+  const [qualificationCounts, setQualificationCounts] = useState<QualificationCounts>({
+    pending: 0, qualified: 0, review: 0, disqualified: 0, enriched: 0,
+    is_capped: { pending: false, qualified: false, review: false, disqualified: false, enriched: false },
   })
   const [loading, setLoading] = useState(true)
 
@@ -97,27 +98,27 @@ export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-gray-400"></span>
               <span className="text-sm">Pending:</span>
-              <span className="font-bold">{qualificationCounts.pending}</span>
+              <span className="font-bold">{formatCount(qualificationCounts.pending, qualificationCounts.is_capped.pending)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
               <span className="text-sm">Qualified:</span>
-              <span className="font-bold">{qualificationCounts.qualified}</span>
+              <span className="font-bold">{formatCount(qualificationCounts.qualified, qualificationCounts.is_capped.qualified)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-purple-500"></span>
               <span className="text-sm">Enriched:</span>
-              <span className="font-bold">{qualificationCounts.enriched}</span>
+              <span className="font-bold">{formatCount(qualificationCounts.enriched, qualificationCounts.is_capped.enriched)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-yellow-500"></span>
               <span className="text-sm">Review:</span>
-              <span className="font-bold">{qualificationCounts.review}</span>
+              <span className="font-bold">{formatCount(qualificationCounts.review, qualificationCounts.is_capped.review)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full bg-red-500"></span>
               <span className="text-sm">Disqualified:</span>
-              <span className="font-bold">{qualificationCounts.disqualified}</span>
+              <span className="font-bold">{formatCount(qualificationCounts.disqualified, qualificationCounts.is_capped.disqualified)}</span>
             </div>
           </div>
         </CardContent>

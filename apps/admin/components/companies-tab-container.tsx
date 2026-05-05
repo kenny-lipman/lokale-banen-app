@@ -69,7 +69,11 @@ interface QualificationCounts {
   disqualified: number
   pending: number
   enriched: number
+  is_capped: { qualified: boolean; review: boolean; disqualified: boolean; pending: boolean; enriched: boolean }
 }
+
+const formatCount = (n: number, capped: boolean) =>
+  capped ? "10.000+" : n.toLocaleString("nl-NL")
 
 export function CompaniesTabContainer({
   searchTerm = "",
@@ -90,7 +94,10 @@ export function CompaniesTabContainer({
 }: CompaniesTabContainerProps) {
   const [activeTab, setActiveTab] = useState<'qualified' | 'review' | 'disqualified' | 'pending' | 'enriched'>('qualified')
   const [companies, setCompanies] = useState<Company[]>([])
-  const [counts, setCounts] = useState<QualificationCounts>({ qualified: 0, review: 0, disqualified: 0, pending: 0, enriched: 0 })
+  const [counts, setCounts] = useState<QualificationCounts>({
+    qualified: 0, review: 0, disqualified: 0, pending: 0, enriched: 0,
+    is_capped: { qualified: false, review: false, disqualified: false, pending: false, enriched: false },
+  })
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
@@ -141,7 +148,7 @@ export function CompaniesTabContainer({
   // Load qualification counts for all tabs
   const loadCounts = async () => {
     try {
-      const countsResult = await supabaseService.getCompanyCountsByQualificationStatus(getFilterParams())
+      const countsResult = await supabaseService.getCompanyCountsByQualificationStatus(getFilterParams() as any)
       setCounts(countsResult)
     } catch (error) {
       console.error('Error loading counts:', error)
@@ -948,7 +955,7 @@ export function CompaniesTabContainer({
               Companies Management
             </CardTitle>
             <CardDescription>
-              Qualify companies and manage Apollo enrichment ({counts.qualified + counts.review + counts.disqualified + counts.pending} companies total)
+              Qualify companies and manage Apollo enrichment ({(counts.qualified + counts.review + counts.disqualified + counts.pending).toLocaleString("nl-NL")}{Object.values(counts.is_capped).some(Boolean) ? "+" : ""} companies total)
             </CardDescription>
           </div>
           <Button
@@ -970,7 +977,7 @@ export function CompaniesTabContainer({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-purple-600">💎 Enriched</p>
-                <p className="text-2xl font-bold text-purple-700">{counts.enriched}</p>
+                <p className="text-2xl font-bold text-purple-700">{formatCount(counts.enriched, counts.is_capped.enriched)}</p>
                 <p className="text-xs text-purple-600">Apollo data added</p>
               </div>
               <Sparkles className="w-8 h-8 text-purple-500" />
@@ -980,7 +987,7 @@ export function CompaniesTabContainer({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-green-600">✅ Qualified</p>
-                <p className="text-2xl font-bold text-green-700">{counts.qualified}</p>
+                <p className="text-2xl font-bold text-green-700">{formatCount(counts.qualified, counts.is_capped.qualified)}</p>
                 <p className="text-xs text-green-600">Ready for Apollo</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-500" />
@@ -990,7 +997,7 @@ export function CompaniesTabContainer({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-yellow-600">⭕ Review Needed</p>
-                <p className="text-2xl font-bold text-yellow-700">{counts.review}</p>
+                <p className="text-2xl font-bold text-yellow-700">{formatCount(counts.review, counts.is_capped.review)}</p>
                 <p className="text-xs text-yellow-600">Needs attention</p>
               </div>
               <AlertCircle className="w-8 h-8 text-yellow-500" />
@@ -1000,7 +1007,7 @@ export function CompaniesTabContainer({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-red-600">❌ Disqualified</p>
-                <p className="text-2xl font-bold text-red-700">{counts.disqualified}</p>
+                <p className="text-2xl font-bold text-red-700">{formatCount(counts.disqualified, counts.is_capped.disqualified)}</p>
                 <p className="text-xs text-red-600">Not suitable</p>
               </div>
               <RefreshCw className="w-8 h-8 text-red-500" />
@@ -1010,7 +1017,7 @@ export function CompaniesTabContainer({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">⏳ Pending</p>
-                <p className="text-2xl font-bold text-gray-700">{counts.pending}</p>
+                <p className="text-2xl font-bold text-gray-700">{formatCount(counts.pending, counts.is_capped.pending)}</p>
                 <p className="text-xs text-gray-600">Needs qualification</p>
               </div>
               <Clock className="w-8 h-8 text-gray-400" />
@@ -1022,19 +1029,19 @@ export function CompaniesTabContainer({
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-4">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="enriched" className="text-purple-700 data-[state=active]:bg-purple-100">
-              💎 Enriched ({counts.enriched})
+              💎 Enriched ({formatCount(counts.enriched, counts.is_capped.enriched)})
             </TabsTrigger>
             <TabsTrigger value="qualified" className="text-green-700 data-[state=active]:bg-green-100">
-              ✅ Qualified ({counts.qualified})
+              ✅ Qualified ({formatCount(counts.qualified, counts.is_capped.qualified)})
             </TabsTrigger>
             <TabsTrigger value="review" className="text-yellow-700 data-[state=active]:bg-yellow-100">
-              ⭕ Review ({counts.review})
+              ⭕ Review ({formatCount(counts.review, counts.is_capped.review)})
             </TabsTrigger>
             <TabsTrigger value="disqualified" className="text-red-700 data-[state=active]:bg-red-100">
-              ❌ Disqualified ({counts.disqualified})
+              ❌ Disqualified ({formatCount(counts.disqualified, counts.is_capped.disqualified)})
             </TabsTrigger>
             <TabsTrigger value="pending" className="text-gray-700 data-[state=active]:bg-gray-100">
-              ⏳ Pending ({counts.pending})
+              ⏳ Pending ({formatCount(counts.pending, counts.is_capped.pending)})
             </TabsTrigger>
           </TabsList>
 

@@ -2301,53 +2301,78 @@ export class SupabaseService {
     }
   }
 
-  // Get company counts by qualification status for tab badges
+  // Get company counts by qualification status for tab badges.
+  // Single RPC met cap-pattern (10001 per status). UI rendert "10.000+"
+  // als is_capped[status] === true. Vervangt 5 parallelle exact-count queries.
+  // Note: hasContacts filter wordt niet meegenomen in counts (te duur).
   async getCompanyCountsByQualificationStatus(filters?: {
     search?: string
     is_customer?: boolean
     source?: string
+    status?: string
     websiteFilter?: 'all' | 'with' | 'without'
-    categorySize?: 'all' | 'Klein' | 'Middel' | 'Groot' | 'Onbekend'
+    categorySize?: string
     apolloEnriched?: 'all' | 'enriched' | 'not_enriched'
     hasContacts?: 'all' | 'with_contacts' | 'no_contacts'
     regioPlatformFilter?: string
-  }) {
+    subdomeinenFilter?: string
+    pipedriveFilter?: 'all' | 'synced' | 'not_synced'
+    instantlyFilter?: 'all' | 'synced' | 'not_synced'
+    dateFrom?: string
+    dateTo?: string
+  }): Promise<{
+    pending: number
+    qualified: number
+    review: number
+    disqualified: number
+    enriched: number
+    is_capped: { pending: boolean; qualified: boolean; review: boolean; disqualified: boolean; enriched: boolean }
+  }> {
+    const empty = {
+      pending: 0, qualified: 0, review: 0, disqualified: 0, enriched: 0,
+      is_capped: { pending: false, qualified: false, review: false, disqualified: false, enriched: false },
+    }
     try {
-      const counts = {
-        pending: 0,
-        qualified: 0,
-        review: 0,
-        disqualified: 0,
-        enriched: 0
+      const params = {
+        search_term: filters?.search || null,
+        is_customer_filter: filters?.is_customer ?? null,
+        source_filter: filters?.source || null,
+        status_filter: filters?.status && filters.status !== 'all' ? filters.status : null,
+        website_filter: filters?.websiteFilter && filters.websiteFilter !== 'all' ? filters.websiteFilter : null,
+        category_size_filter: filters?.categorySize
+          ? filters.categorySize.split(',').filter(Boolean)
+          : null,
+        apollo_enriched_filter: filters?.apolloEnriched && filters.apolloEnriched !== 'all' ? filters.apolloEnriched : null,
+        regio_platform_filter: filters?.regioPlatformFilter
+          ? filters.regioPlatformFilter.split(',').filter(p => p && p !== 'none')
+          : null,
+        subdomeinen_filter: filters?.subdomeinenFilter
+          ? filters.subdomeinenFilter.split(',').filter(p => p && p !== 'none')
+          : null,
+        pipedrive_filter: filters?.pipedriveFilter && filters.pipedriveFilter !== 'all' ? filters.pipedriveFilter : null,
+        instantly_filter: filters?.instantlyFilter && filters.instantlyFilter !== 'all' ? filters.instantlyFilter : null,
+        date_from: filters?.dateFrom ? `${filters.dateFrom}T00:00:00Z` : null,
+        date_to: filters?.dateTo ? `${filters.dateTo}T23:59:59Z` : null,
+      } as any
+
+      const { data, error } = await this.client.rpc('get_company_counts', params)
+      if (error) {
+        console.error("Error in get_company_counts RPC:", error)
+        return empty
       }
 
-      // Get counts for each status in parallel
-      const statusQueries = ['pending', 'qualified', 'review', 'disqualified', 'enriched'].map(async (status) => {
-        const result = await this.getCompanies({
-          ...filters,
-          qualification_status: status as any,
-          page: 1,
-          limit: 1 // We only need the count, not the data
-        })
-        return { status, count: result.count || 0 }
-      })
-
-      const results = await Promise.all(statusQueries)
-      
-      results.forEach(({ status, count }) => {
-        counts[status as keyof typeof counts] = count
-      })
-
-      return counts
+      const result = { ...empty }
+      for (const row of (data as Array<{ qualification_status: string; row_count: number; is_capped: boolean }> | null) ?? []) {
+        const key = row.qualification_status as keyof typeof empty.is_capped
+        if (key in result.is_capped) {
+          ;(result as any)[key] = row.row_count
+          result.is_capped[key] = !!row.is_capped
+        }
+      }
+      return result
     } catch (error) {
       console.error("Error fetching company counts by qualification status:", error)
-      return {
-        pending: 0,
-        qualified: 0,
-        review: 0,
-        disqualified: 0,
-        enriched: 0
-      }
+      return empty
     }
   }
 
