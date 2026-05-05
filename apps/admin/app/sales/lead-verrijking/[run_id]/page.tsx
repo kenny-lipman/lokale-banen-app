@@ -10,7 +10,10 @@ import { LeadSourceStatusGrid } from '@/components/sales/lead-source-status-grid
 import { LeadStep3Placeholder } from '@/components/sales/lead-step3-placeholder'
 import { LeadMasterRecord } from '@/components/sales/lead-master-record'
 import { LeadContactsColumn } from '@/components/sales/lead-contacts-column'
-import type { MasterRecord, NormalizedContact } from '@/lib/services/sales-leads/types'
+import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
+import { LeadDealNoteTextarea } from '@/components/sales/lead-deal-note-textarea'
+import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-warnings'
+import type { MasterRecord, NormalizedContact, NormalizedVacancy } from '@/lib/services/sales-leads/types'
 
 type PageProps = { params: Promise<{ run_id: string }> }
 type OwnerConfig = {
@@ -36,11 +39,16 @@ export default function RunDetailPage({ params }: PageProps) {
   useEffect(() => {
     if (!run) return
     if (run.status === 'enriching') return
-    if (!hydratedRef.current) {
-      setMaster(run.master_record ?? null)
-      setSelected((run.selected_contacts ?? []) as NormalizedContact[])
-      hydratedRef.current = true
+    if (hydratedRef.current) return
+    const initial = run.master_record ?? null
+    if (initial && (!initial.vacancies || initial.vacancies.length === 0)) {
+      const manual = (run.manual_vacancies ?? []) as NormalizedVacancy[]
+      const auto = run.enrichments?.website?.parsed?.vacancies ?? []
+      initial.vacancies = [...manual, ...auto]
     }
+    setMaster(initial)
+    setSelected((run.selected_contacts ?? []) as NormalizedContact[])
+    hydratedRef.current = true
   }, [run])
 
   useEffect(() => {
@@ -121,6 +129,58 @@ export default function RunDetailPage({ params }: PageProps) {
     run.status === 'failed' ||
     run.status === 'duplicate'
 
+  function renderReviewGrid(currentMaster: MasterRecord) {
+    const manualVacancies = (run!.manual_vacancies ?? []) as NormalizedVacancy[]
+    const websiteVacancies = run!.enrichments?.website?.parsed?.vacancies ?? []
+    const allVacancies: NormalizedVacancy[] = [...manualVacancies, ...websiteVacancies]
+    const selectedVacancyTitles = (currentMaster.vacancies ?? []).map((v) => v.title)
+    const selectedVacancies = allVacancies.filter((v) =>
+      selectedVacancyTitles.map((t) => t.toLowerCase()).includes(v.title.trim().toLowerCase()),
+    )
+
+    function setSelectedVacancyTitles(titles: string[]) {
+      const lower = titles.map((t) => t.toLowerCase())
+      const next = allVacancies.filter((v) => lower.includes(v.title.trim().toLowerCase()))
+      setMaster({ ...currentMaster, vacancies: next })
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-3">
+          <LeadMasterRecord
+            master={currentMaster}
+            enrichments={run!.enrichments ?? {}}
+            ownerConfig={ownerConfig}
+            onChange={setMaster}
+          />
+        </div>
+        <div className="lg:col-span-2 space-y-6">
+          <LeadContactsColumn
+            enrichments={run!.enrichments ?? {}}
+            selected={selected}
+            onChange={setSelected}
+          />
+          <LeadVacanciesColumn
+            manualVacancies={manualVacancies}
+            enrichments={run!.enrichments ?? {}}
+            selectedTitles={selectedVacancyTitles}
+            onChange={setSelectedVacancyTitles}
+          />
+        </div>
+        <div className="lg:col-span-5 space-y-4">
+          <LeadDiscrepancyWarnings enrichments={run!.enrichments ?? {}} master={currentMaster} />
+          <LeadDealNoteTextarea
+            master={currentMaster}
+            enrichments={run!.enrichments ?? {}}
+            selectedVacancies={selectedVacancies}
+            onChange={(note) => setMaster({ ...currentMaster, deal_note_text: note })}
+            onRegenerate={() => undefined}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <LeadStatusBanner run={run} onCancel={cancelling ? undefined : onCancel} />
@@ -130,33 +190,7 @@ export default function RunDetailPage({ params }: PageProps) {
           Verrijking loopt — review verschijnt zodra de orchestrator klaar is.
         </div>
       )}
-      {showReview && master && (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3">
-            <LeadMasterRecord
-              master={master}
-              enrichments={run.enrichments ?? {}}
-              ownerConfig={ownerConfig}
-              onChange={setMaster}
-            />
-          </div>
-          <div className="lg:col-span-2 space-y-6">
-            <LeadContactsColumn
-              enrichments={run.enrichments ?? {}}
-              selected={selected}
-              onChange={setSelected}
-            />
-            <div className="rounded-md border border-dashed p-6 text-sm text-gray-400">
-              Vacatures — komt in taak 6
-            </div>
-          </div>
-          <div className="lg:col-span-5">
-            <div className="rounded-md border border-dashed p-6 text-sm text-gray-400">
-              Auto-notitie + warnings — komt in taak 6
-            </div>
-          </div>
-        </div>
-      )}
+      {showReview && master && renderReviewGrid(master)}
       {showStep3 && <LeadStep3Placeholder run={run} />}
       {!showReview && !showEnriching && !showStep3 && (
         <div className="rounded-md border border-dashed p-6 text-sm text-gray-500">
