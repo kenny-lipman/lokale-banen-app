@@ -3,7 +3,7 @@ import type { Json } from '@/lib/supabase'
 import { KvkService, KvkApiError } from './kvk.service'
 import { MapsService, MapsApiError } from './maps.service'
 import { ApolloService, ApolloApiError } from './apollo.service'
-import { WebsiteService, WebsiteServiceError } from './website.service'
+import { WebsiteService } from './website.service'
 import { MistralService } from './mistral.service'
 import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
@@ -142,11 +142,10 @@ export class EnrichmentOrchestratorService {
       await this.completeSource(runId, 'website', { parsed })
       await this.appendAudit(runId, this.audit('website', 'crawlAndParse', t0, 'ok'))
     } catch (e) {
-      const reason = e instanceof WebsiteServiceError ? e.reason : 'unknown'
-      void reason // rapport-only (geen status-mapping voor website specific reasons)
-      const status = 'failed'
-      await this.failSource(runId, 'website', e, status)
-      await this.appendAudit(runId, this.audit('website', 'crawlAndParse', t0, status, e))
+      // WebsiteServiceError-reasons (ssrf/fetch_failed/no_html/mistral_failed) mappen
+      // allemaal naar 'failed' — geen 'not_found' equivalent voor websites.
+      await this.failSource(runId, 'website', e, 'failed')
+      await this.appendAudit(runId, this.audit('website', 'crawlAndParse', t0, 'failed', e))
     }
   }
 
@@ -160,11 +159,11 @@ export class EnrichmentOrchestratorService {
     if (!websiteContacts.length) return // niets te matchen
 
     // Set warm-lead-namen om dubbel-match te voorkomen
-    const warmNames = new Set(apolloWarm.map((c) => c.name.toLowerCase()))
+    const warmNames = new Set(apolloWarm.map((c) => normalizeName(c.name)))
     const matched: NormalizedContact[] = []
 
     for (const wc of websiteContacts) {
-      if (warmNames.has(wc.name.toLowerCase())) continue // al warm
+      if (warmNames.has(normalizeName(wc.name))) continue // al warm
       const t0 = Date.now()
       try {
         const r = await this.apollo.matchPerson({
@@ -191,9 +190,9 @@ export class EnrichmentOrchestratorService {
     }
 
     // Merge: warm contacts + matched (apollo-enriched) + ongematchte website-contacts
-    const matchedNames = new Set(matched.map((c) => c.name.toLowerCase()))
+    const matchedNames = new Set(matched.map((c) => normalizeName(c.name)))
     const stillWebsiteOnly = websiteContacts.filter(
-      (c) => !warmNames.has(c.name.toLowerCase()) && !matchedNames.has(c.name.toLowerCase()),
+      (c) => !warmNames.has(normalizeName(c.name)) && !matchedNames.has(normalizeName(c.name)),
     )
     const allContacts = [...apolloWarm, ...matched, ...stillWebsiteOnly]
 
@@ -211,30 +210,45 @@ export class EnrichmentOrchestratorService {
     const contacts = enr.apollo?.parsed?.contacts ?? []
     if (!contacts.length) return
 
+    const t0 = Date.now()
     const orgCtx = enr.apollo?.parsed ?? enr.kvk?.parsed ?? {}
-    const ranking = await this.mistral.rankContacts({
-      contacts: contacts.map((c) => ({
-        name: c.name,
-        title: c.title,
-        seniority: c.seniority,
-        department: c.department,
-        email: c.email,
-        email_verified: c.email_verified,
-        linkedin_url: c.linkedin_url,
-        source_origin: c.source_origin,
-      })),
-      company_name: orgCtx.company_name,
-      industry: orgCtx.industry,
-      employee_count: orgCtx.employee_count,
-      departmental_head_count: enr.apollo?.parsed?.departmental_head_count,
-    })
 
-    // Schrijf ai_priority_score + ai_priority_reason terug naar elke matching contact
+    // Wrap Mistral-call: bij netwerk-/HTTP-fout NIET de hele run laten falen.
+    // rankContacts heeft een interne JSON-fallback, maar throwt bij echte
+    // HTTP-errors. Master_record (Fase D) is belangrijker dan ranking.
+    let ranking
+    try {
+      ranking = await this.mistral.rankContacts({
+        contacts: contacts.map((c) => ({
+          name: c.name,
+          title: c.title,
+          seniority: c.seniority,
+          department: c.department,
+          email: c.email,
+          email_verified: c.email_verified,
+          linkedin_url: c.linkedin_url,
+          source_origin: c.source_origin,
+        })),
+        company_name: orgCtx.company_name,
+        industry: orgCtx.industry,
+        employee_count: orgCtx.employee_count,
+        departmental_head_count: enr.apollo?.parsed?.departmental_head_count,
+      })
+    } catch (e) {
+      await this.appendAudit(runId, this.audit('mistral', 'rankContacts', t0, 'failed', e))
+      return // ranking overgeslagen; master_record komt nog uit Fase D
+    }
+
+    // Schrijf ai_priority_score + ai_priority_reason terug naar elke matching contact.
+    // Mistral kan whitespace/casing variaties teruggeven → normaliseer beide kanten.
+    const p1Norm = ranking.person_1 ? normalizeName(ranking.person_1.name) : null
+    const p2Norm = ranking.person_2 ? normalizeName(ranking.person_2.name) : null
     const enriched = contacts.map((c): NormalizedContact => {
-      if (ranking.person_1?.name === c.name) {
+      const cNorm = normalizeName(c.name)
+      if (p1Norm && p1Norm === cNorm && ranking.person_1) {
         return { ...c, ai_priority_score: ranking.person_1.score, ai_priority_reason: ranking.person_1.reason }
       }
-      if (ranking.person_2?.name === c.name) {
+      if (p2Norm && p2Norm === cNorm && ranking.person_2) {
         return { ...c, ai_priority_score: ranking.person_2.score, ai_priority_reason: ranking.person_2.reason }
       }
       return c
@@ -243,7 +257,7 @@ export class EnrichmentOrchestratorService {
     const apolloParsed: NormalizedFields = enr.apollo?.parsed ?? { source: 'apollo' }
     apolloParsed.contacts = enriched
     await this.setSourceParsed(runId, 'apollo', apolloParsed)
-    await this.appendAudit(runId, this.audit('mistral', 'rankContacts', 0, ranking.fallback_used ? 'failed' : 'ok'))
+    await this.appendAudit(runId, this.audit('mistral', 'rankContacts', t0, ranking.fallback_used ? 'failed' : 'ok'))
 
     // Pre-select top-2 in selected_contacts
     const top2 = enriched
@@ -365,16 +379,21 @@ export class EnrichmentOrchestratorService {
   }
 
   /**
-   * Atomic per-source jsonb_set update via Postgres RPC of inline UPDATE.
-   * Supabase JS heeft geen directe jsonb_set helper, dus we doen een SELECT
-   * van de hele enrichments → merge in code → UPDATE. Postgres serialiseert
-   * UPDATEs op dezelfde rij (sectie 6.3 spec) — geen lost updates omdat
-   * Promise.allSettled in Fase A 4 separate UPDATEs op aparte sub-keys doet.
+   * Per-source enrichments-update via SELECT → merge in JS → UPDATE.
+   * Supabase JS heeft geen directe jsonb_set helper, dus we serialiseren niet
+   * atomair op DB-niveau.
    *
-   * KNOWN: bij hoge concurrency (4 parallel writes binnen ms) kunnen reads
-   * stale enrichments zien. Voor V1 acceptabel — Postgres locks op de UPDATE
-   * voorkomen lost-write. Bij V2 een SQL function `sales_lead_runs_set_source`
-   * met directe jsonb_set toepassen.
+   * KNOWN LIMITATION (V1): dit is een **lost-update race**. Bij Promise.allSettled
+   * in Fase A kan runner B een snapshot lezen vóór runner A's write, en daarna
+   * A's write overschrijven met een merge waarin A's sub-key ontbreekt. Postgres
+   * serialiseert wel de UPDATEs zelf, maar niet de SELECT-then-UPDATE op
+   * application-niveau. In de praktijk komt het meestal goed omdat markRunning
+   * snel wordt opgevolgd door completeSource/failSource (laatste-write-wins op
+   * de finale staat), maar tussentijdse `running`-status kan verloren gaan.
+   *
+   * V2-fix: Postgres function `sales_lead_runs_set_source(run_id, source, value)`
+   * met `UPDATE sales_lead_runs SET enrichments = jsonb_set(enrichments, ARRAY[source], $value)`
+   * — atomair, geen race. Zelfde patroon voor `audit_log = audit_log || $entry::jsonb`.
    */
   private async setSourceFull(
     runId: string,
@@ -428,7 +447,7 @@ export class EnrichmentOrchestratorService {
       ts: new Date().toISOString(),
       source,
       endpoint,
-      duration_ms: t0 > 0 ? Date.now() - t0 : 0,
+      duration_ms: Date.now() - t0,
       status,
       ...(err ? { error: err instanceof Error ? err.message : String(err) } : {}),
       ...(cost_credits != null ? { cost_credits } : {}),
@@ -437,9 +456,21 @@ export class EnrichmentOrchestratorService {
 }
 
 /**
+ * Normaliseer een persoonsnaam voor case/whitespace-tolerante matching.
+ * Gebruikt om Mistral-output ("Jan De Vries") tegen contact-data ("Jan de Vries")
+ * te matchen, en om warm-leads/website-namen op identiteit te dedupen.
+ */
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/**
  * "wetarget.nl" → "WeTarget" (eerste segment, capitalize).
  * KvK Zoeken v2 doet whole-text match — een naam-guess uit het domein is
  * de minst-precieze maar bruikbare fallback wanneer de user geen naam meegaf.
+ * Naïeve heuristic: faalt op multi-segment domeinen ("acme.co.uk" → "Acme",
+ * "the-westland-group.com" → "The-westland-group"). Acceptabel als fallback
+ * wanneer geen expliciete bedrijfsnaam-input is.
  */
 function domainToCompanyGuess(domain: string): string {
   const stem = domain.split('.')[0] ?? domain
