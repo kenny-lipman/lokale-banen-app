@@ -96,5 +96,5 @@ export const BRANCHE_ID_TO_LABEL: Record<number, string> = {
 }
 
 export function sbiToBrancheLabel(sbiCode: string): string {
-  return BRANCHE_ID_TO_LABEL[sbiToBrancheId(sbiCode)]
+  return BRANCHE_ID_TO_LABEL[sbiToBrancheId(sbiCode)] ?? 'Overig'
 }

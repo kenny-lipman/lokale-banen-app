@@ -140,7 +140,7 @@ export class KvkService {
   private mapBasisprofielToNormalized(p: KvkBasisprofiel, hit?: KvkZoekResultaat): NormalizedFields {
     const hoofd = p._embedded?.hoofdvestiging
     const adresArr = hoofd?.adressen ?? []
-    const bezoek = adresArr.find((a) => true) // KvK levert eerst bezoek-, dan post-adres
+    const bezoek = adresArr[0] // KvK levert eerst bezoek-, dan post-adres
     const sbi: NormalizedSbiActivity[] = (p.sbiActiviteiten ?? []).map((s) => ({
       code: s.sbiCode,
       description: s.sbiOmschrijving,
@@ -194,9 +194,10 @@ export class KvkService {
       sbi_activities: sbi.length ? sbi : undefined,
       employee_count,
       employee_bucket,
-      founded_year: p.formeleRegistratiedatum
-        ? Number(p.formeleRegistratiedatum.slice(0, 4))
-        : undefined,
+      founded_year: (() => {
+        const y = p.formeleRegistratiedatum ? Number(p.formeleRegistratiedatum.slice(0, 4)) : NaN
+        return Number.isFinite(y) ? y : undefined
+      })(),
       founded_date: p.formeleRegistratiedatum,
       source: 'kvk',
     }
