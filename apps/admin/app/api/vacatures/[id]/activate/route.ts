@@ -5,6 +5,8 @@ import { revalidatePublicSite } from '@/lib/services/public-site-revalidate.serv
 
 export const dynamic = 'force-dynamic'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 async function activateHandler(
   _req: NextRequest,
   _authResult: AuthResult,
@@ -12,14 +14,15 @@ async function activateHandler(
 ) {
   try {
     const { id } = await params
-    if (!id) {
+    if (!id || !UUID_REGEX.test(id)) {
       return NextResponse.json(
-        { success: false, error: 'ID is verplicht' },
+        { success: false, error: 'Ongeldig ID' },
         { status: 400 }
       )
     }
 
     const supabase = createServiceRoleClient()
+    // Status-gate: alleen gearchiveerde records activeren.
     const { data, error } = await supabase
       .from('job_postings')
       .update({
@@ -28,13 +31,21 @@ async function activateHandler(
         archived_reason: null,
       })
       .eq('id', id)
+      .not('archived_at', 'is', null)
       .select('id, slug, platform_id, review_status, published_at')
-      .single()
+      .maybeSingle()
 
-    if (error || !data) {
+    if (error) {
       return NextResponse.json(
-        { success: false, error: error?.message ?? 'Vacature niet gevonden' },
-        { status: error ? 500 : 404 }
+        { success: false, error: error.message },
+        { status: 500 }
+      )
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { success: false, error: 'Vacature niet gevonden of al actief' },
+        { status: 409 }
       )
     }
 

@@ -160,6 +160,7 @@ export async function validateJobPostingsForPush(
       )
     `)
     .in('id', jobPostingIds)
+    .is('archived_at', null)
 
   if (error) throw new Error(`Failed to fetch job postings: ${error.message}`)
   if (!jobPostings || jobPostings.length === 0) {
@@ -287,6 +288,7 @@ export async function pushJobPostingsToLB(
       )
     `)
     .in('id', jobPostingIds)
+    .is('archived_at', null)
 
   if (error || !jobPostings) {
     onProgress({ type: 'error', current: 0, total, message: `Database error: ${error?.message}` })

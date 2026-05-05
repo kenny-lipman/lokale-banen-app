@@ -23,6 +23,9 @@ async function postHandler(request: NextRequest, _authResult: AuthResult) {
 
     const supabase = createServiceRoleClient()
 
+    // Status-gate: alleen gearchiveerde records activeren. Voorkomt dat
+    // actieve records onnodig revalidate triggeren als ze in de bulk-lijst
+    // staan.
     const { data, error } = await supabase
       .from('job_postings')
       .update({
@@ -31,6 +34,7 @@ async function postHandler(request: NextRequest, _authResult: AuthResult) {
         archived_reason: null,
       })
       .in('id', ids)
+      .not('archived_at', 'is', null)
       .select('id, slug, platform_id, review_status, published_at')
 
     if (error) {
@@ -48,13 +52,15 @@ async function postHandler(request: NextRequest, _authResult: AuthResult) {
       }
     }
 
-    if (slugsByPlatform.size > 0) {
-      const allSlugs: string[] = []
-      for (const slugs of slugsByPlatform.values()) allSlugs.push(...slugs)
+    // Per-platform revalidate zodat sitemap/listings van platform A niet
+    // onnodig de slugs van platform B krijgen.
+    for (const [platformId, jobSlugs] of slugsByPlatform.entries()) {
       await revalidatePublicSite({
-        platformIds: Array.from(slugsByPlatform.keys()),
-        jobSlugs: allSlugs,
-      }).catch((err) => console.error('[bulk-activate] revalidate failed', err))
+        platformIds: [platformId],
+        jobSlugs,
+      }).catch((err) =>
+        console.error('[bulk-activate] revalidate failed', platformId, err),
+      )
     }
 
     return NextResponse.json({

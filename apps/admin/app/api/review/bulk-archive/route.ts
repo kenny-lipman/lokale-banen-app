@@ -28,6 +28,9 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
     const supabase = createServiceRoleClient()
     const nowIso = new Date().toISOString()
 
+    // Status-gate: alleen niet-gearchiveerde records archiveren. Voorkomt
+    // dat al-gearchiveerde records hun audit trail (archived_by/reason) en
+    // grace-period kwijtraken bij accidentele dubbele archief.
     const { data, error } = await supabase
       .from('job_postings')
       .update({
@@ -36,6 +39,7 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
         archived_reason: reason,
       })
       .in('id', ids)
+      .is('archived_at', null)
       .select('id, slug, platform_id, review_status, published_at')
 
     if (error) {
@@ -54,13 +58,15 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
       }
     }
 
-    if (slugsByPlatform.size > 0) {
-      const allSlugs: string[] = []
-      for (const slugs of slugsByPlatform.values()) allSlugs.push(...slugs)
+    // Per-platform revalidate zodat sitemap/listings van platform A niet
+    // onnodig de slugs van platform B krijgen — voorkomt overrevalidate.
+    for (const [platformId, jobSlugs] of slugsByPlatform.entries()) {
       await revalidatePublicSite({
-        platformIds: Array.from(slugsByPlatform.keys()),
-        jobSlugs: allSlugs,
-      }).catch((err) => console.error('[bulk-archive] revalidate failed', err))
+        platformIds: [platformId],
+        jobSlugs,
+      }).catch((err) =>
+        console.error('[bulk-archive] revalidate failed', platformId, err),
+      )
     }
 
     return NextResponse.json({

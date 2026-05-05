@@ -5,7 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase-server"
 export const dynamic = "force-dynamic"
 
 interface CountRow {
-  status_bucket: 'all' | 'pending' | 'approved' | 'rejected'
+  status_bucket: 'all' | 'pending' | 'approved' | 'rejected' | 'archived'
   row_count: number
   is_estimate: boolean
 }
@@ -32,7 +32,7 @@ async function getHandler(request: NextRequest, _authResult: AuthResult) {
     const platformId = searchParams.get("platform_id") || null
 
     const { data, error } = await supabase.rpc('get_job_posting_counts', {
-      platform_filter: platformId,
+      platform_filter: platformId ?? undefined,
       count_cap: 10000,
     })
 
@@ -49,12 +49,14 @@ async function getHandler(request: NextRequest, _authResult: AuthResult) {
       pending: 0,
       approved: 0,
       rejected: 0,
+      archived: 0,
     }
     const estimates = {
       all: false,
       pending: false,
       approved: false,
       rejected: false,
+      archived: false,
     }
 
     for (const row of rows) {
