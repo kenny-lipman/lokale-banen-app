@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { AlertTriangle } from 'lucide-react'
 import { detectDiscrepancies } from '@/lib/services/sales-leads/master-record'
@@ -11,7 +12,7 @@ type Props = {
 }
 
 export function LeadDiscrepancyWarnings({ enrichments, master }: Props) {
-  const discrepancies = detectDiscrepancies(enrichments)
+  const discrepancies = useMemo(() => detectDiscrepancies(enrichments), [enrichments])
   if (discrepancies.length === 0) return null
   return (
     <Card className="border-yellow-300 bg-yellow-50">

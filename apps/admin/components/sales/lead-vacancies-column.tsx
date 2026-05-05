@@ -22,9 +22,11 @@ export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitl
     return true
   })
 
+  const selectedSet = new Set(selectedTitles.map((t) => t.toLowerCase()))
+
   function toggle(title: string) {
     const k = title.trim().toLowerCase()
-    if (selectedTitles.map((t) => t.toLowerCase()).includes(k)) {
+    if (selectedSet.has(k)) {
       onChange(selectedTitles.filter((t) => t.toLowerCase() !== k))
     } else {
       onChange([...selectedTitles, title])
@@ -41,7 +43,7 @@ export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitl
           <p className="text-xs text-gray-500">Geen vacatures gevonden.</p>
         )}
         {unique.map((v) => {
-          const checked = selectedTitles.map((t) => t.toLowerCase()).includes(v.title.trim().toLowerCase())
+          const checked = selectedSet.has(v.title.trim().toLowerCase())
           return (
             <label key={v.title} className="flex items-start gap-2 cursor-pointer">
               <Checkbox checked={checked} onCheckedChange={() => toggle(v.title)} />

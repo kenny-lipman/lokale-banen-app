@@ -40,7 +40,7 @@ export default function RunDetailPage({ params }: PageProps) {
     if (!run) return
     if (run.status === 'enriching') return
     if (hydratedRef.current) return
-    const initial = run.master_record ?? null
+    const initial = run.master_record ? { ...run.master_record } : null
     if (initial && (!initial.vacancies || initial.vacancies.length === 0)) {
       const manual = (run.manual_vacancies ?? []) as NormalizedVacancy[]
       const auto = run.enrichments?.website?.parsed?.vacancies ?? []
@@ -174,7 +174,6 @@ export default function RunDetailPage({ params }: PageProps) {
             enrichments={run!.enrichments ?? {}}
             selectedVacancies={selectedVacancies}
             onChange={(note) => setMaster({ ...currentMaster, deal_note_text: note })}
-            onRegenerate={() => undefined}
           />
         </div>
       </div>

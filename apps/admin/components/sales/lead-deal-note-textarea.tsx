@@ -16,15 +16,13 @@ type Props = {
   enrichments: RunEnrichments
   selectedVacancies: NormalizedVacancy[]
   onChange: (note: string) => void
-  onRegenerate: () => void
 }
 
-export function LeadDealNoteTextarea({ master, enrichments, selectedVacancies, onChange, onRegenerate }: Props) {
+export function LeadDealNoteTextarea({ master, enrichments, selectedVacancies, onChange }: Props) {
   const note = master.deal_note_text ?? ''
   function regen() {
     const next = generateDealNote({ master, enrichments, selectedVacancies })
     onChange(next)
-    onRegenerate()
   }
   return (
     <Card>
