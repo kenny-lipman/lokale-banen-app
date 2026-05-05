@@ -7,6 +7,7 @@ type PollingState = {
   run: RunDetailResponse['run'] | null
   loading: boolean
   error: string | null
+  timedOut: boolean
 }
 
 const POLL_MS = 1500
@@ -17,6 +18,7 @@ export function usePollingRun(runId: string | null) {
     run: null,
     loading: true,
     error: null,
+    timedOut: false,
   })
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startedAtRef = useRef<number>(Date.now())
@@ -39,7 +41,7 @@ export function usePollingRun(runId: string | null) {
       }
       const json = (await res.json()) as RunDetailResponse
       if (!mountedRef.current || currentRunIdRef.current !== id) return null
-      setState({ run: json.run, loading: false, error: null })
+      setState((s) => ({ ...s, run: json.run, loading: false, error: null }))
       return json.run
     } catch (e) {
       if (!mountedRef.current || currentRunIdRef.current !== id) return null
@@ -60,10 +62,11 @@ export function usePollingRun(runId: string | null) {
     stop()
     currentRunIdRef.current = runId
     if (!runId) {
-      setState({ run: null, loading: false, error: null })
+      setState({ run: null, loading: false, error: null, timedOut: false })
       return
     }
     startedAtRef.current = Date.now()
+    setState((s) => ({ ...s, timedOut: false }))
     void fetchOnce(runId).then((run) => {
       if (currentRunIdRef.current !== runId) return
       if (!run || run.status !== 'enriching') return
@@ -73,7 +76,10 @@ export function usePollingRun(runId: string | null) {
         if (currentRunIdRef.current !== runId) return stop()
         if (!r) return stop()
         if (r.status !== 'enriching') return stop()
-        if (Date.now() - startedAtRef.current > MAX_DURATION_MS) return stop()
+        if (Date.now() - startedAtRef.current > MAX_DURATION_MS) {
+          if (mountedRef.current) setState((s) => ({ ...s, timedOut: true }))
+          return stop()
+        }
       }, POLL_MS)
     })
     return () => {
@@ -83,6 +89,7 @@ export function usePollingRun(runId: string | null) {
 
   const refetch = useCallback(async () => {
     if (!runId) return null
+    if (mountedRef.current) setState((s) => ({ ...s, timedOut: false }))
     return fetchOnce(runId)
   }, [runId, fetchOnce])
 

@@ -3,10 +3,12 @@
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Loader2, CheckCircle2, XCircle, AlertTriangle, HelpCircle, Cloud, CloudOff } from 'lucide-react'
 import type { RunDetailResponse, SalesLeadRunStatus } from '@/lib/services/sales-leads/types'
 
-const STATUS_LABEL: Record<SalesLeadRunStatus, { label: string; className: string; Icon: typeof Loader2 }> = {
+type StatusMeta = { label: string; className: string; Icon: typeof Loader2 }
+
+const STATUS_LABEL: Record<SalesLeadRunStatus, StatusMeta> = {
   enriching: { label: 'Verrijken…', className: 'bg-orange-100 text-orange-700', Icon: Loader2 },
   review: { label: 'Klaar voor review', className: 'bg-green-100 text-green-700', Icon: CheckCircle2 },
   syncing: { label: 'Pipedrive sync…', className: 'bg-blue-100 text-blue-700', Icon: Loader2 },
@@ -15,13 +17,24 @@ const STATUS_LABEL: Record<SalesLeadRunStatus, { label: string; className: strin
   duplicate: { label: 'Duplicaat', className: 'bg-yellow-100 text-yellow-700', Icon: AlertTriangle },
 }
 
+// Defensieve fallback voor als de DB ooit een status buiten de enum bevat
+// (legacy rows, handmatige edit, toekomstige status). Voorkomt crash.
+const UNKNOWN_STATUS_META: StatusMeta = {
+  label: 'Onbekende status',
+  className: 'bg-gray-100 text-gray-700',
+  Icon: HelpCircle,
+}
+
+export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+
 type Props = {
   run: RunDetailResponse['run']
   onCancel?: () => void
+  saveState?: SaveState
 }
 
-export function LeadStatusBanner({ run, onCancel }: Props) {
-  const meta = STATUS_LABEL[run.status]
+export function LeadStatusBanner({ run, onCancel, saveState = 'idle' }: Props) {
+  const meta: StatusMeta = STATUS_LABEL[run.status] ?? UNKNOWN_STATUS_META
   const { Icon } = meta
   const spinning = run.status === 'enriching' || run.status === 'syncing'
   return (
@@ -39,6 +52,7 @@ export function LeadStatusBanner({ run, onCancel }: Props) {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {run.status === 'review' && <SaveIndicator state={saveState} />}
         <Badge className={`${meta.className} hover:${meta.className}`}>
           <Icon className={`w-3 h-3 mr-1 ${spinning ? 'animate-spin' : ''}`} />
           {meta.label}
@@ -50,5 +64,31 @@ export function LeadStatusBanner({ run, onCancel }: Props) {
         )}
       </div>
     </div>
+  )
+}
+
+function SaveIndicator({ state }: { state: SaveState }) {
+  if (state === 'idle') return null
+  if (state === 'saving') {
+    return (
+      <span className="flex items-center text-xs text-gray-500">
+        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+        Opslaan…
+      </span>
+    )
+  }
+  if (state === 'saved') {
+    return (
+      <span className="flex items-center text-xs text-green-600">
+        <Cloud className="w-3 h-3 mr-1" />
+        Opgeslagen
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center text-xs text-red-600">
+      <CloudOff className="w-3 h-3 mr-1" />
+      Opslaan mislukt
+    </span>
   )
 }

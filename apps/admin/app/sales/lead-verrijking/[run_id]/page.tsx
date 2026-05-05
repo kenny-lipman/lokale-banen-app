@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import { usePollingRun } from '@/hooks/use-polling-run'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useToast } from '@/hooks/use-toast'
-import { LeadStatusBanner } from '@/components/sales/lead-status-banner'
+import { LeadStatusBanner, type SaveState } from '@/components/sales/lead-status-banner'
+import { Button } from '@/components/ui/button'
+import { RefreshCw } from 'lucide-react'
 import { LeadSourceStatusGrid } from '@/components/sales/lead-source-status-grid'
 import { LeadStep3Placeholder } from '@/components/sales/lead-step3-placeholder'
 import { LeadMasterRecord } from '@/components/sales/lead-master-record'
@@ -60,12 +62,14 @@ export default function RunDetailPage({ params }: PageProps) {
   const { run_id } = use(params)
   const router = useRouter()
   const { toast } = useToast()
-  const { run, loading, error } = usePollingRun(run_id)
+  const { run, loading, error, timedOut, refetch } = usePollingRun(run_id)
 
   const [master, setMaster] = useState<MasterRecord | null>(null)
   const [selected, setSelected] = useState<NormalizedContact[]>([])
   const [owners, setOwners] = useState<OwnerConfig[] | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Sync run → lokale state bij eerste review-load. Daarna laten we lokale state leiden
   // (anders overschrijft polling user-edits).
@@ -115,6 +119,11 @@ export default function RunDetailPage({ params }: PageProps) {
     if (payload === lastSentRef.current) return
     lastSentRef.current = payload
     const mySeq = ++seqRef.current
+    setSaveState('saving')
+    if (savedTimerRef.current) {
+      clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = null
+    }
     void fetch(`/api/sales-leads/${run_id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -125,9 +134,13 @@ export default function RunDetailPage({ params }: PageProps) {
           const body = (await res.json().catch(() => ({}))) as { error?: string }
           throw new Error(body.error ?? `HTTP ${res.status}`)
         }
+        if (seqRef.current !== mySeq) return
+        setSaveState('saved')
+        savedTimerRef.current = setTimeout(() => setSaveState('idle'), 2000)
       })
       .catch((e) => {
         if (seqRef.current !== mySeq) return // newer save in flight, swallow
+        setSaveState('error')
         toast({
           title: 'Auto-save mislukt',
           description: (e as Error).message,
@@ -135,6 +148,12 @@ export default function RunDetailPage({ params }: PageProps) {
         })
       })
   }, [debouncedMaster, debouncedSelected, run_id, run, toast])
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+    }
+  }, [])
 
   const onCancel = useCallback(async () => {
     setCancelling(true)
@@ -221,8 +240,26 @@ export default function RunDetailPage({ params }: PageProps) {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <LeadStatusBanner run={run} onCancel={cancelling ? undefined : onCancel} />
+      <LeadStatusBanner
+        run={run}
+        onCancel={cancelling ? undefined : onCancel}
+        saveState={saveState}
+      />
       <LeadSourceStatusGrid enrichments={run.enrichments ?? {}} />
+      {timedOut && showEnriching && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
+          <div>
+            <p className="font-medium">Polling time-out na 5 minuten.</p>
+            <p className="text-xs mt-1">
+              De orchestrator draait waarschijnlijk nog — handmatig vernieuwen om de status opnieuw op te halen.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Vernieuwen
+          </Button>
+        </div>
+      )}
       {showEnriching && (
         <div className="rounded-md border border-dashed p-6 text-sm text-gray-500">
           Verrijking loopt — review verschijnt zodra de orchestrator klaar is.
