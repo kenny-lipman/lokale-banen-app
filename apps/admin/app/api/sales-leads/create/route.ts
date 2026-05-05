@@ -4,6 +4,13 @@ import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { Json } from '@/lib/supabase'
 import { EnrichmentOrchestratorService } from '@/lib/services/sales-leads/enrichment-orchestrator.service'
 
+// Orchestrator runt fire-and-forget; de POST-response gaat eerder eruit dan
+// de orchestrator klaar is. Maar Fluid Compute moet de hele runEnrichment
+// kunnen voltooien — daarvoor moet de function-instance lang genoeg leven.
+// 300s default is voldoende voor 4 services + Mistral × 2 (~30-60s in de praktijk).
+export const maxDuration = 300
+export const runtime = 'nodejs'
+
 const PUBLIC_EMAIL_DOMAINS = new Set([
   'gmail.com', 'hotmail.com', 'outlook.com', 'live.com', 'yahoo.com',
   'icloud.com', 'me.com', 'protonmail.com', 'proton.me',
