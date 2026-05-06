@@ -12,7 +12,7 @@ const PER_RUN_LIMIT = 110              // was 130 — 3-call worst case (search+
 const ITEM_DELAY_MS = 1000
 const MAX_RUN_MS = 240_000
 const RETRY_DELAY_MS = 2000
-const RANDOM_STREET_OFFSET = 0.005     // ~500m verschuiving (lat+lon)
+const RANDOM_STREET_OFFSET = 0.003     // ~330m lat / ~230m lon — kleinere offset om binnen gemeentegrens te blijven
 
 function getServiceClient() {
   return createClient(
@@ -108,11 +108,19 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       continue
     }
 
-    // ── Step 0: cities-tabel lookup voor fallback (geen API call) ──
-    const citiesByName = await findCityByName(supabase, city)
+    // Lazy cities-by-name lookup: only run when needed (postcode-fallback or platform-fallback paths)
+    let citiesByNameCache: import('./platform-lookup').CityFallback | null | undefined = undefined
+    const getCitiesByName = async (): Promise<import('./platform-lookup').CityFallback | null> => {
+      if (citiesByNameCache === undefined) {
+        citiesByNameCache = await findCityByName(supabase, city)
+      }
+      return citiesByNameCache
+    }
 
     let addr = outcome.result.address
     let postcode = addr.postcode ?? null
+    let usedRandomStreet = false
+    let usedCitiesFallback = false
 
     // ── Step 1: reverse-fallback (city-only matches missen vaak postcode) ──
     if (!postcode) {
@@ -132,31 +140,33 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       }
     }
 
-    // ── Step 2: random-street offset reverse — pak willekeurig adres in de buurt ──
+    // ── Step 2: random-street offset reverse — pak alleen postcode, behoud addr (anders city/state corruption) ──
     if (!postcode) {
       const lat0 = Number(outcome.result.lat)
       const lon0 = Number(outcome.result.lon)
       if (Number.isFinite(lat0) && Number.isFinite(lon0)) {
+        // Random direction om systematische NE-bias te vermijden
+        const dLat = (Math.random() < 0.5 ? -1 : 1) * RANDOM_STREET_OFFSET
+        const dLon = (Math.random() < 0.5 ? -1 : 1) * RANDOM_STREET_OFFSET
         await sleep(ITEM_DELAY_MS)
-        const offsetOutcome = await reverseGeocode(
-          lat0 + RANDOM_STREET_OFFSET,
-          lon0 + RANDOM_STREET_OFFSET,
-          { apiKey }
-        )
+        const offsetOutcome = await reverseGeocode(lat0 + dLat, lon0 + dLon, { apiKey })
         stats.api_calls_used++
 
         if (offsetOutcome.ok && offsetOutcome.result.address.postcode) {
-          addr = offsetOutcome.result.address
-          postcode = addr.postcode ?? null
-          stats.postcode_via_random_street++
+          // Alleen postcode overnemen — addr (city/state/country) blijft van originele search/reverse om data corruption te voorkomen
+          postcode = offsetOutcome.result.address.postcode
+          usedRandomStreet = true
         }
       }
     }
 
-    // ── Step 3: cities-table 4-digit postcode fallback ──
-    if (!postcode && citiesByName?.postcode_4digit) {
-      postcode = citiesByName.postcode_4digit
-      stats.postcode_via_cities_fallback++
+    // ── Step 3: cities-table 4-digit postcode fallback (lazy lookup) ──
+    if (!postcode) {
+      const cb = await getCitiesByName()
+      if (cb?.postcode_4digit) {
+        postcode = cb.postcode_4digit
+        usedCitiesFallback = true
+      }
     }
 
     if (!postcode) {
@@ -166,7 +176,7 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       continue
     }
 
-    // Guard against malformed lat/lon — set NaN/null in DB would create infinite retry loop
+    // ── Lat/lon validatie (FIX1) ──
     const lat = Number(outcome.result.lat)
     const lon = Number(outcome.result.lon)
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
@@ -176,6 +186,7 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       continue
     }
 
+    // ── Platform lookup: postcode-prefix eerst, cities-by-name fallback (lazy) ──
     const prefix = extractPostcodePrefix(postcode)
     let platformId: string | null = null
     let platformViaCities = false
@@ -184,20 +195,15 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       platformId = await findPlatformIdByPostcode(supabase, prefix)
     }
 
-    // Fallback: cities-by-name platform_id wanneer postcode-lookup faalt
-    if (!platformId && citiesByName?.platform_id) {
-      platformId = citiesByName.platform_id
-      platformViaCities = true
-    }
-
-    if (platformId) {
-      if (platformViaCities) {
-        stats.platform_matched_via_cities++
-      } else {
-        stats.platform_matched++
+    if (!platformId) {
+      const cb = await getCitiesByName()
+      if (cb?.platform_id) {
+        platformId = cb.platform_id
+        platformViaCities = true
       }
     }
 
+    // ── DB update ──
     const { error: updateErr } = await supabase
       .from('job_postings')
       .update({
@@ -215,7 +221,17 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
     if (updateErr) {
       console.error(`[geocoding] update ${row.id} failed:`, updateErr.message)
     } else {
+      // Counters incrementeren ALLEEN bij geslaagde DB-update (FIX7-I2)
       stats.enriched++
+      if (usedRandomStreet) stats.postcode_via_random_street++
+      if (usedCitiesFallback) stats.postcode_via_cities_fallback++
+      if (platformId) {
+        if (platformViaCities) {
+          stats.platform_matched_via_cities++
+        } else {
+          stats.platform_matched++
+        }
+      }
     }
 
     await sleep(ITEM_DELAY_MS)

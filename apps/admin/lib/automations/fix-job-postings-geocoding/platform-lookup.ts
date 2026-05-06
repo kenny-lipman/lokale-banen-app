@@ -20,6 +20,7 @@ export async function findPlatformIdByPostcode(
     .from('cities')
     .select('platform_id')
     .eq('postcode', postcodePrefix)
+    .order('platform_id', { ascending: true, nullsFirst: false })
     .limit(1)
     .maybeSingle()
   if (error) {
@@ -51,6 +52,8 @@ export async function findCityByName(
     .select('platform_id, postcode')
     .ilike('plaats', trimmed)
     .not('postcode', 'is', null)
+    .order('platform_id', { ascending: true, nullsFirst: false })
+    .order('postcode', { ascending: true })
     .limit(1)
     .maybeSingle()
 

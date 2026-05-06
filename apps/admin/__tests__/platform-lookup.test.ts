@@ -28,7 +28,9 @@ function makeMockSupabase(rows: Array<{ platform_id: string | null; postcode: st
     from: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     ilike: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: rows?.[0] ?? null, error }),
   }

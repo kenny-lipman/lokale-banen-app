@@ -25,9 +25,14 @@ function formatDuration(ms: number | null): string {
 function summarize(stats: Run['business_stats'], displayStats: DisplayStat[]): string {
   if (!stats) return '—'
   return displayStats
-    .slice(0, 3)
-    .map((s) => stats[s.key] != null ? `${stats[s.key]} ${s.label}` : null)
+    .map((s) => {
+      const v = stats[s.key]
+      if (v == null) return null
+      if (typeof v === 'number' && v === 0) return null
+      return `${v} ${s.label}`
+    })
     .filter(Boolean)
+    .slice(0, 3)
     .join(' · ') || '—'
 }
 

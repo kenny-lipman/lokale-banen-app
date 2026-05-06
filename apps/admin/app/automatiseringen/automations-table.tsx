@@ -35,9 +35,15 @@ function StatusBadge({ status }: { status: 'success' | 'error' | 'timeout' | 'ru
 function summarizeStats(business: Record<string, unknown> | null, displayStats: AutomationView['displayStats']): string {
   if (!business) return '—'
   return displayStats
-    .slice(0, 3)
-    .map((s) => business[s.key] != null ? `${business[s.key]} ${s.label}` : null)
+    .map((s) => {
+      const v = business[s.key]
+      // Skip null/undefined; skip explicit 0 numerics (noise voor fallback-counters)
+      if (v == null) return null
+      if (typeof v === 'number' && v === 0) return null
+      return `${v} ${s.label}`
+    })
     .filter(Boolean)
+    .slice(0, 3)
     .join(' · ') || '—'
 }
 
