@@ -261,14 +261,14 @@ ${truncated}`
   return {
     content_md: parsed.content_md.trim(),
     extracted: {
-      employment: parsed.employment || null,
-      education_level: parsed.education_level || null,
-      categories: parsed.categories || null,
-      salary: parsed.salary || null,
+      employment: (parsed.employment as string | null) || null,
+      education_level: (parsed.education_level as string | null) || null,
+      categories: (parsed.categories as string | null) || null,
+      salary: (parsed.salary as string | null) || null,
       working_hours_min: parsed.working_hours_min != null ? Number(parsed.working_hours_min) : null,
       working_hours_max: parsed.working_hours_max != null ? Number(parsed.working_hours_max) : null,
-      seo_title: parsed.seo_title || null,
-      seo_description: parsed.seo_description || null,
+      seo_title: (parsed.seo_title as string | null) || null,
+      seo_description: (parsed.seo_description as string | null) || null,
     },
   }
 }

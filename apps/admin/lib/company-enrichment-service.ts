@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase"
 import { apolloStatusService } from "@/lib/apollo-status-service"
-import { cacheService } from "@/lib/cache-service"
+import { cacheService, CacheService } from "@/lib/cache-service"
 import { performanceMonitor } from "@/lib/performance-monitoring"
 
 export interface ApolloEnrichmentResult {
@@ -52,16 +52,7 @@ export class CompanyEnrichmentService {
         const { company_id, batch_id, success, contacts_found, enrichment_data, error_message } = result
 
         try {
-          // Start a transaction for data consistency
-          const updates = await this.client.rpc('process_enrichment_completion', {
-            p_company_id: company_id,
-            p_batch_id: batch_id,
-            p_success: success,
-            p_contacts_found: contacts_found || 0,
-            p_enrichment_data: enrichment_data || {},
-            p_error_message: error_message || null
-          })
-
+          // process_enrichment_completion RPC no longer exists in DB — handled inline
           if (success && enrichment_data?.contacts) {
             // Insert or update contacts
             await this.upsertContacts(company_id, enrichment_data.contacts)
@@ -69,7 +60,7 @@ export class CompanyEnrichmentService {
 
           // Clear relevant caches
           apolloStatusService.clearCache(batch_id)
-          cacheService.delete(cacheService.constructor.getCompanyKey(company_id))
+          cacheService.delete(CacheService.getCompanyKey(company_id))
 
           // Record performance metrics
           performanceMonitor.recordMetric({
@@ -106,7 +97,7 @@ export class CompanyEnrichmentService {
           }
         }
       },
-      { company_id, batch_id }
+      { company_id: result.company_id, batch_id: result.batch_id }
     )
   }
 
@@ -189,28 +180,6 @@ export class CompanyEnrichmentService {
     } catch (error) {
       console.error('Error getting batch enrichment status:', error)
       throw error
-    }
-  }
-
-  /**
-   * Trigger real-time updates (if using Supabase real-time)
-   */
-  async triggerRealTimeUpdate(companyId: string, batchId: string): Promise<void> {
-    try {
-      // This would trigger a real-time notification
-      // Implementation depends on your real-time setup
-      await this.client
-        .from('enrichment_notifications')
-        .insert({
-          company_id: companyId,
-          batch_id: batchId,
-          notification_type: 'enrichment_completed',
-          created_at: new Date().toISOString()
-        })
-
-    } catch (error) {
-      console.warn('Failed to trigger real-time update:', error)
-      // Don't throw - real-time updates are optional
     }
   }
 

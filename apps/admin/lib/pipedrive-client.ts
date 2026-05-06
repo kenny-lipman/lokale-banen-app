@@ -256,12 +256,13 @@ export class PipedriveClient {
   /**
    * Make an API request to Pipedrive V1 with exponential backoff retry
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async request(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     endpoint: string,
     data?: any,
     retryCount: number = 0
-  ) {
+  ): Promise<any> {
     const MAX_RETRIES = 3;
     const BASE_DELAY_MS = 1000;
 
@@ -359,12 +360,13 @@ export class PipedriveClient {
   /**
    * Make an API request to Pipedrive V2 with exponential backoff retry
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async requestV2(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     endpoint: string,
     data?: any,
     retryCount: number = 0
-  ) {
+  ): Promise<any> {
     const MAX_RETRIES = 3;
     const BASE_DELAY_MS = 1000;
 
@@ -1460,6 +1462,6 @@ export function getPipedriveClient(): PipedriveClient {
 /** @deprecated Use getPipedriveClient() instead */
 export const pipedriveClient = new Proxy({} as PipedriveClient, {
   get(_target, prop) {
-    return (getPipedriveClient() as Record<string | symbol, unknown>)[prop];
+    return (getPipedriveClient() as unknown as Record<string | symbol, unknown>)[prop];
   }
 });
