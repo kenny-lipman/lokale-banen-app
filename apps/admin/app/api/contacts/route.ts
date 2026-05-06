@@ -407,7 +407,7 @@ export async function POST(req: NextRequest) {
         .map(c => c.company_id)
         .filter((id, index, self) => self.indexOf(id) === index) // unique company IDs
       
-      let regioPlatformMap = {}
+      let regioPlatformMap: Record<string, string | null> = {}
       if (companyIds.length > 0) {
         const { data: companiesWithRegions, error: regionsError } = await supabaseService.serviceClient
           .from('companies')
@@ -425,7 +425,7 @@ export async function POST(req: NextRequest) {
           regioPlatformMap = Object.fromEntries(
             companiesWithRegions.map(company => [
               company.id,
-              company.regions?.regio_platform || null
+              (Array.isArray(company.regions) ? company.regions[0]?.regio_platform : null) || null
             ])
           )
           console.log('Regio platform mapping:', regioPlatformMap)
@@ -478,29 +478,30 @@ export async function POST(req: NextRequest) {
         // Get regio_platform for this contact's company
         const regioPlatform = contact.company_id ? regioPlatformMap[contact.company_id] : null
         
+        const company = Array.isArray(contact.companies) ? contact.companies[0] : contact.companies
         console.log(`Company data for contact ${contact.email}:`, {
           companyId: contact.company_id,
-          companyName: contact.companies?.name,
-          companyWebsite: contact.companies?.website,
-          companyCategorySize: contact.companies?.category_size,
+          companyName: company?.name,
+          companyWebsite: company?.website,
+          companyCategorySize: company?.category_size,
           regioPlatform: regioPlatform
         })
-        
+
         // Build body for Instantly (matching /api/otis/contacts/add-to-campaign structure)
         const body = {
           email: contact.email.trim(),
           personalization: "",
-          website: contact.companies?.website || "",
+          website: company?.website || "",
           first_name: contact.first_name || contact.name?.split(" ").slice(0, -1).join(" ") || contact.name || "",
           last_name: contact.last_name || contact.name?.split(" ").slice(-1)[0] || "",
           phone: contact.phone || "",
-          company_name: contact.companies?.name || "",
+          company_name: company?.name || "",
           campaign: campaignId, // Only campaign, no list_id
           custom_variables: {
             linkedIn: contact.linkedin_url || "",
             jobTitle: contact.title || "",
             regio_platform: regioPlatform,
-            company_size: contact.companies?.category_size || null
+            company_size: company?.category_size || null
           },
           lt_interest_status: 1,
           assigned_to: "f191f0de-3753-4ce6-ace1-c1ed1b8a903e",
@@ -561,7 +562,7 @@ export async function POST(req: NextRequest) {
             } else {
               // Sync contact + company to Pipedrive (direct API, no n8n webhook)
               // Supabase updates (pipedrive_synced, pipedrive_person_id) happen inside sendToPipedriveWebhook
-              const webhookResult = await sendToPipedriveWebhook(contact, campaignName || "")
+              const webhookResult = await sendToPipedriveWebhook({ ...contact, companies: company }, campaignName || "")
 
               if (webhookResult.success) {
                 console.log(`[Pipedrive] Contact ${contact.email} synced successfully (org=${webhookResult.organizationId}, person=${webhookResult.personId})`)

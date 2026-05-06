@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { withAdminAuth } from '@/lib/auth-middleware'
 
+interface OtisSession {
+  id: string
+  session_id: string
+  user_id: string
+  status: string
+  current_stage: string | null
+  created_at: string | null
+  completed_at: string | null
+  total_jobs: number | null
+  total_companies: number | null
+  total_contacts: number | null
+  total_campaigns: number | null
+  profiles: { full_name: string | null; role: string | null } | null
+}
+
+interface OtisAnalyticsRow {
+  status: string
+  total_jobs: number | null
+  total_companies: number | null
+  total_contacts: number | null
+  total_campaigns: number | null
+}
+
 async function adminSessionsHandler(request: NextRequest) {
   try {
     const supabase = createClient()
@@ -71,7 +94,7 @@ async function adminSessionsHandler(request: NextRequest) {
     }
     
     // Calculate duration and format data
-    const sessionsWithDuration = sessions?.map(session => ({
+    const sessionsWithDuration = (sessions as OtisSession[])?.map((session: OtisSession) => ({
       id: session.id,
       session_id: session.session_id,
       user_id: session.user_id,
@@ -101,14 +124,15 @@ async function adminSessionsHandler(request: NextRequest) {
     }
     
     // Calculate analytics
-    const totalSessions = analytics?.length || 0
-    const completedSessions = analytics?.filter(s => s.status === 'completed').length || 0
+    const analyticsRows = (analytics as OtisAnalyticsRow[] | null)
+    const totalSessions = analyticsRows?.length || 0
+    const completedSessions = analyticsRows?.filter((s: OtisAnalyticsRow) => s.status === 'completed').length || 0
     const successRate = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0
-    
-    const totalJobs = analytics?.reduce((sum, s) => sum + (s.total_jobs || 0), 0) || 0
-    const totalCompanies = analytics?.reduce((sum, s) => sum + (s.total_companies || 0), 0) || 0
-    const totalContacts = analytics?.reduce((sum, s) => sum + (s.total_contacts || 0), 0) || 0
-    const totalCampaigns = analytics?.reduce((sum, s) => sum + (s.total_campaigns || 0), 0) || 0
+
+    const totalJobs = analyticsRows?.reduce((sum: number, s: OtisAnalyticsRow) => sum + (s.total_jobs || 0), 0) || 0
+    const totalCompanies = analyticsRows?.reduce((sum: number, s: OtisAnalyticsRow) => sum + (s.total_companies || 0), 0) || 0
+    const totalContacts = analyticsRows?.reduce((sum: number, s: OtisAnalyticsRow) => sum + (s.total_contacts || 0), 0) || 0
+    const totalCampaigns = analyticsRows?.reduce((sum: number, s: OtisAnalyticsRow) => sum + (s.total_campaigns || 0), 0) || 0
     
     return NextResponse.json({
       sessions: sessionsWithDuration,
