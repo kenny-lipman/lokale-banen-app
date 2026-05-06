@@ -1,102 +1,127 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { supabaseService } from "@/lib/supabase-service"
 import { PasswordInput } from "@/components/ui/password-input"
-import { Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { Loader2, AlertCircle, CheckCircle, Lock, ChevronLeft } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 
-export default function ResetPasswordPage() {
+type ValidationState =
+  | { state: 'checking' }
+  | { state: 'valid' }
+  | { state: 'invalid'; reason: 'missing' | 'invalid' | 'used' | 'expired' }
+
+function ResetPasswordForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const token = searchParams.get('token') ?? ''
+
   const [password, setPassword] = useState("")
+  const [confirm, setConfirm] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [processing, setProcessing] = useState(true)
-  const router = useRouter()
+  const [validation, setValidation] = useState<ValidationState>({ state: 'checking' })
 
-  // Handle access token from URL hash or query params
   useEffect(() => {
-    const processAccessToken = async () => {
-      try {
-        // Check for hash fragment first (Supabase recovery links)
-        const hash = window.location.hash
-        if (hash) {
-          const params = new URLSearchParams(hash.substring(1))
-          const accessToken = params.get('access_token')
-          const refreshToken = params.get('refresh_token')
-          
-          if (accessToken && refreshToken) {
-            console.log('Processing recovery tokens from hash...')
-            const { data, error } = await supabaseService.client.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
-            })
-            
-            if (error) {
-              console.error('Session error:', error)
-              setError('Ongeldige of verlopen recovery link')
-            } else {
-              console.log('Session set successfully')
-            }
-          }
-        }
-        
-        setProcessing(false)
-      } catch (err) {
-        console.error('Error processing access token:', err)
-        setError('Er is een fout opgetreden bij het verwerken van de recovery link')
-        setProcessing(false)
-      }
+    if (!token) {
+      setValidation({ state: 'invalid', reason: 'missing' })
+      return
     }
-
-    processAccessToken()
-  }, [])
+    void (async () => {
+      try {
+        const res = await fetch('/api/auth/reset/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        })
+        const body = (await res.json()) as { valid: boolean; reason?: 'missing' | 'invalid' | 'used' | 'expired' }
+        if (body.valid) {
+          setValidation({ state: 'valid' })
+        } else {
+          setValidation({ state: 'invalid', reason: body.reason ?? 'invalid' })
+        }
+      } catch {
+        setValidation({ state: 'invalid', reason: 'invalid' })
+      }
+    })()
+  }, [token])
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (password.length < 6) {
-      setError("Wachtwoord moet minimaal 6 tekens bevatten")
+    setError(null)
+    if (password.length < 8) {
+      setError("Wachtwoord moet minimaal 8 tekens bevatten")
       return
     }
-
+    if (password !== confirm) {
+      setError("Wachtwoorden komen niet overeen")
+      return
+    }
     setLoading(true)
-    setError(null)
-    setSuccess(false)
-    
     try {
-      const { data, error } = await supabaseService.client.auth.updateUser({ 
-        password: password 
+      const res = await fetch('/api/auth/reset/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
       })
-      
-      if (error) throw error
-      
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`)
       setSuccess(true)
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        router.push("/login")
-      }, 2000)
-      
-    } catch (err: any) {
-      console.error('Password reset error:', err)
-      setError(err.message || "Wachtwoord resetten mislukt")
+      setTimeout(() => router.push("/login"), 2000)
+    } catch (err) {
+      setError((err as Error).message || "Wachtwoord wijzigen mislukt")
     } finally {
       setLoading(false)
     }
   }
 
-  if (processing) {
+  if (validation.state === 'checking') {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Recovery link verwerken...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto mb-4" />
+          <p className="text-gray-600">Reset-link controleren...</p>
         </div>
+      </div>
+    )
+  }
+
+  if (validation.state === 'invalid') {
+    const reasons: Record<typeof validation.reason, string> = {
+      missing: 'Geen reset-token gevonden in de URL.',
+      invalid: 'Deze reset-link is ongeldig.',
+      used: 'Deze reset-link is al gebruikt.',
+      expired: 'Deze reset-link is verlopen (na 15 minuten).',
+    }
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="text-center pb-6">
+            <div className="flex flex-col items-center space-y-4 mb-2">
+              <Logo size="xl" className="text-gray-900" />
+              <CardTitle className="text-xl font-semibold text-gray-900">Link niet bruikbaar</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-left">
+              <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm">{reasons[validation.reason]}</p>
+            </div>
+            <Link href="/forgot-password" className="block">
+              <Button variant="outline" className="w-full">Nieuwe reset-link aanvragen</Button>
+            </Link>
+            <Link href="/login" className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+              <ChevronLeft className="w-3 h-3" />
+              Terug naar inloggen
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -108,27 +133,51 @@ export default function ResetPasswordPage() {
           <div className="flex flex-col items-center space-y-4 mb-6">
             <Logo size="xl" className="text-gray-900" />
             <div>
-              <CardTitle className="text-2xl font-bold text-gray-900">Nieuw wachtwoord instellen</CardTitle>
-              <p className="text-gray-600 mt-2">Voer uw nieuwe wachtwoord in</p>
+              <CardTitle className="text-2xl font-bold text-gray-900">Nieuw wachtwoord</CardTitle>
+              <p className="text-gray-600 mt-2 text-sm">Kies een nieuw wachtwoord voor je account.</p>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleReset} className="space-y-6">
+          <form onSubmit={handleReset} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Nieuw wachtwoord
               </Label>
-              <PasswordInput 
-                id="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                placeholder="••••••••"
-                required 
-                minLength={6}
-                disabled={loading || success}
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <PasswordInput
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  placeholder="Minimaal 8 tekens"
+                  required
+                  minLength={8}
+                  disabled={loading || success}
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirm" className="text-sm font-medium text-gray-700">
+                Bevestig wachtwoord
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <PasswordInput
+                  id="confirm"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  className="pl-10"
+                  placeholder="••••••••"
+                  required
+                  minLength={8}
+                  disabled={loading || success}
+                  autoComplete="new-password"
+                />
+              </div>
             </div>
 
             {error && (
@@ -141,19 +190,15 @@ export default function ResetPasswordPage() {
             {success && (
               <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-md">
                 <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                <p className="text-green-600 text-sm">Wachtwoord succesvol gewijzigd. U wordt doorverwezen naar de login pagina.</p>
+                <p className="text-green-700 text-sm">Wachtwoord gewijzigd. Je wordt doorverwezen naar inloggen...</p>
               </div>
             )}
 
-            <Button 
-              type="submit" 
-              className="w-full h-11" 
-              disabled={loading || success}
-            >
+            <Button type="submit" className="w-full h-11" disabled={loading || success}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Wachtwoord wijzigen...
+                  Wijzigen...
                 </>
               ) : success ? (
                 <>
@@ -161,7 +206,7 @@ export default function ResetPasswordPage() {
                   Gewijzigd
                 </>
               ) : (
-                "Wachtwoord wijzigen"
+                "Wachtwoord opslaan"
               )}
             </Button>
           </form>
@@ -169,4 +214,18 @@ export default function ResetPasswordPage() {
       </Card>
     </div>
   )
-} 
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen bg-gray-50">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+        </div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
+  )
+}

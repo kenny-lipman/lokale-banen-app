@@ -61,6 +61,7 @@ const menu = [
   { href: "/platforms", icon: Monitor, label: "Platforms" },
   { href: "/regios", icon: MapPin, label: "Regio's" },
   { href: "/automatiseringen", icon: Workflow, label: "Automatiseringen" },
+  { href: "/admin/gebruikers", icon: Users, label: "Gebruikers", adminOnly: true },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
 
@@ -68,7 +69,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
   const router = useRouter()
-  const { logout } = useAuth()
+  const { logout, isAdmin } = useAuth()
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }))
@@ -106,7 +107,7 @@ export default function Sidebar() {
       </div>
       {/* Menu */}
       <nav className="flex-1 flex flex-col gap-1 mt-2">
-        {menu.map((item) => {
+        {menu.filter((item) => !(item as { adminOnly?: boolean }).adminOnly || isAdmin).map((item) => {
           if (item.children) {
             const isOpen = openMenus[item.label] || false
             return (

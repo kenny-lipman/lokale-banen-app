@@ -143,9 +143,14 @@ export default function LoginPage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                Wachtwoord
-              </Label>
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  Wachtwoord
+                </Label>
+                <Link href="/forgot-password" className="text-xs text-orange-600 hover:underline">
+                  Wachtwoord vergeten?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <PasswordInput 
@@ -197,17 +202,6 @@ export default function LoginPage() {
             </Button>
           </form>
           
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 text-sm">
-              Nog geen account?{" "}
-              <Link 
-                href="/register" 
-                className="text-orange-600 hover:text-orange-700 font-medium transition-colors"
-              >
-                Registreer hier
-              </Link>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
