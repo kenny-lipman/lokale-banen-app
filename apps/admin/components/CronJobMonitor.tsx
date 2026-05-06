@@ -13,7 +13,7 @@ interface CronJobLog {
   id: string
   automation_id: string
   path: string
-  status: 'success' | 'error' | 'timeout'
+  status: 'success' | 'error' | 'timeout' | 'running'
   duration_ms: number
   http_status: number | null
   error_message: string | null
@@ -92,7 +92,7 @@ function getDurationBgColor(ms: number): string {
   return 'bg-red-500'
 }
 
-function StatusBadge({ status }: { status: 'success' | 'error' | 'timeout' }) {
+function StatusBadge({ status }: { status: 'success' | 'error' | 'timeout' | 'running' }) {
   switch (status) {
     case 'success':
       return (
@@ -113,6 +113,13 @@ function StatusBadge({ status }: { status: 'success' | 'error' | 'timeout' }) {
         <Badge className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100">
           <Timer className="w-3 h-3 mr-1" />
           Timeout
+        </Badge>
+      )
+    case 'running':
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 animate-pulse">
+          <Clock className="w-3 h-3 mr-1" />
+          Running
         </Badge>
       )
   }
@@ -174,6 +181,7 @@ export function CronJobMonitor() {
   const jobsError = data?.jobs.filter(j =>
     j.latestRun && (j.latestRun.status === 'error' || j.latestRun.status === 'timeout')
   ).length ?? 0
+  const jobsRunning = data?.jobs.filter(j => j.latestRun?.status === 'running').length ?? 0
   const jobsNoData = data?.jobs.filter(j => !j.latestRun).length ?? 0
 
   // Jobs nearing timeout
