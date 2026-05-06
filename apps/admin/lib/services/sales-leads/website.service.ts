@@ -1,7 +1,8 @@
-import { safeFetch, SsrfBlockedError, FetchSizeExceededError } from './website/ssrf-fetch'
+import { SsrfBlockedError, FetchSizeExceededError } from './website/ssrf-fetch'
 import { htmlToMarkdown, truncateForLLM, wordCount } from './website/markdown'
-import { discoverInfoPages } from './website/page-discovery'
-import { discoverCareerPage } from './website/career-page-discovery'
+import { discoverUrls, type DiscoveredUrl } from './website/sitemap-discovery'
+import { tieredFetch, type FetchTier } from './website/tiered-fetch'
+import { PlaywrightFetcher } from './website/playwright-fetcher'
 import { MistralService } from './mistral.service'
 import { WEBSITE_EXTRACTION_PROMPT_V1 } from './prompts/website-extraction.v1'
 import type {
@@ -12,6 +13,7 @@ import type {
 } from './types'
 
 const MAX_TOTAL_TOKENS = 30_000
+const MAX_PAGES = 6
 
 type MistralExtractResult = {
   company_name: string | null
@@ -44,92 +46,105 @@ type MistralExtractResult = {
 }
 
 export class WebsiteServiceError extends Error {
-  constructor(public reason: 'ssrf' | 'fetch_failed' | 'no_html' | 'mistral_failed' | 'unknown', message: string) {
+  constructor(
+    public reason: 'ssrf' | 'fetch_failed' | 'no_html' | 'mistral_failed' | 'homepage_blocked' | 'unknown',
+    message: string,
+  ) {
     super(message)
     this.name = 'WebsiteServiceError'
   }
+}
+
+type FetchedPage = {
+  url: string
+  role: DiscoveredUrl['role']
+  tier: FetchTier
+  blocked: boolean
+  markdown: string
 }
 
 export class WebsiteService {
   private mistral = new MistralService()
 
   /**
-   * Hoofdroute: fetch homepage + pages → markdown → Mistral → NormalizedFields.
-   * `scrapeVacancies=true` → ook career-page fetchen + parsen.
+   * Hoofdroute: sitemap-discovery → top-N URLs → tiered-fetch (ssrf-fetch met
+   * Playwright fallback) → markdown → Mistral → NormalizedFields.
+   *
+   * Gooit `WebsiteServiceError('homepage_blocked')` wanneer alle pagina's door
+   * anti-bot worden geblokkeerd, ook na Playwright-escalatie.
    */
-  async crawlAndParse(
-    inputUrl: string,
-    scrapeVacancies: boolean,
-  ): Promise<NormalizedFields> {
+  async crawlAndParse(inputUrl: string, _scrapeVacancies: boolean): Promise<NormalizedFields> {
     const homepageUrl = this.normalizeUrl(inputUrl)
-    let home: { url: string; html: string }
+    const playwright = new PlaywrightFetcher()
     try {
-      const r = await safeFetch(homepageUrl)
-      if (r.status >= 400) {
-        throw new WebsiteServiceError('fetch_failed', `Homepage ${r.status}: ${homepageUrl}`)
+      await playwright.init()
+
+      const discovered = await discoverUrls(homepageUrl)
+      const targets: DiscoveredUrl[] =
+        discovered.length > 0
+          ? discovered.slice(0, MAX_PAGES)
+          : [{ url: homepageUrl, role: 'home', priority: 0 }]
+
+      // Sequentieel om browser-context-druk laag te houden + per-URL timing
+      // duidelijk te kunnen loggen in audit.
+      const fetched: FetchedPage[] = []
+      for (const t of targets) {
+        try {
+          const r = await tieredFetch(t.url, playwright)
+          fetched.push({
+            url: r.finalUrl,
+            role: t.role,
+            tier: r.tier,
+            blocked: r.blocked,
+            markdown: r.blocked ? '' : htmlToMarkdown(r.html),
+          })
+        } catch (e) {
+          if (e instanceof SsrfBlockedError) {
+            // SSRF-fail per URL: skip, laat andere URLs door
+            fetched.push({ url: t.url, role: t.role, tier: 1, blocked: true, markdown: '' })
+            continue
+          }
+          if (e instanceof FetchSizeExceededError) {
+            fetched.push({ url: t.url, role: t.role, tier: 1, blocked: true, markdown: '' })
+            continue
+          }
+          // Onbekende fout per URL: skip
+          fetched.push({ url: t.url, role: t.role, tier: 2, blocked: true, markdown: '' })
+        }
       }
-      home = { url: r.url, html: r.body }
-    } catch (e) {
-      if (e instanceof SsrfBlockedError) throw new WebsiteServiceError('ssrf', e.message)
-      if (e instanceof FetchSizeExceededError) throw new WebsiteServiceError('fetch_failed', e.message)
-      if (e instanceof WebsiteServiceError) throw e
-      throw new WebsiteServiceError('fetch_failed', e instanceof Error ? e.message : String(e))
+
+      const usable = fetched.filter((f) => !f.blocked && f.markdown.length > 200)
+      if (usable.length === 0) {
+        const allBlocked = fetched.length > 0 && fetched.every((f) => f.blocked)
+        throw new WebsiteServiceError(
+          allBlocked ? 'homepage_blocked' : 'no_html',
+          allBlocked
+            ? `Anti-bot blokkeert alle ${fetched.length} pagina's van ${homepageUrl}`
+            : `Geen bruikbare content op ${homepageUrl}`,
+        )
+      }
+
+      const combinedMd = usable
+        .map((p) => `## PAGINA: ${p.role} (${p.url})\n\n${p.markdown}`)
+        .join('\n\n---\n\n')
+      const truncated = truncateForLLM(combinedMd, MAX_TOTAL_TOKENS)
+
+      let extracted: MistralExtractResult
+      try {
+        const userPrompt = WEBSITE_EXTRACTION_PROMPT_V1.replace('{markdown_per_page}', truncated)
+        const r = await this.mistral.completeJson<MistralExtractResult>({
+          systemPrompt: 'Je bent een data-extractor. Geef alleen geldig JSON terug.',
+          userPrompt,
+        })
+        extracted = r.parsed
+      } catch (e) {
+        throw new WebsiteServiceError('mistral_failed', e instanceof Error ? e.message : String(e))
+      }
+
+      return this.mapToNormalized(homepageUrl, usable, extracted)
+    } finally {
+      await playwright.dispose()
     }
-
-    if (!home.html.trim()) {
-      throw new WebsiteServiceError('no_html', `Homepage levert lege body: ${homepageUrl}`)
-    }
-
-    const [info, career] = await Promise.all([
-      discoverInfoPages(home.url),
-      scrapeVacancies ? discoverCareerPage(home.url, home.html) : Promise.resolve(null),
-    ])
-
-    const pageDefs: Array<{ key: string; url: string }> = [{ key: 'homepage', url: home.url }]
-    if (info.about) pageDefs.push({ key: 'over-ons', url: info.about })
-    if (info.team) pageDefs.push({ key: 'team', url: info.team })
-    if (info.contact) pageDefs.push({ key: 'contact', url: info.contact })
-    if (info.services) pageDefs.push({ key: 'diensten', url: info.services })
-    if (career && !career.external) pageDefs.push({ key: 'werkenbij', url: career.url })
-
-    const fetched: Array<{ key: string; url: string; html: string }> = [
-      { key: 'homepage', url: home.url, html: home.html },
-    ]
-    const others = pageDefs.filter((p) => p.key !== 'homepage')
-    const results = await Promise.allSettled(
-      others.map(async (p) => {
-        const r = await safeFetch(p.url)
-        return { key: p.key, url: r.url, html: r.body }
-      }),
-    )
-    for (const r of results) {
-      if (r.status === 'fulfilled') fetched.push(r.value)
-    }
-
-    const pagesMd = fetched.map((p) => ({
-      key: p.key,
-      url: p.url,
-      md: htmlToMarkdown(p.html),
-    }))
-
-    const combinedMd = pagesMd
-      .map((p) => `## PAGINA: ${p.key} (${p.url})\n\n${p.md}`)
-      .join('\n\n---\n\n')
-    const truncated = truncateForLLM(combinedMd, MAX_TOTAL_TOKENS)
-
-    let extracted: MistralExtractResult
-    try {
-      const userPrompt = WEBSITE_EXTRACTION_PROMPT_V1.replace('{markdown_per_page}', truncated)
-      const r = await this.mistral.completeJson<MistralExtractResult>({
-        systemPrompt: 'Je bent een data-extractor. Geef alleen geldig JSON terug.',
-        userPrompt,
-      })
-      extracted = r.parsed
-    } catch (e) {
-      throw new WebsiteServiceError('mistral_failed', e instanceof Error ? e.message : String(e))
-    }
-
-    return this.mapToNormalized(home.url, pagesMd, extracted, career)
   }
 
   private normalizeUrl(input: string): string {
@@ -142,9 +157,8 @@ export class WebsiteService {
 
   private mapToNormalized(
     homepageUrl: string,
-    pagesMd: Array<{ key: string; url: string; md: string }>,
+    pages: FetchedPage[],
     e: MistralExtractResult,
-    career: Awaited<ReturnType<typeof discoverCareerPage>>,
   ): NormalizedFields {
     // Mistral kan contacten met null name terugleveren — die zijn onbruikbaar
     // (geen identiteit voor dedup of ranking). Filter ze hier weg.
@@ -172,6 +186,11 @@ export class WebsiteService {
     const phones = (e.phones ?? []).filter(Boolean)
     const emails = (e.emails ?? []).filter(Boolean)
 
+    // Career-page = eerste discovered URL met role='careers' die we ook
+    // daadwerkelijk hebben kunnen ophalen. Method 'sitemap' want we ontdekken
+    // uitsluitend via sitemap nu.
+    const careerPage = pages.find((p) => p.role === 'careers')
+
     return {
       company_name: e.company_name ?? undefined,
       kvk_number: e.kvk_number ?? undefined,
@@ -195,17 +214,15 @@ export class WebsiteService {
       instagram_url: e.social_media?.instagram ?? undefined,
       tiktok_url: e.social_media?.tiktok ?? undefined,
       description_short: e.description_short ?? undefined,
-      pages_crawled: pagesMd.map((p) => ({
-        path: new URL(p.url).pathname,
-        title: p.key,
-        word_count: wordCount(p.md),
+      pages_crawled: pages.map((p) => ({
+        path: safePathname(p.url),
+        title: `${p.role}${p.tier === 2 ? ' [pw]' : ''}`,
+        word_count: wordCount(p.markdown),
       })),
       blog_post_count: e.blog_post_count ?? undefined,
       blog_last_post_date: e.blog_last_post_date ?? undefined,
-      career_page_url: career?.url,
-      career_page_method: career?.method,
-      career_page_external: career?.external,
-      career_page_ats_type: career?.ats_type,
+      career_page_url: careerPage?.url,
+      career_page_method: careerPage ? 'sitemap' : undefined,
       contacts: contacts.length ? contacts : undefined,
       vacancies: vacancies.length ? vacancies : undefined,
       source: 'website',
@@ -215,6 +232,7 @@ export class WebsiteService {
   async health(): Promise<SourceHealth> {
     const t0 = Date.now()
     try {
+      const { safeFetch } = await import('./website/ssrf-fetch')
       const r = await safeFetch('https://example.com')
       return {
         ok: r.status === 200,
@@ -228,5 +246,13 @@ export class WebsiteService {
         message: e instanceof Error ? e.message : String(e),
       }
     }
+  }
+}
+
+function safePathname(url: string): string {
+  try {
+    return new URL(url).pathname
+  } catch {
+    return '/'
   }
 }

@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { WebsiteService, WebsiteServiceError } from '@/lib/services/sales-leads/website.service'
-import { discoverCareerPage } from '@/lib/services/sales-leads/website/career-page-discovery'
-import { discoverInfoPages } from '@/lib/services/sales-leads/website/page-discovery'
+import { discoverUrls } from '@/lib/services/sales-leads/website/sitemap-discovery'
+import { tieredFetch } from '@/lib/services/sales-leads/website/tiered-fetch'
+import { PlaywrightFetcher } from '@/lib/services/sales-leads/website/playwright-fetcher'
 import { safeFetch, SsrfBlockedError } from '@/lib/services/sales-leads/website/ssrf-fetch'
+
+export const maxDuration = 300
+export const runtime = 'nodejs'
 
 async function handler(req: NextRequest, _auth: AuthResult) {
   const { searchParams } = new URL(req.url)
-  const mode = searchParams.get('mode') ?? 'crawl' // 'health' | 'fetch' | 'pages' | 'career' | 'crawl'
+  const mode = searchParams.get('mode') ?? 'crawl' // 'health' | 'fetch' | 'discover' | 'tier' | 'crawl'
   const url = searchParams.get('url')
   const scrape = searchParams.get('scrape') !== 'false'
 
@@ -15,6 +19,7 @@ async function handler(req: NextRequest, _auth: AuthResult) {
   const t0 = Date.now()
   try {
     if (mode === 'health') return NextResponse.json(await svc.health())
+
     if (mode === 'fetch' && url) {
       const r = await safeFetch(url)
       return NextResponse.json({
@@ -26,21 +31,49 @@ async function handler(req: NextRequest, _auth: AuthResult) {
         bodyPreview: r.body.slice(0, 500),
       })
     }
-    if (mode === 'pages' && url) {
-      const pages = await discoverInfoPages(url)
-      return NextResponse.json({ duration_ms: Date.now() - t0, pages })
+
+    if (mode === 'discover' && url) {
+      const discovered = await discoverUrls(url)
+      return NextResponse.json({ duration_ms: Date.now() - t0, discovered })
     }
-    if (mode === 'career' && url) {
-      const home = await safeFetch(url)
-      const career = await discoverCareerPage(home.url, home.body)
-      return NextResponse.json({ duration_ms: Date.now() - t0, career })
+
+    if (mode === 'tier' && url) {
+      const playwright = new PlaywrightFetcher()
+      try {
+        await playwright.init()
+        const r = await tieredFetch(url, playwright)
+        return NextResponse.json({
+          duration_ms: Date.now() - t0,
+          tier: r.tier,
+          status: r.status,
+          finalUrl: r.finalUrl,
+          blocked: r.blocked,
+          html_length: r.html.length,
+          bodyPreview: r.html.slice(0, 500),
+        })
+      } finally {
+        await playwright.dispose()
+      }
     }
+
     if (url) {
-      const n = await svc.crawlAndParse(url, scrape)
-      return NextResponse.json({ duration_ms: Date.now() - t0, normalized: n })
+      const normalized = await svc.crawlAndParse(url, scrape)
+      return NextResponse.json({
+        duration_ms: Date.now() - t0,
+        normalized,
+        meta: {
+          pages_count: normalized.pages_crawled?.length ?? 0,
+          contacts_count: normalized.contacts?.length ?? 0,
+          vacancies_count: normalized.vacancies?.length ?? 0,
+        },
+      })
     }
+
     return NextResponse.json(
-      { error: 'Gebruik ?url=... met optioneel ?mode=health|fetch|pages|career|crawl &scrape=true|false' },
+      {
+        error:
+          'Gebruik ?url=... met optioneel ?mode=health|fetch|discover|tier|crawl &scrape=true|false',
+      },
       { status: 400 },
     )
   } catch (e) {

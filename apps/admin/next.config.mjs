@@ -17,6 +17,13 @@ const nextConfig = {
     // Reduce file watcher pressure
     webpackMemoryOptimizations: true,
   },
+  // Playwright + Chromium native binaries mogen niet door Webpack worden gebundled.
+  serverExternalPackages: [
+    '@sparticuz/chromium',
+    'playwright-core',
+    'playwright-extra',
+    'puppeteer-extra-plugin-stealth',
+  ],
   // Reduce file watching issues
   onDemandEntries: {
     // Period (in ms) where the page will be kept in memory

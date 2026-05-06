@@ -26,6 +26,8 @@
     "app/api/cron/campaign-assignment-parallel/route.ts": { "maxDuration": 300 },
     "app/api/cron/refresh-company-platforms/route.ts": { "maxDuration": 300 },
     "app/api/cron/auto-archive-old/route.ts": { "maxDuration": 300 },
-    "app/api/cron/fix-job-postings-geocoding/route.ts": { "maxDuration": 300 }
+    "app/api/cron/fix-job-postings-geocoding/route.ts": { "maxDuration": 300 },
+    "app/api/sales-leads/create/route.ts": { "maxDuration": 300, "memory": 1024 },
+    "app/api/sales-leads/test/website/route.ts": { "maxDuration": 300, "memory": 1024 }
   }
 }
