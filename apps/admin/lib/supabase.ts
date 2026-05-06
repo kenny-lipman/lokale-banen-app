@@ -1842,7 +1842,8 @@ export type Database = {
           lokalebanen_id: string | null
           lokalebanen_pushed_at: string | null
           longitude: string | null
-          nominatim_failed: boolean | null
+          geocoding_failed: boolean | null
+          geocoding_failed_reason: string | null
           platform_id: string | null
           published_at: string | null
           review_status: string | null
@@ -1895,7 +1896,8 @@ export type Database = {
           lokalebanen_id?: string | null
           lokalebanen_pushed_at?: string | null
           longitude?: string | null
-          nominatim_failed?: boolean | null
+          geocoding_failed?: boolean | null
+          geocoding_failed_reason?: string | null
           platform_id?: string | null
           published_at?: string | null
           review_status?: string | null
@@ -1948,7 +1950,8 @@ export type Database = {
           lokalebanen_id?: string | null
           lokalebanen_pushed_at?: string | null
           longitude?: string | null
-          nominatim_failed?: boolean | null
+          geocoding_failed?: boolean | null
+          geocoding_failed_reason?: string | null
           platform_id?: string | null
           published_at?: string | null
           review_status?: string | null
