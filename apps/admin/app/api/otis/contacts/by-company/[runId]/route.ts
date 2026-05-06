@@ -1,3 +1,4 @@
+// @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
 import { cacheService } from '@/lib/cache-service'

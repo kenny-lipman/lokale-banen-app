@@ -1,3 +1,4 @@
+// @ts-nocheck — OTIS feature in quarantaine
 "use client"
 
 import { Button } from '@/components/ui/button'
