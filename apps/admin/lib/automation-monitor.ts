@@ -5,7 +5,7 @@ import { withCronAuth } from '@/lib/auth-middleware'
 import { createClient } from '@supabase/supabase-js'
 
 const TIMEOUT_THRESHOLD_MS = 290_000
-const ORPHAN_CLEANUP_AGE_MS = 6 * 3_600_000  // 6h — beyond any legitimate run
+const ORPHAN_CLEANUP_AGE_MS = 10 * 60_000   // was 6h — 10min is voldoende want lambda max = 300s
 const POSTGRES_UNIQUE_VIOLATION = '23505'
 
 function getServiceClient() {
@@ -28,9 +28,9 @@ interface InsertRunResult {
 }
 
 /**
- * Cleanup orphan 'running' rows older than 6h before inserting a fresh one.
- * Caused by lambda kills, network drops, etc. Without cleanup, the unique
- * partial index would block new runs forever.
+ * Cleanup orphan 'running' rows older than ORPHAN_CLEANUP_AGE_MS before inserting a fresh one.
+ * Lambda timeout is 300s, so any row older than ~10 min is definitely orphaned (lambda kill,
+ * network drop, etc). Without cleanup, the unique partial index would block new runs forever.
  */
 async function cleanupStaleRunning(supabase: ReturnType<typeof getServiceClient>, automationId: string) {
   const cutoff = new Date(Date.now() - ORPHAN_CLEANUP_AGE_MS).toISOString()

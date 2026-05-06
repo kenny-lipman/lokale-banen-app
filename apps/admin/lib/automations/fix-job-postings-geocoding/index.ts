@@ -1,16 +1,16 @@
 // apps/admin/lib/automations/fix-job-postings-geocoding/index.ts
 
 import { createClient } from '@supabase/supabase-js'
-import { searchCity } from './locationiq-client'
+import { searchCity, reverseGeocode } from './locationiq-client'
 import { extractPostcodePrefix, findPlatformIdByPostcode } from './platform-lookup'
 import { fetchQueueBatch, countQueueRemaining, type QueueRow } from './queue'
 import { getApiCallsToday, isBudgetExhausted, DAILY_CAP } from './budget-check'
 import type { BusinessStats } from './types'
 
 const AUTOMATION_ID = 'fix-job-postings-geocoding'
-const PER_RUN_LIMIT = 290
+const PER_RUN_LIMIT = 130           // was 290 — 2-call worst case (search + reverse) past binnen 240s
 const ITEM_DELAY_MS = 1000           // 60 req/min sustained
-const MAX_RUN_MS = 270_000           // 30s buffer onder 300s timeout
+const MAX_RUN_MS = 240_000           // was 270_000 — extra Vercel overhead-buffer
 const RETRY_DELAY_MS = 2000          // backoff op rate_limit
 
 function getServiceClient() {
@@ -103,8 +103,28 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       continue
     }
 
-    const addr = outcome.result.address
-    const postcode = addr.postcode ?? null
+    let addr = outcome.result.address
+    let postcode = addr.postcode ?? null
+
+    // Reverse-fallback: forward search op city-only matches geeft vaak geen postcode.
+    // Doe een reverse call op de lat/lng om alsnog een specifiek adres te krijgen.
+    if (!postcode) {
+      await sleep(ITEM_DELAY_MS)  // rate limit tussen calls
+      let reverseOutcome = await reverseGeocode(outcome.result.lat, outcome.result.lon, { apiKey })
+      stats.api_calls_used++
+
+      if (!reverseOutcome.ok && reverseOutcome.reason === 'rate_limit') {
+        await sleep(RETRY_DELAY_MS)
+        reverseOutcome = await reverseGeocode(outcome.result.lat, outcome.result.lon, { apiKey })
+        stats.api_calls_used++
+      }
+
+      if (reverseOutcome.ok && reverseOutcome.result.address.postcode) {
+        addr = reverseOutcome.result.address
+        postcode = addr.postcode ?? null
+      }
+    }
+
     if (!postcode) {
       await markFailed(supabase, row.id, 'missing_postcode')
       stats.geocoding_failed_no_postcode++
