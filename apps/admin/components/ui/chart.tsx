@@ -111,6 +111,11 @@ const ChartTooltipContent = React.forwardRef<
       indicator?: "line" | "dot" | "dashed"
       nameKey?: string
       labelKey?: string
+      // recharts omits these from TooltipProps (read from context internally),
+      // but passes them to custom content components at render time
+      active?: boolean
+      payload?: RechartsPrimitive.TooltipPayload
+      label?: string | number
     }
 >(
   (
@@ -192,7 +197,7 @@ const ChartTooltipContent = React.forwardRef<
 
             return (
               <div
-                key={item.dataKey}
+                key={typeof item.dataKey === "function" ? index : item.dataKey}
                 className={cn(
                   "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
                   indicator === "dot" && "items-center"
@@ -261,7 +266,10 @@ const ChartLegend = RechartsPrimitive.Legend
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
+    Pick<RechartsPrimitive.LegendProps, "verticalAlign"> & {
+      // `payload` is omitted from LegendProps (recharts reads it from context);
+      // type matches DefaultLegendContentProps["payload"]
+      payload?: ReadonlyArray<RechartsPrimitive.LegendPayload>
       hideIcon?: boolean
       nameKey?: string
     }

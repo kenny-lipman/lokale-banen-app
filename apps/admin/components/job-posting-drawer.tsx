@@ -40,7 +40,6 @@ interface JobPosting {
   company_rating?: number
   is_customer?: boolean
   location: string
-  platform: string
   status: string
   review_status: string
   scraped_at: string
