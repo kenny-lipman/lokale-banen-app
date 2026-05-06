@@ -3447,6 +3447,48 @@ export type Database = {
           count: number
         }[]
       }
+      get_company_counts: {
+        Args: {
+          apollo_enriched_filter?: string
+          category_size_filter?: string[]
+          date_from?: string
+          date_to?: string
+          instantly_filter?: string
+          is_customer_filter?: boolean
+          pipedrive_filter?: string
+          regio_platform_filter?: string[]
+          search_term?: string
+          source_filter?: string
+          status_filter?: string
+          subdomeinen_filter?: string[]
+          website_filter?: string
+        }
+        Returns: {
+          is_capped: boolean
+          qualification_status: string
+          row_count: number
+        }[]
+      }
+      get_contact_count: {
+        Args: {
+          category_status?: string[]
+          company_size?: string[]
+          company_start?: string[]
+          company_status?: string[]
+          date_from?: string
+          date_to?: string
+          has_email?: string
+          in_campaign?: string
+          instantly_filter?: string
+          pipedrive_filter?: string
+          platform_company_ids?: string[]
+          search_term?: string
+        }
+        Returns: {
+          is_capped: boolean
+          row_count: number
+        }[]
+      }
       get_contacts_query_performance: {
         Args: never
         Returns: {
@@ -3811,7 +3853,7 @@ export type Database = {
           status_filter?: string
         }
         Returns: {
-          archived_at: string | null
+          archived_at: string
           career_level: string
           categories: string
           city: string
@@ -4642,3 +4684,4 @@ export const Constants = {
     },
   },
 } as const
+
