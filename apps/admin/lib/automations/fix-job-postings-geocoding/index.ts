@@ -53,6 +53,7 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
   const stats: BusinessStats = {
     processed: 0, enriched: 0,
     geocoding_failed_no_match: 0, geocoding_failed_no_postcode: 0,
+    geocoding_failed_invalid_coords: 0,
     platform_matched: 0, queue_remaining: 0,
     api_calls_used: 0, stopped_early: false,
   }
@@ -111,6 +112,16 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       continue
     }
 
+    // Guard against malformed lat/lon — set NaN/null in DB would create infinite retry loop
+    const lat = Number(outcome.result.lat)
+    const lon = Number(outcome.result.lon)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      await markFailed(supabase, row.id, 'invalid_coords')
+      stats.geocoding_failed_invalid_coords++
+      await sleep(ITEM_DELAY_MS)
+      continue
+    }
+
     const prefix = extractPostcodePrefix(postcode)
     let platformId: string | null = null
     if (prefix) {
@@ -123,8 +134,8 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       .update({
         street: addr.road ?? null,
         zipcode: postcode,
-        latitude: parseFloat(outcome.result.lat),
-        longitude: parseFloat(outcome.result.lon),
+        latitude: lat,
+        longitude: lon,
         city: addr.city ?? addr.town ?? addr.village ?? null,
         country: addr.country_code ?? null,
         state: addr.state ?? null,
@@ -162,6 +173,7 @@ function emptyStats(over: Partial<BusinessStats>): BusinessStats {
   return {
     processed: 0, enriched: 0,
     geocoding_failed_no_match: 0, geocoding_failed_no_postcode: 0,
+    geocoding_failed_invalid_coords: 0,
     platform_matched: 0, queue_remaining: 0,
     api_calls_used: 0, stopped_early: false,
     ...over,

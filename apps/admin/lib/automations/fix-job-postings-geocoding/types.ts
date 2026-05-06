@@ -42,6 +42,7 @@ export interface BusinessStats {
   enriched: number
   geocoding_failed_no_match: number
   geocoding_failed_no_postcode: number
+  geocoding_failed_invalid_coords: number
   platform_matched: number
   queue_remaining: number
   api_calls_used: number

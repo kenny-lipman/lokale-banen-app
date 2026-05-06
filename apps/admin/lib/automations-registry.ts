@@ -37,6 +37,7 @@ export const AUTOMATIONS: AutomationDefinition[] = [
       { key: 'enriched', label: 'verrijkt' },
       { key: 'geocoding_failed_no_match', label: 'geen match' },
       { key: 'geocoding_failed_no_postcode', label: 'geen postcode' },
+      { key: 'geocoding_failed_invalid_coords', label: 'invalid coords' },
       { key: 'platform_matched', label: 'platform' },
       { key: 'queue_remaining', label: 'queue' },
     ],
