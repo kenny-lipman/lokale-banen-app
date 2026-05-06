@@ -33,9 +33,9 @@ async function logsHandler(request: NextRequest, _authResult: AuthResult) {
     const sinceISO = since.toISOString()
 
     // 1. Get aggregated stats per job via SQL (handles high-frequency jobs efficiently)
-    const { data: statsRows, error: statsError } = await supabase.rpc('get_cron_job_stats', {
+    const { data: statsRows, error: statsError } = await supabase.rpc('get_automation_run_stats', {
       since_date: sinceISO,
-      filter_job_name: jobName ?? '',
+      filter_automation_id: jobName ?? '',
     })
 
     // Fallback: if the RPC doesn't exist yet, compute stats from a limited query
@@ -52,21 +52,21 @@ async function logsHandler(request: NextRequest, _authResult: AuthResult) {
     if (statsError) {
       // RPC not available — fallback to client-side aggregation with higher limit
       const { data: fallbackLogs } = await supabase
-        .from('cron_job_logs')
-        .select('job_name, status, duration_ms')
+        .from('automation_runs')
+        .select('automation_id, status, duration_ms')
         .gte('started_at', sinceISO)
         .order('started_at', { ascending: false })
         .limit(10000)
 
       for (const log of fallbackLogs ?? []) {
-        if (jobName && log.job_name !== jobName) continue
-        if (!statsByJob[log.job_name]) {
-          statsByJob[log.job_name] = {
+        if (jobName && log.automation_id !== jobName) continue
+        if (!statsByJob[log.automation_id]) {
+          statsByJob[log.automation_id] = {
             totalRuns: 0, successCount: 0, errorCount: 0, timeoutCount: 0,
             avgDurationMs: 0, maxDurationMs: 0, successRate: 0,
           }
         }
-        const s = statsByJob[log.job_name]
+        const s = statsByJob[log.automation_id]
         s.totalRuns++
         if (log.status === 'success') s.successCount++
         if (log.status === 'error') s.errorCount++
@@ -82,7 +82,7 @@ async function logsHandler(request: NextRequest, _authResult: AuthResult) {
     } else {
       // Map RPC results
       for (const row of statsRows ?? []) {
-        statsByJob[row.job_name] = {
+        statsByJob[row.automation_id] = {
           totalRuns: row.total_runs,
           successCount: row.success_count,
           errorCount: row.error_count,
@@ -98,14 +98,14 @@ async function logsHandler(request: NextRequest, _authResult: AuthResult) {
 
     // 2. Get absolute latest run per job (NO date filter — detect stale/broken jobs)
     let latestQuery = supabase
-      .from('cron_job_logs')
+      .from('automation_runs')
       .select('*')
-      .order('job_name')
+      .order('automation_id')
       .order('started_at', { ascending: false })
       .limit(100)
 
     if (jobName) {
-      latestQuery = latestQuery.eq('job_name', jobName)
+      latestQuery = latestQuery.eq('automation_id', jobName)
     }
 
     const { data: recentLogs, error: recentError } = await latestQuery
@@ -114,11 +114,11 @@ async function logsHandler(request: NextRequest, _authResult: AuthResult) {
       throw new Error(`Failed to fetch recent logs: ${recentError.message}`)
     }
 
-    // Deduplicate to latest per job (results are sorted by job_name, then started_at DESC)
+    // Deduplicate to latest per job (results are sorted by automation_id, then started_at DESC)
     const latestByJob: Record<string, (typeof recentLogs)[0]> = {}
     for (const log of recentLogs ?? []) {
-      if (!latestByJob[log.job_name]) {
-        latestByJob[log.job_name] = log
+      if (!latestByJob[log.automation_id]) {
+        latestByJob[log.automation_id] = log
       }
     }
 
@@ -135,14 +135,14 @@ async function logsHandler(request: NextRequest, _authResult: AuthResult) {
 
     // 4. Get recent logs for display (limited — only last 50 per job or 100 total)
     let logsQuery = supabase
-      .from('cron_job_logs')
+      .from('automation_runs')
       .select('*')
       .gte('started_at', sinceISO)
       .order('started_at', { ascending: false })
       .limit(100)
 
     if (jobName) {
-      logsQuery = logsQuery.eq('job_name', jobName)
+      logsQuery = logsQuery.eq('automation_id', jobName)
     }
 
     const { data: logs } = await logsQuery

@@ -11,13 +11,13 @@ import { EXPECTED_INTERVAL_MS, OVERDUE_MULTIPLIER } from '@/lib/cron-config'
 
 interface CronJobLog {
   id: string
-  job_name: string
+  automation_id: string
   path: string
   status: 'success' | 'error' | 'timeout'
   duration_ms: number
   http_status: number | null
   error_message: string | null
-  response_summary: Record<string, unknown> | null
+  business_stats: Record<string, unknown> | null
   started_at: string
   completed_at: string
 }
