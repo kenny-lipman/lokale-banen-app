@@ -42,7 +42,7 @@ export function BulkContactActions({
     }>;
   } | null>(null);
 
-  const { addEntry } = useBlocklist();
+  const { createEntry } = useBlocklist();
 
   const extractEmailFromContact = (contact: any): string | null => {
     if (typeof contact === 'string' && isValidEmail(contact)) {
@@ -95,7 +95,7 @@ export function BulkContactActions({
           contact,
           email: extractEmailFromContact(contact)
         }))
-        .filter(item => item.email);
+        .filter((item): item is { contact: any; email: string } => item.email !== null);
 
       if (contactsWithEmails.length === 0) {
         toast({
@@ -177,7 +177,7 @@ export function BulkContactActions({
           contact,
           email: extractEmailFromContact(contact)
         }))
-        .filter(item => item.email);
+        .filter((item): item is { contact: any; email: string } => item.email !== null);
 
       if (contactsWithEmails.length === 0) {
         toast({
@@ -214,30 +214,19 @@ export function BulkContactActions({
         // Block each domain once
         for (const [domain, contacts] of itemsToProcess.entries()) {
           try {
-            const result = await addEntry({
+            await createEntry({
               type: 'domain',
               value: domain,
               reason: reason.trim()
-            });
+            } as Parameters<typeof createEntry>[0]);
 
-            if (result.success) {
-              for (const contact of contacts) {
-                results.push({
-                  contact: contact.contact,
-                  email: contact.email,
-                  status: 'success',
-                  message: `Domein ${domain} geblokkeerd`
-                });
-              }
-            } else {
-              for (const contact of contacts) {
-                results.push({
-                  contact: contact.contact,
-                  email: contact.email,
-                  status: 'error',
-                  message: result.error || 'Fout bij blokkeren domein'
-                });
-              }
+            for (const contact of contacts) {
+              results.push({
+                contact: contact.contact,
+                email: contact.email,
+                status: 'success',
+                message: `Domein ${domain} geblokkeerd`
+              });
             }
 
             processed += contacts.length;
@@ -265,27 +254,18 @@ export function BulkContactActions({
         // Block individual emails
         for (const item of contactsWithEmails) {
           try {
-            const result = await addEntry({
+            await createEntry({
               type: 'email',
               value: item.email,
               reason: reason.trim()
-            });
+            } as Parameters<typeof createEntry>[0]);
 
-            if (result.success) {
-              results.push({
-                contact: item.contact,
-                email: item.email,
-                status: 'success',
-                message: 'Succesvol geblokkeerd'
-              });
-            } else {
-              results.push({
-                contact: item.contact,
-                email: item.email,
-                status: 'error',
-                message: result.error || 'Fout bij blokkeren'
-              });
-            }
+            results.push({
+              contact: item.contact,
+              email: item.email,
+              status: 'success',
+              message: 'Succesvol geblokkeerd'
+            });
 
             processed++;
             setProgress((processed / total) * 100);

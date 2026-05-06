@@ -101,7 +101,7 @@ async function syncToPipedriveOnly(entries: BlockedEntry[]): Promise<{ success: 
                 await pipedriveClient.blockOrganization(orgId)
                 console.log(`✅ Set organization ${orgId} status to "Niet meer benaderen" for blocked email ${entry.value}`)
               } catch (blockError) {
-                console.log(`⚠️  Could not block organization ${orgId}:`, blockError.message)
+                console.log(`⚠️  Could not block organization ${orgId}:`, blockError instanceof Error ? blockError.message : String(blockError))
               }
             }
 
@@ -154,7 +154,7 @@ async function syncToPipedriveOnly(entries: BlockedEntry[]): Promise<{ success: 
                 await pipedriveClient.blockOrganization(orgId)
                 console.log(`✅ Set organization ${orgId} status to "Niet meer benaderen" for blocked email ${entry.value}`)
               } catch (blockError) {
-                console.log(`⚠️  Could not block organization ${orgId}:`, blockError.message)
+                console.log(`⚠️  Could not block organization ${orgId}:`, blockError instanceof Error ? blockError.message : String(blockError))
               }
             }
 
@@ -191,7 +191,7 @@ async function syncToPipedriveOnly(entries: BlockedEntry[]): Promise<{ success: 
             await pipedriveClient.blockOrganization(pipedriveOrgId)
             console.log(`✅ Successfully blocked organization ${pipedriveOrgId}`)
           } catch (blockError) {
-            console.log(`⚠️  Failed to block organization ${pipedriveOrgId}, but continuing with note:`, blockError.message)
+            console.log(`⚠️  Failed to block organization ${pipedriveOrgId}, but continuing with note:`, blockError instanceof Error ? blockError.message : String(blockError))
           }
 
           // Add a note explaining the block

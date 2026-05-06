@@ -517,6 +517,13 @@ export async function resyncPipedriveStatuses(): Promise<{
     result.processed++
 
     try {
+      if (!entry.value) {
+        result.failed++
+        continue
+      }
+
+      const entryValue: string = entry.value
+
       // Helper function to check if a value is a valid email
       const isValidEmail = (email: string): boolean => {
         const parts = email.split('@')
@@ -524,8 +531,8 @@ export async function resyncPipedriveStatuses(): Promise<{
       }
 
       // Handle email entries
-      if (isValidEmail(entry.value)) {
-        const emailDomain = entry.value.split('@')[1]
+      if (isValidEmail(entryValue)) {
+        const emailDomain = entryValue.split('@')[1]
         let orgId: number | null = null
 
         // Try to find organization by email domain
@@ -538,7 +545,7 @@ export async function resyncPipedriveStatuses(): Promise<{
 
         // If no org found by domain, try to find person and get their org
         if (!orgId) {
-          const persons = await pipedriveClient.searchPersonByEmail(entry.value)
+          const persons = await pipedriveClient.searchPersonByEmail(entryValue)
           if (persons.length > 0 && persons[0].item?.organization?.id) {
             orgId = persons[0].item.organization.id
           }
@@ -546,15 +553,15 @@ export async function resyncPipedriveStatuses(): Promise<{
 
         if (orgId) {
           await pipedriveClient.blockOrganization(orgId)
-          console.log(`🚫 Re-synced: Set organization ${orgId} status to "Niet meer benaderen" for ${entry.value}`)
+          console.log(`🚫 Re-synced: Set organization ${orgId} status to "Niet meer benaderen" for ${entryValue}`)
           result.updated++
         } else {
-          console.log(`⚠️ No organization found for email ${entry.value}`)
+          console.log(`⚠️ No organization found for email ${entryValue}`)
         }
       }
       // Handle domain entries
       else if (entry.blocklist_level === 'organization' || entry.blocklist_level === 'domain') {
-        const domain = entry.value.replace('@', '').toLowerCase()
+        const domain = entryValue.replace('@', '').toLowerCase()
         const existingOrgs = await pipedriveClient.searchOrganizationByDomain(domain)
 
         if (existingOrgs.length > 0) {
@@ -570,7 +577,7 @@ export async function resyncPipedriveStatuses(): Promise<{
       console.error(`Failed to re-sync entry ${entry.id}:`, err)
       result.failed++
       result.errors.push({
-        email: entry.value,
+        email: entry.value ?? '',
         error: err instanceof Error ? err.message : 'Unknown error'
       })
     }

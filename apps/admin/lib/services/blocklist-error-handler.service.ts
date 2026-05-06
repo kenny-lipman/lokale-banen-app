@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { createServiceRoleClient } from '@/lib/supabase-server';
 
 export interface ErrorLog {
   id: string;
@@ -41,8 +41,41 @@ export interface RecoveryAction {
   recovery_steps?: string[];
 }
 
+// error_logs is not in the generated Database types.
+// This interface allows us to query it in a type-safe way without `any`.
+interface ErrorLogRow {
+  id?: string;
+  error_type?: string;
+  platform?: string;
+  entry_id?: string;
+  error_code?: string;
+  error_message?: string;
+  error_details?: unknown;
+  retry_count?: number;
+  max_retries?: number;
+  is_recoverable?: boolean;
+  created_at?: string;
+  resolved_at?: string | null;
+  resolution_method?: string;
+  stack_trace?: string;
+}
+
+interface ErrorLogsQueryBuilder {
+  insert(row: ErrorLogRow): Promise<{ error: { message: string } | null }>;
+  select(columns?: string): { gte(col: string, val: string): Promise<{ data: (ErrorLogRow & { created_at: string; resolved_at: string | null })[] | null; error: unknown }> };
+  update(row: Partial<ErrorLogRow>): { eq(col: string, val: string): Promise<{ error: unknown }> };
+  delete(): { not(col: string, op: string, val: unknown): { lt(col: string, val: string): Promise<{ error: unknown }> } };
+}
+
+interface ErrorLogsClient {
+  from(table: 'error_logs'): ErrorLogsQueryBuilder;
+}
+
 export class BlocklistErrorHandler {
-  private supabase = createClient();
+  private supabase = createServiceRoleClient();
+  private get errorLogsClient(): ErrorLogsClient {
+    return this.supabase as unknown as ErrorLogsClient;
+  }
   private errorQueue: Map<string, ErrorLog> = new Map();
   private maxRetries = 3;
   private retryDelays = [1000, 5000, 15000, 30000, 60000]; // Progressive backoff
@@ -103,7 +136,7 @@ export class BlocklistErrorHandler {
 
   private async persistError(errorLog: ErrorLog): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.errorLogsClient
         .from('error_logs')
         .insert({
           id: errorLog.id,
@@ -297,7 +330,7 @@ export class BlocklistErrorHandler {
     }
 
     try {
-      await this.supabase
+      await this.errorLogsClient
         .from('error_logs')
         .update({
           resolved_at: new Date().toISOString(),
@@ -320,20 +353,24 @@ export class BlocklistErrorHandler {
     const since = new Date(now.getTime() - timeframeMs[timeframe]);
 
     try {
-      const { data: errors } = await this.supabase
+      const { data: errors } = await this.errorLogsClient
         .from('error_logs')
         .select('*')
         .gte('created_at', since.toISOString());
 
-      const totalErrors = errors?.length || 0;
-      const unresolvedErrors = errors?.filter(e => !e.resolved_at).length || 0;
+      type ErrorRow = { error_type: string; platform: string; created_at: string; resolved_at: string | null };
+      const typedErrors = (errors || []) as unknown as ErrorRow[];
+
+      const totalErrors = typedErrors.length;
+      const unresolvedErrors = typedErrors.filter((e: ErrorRow) => !e.resolved_at).length;
 
       // Calculate error rate (errors per hour)
       const hoursInTimeframe = timeframeMs[timeframe] / (60 * 60 * 1000);
       const errorRate = totalErrors / hoursInTimeframe;
 
       // Group errors by type and platform
-      const errorGroups = (errors || []).reduce((acc, error) => {
+      type ErrorGroup = { error_type: string; platform: string; count: number; last_seen: Date };
+      const errorGroups = typedErrors.reduce((acc: Record<string, ErrorGroup>, error: ErrorRow) => {
         const key = `${error.error_type}-${error.platform}`;
         if (!acc[key]) {
           acc[key] = {
@@ -349,15 +386,15 @@ export class BlocklistErrorHandler {
           acc[key].last_seen = errorDate;
         }
         return acc;
-      }, {} as Record<string, any>);
+      }, {});
 
-      const mostCommonErrors = Object.values(errorGroups)
-        .sort((a: any, b: any) => b.count - a.count)
+      const mostCommonErrors: ErrorGroup[] = Object.values(errorGroups)
+        .sort((a: ErrorGroup, b: ErrorGroup) => b.count - a.count)
         .slice(0, 5);
 
       // Platform health assessment
-      const instantlyErrors = errors?.filter(e => e.platform === 'instantly' && !e.resolved_at).length || 0;
-      const pipedriveErrors = errors?.filter(e => e.platform === 'pipedrive' && !e.resolved_at).length || 0;
+      const instantlyErrors = typedErrors.filter((e: ErrorRow) => e.platform === 'instantly' && !e.resolved_at).length;
+      const pipedriveErrors = typedErrors.filter((e: ErrorRow) => e.platform === 'pipedrive' && !e.resolved_at).length;
 
       const getHealthStatus = (errorCount: number): 'healthy' | 'degraded' | 'down' => {
         if (errorCount === 0) return 'healthy';
@@ -499,7 +536,7 @@ export class BlocklistErrorHandler {
     }
 
     try {
-      await this.supabase
+      await this.errorLogsClient
         .from('error_logs')
         .delete()
         .not('resolved_at', 'is', null)

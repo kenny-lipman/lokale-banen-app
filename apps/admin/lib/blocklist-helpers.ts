@@ -24,7 +24,7 @@ export async function findCompanyByName(name: string): Promise<{
       .single();
 
     if (exactMatch) {
-      return exactMatch;
+      return { ...exactMatch, website: exactMatch.website ?? undefined };
     }
 
     // Try fuzzy match
@@ -34,7 +34,9 @@ export async function findCompanyByName(name: string): Promise<{
       .ilike('name', `%${name}%`)
       .limit(1);
 
-    return fuzzyMatches?.[0] || null;
+    const match = fuzzyMatches?.[0];
+    if (!match) return null;
+    return { ...match, website: match.website ?? undefined };
   } catch (error) {
     console.error('Error finding company by name:', error);
     return null;
@@ -149,7 +151,7 @@ export async function getEmailsForDomain(domain: string): Promise<string[]> {
       .like('email', `%@${domain}`)
       .not('email', 'is', null);
 
-    return (data || []).map(c => c.email).filter(Boolean);
+    return (data || []).map(c => c.email).filter((email): email is string => email !== null);
   } catch (error) {
     console.error('Error getting emails for domain:', error);
     return [];

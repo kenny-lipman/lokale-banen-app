@@ -37,11 +37,30 @@ async function debugHandler(req: NextRequest, authResult: AuthResult) {
       throw error
     }
 
+    type BlocklistEntryRow = {
+      id: string;
+      block_type: string | null;
+      value: string | null;
+      reason: string | null;
+      company_id: string | null;
+      contact_id: string | null;
+      blocklist_level: string | null;
+      is_active: boolean | null;
+      instantly_synced: boolean | null;
+      instantly_synced_at: string | null;
+      instantly_error: string | null;
+      pipedrive_synced: boolean | null;
+      pipedrive_synced_at: string | null;
+      pipedrive_error: string | null;
+      created_at: string | null;
+    };
+    const typedEntries = (entries ?? []) as BlocklistEntryRow[];
+
     // Also get company details for entries with company_id
     const companiesData = await Promise.all(
-      entries
-        .filter(entry => entry.company_id)
-        .map(async (entry) => {
+      typedEntries
+        .filter((entry: BlocklistEntryRow) => entry.company_id)
+        .map(async (entry: BlocklistEntryRow) => {
           const { data: company, error: companyError } = await authResult.supabase
             .from('companies')
             .select('id, name, pipedrive_id, pipedrive_synced')
@@ -58,14 +77,14 @@ async function debugHandler(req: NextRequest, authResult: AuthResult) {
     return NextResponse.json({
       success: true,
       data: {
-        entries,
+        entries: typedEntries,
         companies: companiesData,
         summary: {
-          total: entries.length,
-          active: entries.filter(e => e.is_active).length,
-          instantly_synced: entries.filter(e => e.instantly_synced).length,
-          pipedrive_synced: entries.filter(e => e.pipedrive_synced === true).length,
-          company_blocks: entries.filter(e => e.blocklist_level === 'organization').length
+          total: typedEntries.length,
+          active: typedEntries.filter((e: BlocklistEntryRow) => e.is_active).length,
+          instantly_synced: typedEntries.filter((e: BlocklistEntryRow) => e.instantly_synced).length,
+          pipedrive_synced: typedEntries.filter((e: BlocklistEntryRow) => e.pipedrive_synced === true).length,
+          company_blocks: typedEntries.filter((e: BlocklistEntryRow) => e.blocklist_level === 'organization').length
         }
       }
     })

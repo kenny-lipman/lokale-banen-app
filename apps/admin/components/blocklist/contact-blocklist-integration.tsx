@@ -31,7 +31,7 @@ export function ContactBlocklistIntegration({
     loading: true
   });
 
-  const { addEntry } = useBlocklist();
+  const { createEntry } = useBlocklist();
 
   useEffect(() => {
     checkBlocklistStatus();
@@ -86,46 +86,38 @@ export function ContactBlocklistIntegration({
     try {
       const reason = `Geblokkeerd via contact: ${contact.name || email}`;
 
-      const result = await addEntry({
+      const newEntry = await createEntry({
         type: 'email' as const,
         value: email,
         reason
+      } as Parameters<typeof createEntry>[0]);
+
+      toast({
+        title: 'Contact geblokkeerd',
+        description: `${email} is toegevoegd aan de blocklist`
       });
 
-      if (result.success) {
-        toast({
-          title: 'Contact geblokkeerd',
-          description: `${email} is toegevoegd aan de blocklist`
-        });
+      // Update local status
+      setBlocklistStatus(prev => ({
+        ...prev,
+        is_blocked: true,
+        reason,
+        entry: newEntry
+      }));
 
-        // Update local status
-        setBlocklistStatus(prev => ({
-          ...prev,
-          is_blocked: true,
-          reason,
-          entry: result.data
-        }));
-
-        // Notify parent component
-        if (onContactUpdated) {
-          const updatedContact = {
-            ...contact,
-            blocklist_status: {
-              is_blocked: true,
-              reason,
-              entry_id: result.data?.id,
-              checked: true,
-              checked_at: new Date().toISOString()
-            }
-          };
-          onContactUpdated(updatedContact);
-        }
-      } else {
-        toast({
-          title: 'Fout bij blokkeren',
-          description: result.error || 'Onbekende fout opgetreden',
-          variant: 'destructive'
-        });
+      // Notify parent component
+      if (onContactUpdated) {
+        const updatedContact = {
+          ...contact,
+          blocklist_status: {
+            is_blocked: true,
+            reason,
+            entry_id: newEntry?.id,
+            checked: true,
+            checked_at: new Date().toISOString()
+          }
+        };
+        onContactUpdated(updatedContact);
       }
     } catch (error) {
       console.error('Failed to block contact:', error);

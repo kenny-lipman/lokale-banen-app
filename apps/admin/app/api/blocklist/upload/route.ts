@@ -99,7 +99,25 @@ async function uploadHandler(req: NextRequest, authResult: AuthResult) {
     }
 
     // Prepare response
-    const response = {
+    const response: {
+      success: boolean;
+      message: string;
+      data: {
+        filename: string;
+        fileSize: number;
+        parsing: { totalRows: number; parsedEntries: number; parseErrors: unknown[] };
+        validation: {
+          summary: unknown;
+          validEntries: number;
+          errors: unknown[];
+          duplicatesWithinFile: unknown;
+          duplicatesWithDatabase: unknown;
+        };
+        entriesForImport: unknown[];
+        import?: { attempted: number; successful: number; failed: number; error: string | null };
+      };
+      timestamp: string;
+    } = {
       success: true,
       message: 'File processed successfully',
       data: {

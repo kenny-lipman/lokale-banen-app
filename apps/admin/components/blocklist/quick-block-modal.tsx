@@ -41,7 +41,7 @@ export function QuickBlockModal({
   const [isLoading, setIsLoading] = useState(false);
   const [syncToExternal, setSyncToExternal] = useState(true);
 
-  const { addEntry } = useBlocklist();
+  const { createEntry } = useBlocklist();
 
   // Extract email and domain from contact or prefilled email
   const extractedEmail = contact?.email || prefilledEmail || '';
@@ -79,17 +79,17 @@ export function QuickBlockModal({
 
     try {
       // Add to blocklist
-      const result = await addEntry({
+      const newEntry = await createEntry({
         type,
         value: value.trim().toLowerCase(),
         reason: reason.trim()
-      });
+      } as Parameters<typeof createEntry>[0]);
 
-      if (result.success && result.data) {
+      if (newEntry) {
         // Trigger sync to external platforms if enabled
         if (syncToExternal) {
           try {
-            await syncOrchestrator.syncEntry(result.data.id, 'create');
+            await syncOrchestrator.syncEntry(newEntry.id, 'create');
 
             toast({
               title: 'Succesvol geblokkeerd en gesynchroniseerd',
@@ -128,12 +128,6 @@ export function QuickBlockModal({
 
         // Close modal
         onClose();
-      } else {
-        toast({
-          title: 'Fout bij blokkeren',
-          description: result.error || 'Er is een fout opgetreden',
-          variant: 'destructive'
-        });
       }
     } catch (error) {
       console.error('Failed to block:', error);
