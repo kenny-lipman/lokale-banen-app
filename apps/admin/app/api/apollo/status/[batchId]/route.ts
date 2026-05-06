@@ -59,9 +59,10 @@ export async function GET(
       : await apolloStatusService.getBatchStatus(batchId)
 
     if (!result.success) {
-      responseStatus = result.error === "Batch not found" ? 404 : 500
+      const errResult = result as import('@/lib/apollo-status-service').BatchStatusError
+      responseStatus = errResult.error === "Batch not found" ? 404 : 500
       return NextResponse.json(
-        { error: result.error, details: result.details },
+        { error: errResult.error, details: errResult.details },
         { status: responseStatus }
       )
     }
@@ -180,13 +181,13 @@ export async function PATCH(
       // Update companies table with enrichment data if completed
       if (body.status === 'completed' && body.enrichedData) {
         // Get actual contact count from contacts table
-        const { data: contactCount, error: contactError } = await supabase
+        const { count: contactCount } = await supabase
           .from('contacts')
           .select('id', { count: 'exact', head: true })
           .eq('company_id', body.companyId)
           .not('company_id', 'is', null)
 
-        const actualContactCount = contactCount || 0
+        const actualContactCount = contactCount ?? 0
 
         await supabase
           .from('companies')

@@ -44,8 +44,6 @@ async function apolloEnrichHandler(req: NextRequest, authResult: AuthResult) {
       )
     }
 
-    const supabase = createClient()
-
     // Verify all companies exist in database and check qualification status
     const companyIds = companies.map(c => c.id)
     const { data: existingCompanies, error: companyCheckError } = await supabase
@@ -69,14 +67,14 @@ async function apolloEnrichHandler(req: NextRequest, authResult: AuthResult) {
     }
 
     // Validate that all companies are qualified for Apollo enrichment
-    const nonQualifiedCompanies = existingCompanies.filter(c => c.qualification_status !== 'qualified')
+    const nonQualifiedCompanies = existingCompanies.filter((c: { id: string; qualification_status: string | null }) => c.qualification_status !== 'qualified')
     if (nonQualifiedCompanies.length > 0) {
-      console.warn('Apollo enrichment attempted on non-qualified companies:', nonQualifiedCompanies.map(c => c.id))
+      console.warn('Apollo enrichment attempted on non-qualified companies:', nonQualifiedCompanies.map((c: { id: string; qualification_status: string | null }) => c.id))
       return NextResponse.json(
-        { 
+        {
           error: `Apollo enrichment is only allowed for qualified companies. Found ${nonQualifiedCompanies.length} non-qualified companies.`,
           details: {
-            nonQualifiedCompanyIds: nonQualifiedCompanies.map(c => c.id),
+            nonQualifiedCompanyIds: nonQualifiedCompanies.map((c: { id: string; qualification_status: string | null }) => c.id),
             restriction: "Only companies with qualification_status='qualified' can be enriched with Apollo"
           }
         },
@@ -165,7 +163,7 @@ async function apolloEnrichHandler(req: NextRequest, authResult: AuthResult) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(companyPayload),
-            timeout: 30000 // 30 second timeout
+            signal: AbortSignal.timeout(30000) // 30 second timeout
           })
 
           if (!response.ok) {

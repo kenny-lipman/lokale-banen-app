@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import type { Database } from '@/lib/supabase'
+
+type CompanyUpdate = Database['public']['Tables']['companies']['Update']
 
 async function getBedrijfHandler(
   req: NextRequest,
@@ -98,24 +101,22 @@ async function updateBedrijfHandler(
     const location = locationParts.join(', ') || null
 
     // Normalize optional fields
-    const updates: Record<string, unknown> = {
-      name: sanitizedBody.name,
-      website: sanitizedBody.website || null,
-      description: sanitizedBody.description || null,
-      logo_url: sanitizedBody.logo_url || null,
-      linkedin_url: sanitizedBody.linkedin_url || null,
-      kvk_number: sanitizedBody.kvk_number || null,
-      street: sanitizedBody.street || null,
-      city: sanitizedBody.city || null,
-      zipcode: sanitizedBody.zipcode || null,
-      state: sanitizedBody.state || null,
-      country: sanitizedBody.country || 'NL',
-      phone: sanitizedBody.phone || null,
-      industry: sanitizedBody.industry || null,
-      size_min: sanitizedBody.size_min ? parseInt(sanitizedBody.size_min) : null,
-      size_max: sanitizedBody.size_max ? parseInt(sanitizedBody.size_max) : null,
+    const updates: CompanyUpdate = {
+      name: sanitizedBody.name as string,
+      website: (sanitizedBody.website as string) || null,
+      description: (sanitizedBody.description as string) || null,
+      logo_url: (sanitizedBody.logo_url as string) || null,
+      linkedin_url: (sanitizedBody.linkedin_url as string) || null,
+      kvk: (sanitizedBody.kvk_number as string) || null,
+      street_address: (sanitizedBody.street as string) || null,
+      city: (sanitizedBody.city as string) || null,
+      postal_code: (sanitizedBody.zipcode as string) || null,
+      state: (sanitizedBody.state as string) || null,
+      country: (sanitizedBody.country as string) || 'NL',
+      phone: (sanitizedBody.phone as string) || null,
+      size_min: sanitizedBody.size_min ? parseInt(sanitizedBody.size_min as string) : null,
+      size_max: sanitizedBody.size_max ? parseInt(sanitizedBody.size_max as string) : null,
       location,
-      updated_at: new Date().toISOString(),
     }
 
     const { data, error } = await supabase
@@ -165,10 +166,7 @@ async function deleteBedrijfHandler(
     // Soft delete: set status to archived
     const { error } = await supabase
       .from('companies')
-      .update({
-        status: 'Archived',
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: 'Archived' })
       .eq('id', id)
 
     if (error) {
