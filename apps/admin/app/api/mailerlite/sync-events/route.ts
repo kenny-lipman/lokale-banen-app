@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
 
     const response: MailerLiteSyncEventsResponse = {
       success: true,
-      data: data || [],
+      data: (data as MailerLiteSyncEvent[]) || [],
       pagination: {
         page,
         limit,

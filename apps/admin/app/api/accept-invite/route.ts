@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
       password,
       options: {
         data: { full_name: fullName, role: invitation.role },
-        user_metadata: { full_name: fullName }
       }
     })
     if (signUpError) {

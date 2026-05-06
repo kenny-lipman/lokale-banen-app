@@ -47,7 +47,7 @@ async function pipedriveNotesTestHandler(req: NextRequest, authResult: AuthResul
     } catch (parseError) {
       result = {
         raw_response: responseText,
-        parse_error: parseError.message
+        parse_error: parseError instanceof Error ? parseError.message : String(parseError)
       };
     }
 

@@ -95,8 +95,8 @@ export async function GET(
       }
     }
 
-    // Cache the result for 5 minutes
-    cacheService.set(cacheKey, campaignDetails, 300)
+    // Cache the result for 5 minutes (300_000ms)
+    cacheService.setWithTTL(cacheKey, campaignDetails, 5 * 60 * 1000)
 
     return NextResponse.json({
       success: true,

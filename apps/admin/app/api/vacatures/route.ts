@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import type { Database } from '@/lib/supabase'
+
+type JobPostingUpdate = Database['public']['Tables']['job_postings']['Update']
 
 async function createVacatureHandler(req: NextRequest, _authResult: AuthResult) {
   try {
@@ -76,13 +79,21 @@ async function createVacatureHandler(req: NextRequest, _authResult: AuthResult) 
       const postcode = zipcode.substring(0, 4)
       const { data: lookup } = await supabase
         .from('postcode_platform_lookup')
-        .select('platform_id')
+        .select('regio_platform')
         .eq('postcode', postcode)
         .order('distance', { ascending: true })
         .limit(1)
 
       if (lookup && lookup.length > 0) {
-        finalPlatformId = lookup[0].platform_id
+        const { data: platformRow } = await supabase
+          .from('platforms')
+          .select('id')
+          .eq('regio_platform', lookup[0].regio_platform)
+          .limit(1)
+          .maybeSingle()
+        if (platformRow) {
+          finalPlatformId = platformRow.id
+        }
       }
     }
 
@@ -146,7 +157,7 @@ async function createVacatureHandler(req: NextRequest, _authResult: AuthResult) 
 
     await supabase
       .from('job_postings')
-      .update(updateFields)
+      .update(updateFields as JobPostingUpdate)
       .eq('id', jobPosting.id)
 
     // Insert job_posting_platforms junction record if platform assigned
@@ -161,9 +172,6 @@ async function createVacatureHandler(req: NextRequest, _authResult: AuthResult) 
           },
           { onConflict: 'job_posting_id,platform_id' }
         )
-        .catch(() => {
-          // Ignore if upsert fails
-        })
     }
 
     return NextResponse.json({

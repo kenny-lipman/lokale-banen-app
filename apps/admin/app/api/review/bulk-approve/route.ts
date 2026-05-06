@@ -146,9 +146,6 @@ async function postHandler(request: NextRequest, authResult: AuthResult) {
                 },
                 { onConflict: "job_posting_id,platform_id" }
               )
-              .catch(() => {
-                // Ignore if upsert fails (e.g., no unique constraint)
-              })
           }
         }
       } catch (e: unknown) {

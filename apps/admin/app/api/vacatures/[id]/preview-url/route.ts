@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
-import { generatePreviewToken } from '@lokale-banen/shared'
+import { createHmac } from 'node:crypto'
+
+const TOKEN_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+function generatePreviewToken(jobId: string): string {
+  const secret = process.env.VACATURE_PREVIEW_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error('VACATURE_PREVIEW_SECRET env var is missing or too short (min 32 chars)')
+  }
+  const expiry = Date.now() + TOKEN_TTL_MS
+  const payload = `${jobId}:${expiry}`
+  const signature = createHmac('sha256', secret).update(payload).digest('hex')
+  return `${expiry}.${signature}`
+}
 
 export const dynamic = 'force-dynamic'
 

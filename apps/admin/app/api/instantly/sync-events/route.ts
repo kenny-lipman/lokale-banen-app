@@ -188,7 +188,7 @@ export async function GET(req: NextRequest) {
 
     const response: SyncEventsResponse = {
       success: true,
-      data: data || [],
+      data: (data as SyncEvent[]) || [],
       pagination: {
         page,
         limit,

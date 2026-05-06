@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     centralPlaces?.forEach(cp => {
       centralPlacesMap.set(cp.regio_platform, {
         central_place: cp.central_place,
-        central_postcode: cp.central_postcode,
+        central_postcode: cp.central_postcode ?? undefined,
         automation_enabled: cp.automation_enabled ?? false,
         is_active: cp.is_active ?? false
       })
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
       platformGroups.get(platform)!.push({
         id: region.id,
         plaats: region.plaats,
-        postcode: region.postcode
+        postcode: region.postcode ?? ''
       })
     })
 

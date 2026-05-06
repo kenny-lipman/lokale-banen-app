@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     console.error('💥 Test webhook error:', error)
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       webhookUrl
     }, { status: 500 })
   }

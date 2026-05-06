@@ -246,8 +246,8 @@ export async function POST(req: NextRequest) {
           mappedPayload,
           {
             id: contactForGuard.id,
-            email: contactForGuard.email,
-            instantly_removed_at: contactForGuard.instantly_removed_at,
+            email: contactForGuard.email ?? '',
+            instantly_removed_at: contactForGuard.instantly_removed_at!,
           }
         );
 

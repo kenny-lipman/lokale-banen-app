@@ -7,7 +7,8 @@ export async function GET(req: NextRequest) {
     const supabase = createClient()
 
     // Get retry statistics from database function
-    const { data: stats, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: stats, error } = await (supabase as any)
       .rpc('get_retry_statistics')
       .single()
 
@@ -71,7 +72,8 @@ export async function POST(req: NextRequest) {
       const supabase = createClient()
       
       // Call the database function to schedule retries
-      const { data: result, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: result, error } = await (supabase as any)
         .rpc('schedule_retry_enrichments')
 
       if (error) {

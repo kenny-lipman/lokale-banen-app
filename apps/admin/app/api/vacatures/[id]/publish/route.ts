@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import { revalidatePublicSite } from '@/lib/services/public-site-revalidate.service'
+import type { Database } from '@/lib/supabase'
+
+type JobPostingUpdate = Database['public']['Tables']['job_postings']['Update']
 import {
   submitToIndexNow,
   resolvePlatformHost,
@@ -40,7 +43,7 @@ async function publishHandler(
       )
     }
 
-    const updatePayload: Record<string, unknown> = {
+    const updatePayload: JobPostingUpdate = {
       review_status: 'approved',
       published_at: new Date().toISOString(),
       reviewed_at: new Date().toISOString(),

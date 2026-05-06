@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import type { Database } from '@/lib/supabase'
+
+type CompanyInsert = Database['public']['Tables']['companies']['Insert']
 
 async function createBedrijfHandler(req: NextRequest, _authResult: AuthResult) {
   try {
@@ -33,28 +36,29 @@ async function createBedrijfHandler(req: NextRequest, _authResult: AuthResult) {
     const locationParts = [city, state].filter(Boolean)
     const location = locationParts.join(', ') || null
 
+    const insertData: CompanyInsert = {
+      name,
+      website: website || null,
+      description: description || null,
+      logo_url: logo_url || null,
+      linkedin_url: linkedin_url || null,
+      kvk: kvk_number || null,
+      street_address: street || null,
+      city: city || null,
+      postal_code: zipcode || null,
+      state: state || null,
+      country: country || 'NL',
+      phone: phone || null,
+      size_min: size_min ? parseInt(size_min) : null,
+      size_max: size_max ? parseInt(size_max) : null,
+      location,
+      status: 'Prospect',
+      created_at: new Date().toISOString(),
+    }
+
     const { data: company, error } = await supabase
       .from('companies')
-      .insert({
-        name,
-        website: website || null,
-        description: description || null,
-        logo_url: logo_url || null,
-        linkedin_url: linkedin_url || null,
-        kvk_number: kvk_number || null,
-        street: street || null,
-        city: city || null,
-        zipcode: zipcode || null,
-        state: state || null,
-        country: country || 'NL',
-        phone: phone || null,
-        industry: industry || null,
-        size_min: size_min ? parseInt(size_min) : null,
-        size_max: size_max ? parseInt(size_max) : null,
-        location,
-        status: 'Prospect',
-        created_at: new Date().toISOString(),
-      })
+      .insert(insertData)
       .select('id, name')
       .single()
 

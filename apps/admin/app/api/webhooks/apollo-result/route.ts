@@ -60,11 +60,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Trigger real-time update
-    await companyEnrichmentService.triggerRealTimeUpdate(
-      body.company_id, 
-      body.batch_id
-    )
+    // triggerRealTimeUpdate removed from CompanyEnrichmentService
 
     // Record performance metrics
     const processingTime = performance.now() - startTime
@@ -114,7 +110,7 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         error: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
       },
       { status: 500 }
     )

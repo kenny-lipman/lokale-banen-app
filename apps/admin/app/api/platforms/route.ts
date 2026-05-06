@@ -28,7 +28,7 @@ async function platformsHandler(request: NextRequest, authResult: AuthResult) {
       }
 
       const total = platforms?.length || 0
-      const active = platforms?.filter(p => p.is_active).length || 0
+      const active = platforms?.filter((p: { is_active: boolean | null }) => p.is_active).length || 0
       const inactive = total - active
 
       return NextResponse.json({ 
@@ -52,7 +52,7 @@ async function platformsHandler(request: NextRequest, authResult: AuthResult) {
       }
 
       const platformsData = platforms || []
-      const enabledCount = platformsData.filter(p => p.automation_enabled).length
+      const enabledCount = platformsData.filter((p: { automation_enabled: boolean | null }) => p.automation_enabled).length
 
       // Debug logging
       console.log(`[DEBUG] Platforms API: ${enabledCount} of ${platformsData.length} platforms enabled`)

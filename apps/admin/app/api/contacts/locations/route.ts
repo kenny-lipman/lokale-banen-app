@@ -72,7 +72,10 @@ export async function POST(request: Request) {
     // Aggregate company locations
     const companyLocations = aggregateLocations(
       contactData || [],
-      (item) => item.companies?.location
+      (item) => {
+        const companies = (item.companies as unknown) as { id: unknown; name: unknown; location: string | null } | null
+        return companies?.location ?? null
+      }
     )
     
     // Aggregate job locations

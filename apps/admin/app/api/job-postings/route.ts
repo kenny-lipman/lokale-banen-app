@@ -41,7 +41,6 @@ async function jobPostingsGetHandler(req: NextRequest, authResult: AuthResult) {
       code: error?.code,
       details: error?.details,
       hint: error?.hint,
-      params
     })
     
     return NextResponse.json({

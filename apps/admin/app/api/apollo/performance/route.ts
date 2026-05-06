@@ -11,7 +11,7 @@ async function apolloPerformanceHandler(req: NextRequest, authResult: AuthResult
 
     if (format === 'prometheus') {
       const prometheusData = performanceMonitor.exportMetrics('prometheus')
-      return new Response(prometheusData, {
+      return new NextResponse(prometheusData, {
         headers: {
           'Content-Type': 'text/plain; charset=utf-8'
         }

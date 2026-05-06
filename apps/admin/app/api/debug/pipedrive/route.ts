@@ -46,8 +46,8 @@ async function pipedriveDebugHandler(req: NextRequest, authResult: AuthResult) {
 
       // Clean up test org
       try {
-        await pipedriveClient.deleteOrganization(testOrg.id)
-        results.create_test.cleanup = 'success'
+        // deleteOrganization is not available — skip cleanup
+        results.create_test.cleanup = 'skipped'
       } catch (cleanupError) {
         results.create_test.cleanup = 'failed'
       }

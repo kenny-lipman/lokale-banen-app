@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import { revalidatePublicSite } from '@/lib/services/public-site-revalidate.service'
+import type { Database } from '@/lib/supabase'
+
+type JobPostingUpdate = Database['public']['Tables']['job_postings']['Update']
 
 async function getVacatureHandler(
   req: NextRequest,
@@ -226,7 +229,7 @@ async function updateVacatureHandler(
 
     const { data, error } = await supabase
       .from('job_postings')
-      .update(updateFields)
+      .update(updateFields as JobPostingUpdate)
       .eq('id', id)
       .select('id, slug')
       .single()
@@ -249,7 +252,6 @@ async function updateVacatureHandler(
           .delete()
           .eq('job_posting_id', id)
           .eq('platform_id', current.platform_id)
-          .catch(() => {})
       }
       // Insert new
       await supabase
@@ -262,7 +264,6 @@ async function updateVacatureHandler(
           },
           { onConflict: 'job_posting_id,platform_id' }
         )
-        .catch(() => {})
     }
 
     // Invalidate public-site cache for both old and new platform + slug

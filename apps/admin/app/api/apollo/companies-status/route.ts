@@ -67,13 +67,23 @@ async function apolloCompaniesStatusHandler(req: NextRequest, authResult: AuthRe
 
     // Calculate contact counts per company
     const contactCountMap = new Map<string, number>()
-    contactCounts?.forEach(contact => {
+    ;(contactCounts as Array<{ company_id: string }>)?.forEach(contact => {
       const companyId = contact.company_id
       contactCountMap.set(companyId, (contactCountMap.get(companyId) || 0) + 1)
     })
 
     // Format response data
-    const companiesStatus: CompanyEnrichmentStatus[] = statusData.map(status => {
+    type StatusRow = {
+      company_id: string
+      status: string
+      website?: string | null
+      error_message?: string | null
+      processing_started_at?: string | null
+      processing_completed_at?: string | null
+      companies?: { name?: string | null; website?: string | null } | null
+      enrichment_batches?: { batch_id?: string | null } | null
+    }
+    const companiesStatus: CompanyEnrichmentStatus[] = (statusData as StatusRow[]).map(status => {
       const actualContactCount = contactCountMap.get(status.company_id) || 0
       const isEnriched = actualContactCount > 0
       

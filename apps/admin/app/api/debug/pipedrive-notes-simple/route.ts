@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     } catch (parseError) {
       parsedResponse = {
         raw_response: responseText,
-        parse_error: parseError.message
+        parse_error: parseError instanceof Error ? parseError.message : String(parseError)
       };
     }
 
