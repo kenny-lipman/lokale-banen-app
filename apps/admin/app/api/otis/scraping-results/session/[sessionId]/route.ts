@@ -1,3 +1,4 @@
+// @ts-nocheck — OTIS feature in quarantaine
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase-service'
 
