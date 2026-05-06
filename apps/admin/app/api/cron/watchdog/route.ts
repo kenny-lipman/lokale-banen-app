@@ -102,9 +102,9 @@ async function watchdogHandler(_request: NextRequest) {
   try {
     // 1. Get absolute latest run per job (no date filter)
     const { data: allRuns, error: runsError } = await supabase
-      .from('cron_job_logs')
-      .select('job_name, started_at, status')
-      .order('job_name')
+      .from('automation_runs')
+      .select('automation_id, started_at, status')
+      .order('automation_id')
       .order('started_at', { ascending: false })
       .limit(200)
 
@@ -115,8 +115,8 @@ async function watchdogHandler(_request: NextRequest) {
     // Deduplicate to latest per job
     const latestByJob: Record<string, { started_at: string; status: string }> = {}
     for (const run of allRuns ?? []) {
-      if (!latestByJob[run.job_name]) {
-        latestByJob[run.job_name] = run
+      if (!latestByJob[run.automation_id]) {
+        latestByJob[run.automation_id] = run
       }
     }
 
