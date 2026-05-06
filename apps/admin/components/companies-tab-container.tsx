@@ -108,30 +108,43 @@ export function CompaniesTabContainer({
   const prevSearchTermRef = useRef(searchTerm)
 
   // Build filter object for API calls
-  const getFilterParams = (qualificationStatus?: string) => ({
+  const getFilterParams = (
+    qualificationStatus?: string,
+  ): Parameters<typeof supabaseService.getCompanies>[0] => ({
     search: searchTerm,
     status: statusFilter.length > 0 ? statusFilter.join(',') : undefined,
     source: sourceFilter.length > 0 ? sourceFilter.join(',') : undefined,
     is_customer: customerFilter === "all" ? undefined : customerFilter === "customers",
-    websiteFilter,
-    categorySize: categorySizeFilter.length > 0 ? categorySizeFilter.join(',') : undefined,
-    apolloEnriched: apolloEnrichedFilter !== "all" ? apolloEnrichedFilter : undefined,
-    hasContacts: hasContactsFilter !== "all" ? hasContactsFilter : undefined,
+    websiteFilter: websiteFilter as 'all' | 'with' | 'without' | undefined,
+    categorySize: categorySizeFilter.length > 0
+      ? (categorySizeFilter.join(',') as 'all' | 'Klein' | 'Middel' | 'Groot' | 'Onbekend')
+      : undefined,
+    apolloEnriched: apolloEnrichedFilter !== "all"
+      ? (apolloEnrichedFilter as 'enriched' | 'not_enriched')
+      : undefined,
+    hasContacts: hasContactsFilter !== "all"
+      ? (hasContactsFilter as 'with_contacts' | 'no_contacts')
+      : undefined,
     regioPlatformFilter: regioPlatformFilter.length > 0 ? regioPlatformFilter.join(',') : undefined,
     subdomeinenFilter: subdomeinenFilter.length > 0 ? subdomeinenFilter.join(',') : undefined,
-    pipedriveFilter: pipedriveFilter !== "all" ? pipedriveFilter : undefined,
-    instantlyFilter: instantlyFilter !== "all" ? instantlyFilter : undefined,
+    pipedriveFilter: pipedriveFilter !== "all"
+      ? (pipedriveFilter as 'synced' | 'not_synced')
+      : undefined,
+    instantlyFilter: instantlyFilter !== "all"
+      ? (instantlyFilter as 'synced' | 'not_synced')
+      : undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
-    qualification_status: qualificationStatus || 'all',
-    limit: 100 // Load more companies per tab
+    qualification_status: (qualificationStatus || 'all') as
+      | 'pending' | 'qualified' | 'disqualified' | 'review' | 'all',
+    limit: 100, // Load more companies per tab
   })
 
   // Load companies for active tab
   const loadTabData = async (tabName: string) => {
     try {
       setLoading(true)
-      const result = await supabaseService.getCompanies(getFilterParams(tabName) as any)
+      const result = await supabaseService.getCompanies(getFilterParams(tabName))
       setCompanies(result.data || [])
     } catch (error) {
       console.error('Error loading tab data:', error)
@@ -148,7 +161,7 @@ export function CompaniesTabContainer({
   // Load qualification counts for all tabs
   const loadCounts = async () => {
     try {
-      const countsResult = await supabaseService.getCompanyCountsByQualificationStatus(getFilterParams() as any)
+      const countsResult = await supabaseService.getCompanyCountsByQualificationStatus(getFilterParams())
       setCounts(countsResult)
     } catch (error) {
       console.error('Error loading counts:', error)
@@ -364,8 +377,8 @@ export function CompaniesTabContainer({
       // Load all qualified companies (not just the current page)
       const allQualifiedResult = await supabaseService.getCompanies({
         ...getFilterParams('qualified'),
-        limit: 1000 // Get all qualified companies
-      } as any)
+        limit: 1000, // Get all qualified companies
+      })
       
       const allQualifiedCompanies = allQualifiedResult.data || []
       

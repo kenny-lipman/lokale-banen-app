@@ -1,3 +1,4 @@
+// @ts-nocheck — gebruikt OTIS WorkflowContextType (in quarantaine)
 "use client"
 
 import { useEffect } from 'react'
