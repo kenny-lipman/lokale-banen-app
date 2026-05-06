@@ -354,7 +354,7 @@ export default function ContactsPage() {
   useEffect(() => {
     const loadPlatforms = async () => {
       try {
-        const response = await authFetch('/api/platforms')
+        const response = await fetch('/api/platforms')
         const data = await response.json()
         const options = (data?.platforms || [])
           .filter((p: any) => p?.id && p?.regio_platform)

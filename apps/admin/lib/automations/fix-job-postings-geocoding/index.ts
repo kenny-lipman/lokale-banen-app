@@ -2,16 +2,17 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { searchCity, reverseGeocode } from './locationiq-client'
-import { extractPostcodePrefix, findPlatformIdByPostcode } from './platform-lookup'
+import { extractPostcodePrefix, findPlatformIdByPostcode, findCityByName } from './platform-lookup'
 import { fetchQueueBatch, countQueueRemaining, type QueueRow } from './queue'
 import { getApiCallsToday, isBudgetExhausted, DAILY_CAP } from './budget-check'
 import type { BusinessStats } from './types'
 
 const AUTOMATION_ID = 'fix-job-postings-geocoding'
-const PER_RUN_LIMIT = 130           // was 290 — 2-call worst case (search + reverse) past binnen 240s
-const ITEM_DELAY_MS = 1000           // 60 req/min sustained
-const MAX_RUN_MS = 240_000           // was 270_000 — extra Vercel overhead-buffer
-const RETRY_DELAY_MS = 2000          // backoff op rate_limit
+const PER_RUN_LIMIT = 110              // was 130 — 3-call worst case (search+reverse+offset) past binnen 240s
+const ITEM_DELAY_MS = 1000
+const MAX_RUN_MS = 240_000
+const RETRY_DELAY_MS = 2000
+const RANDOM_STREET_OFFSET = 0.005     // ~500m verschuiving (lat+lon)
 
 function getServiceClient() {
   return createClient(
@@ -54,7 +55,11 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
     processed: 0, enriched: 0,
     geocoding_failed_no_match: 0, geocoding_failed_no_postcode: 0,
     geocoding_failed_invalid_coords: 0,
-    platform_matched: 0, queue_remaining: 0,
+    platform_matched: 0,
+    platform_matched_via_cities: 0,
+    postcode_via_random_street: 0,
+    postcode_via_cities_fallback: 0,
+    queue_remaining: 0,
     api_calls_used: 0, stopped_early: false,
   }
 
@@ -194,7 +199,11 @@ function emptyStats(over: Partial<BusinessStats>): BusinessStats {
     processed: 0, enriched: 0,
     geocoding_failed_no_match: 0, geocoding_failed_no_postcode: 0,
     geocoding_failed_invalid_coords: 0,
-    platform_matched: 0, queue_remaining: 0,
+    platform_matched: 0,
+    platform_matched_via_cities: 0,
+    postcode_via_random_street: 0,
+    postcode_via_cities_fallback: 0,
+    queue_remaining: 0,
     api_calls_used: 0, stopped_early: false,
     ...over,
   }

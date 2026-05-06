@@ -84,7 +84,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
 
   const runValidation = async () => {
     try {
-      const res = await authenticatedFetch('/api/lokalebanen/validate', {
+      const res = await fetch('/api/lokalebanen/validate', {
         method: 'POST',
         body: JSON.stringify({ jobPostingIds }),
       })
@@ -113,7 +113,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
     setState('pushing')
 
     try {
-      const res = await authenticatedFetch('/api/lokalebanen/push', {
+      const res = await fetch('/api/lokalebanen/push', {
         method: 'POST',
         body: JSON.stringify({ jobPostingIds: validIds }),
       })

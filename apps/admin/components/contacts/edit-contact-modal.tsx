@@ -129,7 +129,7 @@ export function EditContactModal({
         return
       }
 
-      const response = await authFetch(`/api/contacts/${contact.id}`, {
+      const response = await fetch(`/api/contacts/${contact.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

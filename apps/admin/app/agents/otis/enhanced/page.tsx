@@ -552,7 +552,7 @@ function FullOtisDashboard() {
 
   const loadRegions = async () => {
     try {
-      const response = await authFetch('/api/regions')
+      const response = await fetch('/api/regions')
       const data = await response.json()
       const regions = data.regions || []
       // Get unique regio_platform values
@@ -567,7 +567,7 @@ function FullOtisDashboard() {
 
   const loadJobSources = async () => {
     try {
-      const response = await authFetch('/api/job-sources')
+      const response = await fetch('/api/job-sources')
       const data = await response.json()
       setJobSources(data.sources || [])
     } catch (error) {
@@ -709,7 +709,7 @@ function FullOtisDashboard() {
 
   const loadStats = async () => {
     try {
-      const response = await authFetch('/api/dashboard/stats')
+      const response = await fetch('/api/dashboard/stats')
       const stats = await response.json()
       setStats({
         totalJobs: stats.totalJobs || 0,
@@ -827,7 +827,7 @@ function FullOtisDashboard() {
 
   const loadRecentJobPostings = async () => {
     try {
-      const response = await authFetch('/api/job-postings?limit=10')
+      const response = await fetch('/api/job-postings?limit=10')
       const result = await response.json()
       setRecentJobPostings(result.data || [])
     } catch (error) {
@@ -839,7 +839,7 @@ function FullOtisDashboard() {
 
   const loadInstantlyCampaigns = async () => {
     try {
-      const response = await authFetch("/api/instantly-campaigns")
+      const response = await fetch("/api/instantly-campaigns")
       if (response.ok) {
         const data = await response.json()
         setInstantlyCampaigns(data.campaigns || [])

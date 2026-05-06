@@ -76,7 +76,7 @@ export default function BewerkBedrijfPage() {
       if (!id) return
       setLoading(true)
       try {
-        const res = await authFetch(`/api/bedrijven/${id}`)
+        const res = await fetch(`/api/bedrijven/${id}`)
         const result = await res.json()
 
         if (!result.success || !result.data) {
@@ -120,7 +120,7 @@ export default function BewerkBedrijfPage() {
 
     setSaving(true)
     try {
-      const res = await authFetch(`/api/bedrijven/${id}`, {
+      const res = await fetch(`/api/bedrijven/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
           name: name.trim(),
@@ -160,7 +160,7 @@ export default function BewerkBedrijfPage() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      const res = await authFetch(`/api/bedrijven/${id}`, {
+      const res = await fetch(`/api/bedrijven/${id}`, {
         method: "DELETE",
       })
       const result = await res.json()

@@ -131,7 +131,7 @@ export function BlocklistForm({
         params.append('limit', '50')
 
         console.log('Fetching companies:', `/api/companies/search?${params}`)
-        const response = await authenticatedGet(`/api/companies/search?${params}`)
+        const response = await fetch(`/api/companies/search?${params}`)
         console.log('Companies response status:', response.status)
 
         if (response.ok) {
@@ -175,7 +175,7 @@ export function BlocklistForm({
           }
           params.append('limit', '50')
 
-          const response = await authenticatedGet(`/api/contacts/search?${params}`)
+          const response = await fetch(`/api/contacts/search?${params}`)
           if (response.ok) {
             const data = await response.json()
             setContacts(data.contacts || [])

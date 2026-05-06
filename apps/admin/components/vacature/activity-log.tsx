@@ -84,7 +84,7 @@ function useReviewerName(reviewedBy: string | null): string {
 
     ;(async () => {
       try {
-        const res = await authFetch(
+        const res = await fetch(
           `/api/users/${encodeURIComponent(reviewedBy)}/profile`,
           { signal: controller.signal },
         )

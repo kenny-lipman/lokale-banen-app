@@ -85,7 +85,7 @@ export default function PlatformDetailPage() {
     async function load() {
       setLoading(true)
       try {
-        const res = await authFetch(`/api/review/platforms/${platformId}`)
+        const res = await fetch(`/api/review/platforms/${platformId}`)
         const json = await res.json()
         if (cancelled) return
         if (!res.ok || json.error) {

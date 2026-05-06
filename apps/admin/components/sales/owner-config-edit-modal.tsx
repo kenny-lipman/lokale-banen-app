@@ -62,10 +62,10 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
     if (!open) return
     setLoading(true)
     Promise.all([
-      authFetch("/api/sales-leads/pipedrive-meta/users").then((r) => r.json()),
-      authFetch("/api/sales-leads/pipedrive-meta/pipelines").then((r) => r.json()),
-      authFetch("/api/sales-leads/pipedrive-meta/deal-fields").then((r) => r.json()),
-      authFetch(`/api/sales-leads/pipedrive-meta/stages?pipeline_id=${form.pipedrive_pipeline_id}`).then((r) => r.json()),
+      fetch("/api/sales-leads/pipedrive-meta/users").then((r) => r.json()),
+      fetch("/api/sales-leads/pipedrive-meta/pipelines").then((r) => r.json()),
+      fetch("/api/sales-leads/pipedrive-meta/deal-fields").then((r) => r.json()),
+      fetch(`/api/sales-leads/pipedrive-meta/stages?pipeline_id=${form.pipedrive_pipeline_id}`).then((r) => r.json()),
     ])
       .then(([u, p, d, s]) => {
         setUsers(u.users ?? [])
@@ -80,7 +80,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
   async function handlePipelineChange(newPipelineId: number) {
     setForm((f) => ({ ...f, pipedrive_pipeline_id: newPipelineId, pipedrive_default_stage_id: 0 }))
     setStages([])
-    const r = await authFetch(`/api/sales-leads/pipedrive-meta/stages?pipeline_id=${newPipelineId}`).then((r) => r.json())
+    const r = await fetch(`/api/sales-leads/pipedrive-meta/stages?pipeline_id=${newPipelineId}`).then((r) => r.json())
     setStages(r.stages ?? [])
   }
 
@@ -88,7 +88,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
     setTesting(true)
     setTestResult(null)
     try {
-      const r = await authFetch(`/api/sales-leads/owner-config/${config.id}/test`, { method: "POST" }).then((r) => r.json())
+      const r = await fetch(`/api/sales-leads/owner-config/${config.id}/test`, { method: "POST" }).then((r) => r.json())
       setTestResult(r)
     } finally {
       setTesting(false)
@@ -97,7 +97,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
 
   async function handleSave() {
     setSaveError(null)
-    const res = await authFetch(`/api/sales-leads/owner-config/${config.id}`, {
+    const res = await fetch(`/api/sales-leads/owner-config/${config.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

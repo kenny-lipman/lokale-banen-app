@@ -65,7 +65,7 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
       setPlatformSyncLoading({ ...platformSyncLoading, [platform]: true })
 
       const endpoint = platform === "instantly" ? "/api/blocklist/sync" : "/api/blocklist/sync-pipedrive"
-      const response = await authenticatedFetch(endpoint, { method: "POST" })
+      const response = await fetch(endpoint, { method: "POST" })
 
       if (!response.ok) {
         throw new Error(`Sync failed: ${response.statusText}`)

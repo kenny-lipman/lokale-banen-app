@@ -70,7 +70,7 @@ export function CampaignValidation({
         }));
       }, 200);
 
-      const response = await authFetch('/api/blocklist/validate-contacts', {
+      const response = await fetch('/api/blocklist/validate-contacts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

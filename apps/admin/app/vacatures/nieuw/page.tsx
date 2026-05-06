@@ -108,7 +108,7 @@ export default function NieuweVacaturePage() {
   const searchCompanies = useCallback(async (search: string) => {
     try {
       const params = new URLSearchParams({ search, limit: '50' })
-      const res = await authFetch(`/api/companies/search?${params}`)
+      const res = await fetch(`/api/companies/search?${params}`)
       const result = await res.json()
       if (result.success && result.companies) {
         setCompanies(
@@ -140,7 +140,7 @@ export default function NieuweVacaturePage() {
   useEffect(() => {
     async function fetchPlatforms() {
       try {
-        const res = await authFetch("/api/review/platforms")
+        const res = await fetch("/api/review/platforms")
         const { data } = await res.json()
         if (data) {
           setPlatforms(data.map((p: { id: string; regio_platform: string }) => ({
@@ -170,7 +170,7 @@ export default function NieuweVacaturePage() {
 
     setSaving(true)
     try {
-      const res = await authFetch("/api/vacatures", {
+      const res = await fetch("/api/vacatures", {
         method: "POST",
         body: JSON.stringify({
           title: title.trim(),

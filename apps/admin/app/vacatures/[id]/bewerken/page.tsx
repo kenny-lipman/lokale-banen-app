@@ -129,7 +129,7 @@ export default function BewerkVacaturePage() {
   const searchCompanies = useCallback(async (search: string) => {
     try {
       const params = new URLSearchParams({ search, limit: '50' })
-      const res = await authFetch(`/api/companies/search?${params}`)
+      const res = await fetch(`/api/companies/search?${params}`)
       const result = await res.json()
       if (result.success && result.companies) {
         setCompanies(
@@ -154,7 +154,7 @@ export default function BewerkVacaturePage() {
   useEffect(() => {
     async function fetchPlatforms() {
       try {
-        const res = await authFetch("/api/review/platforms")
+        const res = await fetch("/api/review/platforms")
         const { data } = await res.json()
         if (data) {
           setPlatforms(data.map((p: { id: string; regio_platform: string }) => ({
@@ -175,7 +175,7 @@ export default function BewerkVacaturePage() {
       if (!id) return
       setLoading(true)
       try {
-        const res = await authFetch(`/api/vacatures/${id}`)
+        const res = await fetch(`/api/vacatures/${id}`)
         const result = await res.json()
 
         if (!result.success || !result.data) {
@@ -240,7 +240,7 @@ export default function BewerkVacaturePage() {
     }
     setAiRewriting(true)
     try {
-      const res = await authFetch(`/api/vacatures/${id}/ai-rewrite`, {
+      const res = await fetch(`/api/vacatures/${id}/ai-rewrite`, {
         method: "POST",
       })
       const result = await res.json()
@@ -277,7 +277,7 @@ export default function BewerkVacaturePage() {
 
     setSaving(true)
     try {
-      const res = await authFetch(`/api/vacatures/${id}`, {
+      const res = await fetch(`/api/vacatures/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
           title: title.trim(),
@@ -321,7 +321,7 @@ export default function BewerkVacaturePage() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      const res = await authFetch(`/api/vacatures/${id}`, {
+      const res = await fetch(`/api/vacatures/${id}`, {
         method: "DELETE",
       })
       const result = await res.json()

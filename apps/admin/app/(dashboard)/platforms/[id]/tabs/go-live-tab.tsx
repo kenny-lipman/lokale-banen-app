@@ -55,7 +55,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
   const fetchChecks = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await authFetch(`/api/platforms/${platform.id}/go-live-check`)
+      const res = await fetch(`/api/platforms/${platform.id}/go-live-check`)
       const json = await res.json()
       if (!res.ok || json.error) {
         toast.error(json.error || "Kan checklist niet ophalen")
@@ -93,7 +93,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
     }
     setPublishing(true)
     try {
-      const res = await authFetch(`/api/platforms/${platform.id}/go-live`, {
+      const res = await fetch(`/api/platforms/${platform.id}/go-live`, {
         method: "POST",
       })
       const json = await res.json()
@@ -119,7 +119,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
   const takeOffline = useCallback(async () => {
     setUnpublishing(true)
     try {
-      const res = await authFetch(`/api/platforms/${platform.id}/take-offline`, {
+      const res = await fetch(`/api/platforms/${platform.id}/take-offline`, {
         method: "POST",
       })
       const json = await res.json()

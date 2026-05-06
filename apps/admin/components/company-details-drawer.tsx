@@ -250,7 +250,7 @@ export function CompanyDetailsDrawer({
     setContactsError(null)
 
     try {
-      const response = await authFetch(`/api/companies/${companyId}/contacts`)
+      const response = await fetch(`/api/companies/${companyId}/contacts`)
       if (!response.ok) {
         throw new Error(`Failed to fetch contacts: ${response.statusText}`)
       }

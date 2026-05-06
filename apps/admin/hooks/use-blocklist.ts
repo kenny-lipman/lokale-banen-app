@@ -104,7 +104,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
         ),
       })
 
-      const response = await authFetch(`/api/blocklist?${params}`)
+      const response = await fetch(`/api/blocklist?${params}`)
       if (!response.ok) {
         throw new Error("Failed to fetch blocklist entries")
       }
@@ -128,7 +128,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
   // Fetch stats
   const fetchStats = async () => {
     try {
-      const response = await authFetch("/api/blocklist/stats")
+      const response = await fetch("/api/blocklist/stats")
       if (!response.ok) {
         throw new Error("Failed to fetch blocklist stats")
       }
@@ -143,7 +143,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
   // Create entry
   const createEntry = async (entryData: Omit<BlocklistEntry, "id" | "created_at" | "updated_at">) => {
     try {
-      const response = await authFetch("/api/blocklist", {
+      const response = await fetch("/api/blocklist", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -174,7 +174,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
   // Update entry
   const updateEntry = async (id: string, entryData: Partial<BlocklistEntry>) => {
     try {
-      const response = await authFetch(`/api/blocklist/${id}`, {
+      const response = await fetch(`/api/blocklist/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -205,7 +205,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
   // Delete entry
   const deleteEntry = async (id: string) => {
     try {
-      const response = await authFetch(`/api/blocklist/${id}`, {
+      const response = await fetch(`/api/blocklist/${id}`, {
         method: "DELETE",
       })
 
@@ -266,7 +266,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
   // Check blocklist
   const checkBlocklist = async (values: string[]) => {
     try {
-      const response = await authFetch("/api/blocklist/check", {
+      const response = await fetch("/api/blocklist/check", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -292,7 +292,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await authFetch("/api/blocklist/upload", {
+      const response = await fetch("/api/blocklist/upload", {
         method: "POST",
         body: formData,
       })
@@ -331,7 +331,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
   // Export entries
   const exportEntries = async (format: "json" | "csv" = "csv") => {
     try {
-      const response = await authFetch(`/api/blocklist/export?format=${format}`)
+      const response = await fetch(`/api/blocklist/export?format=${format}`)
 
       if (!response.ok) {
         throw new Error("Failed to export entries")
@@ -360,7 +360,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
   const syncToInstantly = async () => {
     try {
       setLoading(true)
-      const response = await authFetch("/api/blocklist/sync", {
+      const response = await fetch("/api/blocklist/sync", {
         method: "POST",
       })
 

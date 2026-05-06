@@ -81,7 +81,7 @@ export function LokaleBanenMappingSection() {
     try {
       setLoading(true)
       setError(null)
-      const res = await authenticatedFetch('/api/lokalebanen/mappings')
+      const res = await fetch('/api/lokalebanen/mappings')
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
       setMappings(data.mappings)
@@ -96,7 +96,7 @@ export function LokaleBanenMappingSection() {
   const syncLBValues = async () => {
     try {
       setSyncing(true)
-      const res = await authenticatedFetch('/api/lokalebanen/sync')
+      const res = await fetch('/api/lokalebanen/sync')
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
       setLbValues(data.data)
@@ -113,7 +113,7 @@ export function LokaleBanenMappingSection() {
     const key = `${type}:${ourValue}`
     setSavingId(key)
     try {
-      const res = await authenticatedFetch('/api/lokalebanen/mappings', {
+      const res = await fetch('/api/lokalebanen/mappings', {
         method: 'PUT',
         body: JSON.stringify({ type, our_value: ourValue, their_value: theirValue }),
       })

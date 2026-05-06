@@ -31,7 +31,7 @@ export default function OwnerMappingPage() {
 
   async function loadConfigs() {
     setLoading(true)
-    const r = await authFetch("/api/sales-leads/owner-config").then((r) => r.json())
+    const r = await fetch("/api/sales-leads/owner-config").then((r) => r.json())
     setConfigs(r.configs ?? [])
     setLoading(false)
   }

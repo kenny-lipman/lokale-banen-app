@@ -34,7 +34,7 @@ export function usePollingRun(runId: string | null) {
 
   const fetchOnce = useCallback(async (id: string) => {
     try {
-      const res = await authFetch(`/api/sales-leads/${id}`, { cache: 'no-store' })
+      const res = await fetch(`/api/sales-leads/${id}`, { cache: 'no-store' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body?.error ?? `HTTP ${res.status}`)

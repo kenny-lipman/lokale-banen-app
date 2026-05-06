@@ -366,7 +366,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       });
 
       // 2. API CALL: Send to backend
-      const response = await authFetch('/api/companies/qualify', {
+      const response = await fetch('/api/companies/qualify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -426,7 +426,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       });
 
       // 2. API CALL: Send to backend
-      const response = await authFetch('/api/companies/qualify', {
+      const response = await fetch('/api/companies/qualify', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -521,7 +521,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       updateCompaniesOptimistically(selectedCompanyIds, { status: bulkStatus });
       
       // 2. API CALL: Send to backend
-      const res = await authFetch("/api/companies", {
+      const res = await fetch("/api/companies", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyIds: selectedCompanyIds, status: bulkStatus }),

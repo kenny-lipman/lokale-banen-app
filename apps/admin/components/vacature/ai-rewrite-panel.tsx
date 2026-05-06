@@ -54,7 +54,7 @@ export function AIRewritePanel({
     setResult(null)
 
     try {
-      const res = await authFetch(`/api/vacatures/${vacatureId}/ai-rewrite`, {
+      const res = await fetch(`/api/vacatures/${vacatureId}/ai-rewrite`, {
         method: "POST",
       })
       const data = await res.json()
@@ -98,7 +98,7 @@ export function AIRewritePanel({
       if (ex.working_hours_max != null)
         payload.working_hours_max = ex.working_hours_max
 
-      const res = await authFetch(`/api/vacatures/${vacatureId}`, {
+      const res = await fetch(`/api/vacatures/${vacatureId}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       })

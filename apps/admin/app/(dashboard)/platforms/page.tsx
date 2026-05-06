@@ -50,7 +50,7 @@ export default function PlatformsPage() {
   const fetchPlatforms = async () => {
     setLoading(true)
     try {
-      const res = await authFetch("/api/review/platforms")
+      const res = await fetch("/api/review/platforms")
       const result = await res.json()
       if (result.error) {
         toast.error(result.error)
@@ -71,7 +71,7 @@ export default function PlatformsPage() {
   const handleTogglePublic = async (platform: PlatformRow) => {
     const newValue = !platform.is_public
     try {
-      const res = await authFetch(`/api/review/platforms/${platform.id}`, {
+      const res = await fetch(`/api/review/platforms/${platform.id}`, {
         method: "PATCH",
         body: JSON.stringify({ is_public: newValue }),
       })

@@ -40,7 +40,7 @@ export function LeadFormStap1() {
   })
 
   useEffect(() => {
-    authFetch('/api/sales-leads/owner-config')
+    fetch('/api/sales-leads/owner-config')
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<{ configs?: OwnerOption[] }>
@@ -78,7 +78,7 @@ export function LeadFormStap1() {
   async function onSubmit(values: Stap1FormValues) {
     setSubmitting(true)
     try {
-      const res = await authFetch('/api/sales-leads/create', {
+      const res = await fetch('/api/sales-leads/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),

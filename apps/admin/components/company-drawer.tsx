@@ -124,7 +124,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
     setJobsError(null)
 
     try {
-      const response = await authFetch(`/api/companies/${company.id}/job-postings`)
+      const response = await fetch(`/api/companies/${company.id}/job-postings`)
       if (!response.ok) {
         throw new Error(`Failed to fetch job postings: ${response.statusText}`)
       }
@@ -151,7 +151,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
     setContactsError(null)
 
     try {
-      const response = await authFetch(`/api/companies/${company.id}/contacts`)
+      const response = await fetch(`/api/companies/${company.id}/contacts`)
       if (!response.ok) {
         throw new Error(`Failed to fetch contacts: ${response.statusText}`)
       }

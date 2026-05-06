@@ -220,7 +220,7 @@ export function VacatureActionBar({
     if (publishing) return
     setPublishing(true)
     try {
-      const res = await authFetch(`/api/vacatures/${vacature.id}/publish`, {
+      const res = await fetch(`/api/vacatures/${vacature.id}/publish`, {
         method: "POST",
       })
       const result = await res.json().catch(() => ({}))
@@ -256,7 +256,7 @@ export function VacatureActionBar({
     if (unpublishing) return
     setUnpublishing(true)
     try {
-      const res = await authFetch(`/api/vacatures/${vacature.id}/unpublish`, {
+      const res = await fetch(`/api/vacatures/${vacature.id}/unpublish`, {
         method: "POST",
       })
       const result = await res.json().catch(() => ({}))
@@ -285,7 +285,7 @@ export function VacatureActionBar({
     if (archiving) return
     setArchiving(true)
     try {
-      const res = await authFetch(`/api/vacatures/${vacature.id}`, {
+      const res = await fetch(`/api/vacatures/${vacature.id}`, {
         method: "DELETE",
       })
       const result = await res.json().catch(() => ({}))
@@ -314,7 +314,7 @@ export function VacatureActionBar({
     if (restoring) return
     setRestoring(true)
     try {
-      const res = await authFetch(`/api/vacatures/${vacature.id}/restore`, {
+      const res = await fetch(`/api/vacatures/${vacature.id}/restore`, {
         method: "POST",
       })
       const result = await res.json().catch(() => ({}))
@@ -345,7 +345,7 @@ export function VacatureActionBar({
     if (openingPreview) return
     setOpeningPreview(true)
     try {
-      const res = await authFetch(`/api/vacatures/${vacature.id}/preview-url`)
+      const res = await fetch(`/api/vacatures/${vacature.id}/preview-url`)
       const result = await res.json()
       if (!res.ok || !result.success || !result.data?.url) {
         toast.error(result?.error || "Preview URL genereren mislukt")

@@ -18,7 +18,7 @@ export default function TestAuthBrowserPage() {
 
     // Test 1: API Test endpoint
     try {
-      const response = await authFetch("/api/test-auth")
+      const response = await fetch("/api/test-auth")
       if (response.ok) {
         const data = await response.json()
         results.testAuth = { success: true, data }
@@ -31,7 +31,7 @@ export default function TestAuthBrowserPage() {
 
     // Test 2: Companies API
     try {
-      const response = await authFetch("/api/companies?limit=1")
+      const response = await fetch("/api/companies?limit=1")
       if (response.ok) {
         const data = await response.json()
         results.companies = { success: true, count: data.data?.length || 0 }
@@ -44,7 +44,7 @@ export default function TestAuthBrowserPage() {
 
     // Test 3: Contacts API
     try {
-      const response = await authFetch("/api/contacts?limit=1")
+      const response = await fetch("/api/contacts?limit=1")
       if (response.ok) {
         const data = await response.json()
         results.contacts = { success: true, count: data.data?.length || 0 }
@@ -57,7 +57,7 @@ export default function TestAuthBrowserPage() {
 
     // Test 4: Job Postings API
     try {
-      const response = await authFetch("/api/job-postings?limit=1")
+      const response = await fetch("/api/job-postings?limit=1")
       if (response.ok) {
         const data = await response.json()
         results.jobPostings = { success: true, count: data.data?.length || 0 }

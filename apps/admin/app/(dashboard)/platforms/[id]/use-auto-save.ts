@@ -69,7 +69,7 @@ export function useAutoSave<T>({
       setError(null)
 
       try {
-        const res = await authFetch(`/api/review/platforms/${platformId}`, {
+        const res = await fetch(`/api/review/platforms/${platformId}`, {
           method: "PATCH",
           body: JSON.stringify(toPayload(values)),
         })

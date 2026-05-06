@@ -78,7 +78,7 @@ export function LivePreview({ vacature, platform, trigger }: LivePreviewProps) {
     // Draft: fetch signed preview URL from admin API
     setLoadingUrl(true)
     setDraftUrl(null)
-    authFetch(`/api/vacatures/${vacature.id}/preview-url`)
+    fetch(`/api/vacatures/${vacature.id}/preview-url`)
       .then((res) => res.json())
       .then((result) => {
         if (result.success && result.data?.url) {

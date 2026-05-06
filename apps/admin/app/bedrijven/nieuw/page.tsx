@@ -64,7 +64,7 @@ export default function NieuwBedrijfPage() {
 
     setSaving(true)
     try {
-      const res = await authFetch("/api/bedrijven", {
+      const res = await fetch("/api/bedrijven", {
         method: "POST",
         body: JSON.stringify({
           name: name.trim(),

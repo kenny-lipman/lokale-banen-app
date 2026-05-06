@@ -95,7 +95,7 @@ function JobPostingsContent() {
   const fetchCounts = useCallback(async () => {
     setCountsLoading(true)
     try {
-      const res = await authFetch("/api/job-postings/review-counts")
+      const res = await fetch("/api/job-postings/review-counts")
       const result = await res.json()
       if (result.counts) {
         setCounts(result.counts)
@@ -119,7 +119,7 @@ function JobPostingsContent() {
     if (jobId && fetchJobIdRef.current !== jobId && !loadingJobFromUrl) {
       fetchJobIdRef.current = jobId
       setLoadingJobFromUrl(true)
-      authFetch(`/api/job-postings/${jobId}`)
+      fetch(`/api/job-postings/${jobId}`)
         .then((res) => res.json())
         .then((result) => {
           if (result.success && result.data) {
@@ -221,7 +221,7 @@ function JobPostingsContent() {
           // Refetch full job data + update counts
           const jobId = selectedJobForDrawer?.id
           if (jobId) {
-            const res = await authFetch(`/api/job-postings/${jobId}`)
+            const res = await fetch(`/api/job-postings/${jobId}`)
             const result = await res.json()
             if (result.success && result.data) {
               setSelectedJobForDrawer(result.data)

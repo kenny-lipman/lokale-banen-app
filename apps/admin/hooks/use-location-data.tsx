@@ -39,7 +39,7 @@ export function useLocationData(
       setError(null)
       
       try {
-        const response = await authFetch('/api/contacts/locations', {
+        const response = await fetch('/api/contacts/locations', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

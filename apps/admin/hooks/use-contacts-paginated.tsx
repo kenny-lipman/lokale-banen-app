@@ -71,7 +71,7 @@ export function useContactsPaginated(
       if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
       if (filters.dateTo) params.append('dateTo', filters.dateTo)
 
-      const response = await authFetch(`/api/contacts?${params.toString()}`)
+      const response = await fetch(`/api/contacts?${params.toString()}`)
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)

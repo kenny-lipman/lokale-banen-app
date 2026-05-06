@@ -57,7 +57,7 @@ export function BulkActionBar({
     if (isDisabled) return
     setLoading(true)
     try {
-      const res = await authFetch("/api/review/bulk-approve", {
+      const res = await fetch("/api/review/bulk-approve", {
         method: "POST",
         body: JSON.stringify({
           ids: selectedIds,
@@ -89,7 +89,7 @@ export function BulkActionBar({
     setRejectDialogOpen(false)
     setLoading(true)
     try {
-      const res = await authFetch("/api/review/bulk-reject", {
+      const res = await fetch("/api/review/bulk-reject", {
         method: "POST",
         body: JSON.stringify({ ids: selectedIds }),
       })
@@ -111,7 +111,7 @@ export function BulkActionBar({
     if (isDisabled) return
     setLoading(true)
     try {
-      const res = await authFetch("/api/review/bulk-archive", {
+      const res = await fetch("/api/review/bulk-archive", {
         method: "POST",
         body: JSON.stringify({
           ids: selectedIds,
@@ -138,7 +138,7 @@ export function BulkActionBar({
     if (isDisabled) return
     setLoading(true)
     try {
-      const res = await authFetch("/api/review/bulk-activate", {
+      const res = await fetch("/api/review/bulk-activate", {
         method: "POST",
         body: JSON.stringify({ ids: selectedIds }),
       })
