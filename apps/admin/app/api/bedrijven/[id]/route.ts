@@ -20,43 +20,47 @@ async function getBedrijfHandler(
 
     const { data: company, error } = await supabase
       .from('companies')
-      .select(`
-        id,
-        name,
-        website,
-        description,
-        logo_url,
-        linkedin_url,
-        kvk_number,
-        street,
-        city,
-        zipcode,
-        state,
-        country,
-        phone,
-        industry,
-        size_min,
-        size_max,
-        location,
-        status,
-        is_customer,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .eq('id', id)
       .single()
 
-    if (error) {
+    if (error || !company) {
       return NextResponse.json({
         success: false,
         error: 'Bedrijf niet gevonden',
-        details: error.message,
+        details: error?.message,
       }, { status: 404 })
+    }
+
+    // De UI-form gebruikt single-string `industry`, `kvk_number`, `street`, `zipcode` —
+    // remap zodat de bewerken-pagina ongewijzigd blijft. DB heeft `industries: text[]`,
+    // `kvk`, `street_address`, `postal_code`.
+    const data = {
+      id: company.id,
+      name: company.name,
+      website: company.website,
+      description: company.description,
+      logo_url: company.logo_url,
+      linkedin_url: company.linkedin_url,
+      kvk_number: company.kvk,
+      street: company.street_address,
+      city: company.city,
+      zipcode: company.postal_code,
+      state: company.state,
+      country: company.country,
+      phone: company.phone,
+      industry: company.industries?.[0] ?? null,
+      size_min: company.size_min,
+      size_max: company.size_max,
+      location: company.location,
+      status: company.status,
+      is_customer: company.is_customer,
+      created_at: company.created_at,
     }
 
     return NextResponse.json({
       success: true,
-      data: company,
+      data,
     })
   } catch (error) {
     console.error('Error in get company API:', error)
@@ -100,6 +104,9 @@ async function updateBedrijfHandler(
     const locationParts = [sanitizedBody.city, sanitizedBody.state].filter(Boolean)
     const location = locationParts.join(', ') || null
 
+    // UI stuurt single-string `industry`; DB-kolom is `industries: text[]`
+    const industryStr = (sanitizedBody.industry as string)?.trim()
+
     // Normalize optional fields
     const updates: CompanyUpdate = {
       name: sanitizedBody.name as string,
@@ -114,6 +121,7 @@ async function updateBedrijfHandler(
       state: (sanitizedBody.state as string) || null,
       country: (sanitizedBody.country as string) || 'NL',
       phone: (sanitizedBody.phone as string) || null,
+      industries: industryStr ? [industryStr] : null,
       size_min: sanitizedBody.size_min ? parseInt(sanitizedBody.size_min as string) : null,
       size_max: sanitizedBody.size_max ? parseInt(sanitizedBody.size_max as string) : null,
       location,

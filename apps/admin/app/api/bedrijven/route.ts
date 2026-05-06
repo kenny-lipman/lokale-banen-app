@@ -36,6 +36,9 @@ async function createBedrijfHandler(req: NextRequest, _authResult: AuthResult) {
     const locationParts = [city, state].filter(Boolean)
     const location = locationParts.join(', ') || null
 
+    // UI stuurt single-string `industry`; DB-kolom is `industries: text[]`
+    const industryStr = typeof industry === 'string' ? industry.trim() : ''
+
     const insertData: CompanyInsert = {
       name,
       website: website || null,
@@ -49,6 +52,7 @@ async function createBedrijfHandler(req: NextRequest, _authResult: AuthResult) {
       state: state || null,
       country: country || 'NL',
       phone: phone || null,
+      industries: industryStr ? [industryStr] : null,
       size_min: size_min ? parseInt(size_min) : null,
       size_max: size_max ? parseInt(size_max) : null,
       location,
