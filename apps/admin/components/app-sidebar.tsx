@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Layers,
   Mail,
+  Workflow,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
@@ -83,6 +84,11 @@ const data = {
       title: "MailerLite Sync",
       url: "/mailerlite-sync",
       icon: Mail,
+    },
+    {
+      title: "Automatiseringen",
+      url: "/automatiseringen",
+      icon: Workflow,
     },
     {
       title: "Instellingen",
