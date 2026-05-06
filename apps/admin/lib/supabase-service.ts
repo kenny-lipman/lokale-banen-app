@@ -4,8 +4,6 @@ import type { Database } from "./supabase"
 type JobPosting = Database["public"]["Tables"]["job_postings"]["Row"]
 type Company = Database["public"]["Tables"]["companies"]["Row"]
 type JobSource = Database["public"]["Tables"]["job_sources"]["Row"]
-type SearchRequest = Database["public"]["Tables"]["search_requests"]["Row"]
-
 export class SupabaseService {
   /** Use authenticated client for operations that respect RLS and user permissions */
   get client() {
@@ -398,7 +396,7 @@ export class SupabaseService {
               console.warn("getCompanies: Contacts filter error:", contactsError)
               contactFilteredCompanyIds = []
             } else {
-              contactFilteredCompanyIds = [...new Set(companiesWithContacts.map(c => c.company_id))]
+              contactFilteredCompanyIds = [...new Set(companiesWithContacts.map(c => c.company_id).filter((id): id is string => id !== null))]
               console.log("getCompanies: Found", contactFilteredCompanyIds.length, "companies with contacts")
             }
           } else if (hasContacts === 'no_contacts') {
@@ -865,49 +863,6 @@ export class SupabaseService {
     }
   }
 
-  // Create search request (for Otis)
-  async createSearchRequest(query: string, userId?: string) {
-    try {
-      const { data, error } = await this.client
-        .from("search_requests")
-        .insert({
-          query,
-          user_id: userId,
-          status: "pending",
-          started_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
-    } catch (error) {
-      console.error("Error creating search request:", error)
-      throw error
-    }
-  }
-
-  // Update search request status
-  async updateSearchRequest(id: string, status: string, finishedAt?: string) {
-    try {
-      const { data, error } = await this.client
-        .from("search_requests")
-        .update({
-          status,
-          finished_at: finishedAt || new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
-    } catch (error) {
-      console.error("Error updating search request:", error)
-      throw error
-    }
-  }
-
   // Insert new job posting (for Otis scraping)
   async insertJobPosting(jobData: {
     title: string
@@ -967,7 +922,7 @@ export class SupabaseService {
           external_vacancy_id: jobData.external_vacancy_id,
           url: jobData.url,
           description: jobData.description,
-          job_type: jobData.job_type,
+          job_type: jobData.job_type ? [jobData.job_type] : null,
           salary: jobData.salary,
           country: jobData.country || "Netherlands",
           status: "new",
@@ -1027,8 +982,10 @@ export class SupabaseService {
 
   async getScrapingResultsBySessionId(sessionId: string) {
     try {
-      // Get session data
-      const { data: session, error: sessionError } = await this.client
+      // Get session data (otis_workflow_sessions not in generated types)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const untypedClient = this.client as any
+      const { data: session, error: sessionError } = await untypedClient
         .from("otis_workflow_sessions")
         .select("apify_run_id, scraping_status, job_count")
         .eq("session_id", sessionId)
@@ -1114,9 +1071,11 @@ export class SupabaseService {
 
   async updateSessionApifyRun(sessionId: string, apifyRunId: string) {
     try {
-      const { error } = await this.client
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const untypedClient = this.client as any
+      const { error } = await untypedClient
         .from("otis_workflow_sessions")
-        .update({ 
+        .update({
           apify_run_id: apifyRunId,
           scraping_status: 'processing',
           updated_at: new Date().toISOString()
@@ -1574,7 +1533,7 @@ export class SupabaseService {
         }
 
         if (filters.categoryStatus) {
-          const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+          const categoryValues = filters.categoryStatus.split(',').map((s: string) => s.trim())
           query = query.in('qualification_status', categoryValues)
         }
 
@@ -1623,8 +1582,6 @@ export class SupabaseService {
           pipedrive_synced: contact.pipedrive_synced,
           pipedrive_synced_at: contact.pipedrive_synced_at,
           in_campaign: contact.campaign_id && contact.campaign_id.trim() !== '',
-      pipedrive_synced: contact.pipedrive_synced,
-      pipedrive_synced_at: contact.pipedrive_synced_at
         }))
 
         return {
@@ -1683,7 +1640,7 @@ export class SupabaseService {
         }
 
         if (filters.categoryStatus) {
-          const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+          const categoryValues = filters.categoryStatus.split(',').map((s: string) => s.trim())
           query = query.in('qualification_status', categoryValues)
         }
 
@@ -1732,8 +1689,6 @@ export class SupabaseService {
           pipedrive_synced: contact.pipedrive_synced,
           pipedrive_synced_at: contact.pipedrive_synced_at,
           in_campaign: contact.campaign_id && contact.campaign_id.trim() !== '',
-      pipedrive_synced: contact.pipedrive_synced,
-      pipedrive_synced_at: contact.pipedrive_synced_at
         }))
 
         return {
@@ -1742,7 +1697,7 @@ export class SupabaseService {
           totalPages: Math.ceil((count || 0) / limit)
         }
       }
-      
+
     } catch (error) {
       console.error("Error in getContactsWithFilters:", error)
       
@@ -1822,7 +1777,7 @@ export class SupabaseService {
       }
 
       if (filters.categoryStatus) {
-        const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+        const categoryValues = filters.categoryStatus.split(',').map((s: string) => s.trim())
         chunkQuery = chunkQuery.in('qualification_status', categoryValues)
       }
 
@@ -1897,18 +1852,18 @@ export class SupabaseService {
     
     if (filters.companyStatus) {
       console.log(`Applying companyStatus filter: ${filters.companyStatus}`)
-      const statusValues = filters.companyStatus.split(',').map(s => s.trim())
+      const statusValues = filters.companyStatus.split(',').map((s: string) => s.trim())
       
       // Handle null values separately
       const hasNull = statusValues.includes('null')
-      const nonNullValues = statusValues.filter(s => s !== 'null')
-      
+      const nonNullValues = statusValues.filter((s: string) => s !== 'null')
+
       if (hasNull && nonNullValues.length > 0) {
         // Handle both null and non-null values
-        const mappedStatuses = nonNullValues.map(status => {
+        const mappedStatuses = nonNullValues.map((status: string) => {
           const statusMap = {
             'benaderen': 'Benaderen',
-            'prospect': 'Prospect', 
+            'prospect': 'Prospect',
             'disqualified': 'Disqualified',
             'niet meer benaderen': 'Niet meer benaderen'
           } as const
@@ -1920,10 +1875,10 @@ export class SupabaseService {
         companyQuery = companyQuery.is('status', null)
       } else {
         // Only non-null values - use IN for multiple values
-        const mappedStatuses = nonNullValues.map(status => {
+        const mappedStatuses = nonNullValues.map((status: string) => {
           const statusMap = {
             'benaderen': 'Benaderen',
-            'prospect': 'Prospect', 
+            'prospect': 'Prospect',
             'disqualified': 'Disqualified',
             'niet meer benaderen': 'Niet meer benaderen'
           } as const
@@ -1936,18 +1891,18 @@ export class SupabaseService {
     
     if (filters.companyStart) {
       console.log(`Applying companyStart filter: ${filters.companyStart}`)
-      const startValues = filters.companyStart.split(',').map(s => s.trim())
+      const startValues = filters.companyStart.split(',').map((s: string) => s.trim())
       
       // Handle null values separately
       const hasNull = startValues.includes('null')
-      const nonNullValues = startValues.filter(s => s !== 'null')
-      
+      const nonNullValues = startValues.filter((s: string) => s !== 'null')
+
       if (hasNull && nonNullValues.length > 0) {
         // Handle both null and non-null values
-        const mappedStarts = nonNullValues.map(start => {
+        const mappedStarts = nonNullValues.map((start: string) => {
           const startMap = {
             'true': 'Ja',
-            'false': 'Nee', 
+            'false': 'Nee',
             'hold': 'Hold'
           } as const
           return startMap[start.toLowerCase() as keyof typeof startMap] || start
@@ -1958,10 +1913,10 @@ export class SupabaseService {
         companyQuery = companyQuery.is('start', null)
       } else {
         // Only non-null values - use IN for multiple values
-        const mappedStarts = nonNullValues.map(start => {
+        const mappedStarts = nonNullValues.map((start: string) => {
           const startMap = {
             'true': 'Ja',
-            'false': 'Nee', 
+            'false': 'Nee',
             'hold': 'Hold'
           } as const
           return startMap[start.toLowerCase() as keyof typeof startMap] || start
@@ -1973,18 +1928,18 @@ export class SupabaseService {
     
     if (filters.companySize) {
       console.log(`Applying companySize filter: ${filters.companySize}`)
-      const sizeValues = filters.companySize.split(',').map(s => s.trim())
+      const sizeValues = filters.companySize.split(',').map((s: string) => s.trim())
       
       // Handle null values separately
       const hasNull = sizeValues.includes('null')
-      const nonNullValues = sizeValues.filter(s => s !== 'null')
-      
+      const nonNullValues = sizeValues.filter((s: string) => s !== 'null')
+
       if (hasNull && nonNullValues.length > 0) {
         // Handle both null and non-null values
-        const mappedSizes = nonNullValues.map(size => {
+        const mappedSizes = nonNullValues.map((size: string) => {
           const sizeMap = {
             'klein': 'Klein',
-            'middel': 'Middel', 
+            'middel': 'Middel',
             'groot': 'Groot',
             'micro': 'Micro'
           } as const
@@ -1996,10 +1951,10 @@ export class SupabaseService {
         companyQuery = companyQuery.is('category_size', null)
       } else {
         // Only non-null values
-        const mappedSizes = nonNullValues.map(size => {
+        const mappedSizes = nonNullValues.map((size: string) => {
           const sizeMap = {
             'klein': 'Klein',
-            'middel': 'Middel', 
+            'middel': 'Middel',
             'groot': 'Groot',
             'micro': 'Micro'
           } as const
@@ -2120,7 +2075,7 @@ export class SupabaseService {
       }
 
       if (filters.categoryStatus) {
-        const categoryValues = filters.categoryStatus.split(',').map(s => s.trim())
+        const categoryValues = filters.categoryStatus.split(',').map((s: string) => s.trim())
         contactQuery = contactQuery.in('qualification_status', categoryValues)
       }
 
@@ -2407,7 +2362,7 @@ export class SupabaseService {
       const { data: postings, error: postingsError } = await this.client
         .from("job_postings")
         .select("company_id")
-        .eq("region_id", region_id)
+        .eq("region_id" as "id", region_id)
       if (postingsError) throw postingsError
       const companyIds = Array.from(new Set((postings || []).map((p: any) => p.company_id).filter(Boolean)))
       if (companyIds.length === 0) return []
