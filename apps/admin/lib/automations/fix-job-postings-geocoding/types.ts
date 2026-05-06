@@ -44,6 +44,9 @@ export interface BusinessStats {
   geocoding_failed_no_postcode: number
   geocoding_failed_invalid_coords: number
   platform_matched: number
+  platform_matched_via_cities: number
+  postcode_via_random_street: number
+  postcode_via_cities_fallback: number
   queue_remaining: number
   api_calls_used: number
   stopped_early: boolean
