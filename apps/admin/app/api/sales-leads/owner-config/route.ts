@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 
 async function listHandler(_req: NextRequest, _auth: AuthResult) {
@@ -44,5 +44,5 @@ async function createHandler(req: NextRequest, _auth: AuthResult) {
   return NextResponse.json({ config: data }, { status: 201 })
 }
 
-export const GET = withAdminAuth(listHandler)
-export const POST = withAdminAuth(createHandler)
+export const GET = withAuth(listHandler)
+export const POST = withAuth(createHandler)

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import { PipedriveMetaService } from '@/lib/services/sales-leads/pipedrive-meta.service'
 
@@ -28,4 +28,4 @@ async function testHandler(_req: NextRequest, _auth: AuthResult, ctx: { params: 
   }
 }
 
-export const POST = withAdminAuth(testHandler)
+export const POST = withAuth(testHandler)

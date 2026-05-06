@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 
 const UPDATABLE_FIELDS = [
@@ -35,4 +35,4 @@ async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: { params: 
   return NextResponse.json({ config: data })
 }
 
-export const PATCH = withAdminAuth(patchHandler)
+export const PATCH = withAuth(patchHandler)
