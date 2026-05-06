@@ -5,6 +5,8 @@ import { withCronAuth } from '@/lib/auth-middleware'
 import { createClient } from '@supabase/supabase-js'
 
 const TIMEOUT_THRESHOLD_MS = 290_000
+const ORPHAN_CLEANUP_AGE_MS = 6 * 3_600_000  // 6h — beyond any legitimate run
+const POSTGRES_UNIQUE_VIOLATION = '23505'
 
 function getServiceClient() {
   return createClient(
@@ -20,8 +22,39 @@ interface InsertRunParams {
   triggeredByUserId: string | null
 }
 
-async function insertRunningRow(p: InsertRunParams): Promise<string | null> {
+interface InsertRunResult {
+  runId: string | null
+  conflict: boolean
+}
+
+/**
+ * Cleanup orphan 'running' rows older than 6h before inserting a fresh one.
+ * Caused by lambda kills, network drops, etc. Without cleanup, the unique
+ * partial index would block new runs forever.
+ */
+async function cleanupStaleRunning(supabase: ReturnType<typeof getServiceClient>, automationId: string) {
+  const cutoff = new Date(Date.now() - ORPHAN_CLEANUP_AGE_MS).toISOString()
+  const { error } = await supabase
+    .from('automation_runs')
+    .update({
+      status: 'timeout',
+      error_message: 'orphan_run_cleanup',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('automation_id', automationId)
+    .eq('status', 'running')
+    .lt('started_at', cutoff)
+  if (error) {
+    console.error(`[automation-monitor] cleanup stale running for ${automationId} failed:`, error.message)
+  }
+}
+
+async function insertRunningRow(p: InsertRunParams): Promise<InsertRunResult> {
   const supabase = getServiceClient()
+
+  // Janitor: flip stale running rows so legitimate fresh starts aren't blocked
+  await cleanupStaleRunning(supabase, p.automationId)
+
   const { data, error } = await supabase
     .from('automation_runs')
     .insert({
@@ -34,10 +67,15 @@ async function insertRunningRow(p: InsertRunParams): Promise<string | null> {
     .select('id')
     .single()
   if (error) {
+    const code = (error as { code?: string }).code
+    if (code === POSTGRES_UNIQUE_VIOLATION) {
+      console.warn(`[automation-monitor] ${p.automationId} already running, skipping duplicate run`)
+      return { runId: null, conflict: true }
+    }
     console.error(`[automation-monitor] Insert running failed for ${p.automationId}:`, error.message)
-    return null
+    return { runId: null, conflict: false }
   }
-  return data.id
+  return { runId: data.id, conflict: false }
 }
 
 interface UpdateRunParams {
@@ -71,6 +109,8 @@ async function updateRunRow(p: UpdateRunParams) {
 /**
  * Wrapt een handler met:
  * - withCronAuth (CRON_SECRET) — geldt voor zowel scheduled als manual triggers
+ * - Cleanup orphan 'running' rows > 6h voor deze automation_id
+ * - Unique constraint check: bij conflict (al een running row) → 409 zonder handler te draaien
  * - Insert 'running' row → run handler → update row met resultaat
  * - Trigger-source via headers: X-Automation-Trigger (manual/schedule), X-Automation-User-Id
  */
@@ -84,7 +124,17 @@ export function withAutomationMonitoring(automationId: string) {
         : 'schedule' as const
       const triggeredByUserId = req.headers.get('x-automation-user-id')
 
-      const runId = await insertRunningRow({ automationId, startedAt, triggeredBy, triggeredByUserId })
+      const { runId, conflict } = await insertRunningRow({
+        automationId, startedAt, triggeredBy, triggeredByUserId
+      })
+
+      if (conflict) {
+        return NextResponse.json({
+          success: false,
+          error: 'Automation already running',
+          skipped: true,
+        }, { status: 409 })
+      }
 
       try {
         const response = await handler(req)
