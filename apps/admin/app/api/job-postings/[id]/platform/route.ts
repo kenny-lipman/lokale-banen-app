@@ -4,7 +4,7 @@ import type { Database } from '@/lib/supabase'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get the authorization header
@@ -49,12 +49,13 @@ export async function PATCH(
     }
 
     const { platform_id } = await request.json()
+    const { id } = await ctx.params
 
     // Update the job posting's platform_id
     const { data, error } = await supabase
       .from("job_postings")
       .update({ platform_id })
-      .eq("id", params.id)
+      .eq("id", id)
       .select(`
         id,
         platform_id,

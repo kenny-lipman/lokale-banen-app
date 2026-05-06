@@ -3,10 +3,10 @@ import { supabaseService } from '@/lib/supabase-service'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  ctx: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    const { sessionId } = params
+    const { sessionId } = await ctx.params
     
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID is required' }, { status: 400 })

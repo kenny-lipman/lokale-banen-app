@@ -13,11 +13,11 @@ const updateBlocklistEntrySchema = z.object({
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = supabaseService.serviceClient
-    const { id } = params
+    const { id } = await ctx.params
 
     const { data, error } = await supabase
       .from('blocklist_entries')
@@ -51,11 +51,11 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = supabaseService.serviceClient
-    const { id } = params
+    const { id } = await ctx.params
 
     // Note: Authentication temporarily disabled to match other API routes
     // TODO: Implement proper server-side auth when needed
@@ -190,10 +190,10 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await ctx.params
 
     // Note: Authentication temporarily disabled to match other API routes
     // TODO: Implement proper server-side auth when needed

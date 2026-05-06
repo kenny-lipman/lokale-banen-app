@@ -5,10 +5,10 @@ const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFe
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { campaignId: string } }
+  ctx: { params: Promise<{ campaignId: string }> }
 ) {
   try {
-    const { campaignId } = params
+    const { campaignId } = await ctx.params
 
     // Validate campaign ID
     if (!campaignId || typeof campaignId !== 'string') {

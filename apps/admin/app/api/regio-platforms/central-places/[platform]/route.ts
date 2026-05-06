@@ -34,7 +34,7 @@ interface UpdateCentralPlaceResponse {
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { platform: string } }
+  ctx: { params: Promise<{ platform: string }> }
 ) {
   try {
     // Get the current user from the request
@@ -60,7 +60,7 @@ export async function PUT(
     // For now, allow any authenticated user to update central places
     // In production, this should be restricted to admin users only
 
-    const platform = params.platform
+    const { platform } = await ctx.params
     if (!platform) {
       return NextResponse.json(
         { error: 'Platform parameter is required' },
