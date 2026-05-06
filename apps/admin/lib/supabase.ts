@@ -1,15 +1,15 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 // Singleton instance to prevent multiple GoTrueClient instances
-let supabaseInstance: ReturnType<typeof createSupabaseClient<Database>> | null = null
+let supabaseInstance: ReturnType<typeof createBrowserClient<Database>> | null = null
 
 /**
  * Create a Supabase client for client-side operations.
- * This client will automatically handle authentication headers and session management.
- * Uses singleton pattern to prevent multiple GoTrueClient instances.
+ * Uses @supabase/ssr's createBrowserClient so session-tokens worden in cookies
+ * geschreven (sb-* format) die de Next middleware en API routes kunnen lezen.
  */
 export function createClient() {
-  // Return existing instance if it exists
   if (supabaseInstance) {
     return supabaseInstance
   }
@@ -18,37 +18,14 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    // Return a proxy that throws on first use instead of at import time.
-    // This allows Next.js to collect page data during build without env vars.
-    return new Proxy({} as ReturnType<typeof createSupabaseClient<Database>>, {
+    return new Proxy({} as ReturnType<typeof createBrowserClient<Database>>, {
       get() {
         throw new Error('Missing Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY)')
       }
-    }) as unknown as ReturnType<typeof createSupabaseClient<Database>>
+    }) as unknown as ReturnType<typeof createBrowserClient<Database>>
   }
 
-  // Create and cache the instance
-  supabaseInstance = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      storageKey: 'lokale-banen-auth',
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      flowType: 'pkce'
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10
-      }
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'lokale-banen-web'
-      }
-    }
-  })
-
+  supabaseInstance = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
   return supabaseInstance
 }
 
