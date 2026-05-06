@@ -190,6 +190,51 @@ export type Database = {
           },
         ]
       }
+      automation_runs: {
+        Row: {
+          automation_id: string
+          business_stats: Json | null
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          started_at: string
+          status: string
+          triggered_by: string
+          triggered_by_user_id: string | null
+        }
+        Insert: {
+          automation_id: string
+          business_stats?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          started_at: string
+          status: string
+          triggered_by?: string
+          triggered_by_user_id?: string | null
+        }
+        Update: {
+          automation_id?: string
+          business_stats?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string
+          triggered_by_user_id?: string | null
+        }
+        Relationships: []
+      }
       blocklist_entries: {
         Row: {
           block_type: string | null
@@ -1809,6 +1854,8 @@ export type Database = {
           employment: string | null
           end_date: string | null
           external_vacancy_id: string | null
+          geocoding_failed: boolean | null
+          geocoding_failed_reason: string | null
           geog: unknown
           geog_invalid: boolean | null
           header_image_url: string | null
@@ -1819,8 +1866,6 @@ export type Database = {
           lokalebanen_id: string | null
           lokalebanen_pushed_at: string | null
           longitude: string | null
-          geocoding_failed: boolean | null
-          geocoding_failed_reason: string | null
           platform_id: string | null
           published_at: string | null
           review_status: string | null
@@ -1863,6 +1908,8 @@ export type Database = {
           employment?: string | null
           end_date?: string | null
           external_vacancy_id?: string | null
+          geocoding_failed?: boolean | null
+          geocoding_failed_reason?: string | null
           geog?: unknown
           geog_invalid?: boolean | null
           header_image_url?: string | null
@@ -1873,8 +1920,6 @@ export type Database = {
           lokalebanen_id?: string | null
           lokalebanen_pushed_at?: string | null
           longitude?: string | null
-          geocoding_failed?: boolean | null
-          geocoding_failed_reason?: string | null
           platform_id?: string | null
           published_at?: string | null
           review_status?: string | null
@@ -1917,6 +1962,8 @@ export type Database = {
           employment?: string | null
           end_date?: string | null
           external_vacancy_id?: string | null
+          geocoding_failed?: boolean | null
+          geocoding_failed_reason?: string | null
           geog?: unknown
           geog_invalid?: boolean | null
           header_image_url?: string | null
@@ -1927,8 +1974,6 @@ export type Database = {
           lokalebanen_id?: string | null
           lokalebanen_pushed_at?: string | null
           longitude?: string | null
-          geocoding_failed?: boolean | null
-          geocoding_failed_reason?: string | null
           platform_id?: string | null
           published_at?: string | null
           review_status?: string | null
@@ -2186,6 +2231,39 @@ export type Database = {
           sync_success?: boolean | null
           synced_at?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      password_reset_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          requested_ip: string | null
+          token_hash: string
+          used_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          requested_ip?: string | null
+          token_hash: string
+          used_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          requested_ip?: string | null
+          token_hash?: string
+          used_at?: string | null
+          user_agent?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -3395,6 +3473,18 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_automation_run_stats: {
+        Args: { filter_automation_id?: string; since_date: string }
+        Returns: {
+          automation_id: string
+          avg_duration_ms: number
+          error_count: number
+          max_duration_ms: number
+          success_count: number
+          timeout_count: number
+          total_runs: number
+        }[]
+      }
       get_campaign_assignment_candidates: {
         Args: { p_max_per_platform?: number; p_max_total?: number }
         Returns: {
