@@ -108,13 +108,15 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       continue
     }
 
+    // ── Step 0: cities-tabel lookup voor fallback (geen API call) ──
+    const citiesByName = await findCityByName(supabase, city)
+
     let addr = outcome.result.address
     let postcode = addr.postcode ?? null
 
-    // Reverse-fallback: forward search op city-only matches geeft vaak geen postcode.
-    // Doe een reverse call op de lat/lng om alsnog een specifiek adres te krijgen.
+    // ── Step 1: reverse-fallback (city-only matches missen vaak postcode) ──
     if (!postcode) {
-      await sleep(ITEM_DELAY_MS)  // rate limit tussen calls
+      await sleep(ITEM_DELAY_MS)
       let reverseOutcome = await reverseGeocode(outcome.result.lat, outcome.result.lon, { apiKey })
       stats.api_calls_used++
 
@@ -128,6 +130,33 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
         addr = reverseOutcome.result.address
         postcode = addr.postcode ?? null
       }
+    }
+
+    // ── Step 2: random-street offset reverse — pak willekeurig adres in de buurt ──
+    if (!postcode) {
+      const lat0 = Number(outcome.result.lat)
+      const lon0 = Number(outcome.result.lon)
+      if (Number.isFinite(lat0) && Number.isFinite(lon0)) {
+        await sleep(ITEM_DELAY_MS)
+        const offsetOutcome = await reverseGeocode(
+          lat0 + RANDOM_STREET_OFFSET,
+          lon0 + RANDOM_STREET_OFFSET,
+          { apiKey }
+        )
+        stats.api_calls_used++
+
+        if (offsetOutcome.ok && offsetOutcome.result.address.postcode) {
+          addr = offsetOutcome.result.address
+          postcode = addr.postcode ?? null
+          stats.postcode_via_random_street++
+        }
+      }
+    }
+
+    // ── Step 3: cities-table 4-digit postcode fallback ──
+    if (!postcode && citiesByName?.postcode_4digit) {
+      postcode = citiesByName.postcode_4digit
+      stats.postcode_via_cities_fallback++
     }
 
     if (!postcode) {
@@ -149,9 +178,24 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
 
     const prefix = extractPostcodePrefix(postcode)
     let platformId: string | null = null
+    let platformViaCities = false
+
     if (prefix) {
       platformId = await findPlatformIdByPostcode(supabase, prefix)
-      if (platformId) stats.platform_matched++
+    }
+
+    // Fallback: cities-by-name platform_id wanneer postcode-lookup faalt
+    if (!platformId && citiesByName?.platform_id) {
+      platformId = citiesByName.platform_id
+      platformViaCities = true
+    }
+
+    if (platformId) {
+      if (platformViaCities) {
+        stats.platform_matched_via_cities++
+      } else {
+        stats.platform_matched++
+      }
     }
 
     const { error: updateErr } = await supabase
