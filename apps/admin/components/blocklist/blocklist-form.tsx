@@ -45,7 +45,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { authenticatedGet } from "@/lib/api-client"
 
 // Simplified schema with single block_type selector
 const blocklistSchema = z.object({

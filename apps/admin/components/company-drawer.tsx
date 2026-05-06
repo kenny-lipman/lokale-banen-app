@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive, Crown, RefreshCw, Mail, Link, Phone, Hash, Linkedin, Database, Calendar, Tag, Eye } from "lucide-react"
-import { authFetch } from "@/lib/authenticated-fetch"
 
 interface JobPosting {
   id: string

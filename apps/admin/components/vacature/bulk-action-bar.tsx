@@ -25,7 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 
 export interface BulkActionBarProps {

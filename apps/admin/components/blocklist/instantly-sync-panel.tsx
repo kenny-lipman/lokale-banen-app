@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { BlocklistSyncStatus } from "@/components/blocklist/blocklist-sync-status"
-import { authenticatedFetch } from "@/lib/api-client"
 import {
   CheckCircle2,
   AlertTriangle,

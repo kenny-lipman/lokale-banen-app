@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { OwnerConfigEditModal } from "@/components/sales/owner-config-edit-modal"
 import { Pencil, RefreshCw, Settings } from "lucide-react"
-import { authFetch } from "@/lib/authenticated-fetch"
 
 type OwnerConfig = {
   id: string

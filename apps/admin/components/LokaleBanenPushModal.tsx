@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { AlertCircle, CheckCircle, XCircle, Loader2, Upload, ArrowRight } from 'lucide-react'
-import { authenticatedFetch } from '@/lib/authenticated-fetch'
 
 // ============================================================================
 // Types

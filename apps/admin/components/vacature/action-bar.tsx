@@ -31,7 +31,6 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

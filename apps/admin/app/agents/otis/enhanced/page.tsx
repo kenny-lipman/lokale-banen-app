@@ -47,7 +47,6 @@ import {
 import { JobPostingsTable } from '@/components/job-postings-table'
 import { CompanyDetailsDrawer } from '@/components/company-details-drawer'
 import { CampaignConfirmationModal, Contact, Campaign } from '@/components/CampaignConfirmationModal'
-import { authFetch } from '@/lib/authenticated-fetch'
 
 interface ScrapingJob {
   id: string

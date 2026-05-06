@@ -16,7 +16,6 @@ import type {
   PipedriveDealField,
   OwnerConfigTestResult,
 } from "@/lib/services/sales-leads/types"
-import { authFetch } from "@/lib/authenticated-fetch"
 
 type OwnerConfig = {
   id: string

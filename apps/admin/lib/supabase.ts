@@ -1670,44 +1670,6 @@ export type Database = {
         }
         Relationships: []
       }
-      invitations: {
-        Row: {
-          accepted: boolean | null
-          created_at: string | null
-          email: string
-          id: string
-          invited_by: string | null
-          role: string
-          token: string
-        }
-        Insert: {
-          accepted?: boolean | null
-          created_at?: string | null
-          email: string
-          id?: string
-          invited_by?: string | null
-          role: string
-          token: string
-        }
-        Update: {
-          accepted?: boolean | null
-          created_at?: string | null
-          email?: string
-          id?: string
-          invited_by?: string | null
-          role?: string
-          token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invitations_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       job_applications: {
         Row: {
           applied_at: string | null

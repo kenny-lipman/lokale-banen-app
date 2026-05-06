@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
-import { authFetch } from "@/lib/authenticated-fetch"
 
 export interface BlocklistEntry {
   id: string

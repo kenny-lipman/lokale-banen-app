@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { X } from 'lucide-react'
 import { stap1FormSchema, type Stap1FormValues } from '@/lib/sales-leads/api-schemas'
 import { useToast } from '@/hooks/use-toast'
-import { authFetch } from '@/lib/authenticated-fetch'
 
 type OwnerOption = {
   id: string

@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { AlertTriangle, CheckCircle2, XCircle, Users, Shield, Loader2, Eye, EyeOff } from 'lucide-react';
-import { authFetch } from '@/lib/authenticated-fetch';
 
 interface CampaignValidationProps {
   contacts: any[];

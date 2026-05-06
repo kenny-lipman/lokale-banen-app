@@ -16,7 +16,6 @@ import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
 import { LeadDealNoteTextarea } from '@/components/sales/lead-deal-note-textarea'
 import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-warnings'
 import type { MasterRecord, NormalizedContact, NormalizedVacancy } from '@/lib/services/sales-leads/types'
-import { authFetch } from '@/lib/authenticated-fetch'
 
 type PageProps = { params: Promise<{ run_id: string }> }
 type OwnerConfig = {

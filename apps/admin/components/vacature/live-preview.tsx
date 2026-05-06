@@ -13,7 +13,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 
 export interface LivePreviewProps {

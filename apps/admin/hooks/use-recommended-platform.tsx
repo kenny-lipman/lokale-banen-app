@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { authFetch } from '@/lib/authenticated-fetch';
 
 export interface RecommendedPlatform {
   id: string;

@@ -21,7 +21,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Combobox } from "@/components/ui/combobox"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import { ArrowLeft, Loader2, Plus, Briefcase } from "lucide-react"
 import Link from "next/link"

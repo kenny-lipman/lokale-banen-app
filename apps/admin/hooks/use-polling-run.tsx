@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
-import { authFetch } from '@/lib/authenticated-fetch'
 
 type PollingState = {
   run: RunDetailResponse['run'] | null

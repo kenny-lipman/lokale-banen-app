@@ -27,7 +27,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Combobox } from "@/components/ui/combobox"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import { ArrowLeft, Loader2, Trash2, Briefcase, ImageIcon, Sparkles } from "lucide-react"
 import Link from "next/link"

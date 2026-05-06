@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

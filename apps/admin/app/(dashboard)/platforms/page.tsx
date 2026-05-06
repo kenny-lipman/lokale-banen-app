@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import Link from "next/link"
 import {

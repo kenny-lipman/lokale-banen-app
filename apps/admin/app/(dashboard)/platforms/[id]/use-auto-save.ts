@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import { warnIfPostPublishIssue } from "@/lib/publication-toasts"
 

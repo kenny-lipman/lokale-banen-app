@@ -25,7 +25,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import { ArrowLeft, Loader2, Trash2, Building2 } from "lucide-react"
 import Link from "next/link"

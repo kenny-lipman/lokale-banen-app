@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { authFetch } from '@/lib/authenticated-fetch'
 
 export interface LocationCount {
   name: string

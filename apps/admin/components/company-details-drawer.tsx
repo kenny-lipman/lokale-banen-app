@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { EnrichmentButton, EnrichmentStatusBadge } from "@/components/ui/enrichment-button"
 import { ContextualHelp, QuickHelpTooltip, ProgressiveHelp } from "@/components/ui/contextual-help"
 import { useEnrichmentPolling } from "@/hooks/use-enrichment-polling"

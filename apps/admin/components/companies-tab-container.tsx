@@ -23,7 +23,6 @@ import {
   Globe
 } from 'lucide-react'
 import { supabaseService } from '@/lib/supabase-service'
-import { authFetch } from '@/lib/authenticated-fetch'
 
 interface Company {
   id: string

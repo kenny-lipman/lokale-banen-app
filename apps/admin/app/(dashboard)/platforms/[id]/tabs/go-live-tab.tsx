@@ -33,7 +33,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { toast } from "sonner"
 import { warnIfPostPublishIssue } from "@/lib/publication-toasts"
 import type { GoLiveCheckResponse, PlatformDetail } from "../types"

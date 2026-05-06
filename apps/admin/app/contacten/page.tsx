@@ -16,7 +16,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3, Eye, ArrowUpRight } from "lucide-react"
 import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
 import { useDebounce } from "@/hooks/use-debounce"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { useToast } from "@/hooks/use-toast"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { PipedriveSyncDialog } from "@/components/pipedrive-sync-dialog"

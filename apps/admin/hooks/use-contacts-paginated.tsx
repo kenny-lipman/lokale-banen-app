@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react"
-import { authFetch } from "@/lib/authenticated-fetch"
 import { supabaseService } from "@/lib/supabase-service"
 
 interface ContactsFilters {

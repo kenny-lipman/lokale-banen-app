@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertCircle, RefreshCw, CheckCircle, XCircle, ArrowRightLeft } from 'lucide-react'
-import { authenticatedFetch } from '@/lib/authenticated-fetch'
 import { toast } from 'sonner'
 
 // ============================================================================
