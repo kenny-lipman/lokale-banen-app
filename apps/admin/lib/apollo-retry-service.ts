@@ -154,10 +154,7 @@ export class ApolloRetryService {
       await this.client
         .from('enrichment_status')
         .update({
-          retry_count: attempt.attempt,
-          last_retry_at: attempt.timestamp,
           error_message: getUserFriendlyMessage(attempt.classification, attempt.attempt),
-          failure_reason: attempt.classification.category,
           updated_at: attempt.timestamp
         })
         .eq('batch_id', batch.id)
@@ -190,9 +187,7 @@ export class ApolloRetryService {
         .from('enrichment_status')
         .update({
           status: 'completed',
-          retry_count: finalAttempt,
           error_message: null,
-          failure_reason: null,
           processing_completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -227,10 +222,7 @@ export class ApolloRetryService {
         .from('enrichment_status')
         .update({
           status: 'failed',
-          retry_count: attempts.length,
-          last_retry_at: lastAttempt.timestamp,
           error_message: getUserFriendlyMessage(lastAttempt.classification),
-          failure_reason: lastAttempt.classification.category,
           processing_completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -322,7 +314,6 @@ export class ApolloRetryService {
         .from('enrichment_status')
         .update({
           status: 'queued_for_retry',
-          retry_scheduled_at: new Date(Date.now() + retryAfter).toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('batch_id', batch.id)

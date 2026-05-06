@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase"
-import { cacheService } from "@/lib/cache-service"
+import { cacheService, CacheService } from "@/lib/cache-service"
 import { performanceMonitor } from "@/lib/performance-monitoring"
 
 export interface BatchStatusResponse {
@@ -37,7 +37,7 @@ export class ApolloStatusService {
    * Get enrichment status for a batch with optimized database queries
    */
   async getBatchStatus(batchId: string): Promise<BatchStatusResponse | BatchStatusError> {
-    const cacheKey = cacheService.constructor.getBatchKey(batchId)
+    const cacheKey = CacheService.getBatchKey(batchId)
     
     return performanceMonitor.timeFunction(
       'apollo_status_service.getBatchStatus',
@@ -116,11 +116,11 @@ export class ApolloStatusService {
             success: true,
             data: {
               batch_id: batchData.batch_id,
-              status: batchData.status,
+              status: batchData.status as BatchStatusResponse['data']['status'],
               total_companies: batchData.total_companies,
               completed_companies: batchData.completed_companies,
               failed_companies: batchData.failed_companies,
-              started_at: batchData.started_at,
+              started_at: batchData.started_at ?? '',
               completed_at: batchData.completed_at,
               error_message: batchData.error_message,
               company_results: companyResults
@@ -153,7 +153,7 @@ export class ApolloStatusService {
    * Get lightweight status for polling - only essential fields
    */
   async getLightweightBatchStatus(batchId: string): Promise<BatchStatusResponse | BatchStatusError> {
-    const cacheKey = cacheService.constructor.getStatusKey(batchId, true)
+    const cacheKey = CacheService.getStatusKey(batchId, true)
     
     return performanceMonitor.timeFunction(
       'apollo_status_service.getLightweightBatchStatus',
@@ -204,11 +204,11 @@ export class ApolloStatusService {
             success: true,
             data: {
               batch_id: batchData.batch_id,
-              status: batchData.status,
+              status: batchData.status as BatchStatusResponse['data']['status'],
               total_companies: batchData.total_companies,
               completed_companies: batchData.completed_companies,
               failed_companies: batchData.failed_companies,
-              started_at: batchData.started_at,
+              started_at: batchData.started_at ?? '',
               completed_at: batchData.completed_at,
               error_message: batchData.error_message,
               company_results: [] // Empty for lightweight response
@@ -236,9 +236,9 @@ export class ApolloStatusService {
    * Clear cache for a specific batch (used when status is updated)
    */
   clearCache(batchId: string): void {
-    const batchKey = cacheService.constructor.getBatchKey(batchId)
-    const statusKey = cacheService.constructor.getStatusKey(batchId, false)
-    const lightStatusKey = cacheService.constructor.getStatusKey(batchId, true)
+    const batchKey = CacheService.getBatchKey(batchId)
+    const statusKey = CacheService.getStatusKey(batchId, false)
+    const lightStatusKey = CacheService.getStatusKey(batchId, true)
     
     cacheService.delete(batchKey)
     cacheService.delete(statusKey)
