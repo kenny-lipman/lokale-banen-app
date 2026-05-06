@@ -258,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Improved authentication check - more reliable
   const isAuthenticated = authState === 'AUTHENTICATED' && !!user && !!session
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = (user?.app_metadata as Record<string, unknown> | undefined)?.role === "admin"
 
   // Debug logging
   useEffect(() => {
