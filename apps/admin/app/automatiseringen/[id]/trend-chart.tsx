@@ -10,10 +10,11 @@ interface Run {
 }
 
 export function TrendChart({ runs, primaryStatKey }: { runs: Run[]; primaryStatKey: string | null }) {
-  if (!primaryStatKey || runs.length === 0) {
+  if (!primaryStatKey || runs.filter(r => r.status !== 'running').length === 0) {
     return <p className="text-sm text-gray-400">Geen data</p>
   }
   const data = [...runs]
+    .filter((r) => r.status !== 'running')
     .reverse()
     .map((r) => ({
       time: new Date(r.started_at).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit' }),

@@ -73,7 +73,8 @@ export default async function AutomationDetailPage({
   if (!detail) notFound()
 
   const { automation, stats, runs } = detail
-  const latest = runs[0] ?? null
+  const latest = runs.find(r => r.status !== 'running') ?? null
+  const isRunning = runs.some(r => r.status === 'running')
 
   return (
     <div className="p-6 space-y-6">
@@ -92,8 +93,13 @@ export default async function AutomationDetailPage({
                 latest.status === 'success' ? 'bg-green-100 text-green-800'
                 : latest.status === 'error' ? 'bg-red-100 text-red-800'
                 : latest.status === 'timeout' ? 'bg-orange-100 text-orange-800'
-                : 'bg-blue-100 text-blue-800'
+                : 'bg-gray-100 text-gray-800'
               }`}>{latest.status}</span>
+            )}
+            {isRunning && (
+              <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 animate-pulse">
+                running
+              </span>
             )}
             <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700">{automation.category}</span>
           </div>
