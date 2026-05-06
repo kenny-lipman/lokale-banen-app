@@ -28,3 +28,40 @@ export async function findPlatformIdByPostcode(
   }
   return data?.platform_id ?? null
 }
+
+export interface CityFallback {
+  platform_id: string | null
+  postcode_4digit: string | null
+}
+
+/**
+ * Direct cities-tabel lookup op city naam (case-insensitive).
+ * Gebruikt als fallback wanneer LocationIQ geen postcode/platform geeft.
+ * Returnt null bij geen match of DB-error.
+ */
+export async function findCityByName(
+  supabase: SupabaseClient,
+  cityName: string,
+): Promise<CityFallback | null> {
+  const trimmed = cityName.trim()
+  if (!trimmed) return null
+
+  const { data, error } = await supabase
+    .from('cities')
+    .select('platform_id, postcode')
+    .ilike('plaats', trimmed)
+    .not('postcode', 'is', null)
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error(`[platform-lookup] findCityByName ${trimmed}:`, error.message)
+    return null
+  }
+  if (!data) return null
+
+  return {
+    platform_id: data.platform_id ?? null,
+    postcode_4digit: data.postcode ?? null,
+  }
+}
