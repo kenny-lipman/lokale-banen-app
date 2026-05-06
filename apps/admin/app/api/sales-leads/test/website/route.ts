@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { WebsiteService, WebsiteServiceError } from '@/lib/services/sales-leads/website.service'
 import { discoverCareerPage } from '@/lib/services/sales-leads/website/career-page-discovery'
 import { discoverInfoPages } from '@/lib/services/sales-leads/website/page-discovery'
@@ -54,4 +54,4 @@ async function handler(req: NextRequest, _auth: AuthResult) {
   }
 }
 
-export const GET = withAdminAuth(handler)
+export const GET = withAuth(handler)

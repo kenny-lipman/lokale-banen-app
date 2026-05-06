@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { Json } from '@/lib/supabase'
 import { EnrichmentOrchestratorService } from '@/lib/services/sales-leads/enrichment-orchestrator.service'
@@ -146,4 +146,4 @@ async function handler(req: NextRequest, auth: AuthResult) {
   return NextResponse.json({ run_id: inserted.id }, { status: 201 })
 }
 
-export const POST = withAdminAuth(handler)
+export const POST = withAuth(handler)

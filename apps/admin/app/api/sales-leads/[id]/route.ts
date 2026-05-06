@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { Json } from '@/lib/supabase'
 
@@ -63,5 +63,5 @@ async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: RouteConte
   return NextResponse.json({ ok: true })
 }
 
-export const GET = withAdminAuth(getHandler)
-export const PATCH = withAdminAuth(patchHandler)
+export const GET = withAuth(getHandler)
+export const PATCH = withAuth(patchHandler)

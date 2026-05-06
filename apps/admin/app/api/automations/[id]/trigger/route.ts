@@ -1,7 +1,7 @@
 // apps/admin/app/api/automations/[id]/trigger/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createClient } from '@supabase/supabase-js'
 import { getAutomation } from '@/lib/automations-registry'
 
@@ -72,4 +72,4 @@ async function triggerHandler(
   }
 }
 
-export const POST = withAdminAuth(triggerHandler)
+export const POST = withAuth(triggerHandler)

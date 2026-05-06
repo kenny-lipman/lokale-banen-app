@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { withAdminAuth, AuthResult } from "@/lib/auth-middleware"
+import { withAuth, AuthResult } from "@/lib/auth-middleware"
 import { createServiceRoleClient } from "@/lib/supabase-server"
 import { unpublishPlatform } from "@/lib/services/platform-publication.service"
 
@@ -33,4 +33,4 @@ async function postHandler(
   }
 }
 
-export const POST = withAdminAuth(postHandler)
+export const POST = withAuth(postHandler)

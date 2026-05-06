@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { MapsService, MapsApiError } from '@/lib/services/sales-leads/maps.service'
 
 async function handler(req: NextRequest, _auth: AuthResult) {
@@ -37,4 +37,4 @@ async function handler(req: NextRequest, _auth: AuthResult) {
   }
 }
 
-export const GET = withAdminAuth(handler)
+export const GET = withAuth(handler)

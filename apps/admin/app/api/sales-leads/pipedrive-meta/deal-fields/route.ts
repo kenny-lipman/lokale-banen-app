@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAdminAuth } from '@/lib/auth-middleware'
+import { withAuth } from '@/lib/auth-middleware'
 import { PipedriveMetaService } from '@/lib/services/sales-leads/pipedrive-meta.service'
 
 async function handler(_req: NextRequest) {
@@ -13,4 +13,4 @@ async function handler(_req: NextRequest) {
   }
 }
 
-export const GET = withAdminAuth(handler)
+export const GET = withAuth(handler)
