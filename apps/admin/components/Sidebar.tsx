@@ -20,6 +20,7 @@ import {
   ArrowLeftRight,
   Mail,
   Monitor,
+  Workflow,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 
@@ -59,6 +60,7 @@ const menu = [
   { href: "/mailerlite-sync", icon: Mail, label: "MailerLite Sync" },
   { href: "/platforms", icon: Monitor, label: "Platforms" },
   { href: "/regios", icon: MapPin, label: "Regio's" },
+  { href: "/automatiseringen", icon: Workflow, label: "Automatiseringen" },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
 
