@@ -82,8 +82,9 @@ export function QuickBlockModal({
       const newEntry = await createEntry({
         type,
         value: value.trim().toLowerCase(),
-        reason: reason.trim()
-      } as Parameters<typeof createEntry>[0]);
+        reason: reason.trim(),
+        is_active: true,
+      });
 
       if (newEntry) {
         // Trigger sync to external platforms if enabled

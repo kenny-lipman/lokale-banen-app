@@ -217,8 +217,9 @@ export function BulkContactActions({
             await createEntry({
               type: 'domain',
               value: domain,
-              reason: reason.trim()
-            } as Parameters<typeof createEntry>[0]);
+              reason: reason.trim(),
+              is_active: true,
+            });
 
             for (const contact of contacts) {
               results.push({
@@ -257,8 +258,9 @@ export function BulkContactActions({
             await createEntry({
               type: 'email',
               value: item.email,
-              reason: reason.trim()
-            } as Parameters<typeof createEntry>[0]);
+              reason: reason.trim(),
+              is_active: true,
+            });
 
             results.push({
               contact: item.contact,

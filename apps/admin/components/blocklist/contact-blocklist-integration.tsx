@@ -87,10 +87,11 @@ export function ContactBlocklistIntegration({
       const reason = `Geblokkeerd via contact: ${contact.name || email}`;
 
       const newEntry = await createEntry({
-        type: 'email' as const,
+        type: 'email',
         value: email,
-        reason
-      } as Parameters<typeof createEntry>[0]);
+        reason,
+        is_active: true,
+      });
 
       toast({
         title: 'Contact geblokkeerd',
