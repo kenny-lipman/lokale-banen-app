@@ -32,8 +32,7 @@ export function useApifyRunsProcessing({ initialRuns }: UseApifyRunsProcessingPr
           ...initialRun,
           processing_status: existingRun.processing_status,
           processing_notes: existingRun.processing_notes,
-          processed_at: existingRun.processed_at,
-          processed_by: existingRun.processed_by
+          processed_at: existingRun.processed_at
         } : initialRun
       })
     })

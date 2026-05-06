@@ -54,6 +54,7 @@ interface Company {
   category_size?: string
   lastScraped?: string
   scrapingInProgress?: boolean
+  apifyRunId?: string
 }
 
 interface Contact {
@@ -641,7 +642,7 @@ export default function BufferzonePage() {
                         
                         <div className="flex items-center gap-2">
                           {company.contactsFound > 0 ? (
-                            <Badge variant="success" className="text-xs">
+                            <Badge variant="default" className="text-xs bg-green-100 text-green-700 hover:bg-green-100">
                               {companyContacts.filter(c => c.campaign_id).length} assigned
                             </Badge>
                           ) : (
@@ -749,7 +750,7 @@ export default function BufferzonePage() {
                                   <div className="flex items-center gap-2">
                                     <StatusBadge status={contact.scrapingStatus || 'scraped'} />
                                     {contact.campaign_name && (
-                                      <Badge variant="success" className="text-xs">
+                                      <Badge variant="default" className="text-xs bg-green-100 text-green-700 hover:bg-green-100">
                                         {contact.campaign_name}
                                       </Badge>
                                     )}

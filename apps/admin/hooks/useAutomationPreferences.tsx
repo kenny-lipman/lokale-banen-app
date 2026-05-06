@@ -35,7 +35,7 @@ export const useAutomationPreferences = (): UseAutomationPreferencesReturn => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout>()
+  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const pendingSavesRef = useRef<Set<string>>(new Set())
 
   // Debounced save function

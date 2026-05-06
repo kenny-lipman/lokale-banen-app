@@ -10,6 +10,7 @@ export interface Company {
   location?: string | null
   job_counts: number // Number of job postings for this company
   apollo_enriched_at?: string | null // Apollo enrichment timestamp
+  region_id?: string | null
   // Add other Company interface properties as needed
 }
 

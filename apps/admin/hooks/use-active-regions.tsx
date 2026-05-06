@@ -5,8 +5,10 @@ interface Region {
   id: string
   regio_platform: string
   plaats: string
-  postcode: string
-  created_at: string
+  postcode: string | null
+  created_at: string | null
+  is_active?: boolean | null
+  platform_id?: string | null
 }
 
 const activeRegionsCache: { data?: Region[] } = {}

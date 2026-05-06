@@ -516,9 +516,13 @@ export function CompanyDetailsDrawer({
 
                 {/* Contextual help */}
                 <ContextualHelp
-                  phase={pollingState.isPolling ? pollingState.pollingPhase : (company.enrichment_status || 'idle')}
+                  phase={
+                    pollingState.isPolling
+                      ? (pollingState.pollingPhase === 'active' ? 'processing' : pollingState.pollingPhase === 'stopped' ? 'idle' : pollingState.pollingPhase)
+                      : (company.enrichment_status || 'idle')
+                  }
                   elapsedTime={pollingState.elapsedTime}
-                  progress={pollingState.progress}
+                  progress={pollingState.progress ?? undefined}
                   className="mt-4"
                 />
               </CardContent>

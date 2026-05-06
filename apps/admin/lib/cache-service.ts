@@ -168,7 +168,7 @@ export class CacheService {
   /**
    * Cache warming for frequently accessed data
    */
-  warmCache(warmingData: Array<{key: string, data: any, ttlType?: keyof typeof this.TTL_CONFIG}>): void {
+  warmCache(warmingData: Array<{key: string, data: any, ttlType?: 'default' | 'enrichment_completed' | 'enrichment_active' | 'company_data' | 'batch_status'}>): void {
     warmingData.forEach(({ key, data, ttlType = 'default' }) => {
       this.set(key, data, ttlType)
     })

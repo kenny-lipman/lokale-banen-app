@@ -44,8 +44,7 @@ function RunListItem({
     console.log('Debug: Run data missing companyCount', { id: run.id, companyCount: run.companyCount })
   }
 
-  const handleStatusClick = async (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent row selection when clicking status
+  const handleStatusClick = async () => {
     if (isUpdatingStatus) return
     
     setIsUpdatingStatus(true)

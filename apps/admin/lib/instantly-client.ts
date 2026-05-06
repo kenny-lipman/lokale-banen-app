@@ -255,9 +255,9 @@ export class InstantlyClient {
     const url = `${this.baseUrl}${endpoint}`
 
     // Only add Content-Type header for requests with a body
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Authorization': `Bearer ${this.apiKey}`,
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     }
 
     // Add Content-Type only if there's a body and it's not a DELETE request
@@ -1293,6 +1293,6 @@ export function getInstantlyClient(): InstantlyClient {
 /** @deprecated Use getInstantlyClient() instead */
 export const instantlyClient = new Proxy({} as InstantlyClient, {
   get(_target, prop) {
-    return (getInstantlyClient() as Record<string | symbol, unknown>)[prop]
+    return (getInstantlyClient() as unknown as Record<string | symbol, unknown>)[prop]
   }
 })

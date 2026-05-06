@@ -49,7 +49,13 @@ export interface UseMailerLiteSyncReturn {
   toggleAutoRefresh: () => void;
 }
 
-const DEFAULT_STATS = {
+const DEFAULT_STATS: {
+  total: number;
+  successCount: number;
+  errorCount: number;
+  successRate: number;
+  lastSyncAt: string | null;
+} = {
   total: 0,
   successCount: 0,
   errorCount: 0,

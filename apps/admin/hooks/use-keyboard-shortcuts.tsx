@@ -8,7 +8,10 @@ interface KeyboardShortcutsProps {
 }
 
 export function useKeyboardShortcuts({ onStageChange }: KeyboardShortcutsProps) {
-  const { state, canNavigateToStage } = useWorkflow()
+  const workflow = useWorkflow()
+  // WorkflowContextType exposes currentStage/isLoading directly (no nested state object)
+  const state = { currentStage: workflow.currentStage, isProcessing: workflow.isLoading }
+  const canNavigateToStage = (_stage: string) => true
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

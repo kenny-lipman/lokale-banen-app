@@ -882,7 +882,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
       {/* Job Posting Drawer - only render if not using external drawer */}
       {!useExternalDrawer && (
         <JobPostingDrawer
-          job={selectedJob}
+          job={selectedJob as any}
           open={drawerOpen}
           onClose={() => {
             setDrawerOpen(false)

@@ -488,7 +488,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   }
 
   const selectAllForQualification = () => {
-    const allIds = filteredCompanies.map(company => company.id)
+    const allIds = filteredCompanies.map((company: Company) => company.id)
     setQualificationSelectedIds(
       qualificationSelectedIds.length === allIds.length ? [] : allIds
     )

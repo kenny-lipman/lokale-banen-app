@@ -20,7 +20,7 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
   callback: T,
   delay: number
 ): T {
-  const timeoutRef = useRef<NodeJS.Timeout | undefined>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   return ((...args: Parameters<T>) => {
     if (timeoutRef.current) {

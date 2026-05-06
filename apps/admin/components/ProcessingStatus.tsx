@@ -8,7 +8,7 @@ export type ProcessingStatusType = 'not_started' | 'in_progress' | 'completed'
 
 interface ProcessingStatusProps {
   status: ProcessingStatusType
-  onClick?: () => void
+  onClick?: () => void | Promise<void>
   size?: 'sm' | 'md' | 'lg'
   showLabel?: boolean
   className?: string

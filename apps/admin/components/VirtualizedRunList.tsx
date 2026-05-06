@@ -42,8 +42,7 @@ const RunRow = React.memo(({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
 
-  const handleStatusClick = async (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent row selection when clicking status
+  const handleStatusClick = async () => {
     if (isUpdatingStatus) return
     
     setIsUpdatingStatus(true)

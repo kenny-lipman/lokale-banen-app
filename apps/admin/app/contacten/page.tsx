@@ -1400,7 +1400,7 @@ export default function ContactsPage() {
 
       {/* Contact Details Drawer */}
       <ContactDetailsDrawer
-        contact={selectedContactForDrawer}
+        contact={selectedContactForDrawer as any}
         open={!!selectedContactForDrawer}
         onClose={handleCloseContactDrawer}
       />

@@ -215,7 +215,7 @@ function JobPostingsContent() {
 
       {/* Job Posting Drawer controlled by URL */}
       <JobPostingDrawer
-        job={selectedJobForDrawer}
+        job={selectedJobForDrawer as any}
         open={!!selectedJobForDrawer}
         onClose={handleCloseJobDrawer}
         onJobChange={async () => {

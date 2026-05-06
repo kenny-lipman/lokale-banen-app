@@ -50,8 +50,7 @@ export default function RegisterPage() {
         email,
         password,
         options: {
-          data: { full_name: fullName },
-          user_metadata: { full_name: fullName }
+          data: { full_name: fullName }
         }
       })
       if (error) throw error

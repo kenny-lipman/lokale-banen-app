@@ -131,7 +131,7 @@ export function CompaniesTabContainer({
   const loadTabData = async (tabName: string) => {
     try {
       setLoading(true)
-      const result = await supabaseService.getCompanies(getFilterParams(tabName))
+      const result = await supabaseService.getCompanies(getFilterParams(tabName) as any)
       setCompanies(result.data || [])
     } catch (error) {
       console.error('Error loading tab data:', error)
@@ -365,7 +365,7 @@ export function CompaniesTabContainer({
       const allQualifiedResult = await supabaseService.getCompanies({
         ...getFilterParams('qualified'),
         limit: 1000 // Get all qualified companies
-      })
+      } as any)
       
       const allQualifiedCompanies = allQualifiedResult.data || []
       

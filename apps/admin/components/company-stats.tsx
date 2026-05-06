@@ -8,11 +8,13 @@ import { supabaseService } from "@/lib/supabase-service"
 interface CompanyStatsData {
   totalCompanies: number
   customerCompanies: number
+  averageRating?: number
   companiesWithJobs: number
   topCompanies: Array<{
     name: string
-    job_count: number
-    rating_indeed?: number
+    job_count?: number
+    rating_indeed?: number | null
+    job_postings?: { count: number }[]
   }>
   statusCounts?: Record<string, number>
 }

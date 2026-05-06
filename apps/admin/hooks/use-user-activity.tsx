@@ -27,7 +27,7 @@ export function useUserActivity(initialTimeout: number = 2000): [UserActivity, U
     interactionTimeout: initialTimeout
   })
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Reset interaction state after timeout
   const resetInteractionState = useCallback(() => {
@@ -117,7 +117,7 @@ export function useUserActivity(initialTimeout: number = 2000): [UserActivity, U
     document.addEventListener('touchstart', handleGeneralInteraction)
 
     // Scroll events (throttled)
-    let scrollTimeout: NodeJS.Timeout
+    let scrollTimeout: ReturnType<typeof setTimeout> | null = null
     const throttledScroll = () => {
       if (scrollTimeout) return
       scrollTimeout = setTimeout(() => {

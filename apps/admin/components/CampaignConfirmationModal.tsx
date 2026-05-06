@@ -213,7 +213,7 @@ export function CampaignConfirmationModal({
       <DialogContent 
         ref={modalRef}
         className="max-w-2xl max-h-[90vh] overflow-hidden"
-        onPointerDownOutside={handleOverlayClick}
+        onPointerDownOutside={() => onClose()}
       >
         <DialogHeader>
           <div className="flex items-start justify-between">

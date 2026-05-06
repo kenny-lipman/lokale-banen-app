@@ -70,7 +70,7 @@ export class ContactFilteringService {
         .filter(item => item.email);
 
       const validationResults = await blocklistValidationService.bulkCheck(
-        emails.map(item => item.email),
+        emails.map(item => item.email as string),
         {
           checkDomains: options.check_domains !== false,
           includeInactive: options.include_inactive || false

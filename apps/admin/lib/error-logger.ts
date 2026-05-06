@@ -11,8 +11,8 @@ export interface ErrorLogEntry {
     stack?: string
   }
   context: {
-    endpoint: string
-    method: string
+    endpoint?: string
+    method?: string
     ip?: string
     userAgent?: string
     userId?: string
@@ -205,7 +205,7 @@ class ErrorLogger {
     }, {} as Record<string, number>)
     
     const byEndpoint = recentLogs.reduce((acc, entry) => {
-      const endpoint = entry.context.endpoint
+      const endpoint = entry.context.endpoint ?? 'unknown'
       acc[endpoint] = (acc[endpoint] || 0) + 1
       return acc
     }, {} as Record<string, number>)

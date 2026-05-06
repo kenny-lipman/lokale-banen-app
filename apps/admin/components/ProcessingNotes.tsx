@@ -243,7 +243,7 @@ export function useProcessingNotes(
 ) {
   const [notes, setNotes] = useState(initialNotes || '')
   const [isSaving, setIsSaving] = useState(false)
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   const debouncedSave = React.useCallback((newNotes: string) => {
     if (timeoutRef.current) {
