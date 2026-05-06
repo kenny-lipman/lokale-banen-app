@@ -226,6 +226,8 @@ export interface InstantlyWebhookPayload {
   variant?: number
   is_first?: boolean
   unibox_url?: string
+  reply_text?: string
+  email_body?: string
 }
 
 export class InstantlyClient {

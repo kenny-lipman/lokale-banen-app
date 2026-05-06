@@ -6,6 +6,7 @@
  */
 
 import { createServiceRoleClient } from '../supabase-server';
+import type { Database, Json } from '../supabase';
 import {
   PipedriveClient,
   PipedriveDailyLimitError,
@@ -454,7 +455,8 @@ export class InstantlyPipedriveSyncService {
       result.personCreated = personResult.created;
 
       // 6-10: Update organization (backfill uses combined single-PATCH path)
-      if (orgResult) {
+      // Skip org status/note updates for engagement-only events (statusKey is null)
+      if (orgResult && statusKey) {
         if (syncSource === 'backfill') {
           // === BACKFILL FAST PATH: combine all org updates into 1 GET + 1 PATCH + 1 note ===
           const orgUpdateResult = await this.updateOrganizationCombined(
@@ -763,7 +765,7 @@ export class InstantlyPipedriveSyncService {
         syncEventType === 'lead_not_interested' ? 'Not interested' :
         'Blocklist event',
         contactData?.id,
-        contactData?.company_id
+        contactData?.company_id ?? undefined
       );
     }
 
@@ -1227,7 +1229,7 @@ export class InstantlyPipedriveSyncService {
       .single();
 
     if (error || !data) return null;
-    return { id: data.id, campaignName: data.instantly_campaign_name };
+    return { id: data.id, campaignName: data.instantly_campaign_name ?? '' };
   }
 
   /**
@@ -1513,7 +1515,7 @@ export class InstantlyPipedriveSyncService {
           sync_source: 'webhook_post_deletion',
           has_reply: true,
           reply_sentiment: event_type === 'lead_not_interested' ? 'negative' : event_type === 'lead_interested' ? 'positive' : 'neutral',
-          raw_webhook_payload: payload,
+          raw_webhook_payload: payload as unknown as Json,
           sync_success: true,
           org_created: false,
           person_created: false,
@@ -1648,7 +1650,9 @@ export class InstantlyPipedriveSyncService {
     for (let i = 0; i < leadsToCleanup.length; i += PARALLEL_CHUNK_SIZE) {
       const chunk = leadsToCleanup.slice(i, i + PARALLEL_CHUNK_SIZE);
       const results = await Promise.allSettled(
-        chunk.map(contact => this.processCleanupContact(contact, daysDelay))
+        chunk
+          .filter((contact): contact is typeof contact & { email: string } => contact.email !== null)
+          .map(contact => this.processCleanupContact(contact, daysDelay))
       );
 
       for (const result of results) {
@@ -4038,7 +4042,7 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       // Update the contact
       const { error } = await this.supabase
         .from('contacts')
-        .update(updateData)
+        .update(updateData as Database['public']['Tables']['contacts']['Update'])
         .eq('email', cleanEmail);
 
       if (error) {
@@ -4086,7 +4090,7 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
     // Update with incremented value
     await this.supabase
       .from('contacts')
-      .update({ [field]: currentValue + 1 })
+      .update({ [field]: currentValue + 1 } as Database['public']['Tables']['contacts']['Update'])
       .eq('email', cleanEmail);
   }
 
@@ -4165,7 +4169,7 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       if (Object.keys(updateData).length > 0) {
         await this.supabase
           .from('contacts')
-          .update(updateData)
+          .update(updateData as Database['public']['Tables']['contacts']['Update'])
           .eq('email', cleanEmail);
 
         // Recalculate engagement score after storing metrics
@@ -4295,10 +4299,10 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       if (nearbyData && nearbyData.length > 0) {
         // Find the closest postcode
         let closest = nearbyData[0];
-        let minDistance = Math.abs(parseInt(closest.postcode, 10) - postcodeNum);
+        let minDistance = Math.abs(parseInt(closest.postcode ?? '0', 10) - postcodeNum);
 
         for (const city of nearbyData) {
-          const distance = Math.abs(parseInt(city.postcode, 10) - postcodeNum);
+          const distance = Math.abs(parseInt(city.postcode ?? '0', 10) - postcodeNum);
           if (distance < minDistance) {
             minDistance = distance;
             closest = city;
