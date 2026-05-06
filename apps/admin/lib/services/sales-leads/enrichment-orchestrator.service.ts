@@ -63,43 +63,44 @@ export class EnrichmentOrchestratorService {
   // ─── Fase A — per-bron runners ─────────────────────────────────────────
 
   private async runKvk(runId: string, domain: string): Promise<void> {
-    await this.markRunning(runId, 'kvk')
+    const startedAt = new Date().toISOString()
+    await this.markRunning(runId, 'kvk', startedAt)
     const t0 = Date.now()
     try {
-      // KvK heeft geen domein-zoek; we gebruiken de domain-stem als naam-guess
       const naamGuess = domainToCompanyGuess(domain)
       const parsed = await this.kvk.enrichByName(naamGuess)
-      await this.completeSource(runId, 'kvk', { parsed })
+      await this.completeSource(runId, 'kvk', startedAt, parsed)
       await this.appendAudit(runId, this.audit('kvk', 'GET /v1/basisprofielen', t0, 'ok'))
     } catch (e) {
       const reason = e instanceof KvkApiError ? e.reason : 'unknown'
       const status = reason === 'not_found' ? 'not_found' : 'failed'
-      await this.failSource(runId, 'kvk', e, status)
+      await this.failSource(runId, 'kvk', startedAt, e, status)
       await this.appendAudit(runId, this.audit('kvk', 'GET /v1/basisprofielen', t0, status, e))
     }
   }
 
   private async runMaps(runId: string, domain: string): Promise<void> {
-    await this.markRunning(runId, 'google_maps')
+    const startedAt = new Date().toISOString()
+    await this.markRunning(runId, 'google_maps', startedAt)
     const t0 = Date.now()
     try {
       const naamGuess = domainToCompanyGuess(domain)
       const parsed = await this.maps.enrichByQuery(naamGuess)
-      await this.completeSource(runId, 'google_maps', { parsed })
+      await this.completeSource(runId, 'google_maps', startedAt, parsed)
       await this.appendAudit(runId, this.audit('google_maps', 'enrichByQuery', t0, 'ok'))
     } catch (e) {
       const reason = e instanceof MapsApiError ? e.reason : 'unknown'
       const status = reason === 'not_found' ? 'not_found' : 'failed'
-      await this.failSource(runId, 'google_maps', e, status)
+      await this.failSource(runId, 'google_maps', startedAt, e, status)
       await this.appendAudit(runId, this.audit('google_maps', 'enrichByQuery', t0, status, e))
     }
   }
 
   private async runApollo(runId: string, domain: string): Promise<void> {
-    await this.markRunning(runId, 'apollo')
+    const startedAt = new Date().toISOString()
+    await this.markRunning(runId, 'apollo', startedAt)
     const t0 = Date.now()
     try {
-      // Org-enrich + warm-lead-search beide tegelijk
       const [orgRes, warmRes] = await Promise.allSettled([
         this.apollo.enrichOrganization(domain),
         this.apollo.searchContactsByDomain(domain),
@@ -113,7 +114,6 @@ export class EnrichmentOrchestratorService {
         parsed = { ...orgRes.value.normalized }
         cost_credits += orgRes.value.usage.cost_credits ?? 0
       } else if (orgRes.reason instanceof ApolloApiError && orgRes.reason.reason !== 'not_found') {
-        // Echte fout: gooi door; not_found = OK voor parsed leeg
         throw orgRes.reason
       }
 
@@ -121,30 +121,28 @@ export class EnrichmentOrchestratorService {
         warmContacts.push(...warmRes.value.contacts)
         cost_credits += warmRes.value.usage.cost_credits ?? 0
       }
-      // Warm-search-fout is niet-blocking; alleen org-enrich is essentieel.
 
       parsed.contacts = warmContacts.length ? warmContacts : undefined
-      await this.completeSource(runId, 'apollo', { parsed })
+      await this.completeSource(runId, 'apollo', startedAt, parsed)
       await this.appendAudit(runId, this.audit('apollo', 'enrich+contacts/search', t0, 'ok', undefined, cost_credits))
     } catch (e) {
       const reason = e instanceof ApolloApiError ? e.reason : 'unknown'
       const status = reason === 'not_found' ? 'not_found' : 'failed'
-      await this.failSource(runId, 'apollo', e, status)
+      await this.failSource(runId, 'apollo', startedAt, e, status)
       await this.appendAudit(runId, this.audit('apollo', 'enrich+contacts/search', t0, status, e))
     }
   }
 
   private async runWebsite(runId: string, inputUrl: string, scrapeVacancies: boolean): Promise<void> {
-    await this.markRunning(runId, 'website')
+    const startedAt = new Date().toISOString()
+    await this.markRunning(runId, 'website', startedAt)
     const t0 = Date.now()
     try {
       const parsed = await this.website.crawlAndParse(inputUrl, scrapeVacancies)
-      await this.completeSource(runId, 'website', { parsed })
+      await this.completeSource(runId, 'website', startedAt, parsed)
       await this.appendAudit(runId, this.audit('website', 'crawlAndParse', t0, 'ok'))
     } catch (e) {
-      // WebsiteServiceError-reasons (ssrf/fetch_failed/no_html/mistral_failed) mappen
-      // allemaal naar 'failed' — geen 'not_found' equivalent voor websites.
-      await this.failSource(runId, 'website', e, 'failed')
+      await this.failSource(runId, 'website', startedAt, e, 'failed')
       await this.appendAudit(runId, this.audit('website', 'crawlAndParse', t0, 'failed', e))
     }
   }
@@ -154,18 +152,15 @@ export class EnrichmentOrchestratorService {
   private async runPersonMatching(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const enr = run.enrichments
-    // Defensief filter: zelfs als upstream parsers null-name contacts laten
-    // doorglippen, mag de orchestrator niet crashen.
     const websiteContacts = (enr.website?.parsed?.contacts ?? []).filter((c) => !!c.name)
     const apolloWarm = (enr.apollo?.parsed?.contacts ?? []).filter((c) => !!c.name)
-    if (!websiteContacts.length) return // niets te matchen
+    if (!websiteContacts.length) return
 
-    // Set warm-lead-namen om dubbel-match te voorkomen
     const warmNames = new Set(apolloWarm.map((c) => normalizeName(c.name)))
     const matched: NormalizedContact[] = []
 
     for (const wc of websiteContacts) {
-      if (warmNames.has(normalizeName(wc.name))) continue // al warm
+      if (warmNames.has(normalizeName(wc.name))) continue
       const t0 = Date.now()
       try {
         const r = await this.apollo.matchPerson({
@@ -174,7 +169,6 @@ export class EnrichmentOrchestratorService {
           organization_name: run.enrichments.kvk?.parsed?.company_name,
         })
         if (r.contact) {
-          // Merge website-data met Apollo enrichment
           matched.push({
             ...wc,
             ...r.contact,
@@ -187,21 +181,19 @@ export class EnrichmentOrchestratorService {
         )
       } catch (e) {
         await this.appendAudit(runId, this.audit('apollo', '/people/match', t0, 'failed', e))
-        // door; één gefaalde match stopt niet de rest
       }
     }
 
-    // Merge: warm contacts + matched (apollo-enriched) + ongematchte website-contacts
     const matchedNames = new Set(matched.map((c) => normalizeName(c.name)))
     const stillWebsiteOnly = websiteContacts.filter(
       (c) => !warmNames.has(normalizeName(c.name)) && !matchedNames.has(normalizeName(c.name)),
     )
     const allContacts = [...apolloWarm, ...matched, ...stillWebsiteOnly]
 
-    // Schrijf merged terug naar enrichments.apollo.parsed.contacts
+    const apolloEntry: PerSourceEnrichment = enr.apollo ?? { status: 'completed' }
     const apolloParsed: NormalizedFields = enr.apollo?.parsed ?? { source: 'apollo' }
     apolloParsed.contacts = allContacts
-    await this.setSourceParsed(runId, 'apollo', apolloParsed)
+    await this.setSource(runId, 'apollo', { ...apolloEntry, parsed: apolloParsed })
   }
 
   // ─── Fase C — Mistral rankContacts ────────────────────────────────────
@@ -215,9 +207,6 @@ export class EnrichmentOrchestratorService {
     const t0 = Date.now()
     const orgCtx = enr.apollo?.parsed ?? enr.kvk?.parsed ?? {}
 
-    // Wrap Mistral-call: bij netwerk-/HTTP-fout NIET de hele run laten falen.
-    // rankContacts heeft een interne JSON-fallback, maar throwt bij echte
-    // HTTP-errors. Master_record (Fase D) is belangrijker dan ranking.
     let ranking
     try {
       ranking = await this.mistral.rankContacts({
@@ -238,11 +227,9 @@ export class EnrichmentOrchestratorService {
       })
     } catch (e) {
       await this.appendAudit(runId, this.audit('mistral', 'rankContacts', t0, 'failed', e))
-      return // ranking overgeslagen; master_record komt nog uit Fase D
+      return
     }
 
-    // Schrijf ai_priority_score + ai_priority_reason terug naar elke matching contact.
-    // Mistral kan whitespace/casing variaties teruggeven → normaliseer beide kanten.
     const p1Norm = ranking.person_1 ? normalizeName(ranking.person_1.name) : null
     const p2Norm = ranking.person_2 ? normalizeName(ranking.person_2.name) : null
     const enriched = contacts.map((c): NormalizedContact => {
@@ -256,12 +243,12 @@ export class EnrichmentOrchestratorService {
       return c
     })
 
+    const apolloEntry: PerSourceEnrichment = enr.apollo ?? { status: 'completed' }
     const apolloParsed: NormalizedFields = enr.apollo?.parsed ?? { source: 'apollo' }
     apolloParsed.contacts = enriched
-    await this.setSourceParsed(runId, 'apollo', apolloParsed)
+    await this.setSource(runId, 'apollo', { ...apolloEntry, parsed: apolloParsed })
     await this.appendAudit(runId, this.audit('mistral', 'rankContacts', t0, ranking.fallback_used ? 'failed' : 'ok'))
 
-    // Pre-select top-2 in selected_contacts
     const top2 = enriched
       .filter((c) => c.ai_priority_score != null)
       .sort((a, b) => (b.ai_priority_score ?? 0) - (a.ai_priority_score ?? 0))
@@ -283,7 +270,6 @@ export class EnrichmentOrchestratorService {
       selectedVacancies: master.vacancies,
     })
 
-    // Decide finale status
     const sources: PerSourceEnrichment[] = [
       run.enrichments.kvk,
       run.enrichments.google_maps,
@@ -330,111 +316,59 @@ export class EnrichmentOrchestratorService {
     }
   }
 
-  private async markRunning(runId: string, source: SourceName): Promise<void> {
-    const partial: PerSourceEnrichment = {
-      status: 'running',
-      started_at: new Date().toISOString(),
-    }
-    await this.setSourceFull(runId, source, partial)
+  private async markRunning(runId: string, source: SourceName, startedAt: string): Promise<void> {
+    await this.setSource(runId, source, { status: 'running', started_at: startedAt })
   }
 
   private async completeSource(
     runId: string,
     source: SourceName,
-    data: { parsed: NormalizedFields; raw?: unknown },
+    startedAt: string,
+    parsed: NormalizedFields,
   ): Promise<void> {
-    const cur = await this.getSource(runId, source)
-    const partial: PerSourceEnrichment = {
-      ...cur,
+    await this.setSource(runId, source, {
       status: 'completed',
+      started_at: startedAt,
       completed_at: new Date().toISOString(),
-      parsed: data.parsed,
-      ...(data.raw !== undefined ? { raw: data.raw } : {}),
-    }
-    await this.setSourceFull(runId, source, partial)
+      parsed,
+    })
   }
 
   private async failSource(
     runId: string,
     source: SourceName,
+    startedAt: string,
     err: unknown,
     status: 'failed' | 'not_found',
   ): Promise<void> {
-    const cur = await this.getSource(runId, source)
-    const partial: PerSourceEnrichment = {
-      ...cur,
+    await this.setSource(runId, source, {
       status,
+      started_at: startedAt,
       completed_at: new Date().toISOString(),
       error: err instanceof Error ? err.message : String(err),
-    }
-    await this.setSourceFull(runId, source, partial)
+    })
   }
 
-  private async getSource(runId: string, source: SourceName): Promise<PerSourceEnrichment> {
-    const { data } = await this.supabase
-      .from('sales_lead_runs')
-      .select('enrichments')
-      .eq('id', runId)
-      .single()
-    const enr = (data?.enrichments ?? {}) as RunEnrichments
-    return enr[source] ?? { status: 'pending' }
-  }
-
-  /**
-   * Per-source enrichments-update via SELECT → merge in JS → UPDATE.
-   * Supabase JS heeft geen directe jsonb_set helper, dus we serialiseren niet
-   * atomair op DB-niveau.
-   *
-   * KNOWN LIMITATION (V1): dit is een **lost-update race**. Bij Promise.allSettled
-   * in Fase A kan runner B een snapshot lezen vóór runner A's write, en daarna
-   * A's write overschrijven met een merge waarin A's sub-key ontbreekt. Postgres
-   * serialiseert wel de UPDATEs zelf, maar niet de SELECT-then-UPDATE op
-   * application-niveau. In de praktijk komt het meestal goed omdat markRunning
-   * snel wordt opgevolgd door completeSource/failSource (laatste-write-wins op
-   * de finale staat), maar tussentijdse `running`-status kan verloren gaan.
-   *
-   * V2-fix: Postgres function `sales_lead_runs_set_source(run_id, source, value)`
-   * met `UPDATE sales_lead_runs SET enrichments = jsonb_set(enrichments, ARRAY[source], $value)`
-   * — atomair, geen race. Zelfde patroon voor `audit_log = audit_log || $entry::jsonb`.
-   */
-  private async setSourceFull(
+  // Atomic write via sales_lead_runs_set_source rpc — geen lost-update race meer.
+  private async setSource(
     runId: string,
     source: SourceName,
     value: PerSourceEnrichment,
   ): Promise<void> {
-    const { data } = await this.supabase
-      .from('sales_lead_runs')
-      .select('enrichments')
-      .eq('id', runId)
-      .single()
-    const enr = (data?.enrichments ?? {}) as RunEnrichments
-    enr[source] = value
-    await this.supabase
-      .from('sales_lead_runs')
-      .update({ enrichments: enr as unknown as Json, updated_at: new Date().toISOString() })
-      .eq('id', runId)
-  }
-
-  private async setSourceParsed(
-    runId: string,
-    source: SourceName,
-    parsed: NormalizedFields,
-  ): Promise<void> {
-    const cur = await this.getSource(runId, source)
-    await this.setSourceFull(runId, source, { ...cur, parsed })
+    const { error } = await this.supabase.rpc('sales_lead_runs_set_source', {
+      p_run_id: runId,
+      p_source: source,
+      p_value: value as unknown as Json,
+    })
+    if (error) throw new Error(`set_source ${source} failed: ${error.message}`)
   }
 
   private async appendAudit(runId: string, entry: AuditLogEntry): Promise<void> {
-    const { data } = await this.supabase
-      .from('sales_lead_runs')
-      .select('audit_log')
-      .eq('id', runId)
-      .single()
-    const audit = ((data?.audit_log ?? []) as AuditLogEntry[]).concat(entry)
-    await this.supabase
-      .from('sales_lead_runs')
-      .update({ audit_log: audit as unknown as Json, updated_at: new Date().toISOString() })
-      .eq('id', runId)
+    const { error } = await this.supabase.rpc('sales_lead_runs_append_audit', {
+      p_run_id: runId,
+      p_entry: entry as unknown as Json,
+    })
+    if (error) console.error(`append_audit failed: ${error.message}`)
   }
 
   private audit(
@@ -459,8 +393,6 @@ export class EnrichmentOrchestratorService {
 
 /**
  * Normaliseer een persoonsnaam voor case/whitespace-tolerante matching.
- * Gebruikt om Mistral-output ("Jan De Vries") tegen contact-data ("Jan de Vries")
- * te matchen, en om warm-leads/website-namen op identiteit te dedupen.
  */
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -470,9 +402,6 @@ function normalizeName(name: string): string {
  * "wetarget.nl" → "WeTarget" (eerste segment, capitalize).
  * KvK Zoeken v2 doet whole-text match — een naam-guess uit het domein is
  * de minst-precieze maar bruikbare fallback wanneer de user geen naam meegaf.
- * Naïeve heuristic: faalt op multi-segment domeinen ("acme.co.uk" → "Acme",
- * "the-westland-group.com" → "The-westland-group"). Acceptabel als fallback
- * wanneer geen expliciete bedrijfsnaam-input is.
  */
 function domainToCompanyGuess(domain: string): string {
   const stem = domain.split('.')[0] ?? domain

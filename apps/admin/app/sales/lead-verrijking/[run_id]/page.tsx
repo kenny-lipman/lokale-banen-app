@@ -245,7 +245,7 @@ export default function RunDetailPage({ params }: PageProps) {
         onCancel={cancelling ? undefined : onCancel}
         saveState={saveState}
       />
-      <LeadSourceStatusGrid enrichments={run.enrichments ?? {}} />
+      <LeadSourceStatusGrid enrichments={run.enrichments ?? {}} runStatus={run.status} />
       {timedOut && showEnriching && (
         <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
           <div>

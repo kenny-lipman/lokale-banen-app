@@ -3,7 +3,12 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { CheckCircle2, Loader2, XCircle, MinusCircle, ChevronDown } from 'lucide-react'
-import type { RunEnrichments, EnrichmentStatus, PerSourceEnrichment } from '@/lib/services/sales-leads/types'
+import type {
+  RunEnrichments,
+  EnrichmentStatus,
+  PerSourceEnrichment,
+  SalesLeadRunStatus,
+} from '@/lib/services/sales-leads/types'
 import { LeadSourceDetailPanel } from './lead-source-detail-panel'
 
 const SOURCE_LABEL = {
@@ -15,19 +20,38 @@ const SOURCE_LABEL = {
 
 type SourceKey = keyof typeof SOURCE_LABEL
 
-const STATUS_ICONS: Record<EnrichmentStatus, { Icon: typeof Loader2; color: string }> = {
-  pending: { Icon: Loader2, color: 'text-gray-400' },
-  running: { Icon: Loader2, color: 'text-orange-500 animate-spin' },
+const TERMINAL_ICONS: Record<Exclude<EnrichmentStatus, 'pending' | 'running'>, { Icon: typeof Loader2; color: string }> = {
   completed: { Icon: CheckCircle2, color: 'text-green-600' },
   failed: { Icon: XCircle, color: 'text-red-600' },
   not_found: { Icon: MinusCircle, color: 'text-gray-400' },
 }
 
-function summarize(src: SourceKey, e: PerSourceEnrichment | undefined): string {
-  if (!e) return 'wachten…'
+// `pending` en undefined renderen we contextueel: spinnen tijdens enriching, statisch erna.
+function getIcon(
+  status: EnrichmentStatus | undefined,
+  runStatus: SalesLeadRunStatus,
+): { Icon: typeof Loader2; color: string } {
+  if (status === 'running') return { Icon: Loader2, color: 'text-orange-500 animate-spin' }
+  if (status === 'completed' || status === 'failed' || status === 'not_found') {
+    return TERMINAL_ICONS[status]
+  }
+  // pending of undefined
+  if (runStatus === 'enriching') {
+    return { Icon: Loader2, color: 'text-orange-300 animate-spin' }
+  }
+  return { Icon: MinusCircle, color: 'text-gray-300' }
+}
+
+function summarize(
+  src: SourceKey,
+  e: PerSourceEnrichment | undefined,
+  runStatus: SalesLeadRunStatus,
+): string {
+  if (!e) return runStatus === 'enriching' ? 'wachten…' : 'overgeslagen'
   if (e.status === 'failed') return e.error ?? 'gefaald'
   if (e.status === 'not_found') return 'niet gevonden'
-  if (e.status !== 'completed') return 'bezig…'
+  if (e.status === 'pending') return runStatus === 'enriching' ? 'wachten…' : 'overgeslagen'
+  if (e.status === 'running') return 'bezig…'
   const p = e.parsed
   if (!p) return 'klaar'
   switch (src) {
@@ -44,9 +68,10 @@ function summarize(src: SourceKey, e: PerSourceEnrichment | undefined): string {
 
 type Props = {
   enrichments: RunEnrichments
+  runStatus: SalesLeadRunStatus
 }
 
-export function LeadSourceStatusGrid({ enrichments }: Props) {
+export function LeadSourceStatusGrid({ enrichments, runStatus }: Props) {
   const [open, setOpen] = useState<SourceKey | null>(null)
   const sources: SourceKey[] = ['kvk', 'google_maps', 'apollo', 'website']
   const openEntry = open ? enrichments[open] : null
@@ -55,8 +80,7 @@ export function LeadSourceStatusGrid({ enrichments }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {sources.map((src) => {
           const e = enrichments[src]
-          const status = e?.status ?? 'pending'
-          const { Icon, color } = STATUS_ICONS[status]
+          const { Icon, color } = getIcon(e?.status, runStatus)
           const isOpen = open === src
           return (
             <Card
@@ -72,7 +96,7 @@ export function LeadSourceStatusGrid({ enrichments }: Props) {
                   </div>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">{summarize(src, e)}</p>
+                <p className="text-xs text-gray-500 mt-2">{summarize(src, e, runStatus)}</p>
               </CardContent>
             </Card>
           )

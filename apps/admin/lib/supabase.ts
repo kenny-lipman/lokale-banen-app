@@ -3830,6 +3830,14 @@ export type Database = {
           successful: number
         }[]
       }
+      sales_lead_runs_append_audit: {
+        Args: { p_entry: Json; p_run_id: string }
+        Returns: undefined
+      }
+      sales_lead_runs_set_source: {
+        Args: { p_run_id: string; p_source: string; p_value: Json }
+        Returns: undefined
+      }
       search_contacts: {
         Args: {
           campaign_filter?: string
