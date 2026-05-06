@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
+import { authFetch } from '@/lib/authenticated-fetch'
 
 type PollingState = {
   run: RunDetailResponse['run'] | null
@@ -34,7 +35,7 @@ export function usePollingRun(runId: string | null) {
 
   const fetchOnce = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/sales-leads/${id}`, { cache: 'no-store' })
+      const res = await authFetch(`/api/sales-leads/${id}`, { cache: 'no-store' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body?.error ?? `HTTP ${res.status}`)

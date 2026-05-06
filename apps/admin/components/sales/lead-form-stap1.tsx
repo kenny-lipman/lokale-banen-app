@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { X } from 'lucide-react'
 import { stap1FormSchema, type Stap1FormValues } from '@/lib/sales-leads/api-schemas'
 import { useToast } from '@/hooks/use-toast'
+import { authFetch } from '@/lib/authenticated-fetch'
 
 type OwnerOption = {
   id: string
@@ -40,7 +41,7 @@ export function LeadFormStap1() {
   })
 
   useEffect(() => {
-    fetch('/api/sales-leads/owner-config')
+    authFetch('/api/sales-leads/owner-config')
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<{ configs?: OwnerOption[] }>
@@ -78,7 +79,7 @@ export function LeadFormStap1() {
   async function onSubmit(values: Stap1FormValues) {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/sales-leads/create', {
+      const res = await authFetch('/api/sales-leads/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),

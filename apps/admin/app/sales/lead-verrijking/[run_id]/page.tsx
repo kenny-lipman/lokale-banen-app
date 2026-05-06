@@ -16,6 +16,7 @@ import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
 import { LeadDealNoteTextarea } from '@/components/sales/lead-deal-note-textarea'
 import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-warnings'
 import type { MasterRecord, NormalizedContact, NormalizedVacancy } from '@/lib/services/sales-leads/types'
+import { authFetch } from '@/lib/authenticated-fetch'
 
 type PageProps = { params: Promise<{ run_id: string }> }
 type OwnerConfig = {
@@ -90,7 +91,7 @@ export default function RunDetailPage({ params }: PageProps) {
   }, [run])
 
   useEffect(() => {
-    fetch('/api/sales-leads/owner-config')
+    authFetch('/api/sales-leads/owner-config')
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<{ configs?: OwnerConfig[] }>
@@ -124,7 +125,7 @@ export default function RunDetailPage({ params }: PageProps) {
       clearTimeout(savedTimerRef.current)
       savedTimerRef.current = null
     }
-    void fetch(`/api/sales-leads/${run_id}`, {
+    void authFetch(`/api/sales-leads/${run_id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: payload,
@@ -158,7 +159,7 @@ export default function RunDetailPage({ params }: PageProps) {
   const onCancel = useCallback(async () => {
     setCancelling(true)
     try {
-      const res = await fetch(`/api/sales-leads/${run_id}/cancel`, { method: 'POST' })
+      const res = await authFetch(`/api/sales-leads/${run_id}/cancel`, { method: 'POST' })
       if (!res.ok) throw new Error((await res.json()).error ?? 'Cancel mislukt')
       toast({ title: 'Run geannuleerd', variant: 'default' })
       router.push('/sales/lead-verrijking')

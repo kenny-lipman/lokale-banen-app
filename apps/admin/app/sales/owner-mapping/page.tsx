@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { OwnerConfigEditModal } from "@/components/sales/owner-config-edit-modal"
 import { Pencil, RefreshCw, Settings } from "lucide-react"
+import { authFetch } from "@/lib/authenticated-fetch"
 
 type OwnerConfig = {
   id: string
@@ -31,7 +32,7 @@ export default function OwnerMappingPage() {
 
   async function loadConfigs() {
     setLoading(true)
-    const r = await fetch("/api/sales-leads/owner-config").then((r) => r.json())
+    const r = await authFetch("/api/sales-leads/owner-config").then((r) => r.json())
     setConfigs(r.configs ?? [])
     setLoading(false)
   }
