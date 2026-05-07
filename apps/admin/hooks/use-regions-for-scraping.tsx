@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import useSWR from "swr"
+import { swrKeys } from "@/lib/swr-keys"
 
 interface Region {
   id: string
@@ -8,57 +9,29 @@ interface Region {
   created_at: string | null
 }
 
+async function fetchRegions(): Promise<Region[]> {
+  const response = await fetch("/api/regions")
+  const result = await response.json()
+  if (!result.success) {
+    throw new Error(result.error || "Failed to fetch regions")
+  }
+  return result.data
+}
+
 export function useRegionsForScraping() {
-  const [regions, setRegions] = useState<Region[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchRegions = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const response = await fetch('/api/regions')
-        const result = await response.json()
-        
-        if (result.success) {
-          setRegions(result.data)
-        } else {
-          setError(result.error || 'Failed to fetch regions')
-        }
-      } catch (err) {
-        setError('Network error occurred while fetching regions')
-        console.error('Error fetching regions:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchRegions()
-  }, [])
+  const { data, error, isLoading, mutate } = useSWR<Region[]>(
+    swrKeys.regionsForScraping,
+    fetchRegions,
+  )
 
   return {
-    regions,
-    loading,
-    error,
-    refetch: () => {
-      setLoading(true)
-      setError(null)
-      fetch('/api/regions')
-        .then(response => response.json())
-        .then(result => {
-          if (result.success) {
-            setRegions(result.data)
-          } else {
-            setError(result.error || 'Failed to fetch regions')
-          }
-        })
-        .catch(err => {
-          setError('Network error occurred while fetching regions')
-          console.error('Error fetching regions:', err)
-        })
-        .finally(() => setLoading(false))
-    }
+    regions: data ?? [],
+    loading: isLoading,
+    error: error
+      ? error instanceof Error
+        ? error.message
+        : "Network error occurred while fetching regions"
+      : null,
+    refetch: () => mutate(),
   }
-} 
+}

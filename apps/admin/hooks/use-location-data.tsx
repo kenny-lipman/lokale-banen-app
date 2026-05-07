@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import useSWR from "swr"
+import { swrKeys } from "@/lib/swr-keys"
 
 export interface LocationCount {
   name: string
@@ -17,67 +18,35 @@ interface UseLocationDataOptions {
   enabled?: boolean
 }
 
+async function fetchLocationData(contactIds: string[]): Promise<LocationData> {
+  const response = await fetch("/api/contacts/locations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contactIds }),
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch location data: ${response.statusText}`)
+  }
+  return response.json()
+}
+
 export function useLocationData(
   contactIds: string[],
-  options: UseLocationDataOptions = {}
+  options: UseLocationDataOptions = {},
 ) {
-  const [data, setData] = useState<LocationData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  
   const { enabled = true } = options
-  
-  useEffect(() => {
-    // Skip if no contacts or disabled
-    if (!contactIds.length || !enabled) {
-      setData(null)
-      return
-    }
-    
-    const fetchLocationData = async () => {
-      setLoading(true)
-      setError(null)
-      
-      try {
-        const response = await fetch('/api/contacts/locations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ contactIds })
-        })
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch location data: ${response.statusText}`)
-        }
-        
-        const locationData = await response.json()
-        setData(locationData)
-      } catch (err) {
-        console.error('Error fetching location data:', err)
-        setError(err instanceof Error ? err : new Error('Unknown error'))
-        setData(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    // Debounce the API call
-    const timeoutId = setTimeout(fetchLocationData, 300)
-    
-    return () => clearTimeout(timeoutId)
-  }, [JSON.stringify(contactIds), enabled])
-  
+  const sortedIds = [...contactIds].sort()
+  const shouldFetch = enabled && sortedIds.length > 0
+
+  const { data, error, isLoading, mutate } = useSWR<LocationData>(
+    shouldFetch ? swrKeys.contactLocations(sortedIds) : null,
+    () => fetchLocationData(sortedIds),
+  )
+
   return {
-    data,
-    loading,
-    error,
-    refetch: () => {
-      if (contactIds.length > 0) {
-        // Force refetch by updating state
-        setData(null)
-        setError(null)
-      }
-    }
+    data: data ?? null,
+    loading: isLoading,
+    error: error instanceof Error ? error : error ? new Error(String(error)) : null,
+    refetch: () => mutate(),
   }
 }
