@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
+import useSWR, { mutate as globalMutate } from "swr"
+import { swrKeys } from "@/lib/swr-keys"
 
 export interface BlocklistEntry {
   id: string
@@ -34,14 +36,8 @@ export interface BlocklistStats {
     domain: number
   }
   syncStatus: {
-    instantly: {
-      synced: number
-      pending: number
-    }
-    pipedrive: {
-      synced: number
-      pending: number
-    }
+    instantly: { synced: number; pending: number }
+    pipedrive: { synced: number; pending: number }
   }
   recentActivity: {
     last24Hours: number
@@ -71,98 +67,92 @@ export interface UseBlocklistOptions {
   initialFilters?: BlocklistFilters
 }
 
-export function useBlocklist(options: UseBlocklistOptions = {}) {
-  const {
-    initialPage = 1,
-    initialLimit = 20,
-    initialFilters = {},
-  } = options
+interface BlocklistListResponse {
+  data: BlocklistEntry[]
+  pagination: { total: number; totalPages: number }
+}
 
-  const [entries, setEntries] = useState<BlocklistEntry[]>([])
-  const [stats, setStats] = useState<BlocklistStats | null>(null)
-  const [pagination, setPagination] = useState<BlocklistPagination>({
-    page: initialPage,
-    limit: initialLimit,
-    total: 0,
-    totalPages: 0,
+async function fetchBlocklistList(
+  page: number,
+  limit: number,
+  filters: BlocklistFilters,
+): Promise<BlocklistListResponse> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    ...Object.fromEntries(
+      Object.entries(filters).filter(([_, value]) => value !== undefined && value !== ""),
+    ) as Record<string, string>,
   })
+
+  const response = await fetch(`/api/blocklist?${params}`)
+  if (!response.ok) {
+    throw new Error("Failed to fetch blocklist entries")
+  }
+  return response.json()
+}
+
+async function fetchBlocklistStats(): Promise<BlocklistStats> {
+  const response = await fetch("/api/blocklist/stats")
+  if (!response.ok) {
+    throw new Error("Failed to fetch blocklist stats")
+  }
+  return response.json()
+}
+
+function revalidateAll() {
+  globalMutate(
+    (key) => Array.isArray(key) && key[0] === "blocklist",
+    undefined,
+    { revalidate: true },
+  )
+}
+
+export function useBlocklist(options: UseBlocklistOptions = {}) {
+  const { initialPage = 1, initialLimit = 20, initialFilters = {} } = options
+
+  const [page, setPage] = useState(initialPage)
+  const [limit, setLimit] = useState(initialLimit)
   const [filters, setFilters] = useState<BlocklistFilters>(initialFilters)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
-  // Fetch entries
-  const fetchEntries = async () => {
-    setLoading(true)
-    setError(null)
+  const listKey = swrKeys.blocklistList({ page, limit, filters: filters as Record<string, unknown> })
+  const {
+    data: listData,
+    error: listError,
+    isLoading: listLoading,
+    mutate: mutateList,
+  } = useSWR<BlocklistListResponse>(listKey, () => fetchBlocklistList(page, limit, filters))
 
-    try {
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        ...Object.fromEntries(
-          Object.entries(filters).filter(([_, value]) => value !== undefined && value !== "")
-        ),
-      })
+  const {
+    data: stats,
+    mutate: mutateStats,
+  } = useSWR<BlocklistStats>(swrKeys.blocklistStats, fetchBlocklistStats)
 
-      const response = await fetch(`/api/blocklist?${params}`)
-      if (!response.ok) {
-        throw new Error("Failed to fetch blocklist entries")
-      }
-
-      const data = await response.json()
-      setEntries(data.data || [])
-      setPagination(prev => ({
-        ...prev,
-        total: data.pagination.total,
-        totalPages: data.pagination.totalPages,
-      }))
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to fetch entries"
-      setError(errorMessage)
-      toast.error(errorMessage)
-    } finally {
-      setLoading(false)
-    }
+  const entries = listData?.data ?? []
+  const pagination: BlocklistPagination = {
+    page,
+    limit,
+    total: listData?.pagination?.total ?? 0,
+    totalPages: listData?.pagination?.totalPages ?? 0,
   }
 
-  // Fetch stats
-  const fetchStats = async () => {
-    try {
-      const response = await fetch("/api/blocklist/stats")
-      if (!response.ok) {
-        throw new Error("Failed to fetch blocklist stats")
-      }
-
-      const data = await response.json()
-      setStats(data)
-    } catch (err) {
-      console.error("Failed to fetch stats:", err)
-    }
-  }
-
-  // Create entry
-  const createEntry = async (entryData: Omit<BlocklistEntry, "id" | "created_at" | "updated_at">) => {
+  const createEntry = async (
+    entryData: Omit<BlocklistEntry, "id" | "created_at" | "updated_at">,
+  ) => {
     try {
       const response = await fetch("/api/blocklist", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entryData),
       })
-
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to create entry")
       }
-
       const newEntry = await response.json()
       toast.success("Blocklist entry toegevoegd")
-
-      // Refresh data
-      fetchEntries()
-      fetchStats()
-
+      revalidateAll()
       return newEntry
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create entry"
@@ -171,29 +161,20 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     }
   }
 
-  // Update entry
   const updateEntry = async (id: string, entryData: Partial<BlocklistEntry>) => {
     try {
       const response = await fetch(`/api/blocklist/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entryData),
       })
-
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to update entry")
       }
-
       const updatedEntry = await response.json()
       toast.success("Blocklist entry bijgewerkt")
-
-      // Refresh data
-      fetchEntries()
-      fetchStats()
-
+      revalidateAll()
       return updatedEntry
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update entry"
@@ -202,23 +183,15 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     }
   }
 
-  // Delete entry
   const deleteEntry = async (id: string) => {
     try {
-      const response = await fetch(`/api/blocklist/${id}`, {
-        method: "DELETE",
-      })
-
+      const response = await fetch(`/api/blocklist/${id}`, { method: "DELETE" })
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to delete entry")
       }
-
       toast.success("Blocklist entry verwijderd")
-
-      // Refresh data
-      fetchEntries()
-      fetchStats()
+      revalidateAll()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to delete entry"
       toast.error(errorMessage)
@@ -226,12 +199,9 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     }
   }
 
-  // Bulk operations
   const bulkActivate = async (ids: string[]) => {
     try {
-      await Promise.all(
-        ids.map(id => updateEntry(id, { is_active: true }))
-      )
+      await Promise.all(ids.map((id) => updateEntry(id, { is_active: true })))
       toast.success(`${ids.length} entries geactiveerd`)
     } catch (err) {
       toast.error("Failed to activate entries")
@@ -241,9 +211,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
 
   const bulkDeactivate = async (ids: string[]) => {
     try {
-      await Promise.all(
-        ids.map(id => updateEntry(id, { is_active: false }))
-      )
+      await Promise.all(ids.map((id) => updateEntry(id, { is_active: false })))
       toast.success(`${ids.length} entries gedeactiveerd`)
     } catch (err) {
       toast.error("Failed to deactivate entries")
@@ -253,9 +221,7 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
 
   const bulkDelete = async (ids: string[]) => {
     try {
-      await Promise.all(
-        ids.map(id => deleteEntry(id))
-      )
+      await Promise.all(ids.map((id) => deleteEntry(id)))
       toast.success(`${ids.length} entries verwijderd`)
     } catch (err) {
       toast.error("Failed to delete entries")
@@ -263,21 +229,16 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     }
   }
 
-  // Check blocklist
   const checkBlocklist = async (values: string[]) => {
     try {
       const response = await fetch("/api/blocklist/check", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entries: values }),
       })
-
       if (!response.ok) {
         throw new Error("Failed to check blocklist")
       }
-
       return await response.json()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to check blocklist"
@@ -286,22 +247,15 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     }
   }
 
-  // Import entries
   const importEntries = async (file: File) => {
     try {
       const formData = new FormData()
       formData.append("file", file)
-
-      const response = await fetch("/api/blocklist/upload", {
-        method: "POST",
-        body: formData,
-      })
-
+      const response = await fetch("/api/blocklist/upload", { method: "POST", body: formData })
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to import entries")
       }
-
       const result = await response.json()
       if (result.data?.import?.successful) {
         toast.success(`Import geslaagd: ${result.data.import.successful} entries toegevoegd`)
@@ -310,16 +264,10 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
       } else {
         toast.success("Import succesvol verwerkt")
       }
-
-      // Show errors if any occurred
       if (result.data?.import?.error) {
         toast.error(`Import waarschuwing: ${result.data.import.error}`)
       }
-
-      // Refresh data
-      fetchEntries()
-      fetchStats()
-
+      revalidateAll()
       return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to import entries"
@@ -328,15 +276,12 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     }
   }
 
-  // Export entries
   const exportEntries = async (format: "json" | "csv" = "csv") => {
     try {
       const response = await fetch(`/api/blocklist/export?format=${format}`)
-
       if (!response.ok) {
         throw new Error("Failed to export entries")
       }
-
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -347,7 +292,6 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-
       toast.success("Export gestart")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to export entries"
@@ -356,72 +300,47 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     }
   }
 
-  // Sync to Instantly.ai
   const syncToInstantly = async () => {
+    setSyncing(true)
     try {
-      setLoading(true)
-      const response = await fetch("/api/blocklist/sync", {
-        method: "POST",
-      })
-
+      const response = await fetch("/api/blocklist/sync", { method: "POST" })
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to sync to Instantly.ai")
       }
-
       const result = await response.json()
-
       toast.success(
-        `Sync voltooid: ${result.data.success} geslaagd, ${result.data.failed} gefaald, ${result.data.skipped} overgeslagen`
+        `Sync voltooid: ${result.data.success} geslaagd, ${result.data.failed} gefaald, ${result.data.skipped} overgeslagen`,
       )
-
-      // Refresh data to get updated sync status
-      fetchEntries()
-      fetchStats()
-
+      revalidateAll()
       return result.data
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to sync to Instantly.ai"
       toast.error(errorMessage)
       throw err
     } finally {
-      setLoading(false)
+      setSyncing(false)
     }
   }
 
-  // Navigation
-  const changePage = (newPage: number) => {
-    setPagination(prev => ({ ...prev, page: newPage }))
-  }
-
+  const changePage = (newPage: number) => setPage(newPage)
   const changeLimit = (newLimit: number) => {
-    setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }))
+    setLimit(newLimit)
+    setPage(1)
   }
-
   const updateFilters = (newFilters: Partial<BlocklistFilters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }))
-    setPagination(prev => ({ ...prev, page: 1 })) // Reset to first page when filtering
+    setFilters((prev) => ({ ...prev, ...newFilters }))
+    setPage(1)
   }
-
-  // Effects
-  useEffect(() => {
-    fetchEntries()
-  }, [pagination.page, pagination.limit, filters])
-
-  useEffect(() => {
-    fetchStats()
-  }, [])
 
   return {
-    // Data
     entries,
-    stats,
+    stats: stats ?? null,
     pagination,
     filters,
-    loading,
-    error,
+    loading: listLoading || syncing,
+    error: listError ? (listError instanceof Error ? listError.message : "Failed to fetch entries") : null,
 
-    // Actions
     createEntry,
     updateEntry,
     deleteEntry,
@@ -433,13 +352,11 @@ export function useBlocklist(options: UseBlocklistOptions = {}) {
     exportEntries,
     syncToInstantly,
 
-    // Navigation
     changePage,
     changeLimit,
     updateFilters,
 
-    // Refresh
-    refetch: fetchEntries,
-    refetchStats: fetchStats,
+    refetch: () => mutateList(),
+    refetchStats: () => mutateStats(),
   }
 }
