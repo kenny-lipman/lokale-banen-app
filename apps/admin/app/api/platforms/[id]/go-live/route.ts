@@ -23,7 +23,6 @@ async function postHandler(
           details: result.missing
             ? { missing_checks: result.missing }
             : undefined,
-          alias: result.alias ?? undefined,
         },
         { status: result.status },
       )
@@ -32,7 +31,6 @@ async function postHandler(
     return NextResponse.json({
       data: { ...result.data, approved_count: result.approvedCount ?? 0 },
       message: "Platform is live",
-      alias: result.alias,
       revalidate: result.revalidate,
     })
   } catch (err: unknown) {

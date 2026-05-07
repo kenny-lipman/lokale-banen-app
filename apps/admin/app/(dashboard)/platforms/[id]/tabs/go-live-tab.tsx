@@ -102,7 +102,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
         return
       }
       toast.success("Platform is live! 🚀")
-      warnIfPostPublishIssue(json.alias, json.revalidate)
+      warnIfPostPublishIssue(json.revalidate)
       if (json.data) {
         onPublished(json.data as PlatformDetail)
       }
@@ -128,7 +128,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
         return
       }
       toast.success("Platform is offline gehaald.")
-      warnIfPostPublishIssue(null, json.revalidate)
+      warnIfPostPublishIssue(json.revalidate)
       if (json.data) {
         onPublished(json.data as PlatformDetail)
       }

@@ -160,7 +160,6 @@ async function patchHandler(
               details: resp.missing
                 ? { missing_checks: resp.missing }
                 : undefined,
-              alias: resp.alias ?? undefined,
               data: afterFieldUpdates,
             },
             { status: resp.status },
@@ -207,7 +206,6 @@ async function patchHandler(
     return NextResponse.json({
       data: { ...data, approved_count: count || 0 },
       message: "Platform bijgewerkt",
-      alias: publicationFlow?.kind === "publish" ? publicationFlow.resp.alias : undefined,
       revalidate,
     })
   } catch (err: unknown) {

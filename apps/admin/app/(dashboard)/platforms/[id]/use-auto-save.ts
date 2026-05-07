@@ -100,11 +100,10 @@ export function useAutoSave<T>({
 
         setStatus("saved")
         setLastSavedAt(new Date())
-        // alias is alleen aanwezig wanneer de PATCH een publish-flow trok
+        // revalidate is alleen aanwezig wanneer de PATCH een publish-flow trok
         // (is_public false→true). Voor reguliere veld-edits is hij `undefined`,
-        // dus warnIfPostPublishIssue blijft stil. revalidate is altijd present
-        // — daar warnen we alleen op echte fails.
-        warnIfPostPublishIssue(result.alias, result.revalidate)
+        // dus warnIfPostPublishIssue blijft stil bij reguliere edits.
+        warnIfPostPublishIssue(result.revalidate)
         if (result.data && onSaved) {
           onSaved(result.data)
         }

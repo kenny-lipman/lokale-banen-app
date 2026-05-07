@@ -2,12 +2,14 @@
  * Shared publication flow voor platforms — gebruikt door go-live, take-offline,
  * en de PATCH-toggle in /api/review/platforms/[id]. Eén plek voor:
  *   - readiness-checks (validatePublication)
- *   - publish-flow (alias-first, immutable published_at, host-cache bust)
- *   - unpublish-flow (cache bust, alias blijft staan)
+ *   - publish-flow (immutable published_at, host-cache bust)
+ *   - unpublish-flow (cache bust)
+ *
+ * Domain-routing wordt door Vercel zelf afgehandeld via project-domains —
+ * géén handmatige alias-provisioning meer nodig.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { ensureVercelAlias } from "./vercel-domain.service"
 import {
   revalidatePublicSite,
   type RevalidateResult,
@@ -152,14 +154,13 @@ export function failedRequiredKeys(result: ValidatePublicationResult): CheckKey[
 
 export interface PublishPlatformResult {
   ok: boolean
-  /** HTTP status hint — 200 ok, 409 niet-klaar, 502 alias-conflict, 500 db. */
+  /** HTTP status hint — 200 ok, 409 niet-klaar, 500 db. */
   status: number
   error?: string
   code?: string
   missing?: CheckKey[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any
-  alias?: Awaited<ReturnType<typeof ensureVercelAlias>> | null
   revalidate?: RevalidateResult
   approvedCount?: number
 }
@@ -167,10 +168,8 @@ export interface PublishPlatformResult {
 /**
  * Volledige publish-flow:
  *   1. validatePublication — alle required checks groen?
- *   2. ensureVercelAlias — eerst alias provisionen; faalt dit met
- *      conflict-by-different-project, breken we af zonder DB-update.
- *   3. is_public=true; published_at alleen op first publish
- *   4. revalidatePublicSite met host-tags
+ *   2. is_public=true; published_at alleen op first publish
+ *   3. revalidatePublicSite met host-tags
  *
  * `approvedCount` wordt apart geteld zodat de caller hem in de response
  * kan opnemen (UI toont 'em na publish).
@@ -196,31 +195,6 @@ export async function publishPlatform(
     }
   }
 
-  // Hosts uit het validatie-resultaat halen — geen tweede DB-read, dus
-  // geen TOCTOU tussen validate en de alias-call. M1: alias-call voor
-  // zowel preview_domain als (custom) domain als beide gezet zijn.
-  const aliasHosts = [validation.preview_domain, validation.domain].filter(
-    (h): h is string => typeof h === "string" && h.length > 0,
-  )
-
-  // Alias-first: bij hard conflict niets in DB veranderen.
-  let aliasResult: Awaited<ReturnType<typeof ensureVercelAlias>> | null = null
-  for (const host of aliasHosts) {
-    const r = await ensureVercelAlias(host)
-    if (!r.ok && !r.skipped) {
-      return {
-        ok: false,
-        status: 502,
-        code: "ALIAS_PROVISIONING_FAILED",
-        error: r.error ?? "Vercel alias kon niet worden aangemaakt",
-        alias: r,
-      }
-    }
-    if (!aliasResult || (aliasResult.alreadyExists && !r.alreadyExists)) {
-      aliasResult = r
-    }
-  }
-
   // Atomic publish via RPC — één UPDATE met COALESCE op published_at zodat
   // parallelle publishes niet allebei een nieuwe timestamp kunnen schrijven.
   const { data: updated, error: updateErr } = await supabase.rpc(
@@ -233,7 +207,6 @@ export async function publishPlatform(
       ok: false,
       status: 500,
       error: updateErr?.message ?? "Update mislukt",
-      alias: aliasResult,
     }
   }
 
@@ -263,7 +236,6 @@ export async function publishPlatform(
     ok: true,
     status: 200,
     data: updated,
-    alias: aliasResult,
     revalidate,
     approvedCount: freshCount ?? 0,
   }
@@ -285,9 +257,8 @@ export interface UnpublishPlatformResult {
  *   2. Cache-bust voor host-tags zodat de site direct "Domein niet gevonden"
  *      toont i.p.v. tot 1u stale tenant te serveren.
  *
- * `published_at` blijft staan (immutable na first publish). De Vercel-alias
- * blijft ook actief — bij her-publish hoeft `ensureVercelAlias` alleen het
- * idempotente 409-pad te raken.
+ * `published_at` blijft staan (immutable na first publish). Domain-routing
+ * blijft actief via project-domain — hoeft niets aan veranderd te worden.
  */
 export async function unpublishPlatform(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
