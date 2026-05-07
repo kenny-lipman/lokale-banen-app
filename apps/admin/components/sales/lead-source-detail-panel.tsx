@@ -72,8 +72,7 @@ export function LeadSourceDetailPanel({ source, entry, runId, onCandidatePromote
   const parsed = entry.parsed ?? {}
   const showPicker =
     source === 'google_maps' && (entry.candidates?.length ?? 0) > 1 && !!runId
-  const canReplaySource =
-    !!runId && (entry.status === 'failed' || entry.status === 'not_found')
+  const canReplaySource = !!runId && entry.status !== 'running' && entry.status !== 'pending'
   return (
     <Card>
       <CardHeader>

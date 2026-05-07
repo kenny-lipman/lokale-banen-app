@@ -55,6 +55,39 @@ export class EnrichmentOrchestratorService {
         await this.runWebsite(runId, input_url, scrape_vacancies)
         break
     }
+    // Self-heal: als master_record ontbreekt (legacy/corrupted runs waar
+    // finalize ooit niet voltooide), bouw hem op uit huidige enrichments.
+    // Touch'ed niets als master_record al bestaat — user-edits blijven veilig.
+    await this.rebuildMasterIfMissing(runId)
+  }
+
+  private async rebuildMasterIfMissing(runId: string): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('sales_lead_runs')
+      .select('master_record')
+      .eq('id', runId)
+      .single()
+    if (error || data?.master_record) return
+
+    const run = await this.loadRun(runId)
+    const hasParsed = (['kvk', 'google_maps', 'apollo', 'website'] as SourceName[]).some(
+      (s) => !!run.enrichments[s]?.parsed,
+    )
+    if (!hasParsed) return
+
+    const master = computePrimaryMaster(run.enrichments, run.input_url)
+    master.deal_note_text = generateDealNote({
+      master,
+      enrichments: run.enrichments,
+      selectedVacancies: master.vacancies,
+    })
+    await this.supabase
+      .from('sales_lead_runs')
+      .update({
+        master_record: master as unknown as Json,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', runId)
   }
 
   /**

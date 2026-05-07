@@ -12,6 +12,7 @@ import { LeadSourceStatusGrid } from '@/components/sales/lead-source-status-grid
 import { LeadSyncStatus } from '@/components/sales/lead-sync-status'
 import { LeadMasterRecord } from '@/components/sales/lead-master-record'
 import { LeadContactsColumn } from '@/components/sales/lead-contacts-column'
+import { LeadColdContactsCard } from '@/components/sales/lead-cold-contacts-card'
 import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
 import { LeadDealNoteTextarea } from '@/components/sales/lead-deal-note-textarea'
 import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-warnings'
@@ -79,6 +80,11 @@ export default function RunDetailPage({ params }: PageProps) {
     if (!run) return
     if (run.status === 'enriching') return
     if (hydratedRef.current) return
+    // Wacht met hydratie tot master_record daadwerkelijk geladen is — anders
+    // race tussen onReplay (zet hydratedRef=false + refetch) en de async
+    // orchestrator: eerste polling-tick zou master kunnen hydraten als null en
+    // hydratedRef pinnen op true vóórdat de orchestrator klaar is.
+    if (!run.master_record) return
     const initial = run.master_record ? { ...run.master_record } : null
     if (initial && (!initial.vacancies || initial.vacancies.length === 0)) {
       const manual = normalizeManualVacancies(run.manual_vacancies)
@@ -251,11 +257,9 @@ export default function RunDetailPage({ params }: PageProps) {
         </div>
         <div className="lg:col-span-2 space-y-6">
           <LeadContactsColumn
-            runId={run_id}
             enrichments={run!.enrichments ?? {}}
             selected={selected}
             onChange={setSelected}
-            onRevealed={refetch}
           />
           <LeadVacanciesColumn
             manualVacancies={manualVacancies}
@@ -265,6 +269,14 @@ export default function RunDetailPage({ params }: PageProps) {
           />
         </div>
         <div className="lg:col-span-5 space-y-4">
+          <LeadColdContactsCard
+            runId={run_id}
+            coldCandidates={run!.enrichments?.apollo?.parsed?.cold_candidates ?? []}
+            onRevealed={() => {
+              hydratedRef.current = false
+              void refetch()
+            }}
+          />
           <LeadDiscrepancyWarnings enrichments={run!.enrichments ?? {}} master={currentMaster} />
           <LeadDealNoteTextarea
             master={currentMaster}

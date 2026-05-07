@@ -59,8 +59,17 @@ function summarize(
       return `${Object.keys(p).length} velden · ${p.sbi_activities?.length ?? 0} SBI`
     case 'google_maps':
       return `${p.coordinates ? 'GPS · ' : ''}${p.rating ? `${p.rating}★` : 'place_id'}`
-    case 'apollo':
-      return `${p.technologies?.length ?? 0} tech · ${p.keywords?.length ?? 0} keywords · ${p.contacts?.length ?? 0} contacten`
+    case 'apollo': {
+      const contacts = p.contacts?.length ?? 0
+      const cold = p.cold_candidates?.length ?? 0
+      const peopleLabel =
+        contacts > 0 && cold > 0
+          ? `${contacts} contacten · ${cold} suggesties`
+          : cold > 0
+          ? `${cold} suggesties`
+          : `${contacts} contacten`
+      return `${p.technologies?.length ?? 0} tech · ${p.keywords?.length ?? 0} keywords · ${peopleLabel}`
+    }
     case 'website':
       return `${p.pages_crawled?.length ?? 0} pagina's · ${p.contacts?.length ?? 0} contacten · ${p.vacancies?.length ?? 0} vacatures`
   }
