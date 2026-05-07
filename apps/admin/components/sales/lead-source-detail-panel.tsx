@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RotateCcw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import type { PerSourceEnrichment, NormalizedFields } from '@/lib/services/sales-leads/types'
 import { formatFieldValue } from '@/lib/sales-leads/format-fields'
@@ -72,15 +72,24 @@ export function LeadSourceDetailPanel({ source, entry, runId, onCandidatePromote
   const parsed = entry.parsed ?? {}
   const showPicker =
     source === 'google_maps' && (entry.candidates?.length ?? 0) > 1 && !!runId
+  const canReplaySource =
+    !!runId && (entry.status === 'failed' || entry.status === 'not_found')
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">
-          {source} — raw + parsed
+        <CardTitle className="text-sm flex items-center gap-2">
+          <span>{source} — raw + parsed</span>
           {entry.status === 'failed' && (
-            <Badge variant="destructive" className="ml-2">
+            <Badge variant="destructive">
               {entry.error ?? 'failed'}
             </Badge>
+          )}
+          {canReplaySource && (
+            <SourceReplayButton
+              runId={runId!}
+              source={source}
+              onReplayed={onCandidatePromoted}
+            />
           )}
         </CardTitle>
       </CardHeader>
@@ -116,6 +125,63 @@ export function LeadSourceDetailPanel({ source, entry, runId, onCandidatePromote
         })}
       </CardContent>
     </Card>
+  )
+}
+
+type SourceReplayButtonProps = {
+  runId: string
+  source: 'kvk' | 'google_maps' | 'apollo' | 'website'
+  onReplayed?: () => void | Promise<void>
+}
+
+function SourceReplayButton({ runId, source, onReplayed }: SourceReplayButtonProps) {
+  const { toast } = useToast()
+  const [busy, setBusy] = useState(false)
+
+  async function handleReplay(e: React.MouseEvent) {
+    // Prevent collapse-toggle in parent grid-card.
+    e.stopPropagation()
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/sales-leads/${runId}/replay-source`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      toast({ title: `${source} herstart` })
+      // Run.status is nu 'enriching' — SWR-polling pakt het automatisch op.
+      // We refetchen 1× direct zodat UI meteen de nieuwe status laat zien.
+      await onReplayed?.()
+    } catch (err) {
+      toast({
+        title: 'Replay-source mislukt',
+        description: (err as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="ml-auto h-7"
+      disabled={busy}
+      onClick={handleReplay}
+    >
+      {busy ? (
+        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+      ) : (
+        <RotateCcw className="w-3 h-3 mr-1" />
+      )}
+      Opnieuw
+    </Button>
   )
 }
 
