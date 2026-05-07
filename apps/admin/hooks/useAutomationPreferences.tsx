@@ -1,173 +1,107 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { toast } from 'sonner'
-import { supabaseService } from '@/lib/supabase-service'
+import { useCallback, useEffect, useRef } from "react"
+import { toast } from "sonner"
+import useSWR from "swr"
+import { supabaseService } from "@/lib/supabase-service"
+import { swrKeys } from "@/lib/swr-keys"
 
 interface AutomationPreference {
-  region_id: string;
-  automation_enabled: boolean;
+  region_id: string
+  automation_enabled: boolean
 }
 
 interface UseAutomationPreferencesReturn {
-  preferences: AutomationPreference[];
-  updatePreference: (regionId: string, enabled: boolean) => Promise<void>;
-  saving: boolean;
-  error: string | null;
-  loading: boolean;
+  preferences: AutomationPreference[]
+  updatePreference: (regionId: string, enabled: boolean) => Promise<void>
+  saving: boolean
+  error: string | null
+  loading: boolean
 }
 
-// Debounce function
-const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  delay: number
-): ((...args: Parameters<T>) => void) => {
-  let timeoutId: NodeJS.Timeout
-
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeoutId)
-    timeoutId = setTimeout(() => func(...args), delay)
+async function getAuthToken(): Promise<string> {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseService.client.auth.getSession()
+  if (sessionError || !session?.access_token) {
+    throw new Error("Authentication required")
   }
+  return session.access_token
+}
+
+async function fetchAutomationPreferences(): Promise<AutomationPreference[]> {
+  const token = await getAuthToken()
+  const response = await fetch("/api/settings/automation-preferences", {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) {
+    throw new Error("Failed to load preferences")
+  }
+  const data = await response.json()
+  return data.preferences ?? []
+}
+
+async function saveAutomationPreferences(preferences: AutomationPreference[]) {
+  const token = await getAuthToken()
+  const response = await fetch("/api/settings/automation-preferences", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ preferences }),
+  })
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.error || "Failed to save preferences")
+  }
+  return preferences
 }
 
 export const useAutomationPreferences = (): UseAutomationPreferencesReturn => {
-  const [preferences, setPreferences] = useState<AutomationPreference[]>([])
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
-  const pendingSavesRef = useRef<Set<string>>(new Set())
-
-  // Debounced save function
-  const debouncedSave = useCallback(
-    debounce(async (newPreferences: AutomationPreference[]) => {
-      setSaving(true)
-      setError(null)
-      
-      try {
-        // Get current session for authentication
-        const { data: { session }, error: sessionError } = await supabaseService.client.auth.getSession()
-        
-        if (sessionError || !session?.access_token) {
-          throw new Error('Authentication required')
-        }
-        
-        const response = await fetch('/api/settings/automation-preferences', {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ preferences: newPreferences })
-        })
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.error || 'Failed to save preferences')
-        }
-        
-        // Update cache
-        localStorage.setItem('automation_preferences', JSON.stringify(newPreferences))
-        
-        // Clear pending saves
-        pendingSavesRef.current.clear()
-        
-        // Show success toast
-        toast.success('Automation preferences saved successfully')
-        
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-        setError(errorMessage)
-        
-        // Show error toast
-        toast.error('Failed to save automation preferences')
-        
-        throw err
-      } finally {
-        setSaving(false)
-      }
-    }, 1000), // 1 second delay
-    []
+  const {
+    data: preferences,
+    error,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useSWR<AutomationPreference[]>(
+    swrKeys.automationPreferences,
+    fetchAutomationPreferences,
   )
 
-  const updatePreference = useCallback(async (regionId: string, enabled: boolean) => {
-    // Add to pending saves to prevent duplicate requests
-    pendingSavesRef.current.add(regionId)
-    
-    const newPreferences = preferences.map(pref =>
-      pref.region_id === regionId 
-        ? { ...pref, automation_enabled: enabled }
-        : pref
-    )
-    
-    // Optimistic update
-    setPreferences(newPreferences)
-    
-    // Clear any existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-    
-    // Set new timeout for debounced save
-    saveTimeoutRef.current = setTimeout(() => {
-      debouncedSave(newPreferences)
-    }, 1000)
-  }, [preferences, debouncedSave])
+  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
-  // Load initial preferences
-  useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  const updatePreference = useCallback(
+    async (regionId: string, enabled: boolean) => {
+      const current = preferences ?? []
+      const optimistic = current.map((p) =>
+        p.region_id === regionId ? { ...p, automation_enabled: enabled } : p,
+      )
 
-        // Try to load from cache first
-        const cached = localStorage.getItem('automation_preferences')
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached)
-            setPreferences(parsed)
-          } catch {
-            // Invalid cache, ignore
-          }
-        }
+      // Optimistic UI
+      mutate(optimistic, { revalidate: false })
 
-        // Get current session for authentication
-        const { data: { session }, error: sessionError } = await supabaseService.client.auth.getSession()
-        
-        if (sessionError || !session?.access_token) {
-          throw new Error('Authentication required')
-        }
-        
-        // Load from API
-        const response = await fetch('/api/settings/automation-preferences', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          setPreferences(data.preferences)
-          
-          // Update cache
-          localStorage.setItem('automation_preferences', JSON.stringify(data.preferences))
-        } else {
-          throw new Error('Failed to load preferences')
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load preferences'
-        setError(errorMessage)
-        console.error('Error loading automation preferences:', err)
-      } finally {
-        setLoading(false)
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
       }
-    }
-    
-    loadPreferences()
-  }, [])
 
-  // Cleanup timeout on unmount
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await saveAutomationPreferences(optimistic)
+          toast.success("Automation preferences saved successfully")
+          mutate(optimistic, { revalidate: false })
+        } catch (err) {
+          toast.error("Failed to save automation preferences")
+          // Revalidate to roll back to server truth
+          mutate()
+        }
+      }, 1000)
+    },
+    [preferences, mutate],
+  )
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -177,10 +111,10 @@ export const useAutomationPreferences = (): UseAutomationPreferencesReturn => {
   }, [])
 
   return {
-    preferences,
+    preferences: preferences ?? [],
     updatePreference,
-    saving,
-    error,
-    loading
+    saving: isValidating && !isLoading,
+    error: error ? (error instanceof Error ? error.message : "Failed to load preferences") : null,
+    loading: isLoading,
   }
-} 
+}
