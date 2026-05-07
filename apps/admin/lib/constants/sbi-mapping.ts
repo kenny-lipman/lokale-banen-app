@@ -98,3 +98,23 @@ export const BRANCHE_ID_TO_LABEL: Record<number, string> = {
 export function sbiToBrancheLabel(sbiCode: string): string {
   return BRANCHE_ID_TO_LABEL[sbiToBrancheId(sbiCode)] ?? 'Overig'
 }
+
+/**
+ * Strict variant: returns Pipedrive Branche enum-id, or `null` voor onbekende /
+ * lege input. Gebruikt door sales-lead Pipedrive sync (fase 5) — geen 'Overig'
+ * fallback, zodat we het Pipedrive-veld leeglaten ipv 99 te dwingen.
+ *
+ * Bij conflict KvK SBI vs Apollo industry: Apollo wint voor master_record;
+ * KvK SBI komt in deal-notitie. Zie spec sectie 6.4.
+ */
+export function sbiToBrancheEnumId(sbi: string | null | undefined): number | null {
+  if (!sbi) return null
+  const trimmed = String(sbi).trim()
+  if (!trimmed) return null
+  const prefix = trimmed.slice(0, 2)
+  const enumId = SBI_TO_BRANCHE_ID[prefix]
+  if (enumId === undefined) return null
+  // Strip 'Overig' (99) — strict variant moet veld leeglaten ipv Overig dwingen.
+  if (enumId === 99) return null
+  return enumId
+}
