@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useToast } from '@/hooks/use-toast'
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import useSWR from "swr"
+import { useToast } from "@/hooks/use-toast"
+import { swrKeys } from "@/lib/swr-keys"
+import { pollingOptions } from "@/lib/swr-polling"
 
 interface BatchStatusResponse {
   batch_id: string
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'partial_success'
+  status: "pending" | "processing" | "completed" | "failed" | "partial_success"
   total_companies: number
   completed_companies: number
   failed_companies: number
@@ -21,8 +24,8 @@ interface BatchStatusResponse {
 }
 
 interface EnrichmentPollingConfig {
-  pollingInterval: number // milliseconds
-  maxPollingDuration: number // milliseconds
+  pollingInterval: number
+  maxPollingDuration: number
   enableLightweightPolling: boolean
   onStatusChange?: (status: BatchStatusResponse) => void
   onCompanyUpdate?: (companyId: string, result: any) => void
@@ -31,306 +34,273 @@ interface EnrichmentPollingConfig {
 }
 
 const DEFAULT_CONFIG: EnrichmentPollingConfig = {
-  pollingInterval: 3000, // 3 seconds
-  maxPollingDuration: 45000, // 45 seconds
-  enableLightweightPolling: true
+  pollingInterval: 3000,
+  maxPollingDuration: 45000,
+  enableLightweightPolling: true,
 }
 
 export interface EnrichmentPollingState {
   isPolling: boolean
   batchStatus: BatchStatusResponse | null
-  pollingPhase: 'active' | 'manual' | 'stopped'
+  pollingPhase: "active" | "manual" | "stopped"
   elapsedTime: number
   error: string | null
   canManualRefresh: boolean
   lastRefreshed: Date | null
 }
 
+const TERMINAL: BatchStatusResponse["status"][] = ["completed", "failed"]
+
+async function fetchEnrichmentStatus(
+  batchId: string,
+  isLightweight: boolean,
+): Promise<BatchStatusResponse> {
+  const url = `/api/apollo/status/${batchId}${isLightweight ? "?lightweight=true" : ""}`
+  const response = await fetch(url, { headers: { "Cache-Control": "no-cache" } })
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error("Rate limit exceeded. Please wait before checking again.")
+    }
+    throw new Error(`Failed to fetch status: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+function formatElapsed(ms: number) {
+  const seconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return minutes > 0 ? `${minutes}m ${remainingSeconds}s` : `${remainingSeconds}s`
+}
+
 export function useEnrichmentPolling(
-  batchId: string | null, 
-  config: Partial<EnrichmentPollingConfig> = {}
+  batchId: string | null,
+  config: Partial<EnrichmentPollingConfig> = {},
 ) {
   const fullConfig = { ...DEFAULT_CONFIG, ...config }
   const { toast } = useToast()
-  
-  const [state, setState] = useState<EnrichmentPollingState>({
-    isPolling: false,
-    batchStatus: null,
-    pollingPhase: 'stopped',
-    elapsedTime: 0,
-    error: null,
-    canManualRefresh: false,
-    lastRefreshed: null
-  })
 
-  const pollingRef = useRef<NodeJS.Timeout | null>(null)
-  const startTimeRef = useRef<Date | null>(null)
+  const [enabled, setEnabled] = useState(true)
+  const [phase, setPhase] = useState<"active" | "manual" | "stopped">("stopped")
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
+  const [canManualRefresh, setCanManualRefresh] = useState(false)
+
+  const startTimeRef = useRef<number | null>(null)
   const elapsedTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const notifiedTerminalRef = useRef<string | null>(null)
+  const notifiedCompaniesRef = useRef<Set<string>>(new Set())
+  const lastBatchIdRef = useRef<string | null>(null)
 
-  // Fetch batch status
-  const fetchBatchStatus = useCallback(async (isLightweight = false) => {
-    if (!batchId) return null
+  // Reset bij nieuwe batchId
+  if (batchId && lastBatchIdRef.current !== batchId) {
+    lastBatchIdRef.current = batchId
+    startTimeRef.current = Date.now()
+    notifiedTerminalRef.current = null
+    notifiedCompaniesRef.current = new Set()
+    setEnabled(true)
+    setPhase("active")
+    setElapsedTime(0)
+  }
 
-    try {
-      // Cancel any existing request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+  const isPolling = !!batchId && enabled && phase === "active"
+
+  const refreshIntervalCb = useCallback(
+    (latestData: BatchStatusResponse | undefined) => {
+      if (!enabled) return 0
+      if (latestData && TERMINAL.includes(latestData.status)) return 0
+      if (
+        startTimeRef.current &&
+        Date.now() - startTimeRef.current >= fullConfig.maxPollingDuration
+      ) {
+        return 0
       }
-      
-      abortControllerRef.current = new AbortController()
-      
-      const url = `/api/apollo/status/${batchId}${isLightweight ? '?lightweight=true' : ''}`
-      const response = await fetch(url, {
-        signal: abortControllerRef.current.signal,
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      })
+      return fullConfig.pollingInterval
+    },
+    [enabled, fullConfig.maxPollingDuration, fullConfig.pollingInterval],
+  )
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please wait before checking again.')
-        }
-        throw new Error(`Failed to fetch status: ${response.statusText}`)
+  const { data, error, isLoading, mutate } = useSWR<BatchStatusResponse>(
+    batchId && enabled ? swrKeys.enrichmentBatch(batchId) : null,
+    () => fetchEnrichmentStatus(batchId as string, fullConfig.enableLightweightPolling),
+    pollingOptions(refreshIntervalCb),
+  )
+
+  // Elapsed-time counter zolang we actief pollen
+  useEffect(() => {
+    if (!isPolling) {
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current)
+        elapsedTimerRef.current = null
       }
-
-      const data: BatchStatusResponse = await response.json()
-      
-      setState(prev => ({
-        ...prev,
-        batchStatus: data,
-        lastRefreshed: new Date(),
-        error: null
-      }))
-
-      // Call status change callback
-      if (fullConfig.onStatusChange) {
-        fullConfig.onStatusChange(data)
-      }
-
-      // Call company update callbacks
-      if (fullConfig.onCompanyUpdate && data.company_results) {
-        data.company_results.forEach(result => {
-          fullConfig.onCompanyUpdate!(result.company_id, result)
-        })
-      }
-
-      return data
-
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return null // Request was cancelled
-      }
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setState(prev => ({
-        ...prev,
-        error: errorMessage,
-        lastRefreshed: new Date()
-      }))
-
-      if (fullConfig.onError) {
-        fullConfig.onError(errorMessage)
-      }
-
-      return null
+      return
     }
-  }, [batchId, fullConfig])
-
-  // Start polling
-  const startPolling = useCallback(() => {
-    if (!batchId || state.isPolling) return
-
-    console.log(`🔄 Starting enrichment polling for batch ${batchId}`)
-    
-    startTimeRef.current = new Date()
-    
-    setState(prev => ({
-      ...prev,
-      isPolling: true,
-      pollingPhase: 'active',
-      elapsedTime: 0,
-      error: null
-    }))
-
-    // Start elapsed time counter
+    if (!startTimeRef.current) startTimeRef.current = Date.now()
     elapsedTimerRef.current = setInterval(() => {
       if (startTimeRef.current) {
-        const elapsed = Date.now() - startTimeRef.current.getTime()
-        setState(prev => ({ ...prev, elapsedTime: elapsed }))
+        setElapsedTime(Date.now() - startTimeRef.current)
       }
     }, 1000)
-
-    // Initial fetch
-    fetchBatchStatus(fullConfig.enableLightweightPolling)
-
-    // Set up polling interval
-    pollingRef.current = setInterval(async () => {
-      const status = await fetchBatchStatus(fullConfig.enableLightweightPolling)
-      
-      if (!status) return
-
-      // Check if enrichment is complete
-      if (status.status === 'completed' || status.status === 'failed') {
-        stopPolling()
-        
-        if (fullConfig.onComplete) {
-          fullConfig.onComplete(status.batch_id, status)
-        }
-
-        // Show completion toast
-        toast({
-          title: status.status === 'completed' ? "Enrichment Complete!" : "Enrichment Failed",
-          description: status.status === 'completed' 
-            ? `Successfully enriched ${status.completed_companies} companies`
-            : `Enrichment failed: ${status.error_message || 'Unknown error'}`,
-          variant: status.status === 'completed' ? 'default' : 'destructive'
-        })
-        
-        return
+    return () => {
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current)
+        elapsedTimerRef.current = null
       }
+    }
+  }, [isPolling])
 
-      // Check if we've reached max polling duration
-      if (startTimeRef.current && 
-          Date.now() - startTimeRef.current.getTime() >= fullConfig.maxPollingDuration) {
-        
-        console.log('⏱️ Max polling duration reached, switching to manual mode')
-        
-        // Switch to manual mode
-        setState(prev => ({
-          ...prev,
-          pollingPhase: 'manual',
-          canManualRefresh: true
-        }))
-        
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current)
-          pollingRef.current = null
+  // Track lastRefreshed bij elke fetch
+  useEffect(() => {
+    if (data || error) setLastRefreshed(new Date())
+  }, [data, error])
+
+  // Phase-overgangen + callbacks bij data-change
+  useEffect(() => {
+    if (!batchId || !data) return
+
+    fullConfig.onStatusChange?.(data)
+
+    if (fullConfig.onCompanyUpdate && data.company_results) {
+      data.company_results.forEach((result) => {
+        const seenKey = `${result.company_id}:${result.status}:${result.enriched_at ?? ""}`
+        if (!notifiedCompaniesRef.current.has(seenKey)) {
+          notifiedCompaniesRef.current.add(seenKey)
+          fullConfig.onCompanyUpdate?.(result.company_id, result)
         }
+      })
+    }
 
+    if (TERMINAL.includes(data.status)) {
+      if (notifiedTerminalRef.current !== data.batch_id) {
+        notifiedTerminalRef.current = data.batch_id
+        setPhase("stopped")
+        setCanManualRefresh(false)
+        fullConfig.onComplete?.(data.batch_id, data)
         toast({
-          title: "Enrichment in Progress",
-          description: "Enrichment may take a few minutes. Use 'Check Status' to update manually.",
-          variant: 'default'
+          title: data.status === "completed" ? "Enrichment Complete!" : "Enrichment Failed",
+          description:
+            data.status === "completed"
+              ? `Successfully enriched ${data.completed_companies} companies`
+              : `Enrichment failed: ${data.error_message || "Unknown error"}`,
+          variant: data.status === "completed" ? "default" : "destructive",
         })
       }
-    }, fullConfig.pollingInterval)
+      return
+    }
 
-  }, [batchId, state.isPolling, fullConfig, fetchBatchStatus, toast])
+    // Switch naar manual mode na maxPollingDuration
+    if (
+      phase === "active" &&
+      startTimeRef.current &&
+      Date.now() - startTimeRef.current >= fullConfig.maxPollingDuration
+    ) {
+      setPhase("manual")
+      setCanManualRefresh(true)
+      toast({
+        title: "Enrichment in Progress",
+        description: "Enrichment may take a few minutes. Use 'Check Status' to update manually.",
+        variant: "default",
+      })
+    }
+  }, [data, batchId, fullConfig, phase, toast])
 
-  // Stop polling
+  // Error-callback
+  useEffect(() => {
+    if (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      fullConfig.onError?.(errorMessage)
+    }
+  }, [error, fullConfig])
+
   const stopPolling = useCallback(() => {
-    console.log('⏹️ Stopping enrichment polling')
-    
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current)
-      pollingRef.current = null
-    }
-    
-    if (elapsedTimerRef.current) {
-      clearInterval(elapsedTimerRef.current)
-      elapsedTimerRef.current = null
-    }
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    setState(prev => ({
-      ...prev,
-      isPolling: false,
-      pollingPhase: 'stopped',
-      canManualRefresh: false
-    }))
+    setEnabled(false)
+    setPhase("stopped")
+    setCanManualRefresh(false)
   }, [])
 
-  // Manual refresh
-  const manualRefresh = useCallback(async () => {
-    if (!state.canManualRefresh) return
+  const startPolling = useCallback(() => {
+    if (!batchId) return
+    notifiedTerminalRef.current = null
+    notifiedCompaniesRef.current = new Set()
+    startTimeRef.current = Date.now()
+    setElapsedTime(0)
+    setEnabled(true)
+    setPhase("active")
+  }, [batchId])
 
-    setState(prev => ({ ...prev, canManualRefresh: false }))
-    
+  const manualRefresh = useCallback(async () => {
+    if (!canManualRefresh) return
+    setCanManualRefresh(false)
     try {
-      const status = await fetchBatchStatus(false) // Use full status for manual refresh
-      
-      if (status && (status.status === 'completed' || status.status === 'failed')) {
-        if (fullConfig.onComplete) {
-          fullConfig.onComplete(status.batch_id, status)
-        }
+      // Manual mode: gebruik full status (niet lightweight)
+      const response = await fetch(`/api/apollo/status/${batchId}`, {
+        headers: { "Cache-Control": "no-cache" },
+      })
+      if (response.ok) {
+        const fresh = (await response.json()) as BatchStatusResponse
+        await mutate(fresh, { revalidate: false })
+      } else {
+        await mutate()
       }
     } finally {
-      // Re-enable manual refresh after a short delay
-      setTimeout(() => {
-        setState(prev => ({ ...prev, canManualRefresh: true }))
-      }, 2000)
+      setTimeout(() => setCanManualRefresh(true), 2000)
     }
-  }, [state.canManualRefresh, fetchBatchStatus, fullConfig])
+  }, [batchId, canManualRefresh, mutate])
 
-  // Format elapsed time
-  const formatElapsedTime = useCallback((ms: number) => {
-    const seconds = Math.floor(ms / 1000)
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    
-    if (minutes > 0) {
-      return `${minutes}m ${remainingSeconds}s`
-    }
-    return `${remainingSeconds}s`
-  }, [])
-
-  // Get user-friendly status message
   const getStatusMessage = useCallback(() => {
-    if (!state.batchStatus) return "Initializing..."
-    
-    const { status, completed_companies, total_companies, failed_companies } = state.batchStatus
-    
+    if (!data) return "Initializing..."
+    const { status, completed_companies, total_companies, failed_companies } = data
     switch (status) {
-      case 'processing':
-        if (state.pollingPhase === 'active') {
-          return `Enriching... ${completed_companies}/${total_companies} completed (${formatElapsedTime(state.elapsedTime)})`
-        } else {
-          return `Still processing... ${completed_companies}/${total_companies} completed. This may take a few minutes.`
+      case "processing":
+        if (phase === "active") {
+          return `Enriching... ${completed_companies}/${total_companies} completed (${formatElapsed(elapsedTime)})`
         }
-      case 'completed':
+        return `Still processing... ${completed_companies}/${total_companies} completed. This may take a few minutes.`
+      case "completed":
         return `✅ Complete! ${completed_companies} companies enriched successfully`
-      case 'failed':
-        return `❌ Failed: ${state.batchStatus.error_message || 'Unknown error'}`
-      case 'partial_success':
+      case "failed":
+        return `❌ Failed: ${data.error_message || "Unknown error"}`
+      case "partial_success":
         return `⚠️ Partial success: ${completed_companies} succeeded, ${failed_companies} failed`
       default:
         return "Pending..."
     }
-  }, [state.batchStatus, state.pollingPhase, state.elapsedTime, formatElapsedTime])
+  }, [data, phase, elapsedTime])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopPolling()
-    }
-  }, [stopPolling])
-
-  // Auto-start polling when batchId is provided
-  useEffect(() => {
-    if (batchId && !state.isPolling) {
-      startPolling()
-    }
-  }, [batchId, startPolling])
+  const progress = useMemo(
+    () =>
+      data
+        ? {
+            percentage:
+              data.total_companies > 0
+                ? Math.round(
+                    ((data.completed_companies + data.failed_companies) / data.total_companies) *
+                      100,
+                  )
+                : 0,
+            completed: data.completed_companies,
+            failed: data.failed_companies,
+            total: data.total_companies,
+          }
+        : null,
+    [data],
+  )
 
   return {
-    ...state,
+    isPolling,
+    batchStatus: data ?? null,
+    pollingPhase: phase,
+    elapsedTime,
+    error: error ? (error instanceof Error ? error.message : String(error)) : null,
+    canManualRefresh,
+    lastRefreshed,
     startPolling,
     stopPolling,
     manualRefresh,
     getStatusMessage,
-    formatElapsedTime: (ms: number) => formatElapsedTime(ms),
-    progress: state.batchStatus ? {
-      percentage: state.batchStatus.total_companies > 0 
-        ? Math.round(((state.batchStatus.completed_companies + state.batchStatus.failed_companies) / state.batchStatus.total_companies) * 100)
-        : 0,
-      completed: state.batchStatus.completed_companies,
-      failed: state.batchStatus.failed_companies,
-      total: state.batchStatus.total_companies
-    } : null
+    formatElapsedTime: formatElapsed,
+    progress,
+    // Niet meer gebruikt extern, maar bewaard voor compat:
+    loading: isLoading,
   }
 }
