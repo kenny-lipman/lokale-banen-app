@@ -1,4 +1,4 @@
-import { runActorSync, ApifyApiError } from '@/lib/services/apify/run-actor-sync'
+import { runActorWithPartialResults, ApifyApiError } from '@/lib/services/apify/run-actor-sync'
 import { cachedFetch } from './cache'
 import type { NormalizedFields, SourceHealth } from './types'
 
@@ -31,9 +31,11 @@ type ApifyGoogleMapsItem = {
 
 const ACTOR_ID = 'compass~crawler-google-places'
 const MAX_CANDIDATES = 3
-// Apify cold-start + 3 places crawl: typisch 60-120s, soms tot 180s.
-// Vercel maxDuration is 300s — laat genoeg budget voor andere bronnen.
-const SYNC_TIMEOUT_MS = 180_000
+// Apify max waitForFinish op start-endpoint = 60s. Bij unieke bedrijfsnamen
+// (bv. "WeTarget") zoekt de actor agressief verder dan de eerste hit en kan
+// 5+ min draaien — daarom gebruiken we runActorWithPartialResults die na
+// 60s pakt wat er in de dataset staat (1 of meer items) en de run abort.
+const APIFY_WAIT_SECS = 60
 
 export class MapsApiError extends Error {
   constructor(
@@ -50,12 +52,17 @@ export class MapsService {
    * Top-N candidates voor één query via Apify-actor. Eerste candidate = best
    * match volgens Apify rank. Caller (orchestrator) zet `parsed = candidates[0]`
    * als default; user kan via UI promoten.
+   *
+   * Gebruikt `runActorWithPartialResults` om binnen Vercel function-budget te
+   * blijven. Bij unieke bedrijfsnamen kan de actor tot 10+ min draaien op zoek
+   * naar 3 hits die niet bestaan — partial-pattern returnt na 60s wat dan
+   * beschikbaar is (typisch 1 hit, soms meer) en abort de doorlopende actor-run.
    */
   async enrichByQueryMulti(query: string): Promise<NormalizedFields[]> {
     const cacheKey = `apify_maps:${query.toLowerCase().trim()}`
     const { value: items } = await cachedFetch('apify_maps', cacheKey, '30d', async () => {
       try {
-        return await runActorSync<ApifyGoogleMapsItem>({
+        const result = await runActorWithPartialResults<ApifyGoogleMapsItem>({
           actorId: ACTOR_ID,
           input: {
             searchStringsArray: [query],
@@ -64,8 +71,10 @@ export class MapsService {
             language: 'nl',
             skipClosedPlaces: false,
           },
-          timeoutMs: SYNC_TIMEOUT_MS,
+          waitForFinishSecs: APIFY_WAIT_SECS,
+          abortIfStillRunning: true,
         })
+        return result.items
       } catch (e) {
         if (e instanceof ApifyApiError) {
           if (e.reason === 'no_token') throw new MapsApiError('no_key', e.message)
