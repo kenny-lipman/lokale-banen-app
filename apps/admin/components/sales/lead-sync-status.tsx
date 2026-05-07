@@ -196,17 +196,23 @@ export function LeadSyncStatus({ run, onSynced }: Props) {
 
   // ── State 5: failed ──
   if (run.status === 'failed') {
+    const hasPartialSync =
+      !!run.pipedrive_org_id ||
+      !!run.pipedrive_deal_id ||
+      (run.pipedrive_person_ids?.length ?? 0) > 0
+    const canRetrySync = !!run.master_record?.company_name || hasPartialSync
+
     return (
       <Card className="border-red-300 bg-red-50">
         <CardHeader>
           <div className="flex items-center gap-2">
             <XCircle className="w-5 h-5 text-red-600" />
-            <CardTitle>Sync mislukt</CardTitle>
+            <CardTitle>{canRetrySync ? 'Sync mislukt' : 'Verrijking mislukt'}</CardTitle>
           </div>
           <CardDescription className="text-red-800">{run.error ?? 'Onbekende fout'}</CardDescription>
         </CardHeader>
         <CardContent className="text-sm space-y-2">
-          {(run.pipedrive_org_id || run.pipedrive_deal_id || (run.pipedrive_person_ids?.length ?? 0) > 0) && (
+          {hasPartialSync && (
             <div className="text-gray-600">
               <p className="font-medium">Reeds aangemaakt:</p>
               {run.pipedrive_org_id && <p>· org {run.pipedrive_org_id}</p>}
@@ -216,10 +222,17 @@ export function LeadSyncStatus({ run, onSynced }: Props) {
               {run.pipedrive_deal_id && <p>· deal {run.pipedrive_deal_id}</p>}
             </div>
           )}
-          <Button onClick={() => triggerSync(false)} disabled={syncing}>
-            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCw className="w-4 h-4 mr-2" />}
-            Hervatten
-          </Button>
+          {canRetrySync ? (
+            <Button onClick={() => triggerSync(false)} disabled={syncing}>
+              {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCw className="w-4 h-4 mr-2" />}
+              Hervatten
+            </Button>
+          ) : (
+            <p className="text-gray-700">
+              Geen master record opgebouwd — gebruik <span className="font-medium">"Opnieuw runnen"</span> bovenin om
+              de bronnen opnieuw te proberen, of maak een nieuwe run aan voor deze URL.
+            </p>
+          )}
         </CardContent>
       </Card>
     )
