@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Lock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Lock, Loader2 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import {
   Select,
   SelectContent,
@@ -28,6 +30,7 @@ type OwnerConfig = {
 }
 
 type Props = {
+  runId: string
   master: MasterRecord
   enrichments: RunEnrichments
   ownerConfig: OwnerConfig | null
@@ -58,8 +61,10 @@ function getMasterValueAsString(master: MasterRecord, key: keyof NormalizedField
   return String(value)
 }
 
-export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }: Props) {
+export function LeadMasterRecord({ runId, master, enrichments, ownerConfig, onChange }: Props) {
+  const { toast } = useToast()
   const [hoofddomein, setHoofddomein] = useState(master.hoofddomein ?? '')
+  const [resolvingHoofddomein, setResolvingHoofddomein] = useState(false)
 
   useEffect(() => {
     setHoofddomein(master.hoofddomein ?? '')
@@ -175,11 +180,53 @@ export function LeadMasterRecord({ master, enrichments, ownerConfig, onChange }:
               onChange({ ...master, hoofddomein: e.target.value || null })
             }}
           />
-          <div className="col-span-3">
+          <div className="col-span-3 flex items-center gap-2">
             {ownerConfig?.hoofddomein_strategy === 'auto_match_by_address' ? (
-              <Badge variant="outline" className="text-xs text-gray-500">
-                auto-match volgt in fase 5
-              </Badge>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={resolvingHoofddomein}
+                onClick={async () => {
+                  setResolvingHoofddomein(true)
+                  try {
+                    const res = await fetch(
+                      `/api/sales-leads/${runId}/resolve-hoofddomein`,
+                      { method: 'POST' },
+                    )
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                    const body = (await res.json()) as { matched: boolean; hoofddomein: string | null }
+                    if (body.matched && body.hoofddomein) {
+                      setHoofddomein(body.hoofddomein)
+                      onChange({ ...master, hoofddomein: body.hoofddomein })
+                      toast({ title: 'Hoofddomein gematcht', description: body.hoofddomein })
+                    } else {
+                      toast({
+                        title: 'Geen match',
+                        description: 'Vul handmatig een hoofddomein in.',
+                        variant: 'default',
+                      })
+                    }
+                  } catch (e) {
+                    toast({
+                      title: 'Auto-match mislukt',
+                      description: (e as Error).message,
+                      variant: 'destructive',
+                    })
+                  } finally {
+                    setResolvingHoofddomein(false)
+                  }
+                }}
+              >
+                {resolvingHoofddomein ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Matchen…
+                  </>
+                ) : (
+                  'Auto-match'
+                )}
+              </Button>
             ) : (
               <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">
                 vast

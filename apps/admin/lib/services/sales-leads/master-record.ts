@@ -73,8 +73,8 @@ function isPresent(v: unknown): boolean {
  * non-empty waarde te kiezen (volgens FIELD_PRIORITY).
  *
  * `inputUrl` overschrijft `website` veld (klant brief: "(input URL)" is primair).
- * `hoofddomein` is null hier — wordt later gevuld door PlatformMatcherService
- * (fase 5) of door owner_config.hoofddomein_fixed_value.
+ * `hoofddomein` is null hier — wordt gevuld door `owner_config.hoofddomein_fixed_value`
+ * of via PlatformMatcherService bij `auto_match_by_address` (POST resolve-hoofddomein).
  */
 export function computePrimaryMaster(
   enrichments: RunEnrichments,

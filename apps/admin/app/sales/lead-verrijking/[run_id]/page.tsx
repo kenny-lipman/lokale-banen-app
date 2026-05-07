@@ -241,6 +241,7 @@ export default function RunDetailPage({ params }: PageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
           <LeadMasterRecord
+            runId={run_id}
             master={currentMaster}
             enrichments={run!.enrichments ?? {}}
             ownerConfig={ownerConfig}
