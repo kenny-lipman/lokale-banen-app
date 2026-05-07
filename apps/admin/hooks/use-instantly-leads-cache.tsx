@@ -1,26 +1,26 @@
-import { useState, useEffect } from "react"
+import useSWR from "swr"
+import { swrKeys } from "@/lib/swr-keys"
+
+async function fetchInstantlyLeads() {
+  const res = await fetch("/api/instantly-leads")
+  if (!res.ok) {
+    throw new Error("Fout bij ophalen leads")
+  }
+  return res.json()
+}
 
 export function useInstantlyLeadsCache() {
-  const [data, setData] = useState<any[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<any>(null)
+  const { data, error, isLoading, isValidating, mutate } = useSWR<any[]>(
+    swrKeys.instantlyLeads,
+    fetchInstantlyLeads,
+  )
 
-  const fetchLeads = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/instantly-leads")
-      if (!res.ok) throw new Error("Fout bij ophalen leads")
-      const leads = await res.json()
-      setData(leads)
-    } catch (e) {
-      setError(e)
-    } finally {
-      setLoading(false)
-    }
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    isValidating,
+    error,
+    refetch: () => mutate(),
+    mutate,
   }
-
-  useEffect(() => { fetchLeads() }, [])
-
-  return { data, loading, error, refetch: fetchLeads }
-} 
+}
