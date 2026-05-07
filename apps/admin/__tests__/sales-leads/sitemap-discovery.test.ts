@@ -25,6 +25,15 @@ SITEMAP: https://example.com/news-sitemap.xml`
     const robots = `Sitemap: https://e.nl/s.xml\nSitemap: https://e.nl/s.xml`
     expect(parseRobotsForSitemaps(robots)).toEqual(['https://e.nl/s.xml'])
   })
+
+  it('returns relative paths verbatim — caller resolves against base', () => {
+    // wetarget.nl style: Sitemap-line wijst naar "/sitemap.xml" (relatief).
+    // discoverUrls moet dit zelf resolven tegen de robots.txt finalUrl.
+    const robots = `User-agent: *
+Crawl-delay: 10
+Sitemap: /sitemap.xml`
+    expect(parseRobotsForSitemaps(robots)).toEqual(['/sitemap.xml'])
+  })
 })
 
 describe('parseSitemapXml', () => {

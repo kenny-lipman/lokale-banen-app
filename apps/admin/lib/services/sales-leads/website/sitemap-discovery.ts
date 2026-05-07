@@ -103,11 +103,30 @@ export function scoreUrl(url: string): { role: DiscoveredUrlRole; priority: numb
   return { role: 'other', priority: 10 + depth }
 }
 
-async function fetchText(url: string): Promise<string | null> {
+/**
+ * Wrapt safeFetch: returnt body + finalUrl (na redirects), of null bij niet-2xx.
+ * Caller heeft finalUrl nodig om relative sitemap-paden uit robots.txt correct
+ * te resolven (bv. wetarget.nl → www.wetarget.nl redirect).
+ */
+async function fetchTextWithUrl(
+  url: string,
+): Promise<{ body: string; finalUrl: string } | null> {
   try {
     const r = await safeFetch(url)
-    if (r.status >= 200 && r.status < 300) return r.body
+    if (r.status >= 200 && r.status < 300) return { body: r.body, finalUrl: r.url }
     return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Resolve raw sitemap-string (kan relatief zijn, "/sitemap.xml") tegen baseUrl.
+ * Returnt null wanneer URL niet parsebaar is.
+ */
+function resolveSitemapUrl(raw: string, baseUrl: string): string | null {
+  try {
+    return new URL(raw, baseUrl).toString()
   } catch {
     return null
   }
@@ -117,8 +136,10 @@ async function fetchText(url: string): Promise<string | null> {
  * Hoofdroute: vind sitemap-URLs voor input domain en return top-N gescoorde URLs.
  *
  * Volgorde:
- * 1. /robots.txt → Sitemap: regels
- * 2. /sitemap.xml + /sitemap_index.xml als fallback
+ * 1. /robots.txt → Sitemap: regels (relative paths worden geresolved tegen
+ *    de finale URL van de robots.txt fetch — vital voor sites met www-redirect)
+ * 2. /sitemap.xml + /sitemap_index.xml als fallback wanneer robots geen geldige
+ *    sitemap-entries gaf
  * 3. Recursief sitemap-index parsen (max diepte 2)
  * 4. Score + dedupe + return top-12
  */
@@ -132,13 +153,17 @@ export async function discoverUrls(inputUrl: string): Promise<DiscoveredUrl[]> {
 
   const sitemapCandidates: string[] = []
 
-  // 1. robots.txt
-  const robotsBody = await fetchText(`${origin}/robots.txt`)
-  if (robotsBody) {
-    sitemapCandidates.push(...parseRobotsForSitemaps(robotsBody))
+  // 1. robots.txt — kan zelf redirecten (bv. wetarget.nl → www.wetarget.nl)
+  const robotsResult = await fetchTextWithUrl(`${origin}/robots.txt`)
+  if (robotsResult) {
+    const rawSitemaps = parseRobotsForSitemaps(robotsResult.body)
+    for (const raw of rawSitemaps) {
+      const resolved = resolveSitemapUrl(raw, robotsResult.finalUrl)
+      if (resolved) sitemapCandidates.push(resolved)
+    }
   }
 
-  // 2. Default locaties als fallback
+  // 2. Fallback: standaard locaties wanneer robots geen geldige sitemap gaf
   if (sitemapCandidates.length === 0) {
     sitemapCandidates.push(`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`)
   }
@@ -172,14 +197,18 @@ async function collectFromSitemap(
   visited.add(sitemapUrl)
   if (collected.size >= MAX_DISCOVERY_URLS) return
 
-  const body = await fetchText(sitemapUrl)
-  if (!body) return
-  const { urls, childSitemaps } = parseSitemapXml(body)
+  const result = await fetchTextWithUrl(sitemapUrl)
+  if (!result) return
+  const { urls, childSitemaps } = parseSitemapXml(result.body)
   for (const u of urls) {
     if (collected.size >= MAX_DISCOVERY_URLS) break
     collected.add(u)
   }
+  // Child-sitemap loc-elementen kunnen ook relatief zijn — resolve tegen parent.
+  const resolvedChildren = childSitemaps
+    .map((cs) => resolveSitemapUrl(cs, result.finalUrl))
+    .filter((u): u is string => !!u)
   await Promise.all(
-    childSitemaps.map((cs) => collectFromSitemap(cs, collected, visited, depth + 1)),
+    resolvedChildren.map((cs) => collectFromSitemap(cs, collected, visited, depth + 1)),
   )
 }
