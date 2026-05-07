@@ -277,3 +277,24 @@ export type RunDetailResponse = {
     updated_at: string
   }
 }
+
+// ─── Run-list response shape (voor GET /api/sales-leads) ───────────────────
+
+export type RunListItem = {
+  id: string
+  status: SalesLeadRunStatus
+  input_domain: string
+  input_url: string
+  owner_config_id: string
+  owner_label: string | null
+  master_record: MasterRecord | null
+  pipedrive_org_id: number | null
+  pipedrive_deal_id: number | null
+  error: string | null
+  created_at: string
+}
+
+export type RunListResponse = {
+  runs: RunListItem[]
+  total: number
+}
