@@ -1,47 +1,28 @@
-import { useState, useRef, useEffect } from "react"
+import useSWR from "swr"
 import { supabaseService } from "@/lib/supabase-service"
+import { swrKeys } from "@/lib/swr-keys"
 
-const regionsCache: { data?: any } = {}
+interface Region {
+  id: string
+  regio_platform: string
+  plaats: string
+  postcode: string
+  created_at: string
+  job_postings_count?: number
+}
 
 export function useRegionsCache() {
-  const [data, setData] = useState<any>(regionsCache.data || null)
-  const [loading, setLoading] = useState(!regionsCache.data)
-  const [error, setError] = useState<any>(null)
-  const fetchRef = useRef(0)
-
-  const fetchRegions = async () => {
-    setLoading(true)
-    setError(null)
-    fetchRef.current++
-    const thisFetch = fetchRef.current
-    try {
-      const result = await supabaseService.getCitiesWithJobPostingsCount()
-      regionsCache.data = result
-      if (thisFetch === fetchRef.current) {
-        setData(result)
-        setLoading(false)
-      }
-    } catch (e) {
-      if (thisFetch === fetchRef.current) {
-        setError(e)
-        setLoading(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    if (!regionsCache.data) {
-      fetchRegions()
-    } else {
-      setData(regionsCache.data)
-      setLoading(false)
-    }
-  }, [])
+  const { data, error, isLoading, isValidating, mutate } = useSWR<Region[]>(
+    swrKeys.regions,
+    async () => (await supabaseService.getCitiesWithJobPostingsCount()) as unknown as Region[],
+  )
 
   return {
-    data,
-    loading,
+    data: data ?? null,
+    loading: isLoading,
+    isValidating,
     error,
-    refetch: fetchRegions,
+    refetch: () => mutate(),
+    mutate,
   }
-} 
+}

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import useSWR from "swr"
 import { createClient } from "@/lib/supabase"
+import { swrKeys } from "@/lib/swr-keys"
 
 interface PlatformStats {
   total: number
@@ -9,52 +10,35 @@ interface PlatformStats {
   inactive: number
 }
 
-export function usePlatformStats() {
-  const [stats, setStats] = useState<PlatformStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+async function fetchPlatformStats(): Promise<PlatformStats> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("platforms")
+    .select("is_active")
+    .not("regio_platform", "is", null)
+    .not("regio_platform", "eq", "")
 
-  const fetchStats = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const supabase = createClient()
-      
-      const { data, error: queryError } = await supabase
-        .from("platforms")
-        .select("is_active")
-        .not("regio_platform", "is", null)
-        .not("regio_platform", "eq", "")
-      
-      if (queryError) {
-        throw queryError
-      }
-      
-      const total = data?.length || 0
-      const active = data?.filter(platform => platform.is_active === true).length || 0
-      const inactive = total - active
-      
-      setStats({
-        total,
-        active,
-        inactive
-      })
-    } catch (err) {
-      setError("Failed to fetch platform statistics")
-      console.error("Error fetching platform stats:", err)
-    } finally {
-      setLoading(false)
-    }
+  if (error) {
+    throw new Error(error.message || "Failed to fetch platform statistics")
   }
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
+  const total = data?.length || 0
+  const active = data?.filter((p) => p.is_active === true).length || 0
+  return { total, active, inactive: total - active }
+}
+
+export function usePlatformStats() {
+  const { data, error, isLoading, isValidating, mutate } = useSWR<PlatformStats>(
+    swrKeys.platformStats,
+    fetchPlatformStats,
+  )
 
   return {
-    stats,
-    loading,
-    error,
-    refetch: fetchStats
+    stats: data ?? null,
+    loading: isLoading,
+    isValidating,
+    error: error ? (error.message ?? "Failed to fetch platform statistics") : null,
+    refetch: () => mutate(),
+    mutate,
   }
 }

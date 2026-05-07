@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { TablePagination } from "@/components/ui/table-filters"
 import { ActiveDomainsFilter } from "@/components/ActiveDomainsFilter"
 import { AddRegionModal } from "@/components/AddRegionModal"
+import { QueryError } from "@/components/QueryState"
 
 interface Region {
   id: string
@@ -117,7 +118,7 @@ export default function RegionsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Regio's</h1>
             <p className="text-gray-600 mt-2">Overzicht van alle regio's in de database</p>
           </div>
-          <AddRegionModal onRegionAdded={refetch} />
+          <AddRegionModal />
         </div>
       </div>
 
@@ -178,9 +179,18 @@ export default function RegionsPage() {
                   ))}
                 </TableRow>
               ))
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={7} className="p-0">
+                  <QueryError
+                    message={error instanceof Error ? error.message : undefined}
+                    onRetry={() => refetch()}
+                  />
+                </TableCell>
+              </TableRow>
             ) : Object.keys(grouped).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                   Geen regio's gevonden
                 </TableCell>
               </TableRow>

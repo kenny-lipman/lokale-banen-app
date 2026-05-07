@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Plus, X } from "lucide-react"
 import { toast } from "sonner"
+import { mutate } from "swr"
+import { swrKeys } from "@/lib/swr-keys"
 
 import {
   Dialog,
@@ -47,11 +49,10 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>
 
 interface AddRegionModalProps {
-  onRegionAdded?: () => void
   trigger?: React.ReactNode
 }
 
-export function AddRegionModal({ onRegionAdded, trigger }: AddRegionModalProps) {
+export function AddRegionModal({ trigger }: AddRegionModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [platforms, setPlatforms] = useState<string[]>([])
@@ -182,18 +183,19 @@ export function AddRegionModal({ onRegionAdded, trigger }: AddRegionModalProps) 
 
       if (result.success) {
         toast.success("Regio succesvol toegevoegd!")
-        
-        // Reset form and close modal
+
         form.reset()
         setShowNewPlatformField(false)
         setNewPlatformName("")
         setCentralPlace("")
         setCentralPostcode("")
         setIsOpen(false)
-        
-        // Refresh regions list
-        if (onRegionAdded) {
-          onRegionAdded()
+
+        // Revalidate region-related caches
+        mutate(swrKeys.regions)
+        mutate(swrKeys.activeRegions)
+        if (showNewPlatformField) {
+          mutate(swrKeys.platformStats)
         }
       } else {
         toast.error(result.error || "Er is een fout opgetreden")

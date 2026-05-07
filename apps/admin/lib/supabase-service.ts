@@ -2095,34 +2095,34 @@ export class SupabaseService {
 
   // Get regions that have active central places 
   async getActiveRegions() {
-    try {
-      // First get all active platforms to know which platforms are active
-      const { data: activePlatforms, error: platformsError } = await this.client
-        .from("platforms")
-        .select("regio_platform")
-        .eq("is_active", true)
+    const { data: activePlatforms, error: platformsError } = await this.client
+      .from("platforms")
+      .select("regio_platform")
+      .eq("is_active", true)
 
-      if (platformsError) throw platformsError
+    if (platformsError) {
+      console.error("Error fetching active platforms:", platformsError)
+      throw new Error(platformsError.message || "Failed to fetch active platforms")
+    }
 
-      const activePlatformsList = activePlatforms?.map(p => p.regio_platform) || []
-      
-      if (activePlatformsList.length === 0) {
-        return []
-      }
+    const activePlatformsList = activePlatforms?.map(p => p.regio_platform) || []
 
-      // Get cities that belong to active platforms
-      const { data, error } = await this.client
-        .from("cities")
-        .select("*")
-        .in("regio_platform", activePlatformsList)
-        .order("plaats", { ascending: true })
-
-      if (error) throw error
-      return data || []
-    } catch (error) {
-      console.error("Error fetching active regions:", error)
+    if (activePlatformsList.length === 0) {
       return []
     }
+
+    const { data, error } = await this.client
+      .from("cities")
+      .select("*")
+      .in("regio_platform", activePlatformsList)
+      .order("plaats", { ascending: true })
+
+    if (error) {
+      console.error("Error fetching active regions:", error)
+      throw new Error(error.message || "Failed to fetch active regions")
+    }
+
+    return data || []
   }
 
   // Get all unique regio_platform values for hoofddomein filter
@@ -2225,23 +2225,17 @@ export class SupabaseService {
 
   // Haal cities op met het aantal gekoppelde vacatures (uit de view)
   async getCitiesWithJobPostingsCount() {
-    try {
-      // Use the cities_with_job_postings_count view directly
-      const { data, error } = await this.client
-        .from("cities_with_job_postings_count")
-        .select("*")
-        .order("plaats", { ascending: true })
-        
-      if (error) {
-        console.error("Error fetching from cities_with_job_postings_count view:", error)
-        return []
-      }
-      
-      return data || []
-    } catch (error) {
-      console.error("Error fetching cities with job postings count:", error)
-      return []
+    const { data, error } = await this.client
+      .from("cities_with_job_postings_count")
+      .select("*")
+      .order("plaats", { ascending: true })
+
+    if (error) {
+      console.error("Error fetching from cities_with_job_postings_count view:", error)
+      throw new Error(error.message || "Failed to fetch cities with job postings count")
     }
+
+    return data || []
   }
 
   // Haal bedrijven op die vacatures hebben in een bepaalde regio
