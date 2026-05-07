@@ -1,13 +1,6 @@
-import { addExtra } from 'playwright-extra'
-import { chromium as chromiumCore } from 'playwright-core'
-import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+import { chromium } from 'playwright-core'
 import chromiumBin from '@sparticuz/chromium'
 import type { Browser } from 'playwright-core'
-
-// playwright-extra's auto-loader kan op Vercel + serverExternalPackages
-// niet altijd `playwright-core` via dynamic require vinden. Expliciet via
-// `addExtra(chromiumCore)` omzeilt die failure.
-const chromium = addExtra(chromiumCore)
 
 const UA_POOL = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -16,8 +9,6 @@ const UA_POOL = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
 ]
-
-let stealthInstalled = false
 
 export type PlaywrightFetchResult = {
   html: string
@@ -29,22 +20,24 @@ export type PlaywrightFetchResult = {
  * Browser-pooler voor één enrichment-run. Roep `init()` éénmaal aan vóór de
  * eerste `fetchPage`, en `dispose()` in finally. Hergebruikt 1 Chromium-instance
  * voor alle URLs binnen één crawlAndParse-call.
+ *
+ * Geen stealth-plugin in V1: puppeteer-extra-plugin-stealth doet dynamic require
+ * op 17 sub-evasion modules wat niet werkt onder Vercel + Webpack/serverExternal.
+ * Mitigatie zit in: realistische User-Agent rotation, NL-locale, blokkeren van
+ * heavy resources. Voor anti-bot sites (Cloudflare/PerimeterX) accepteren we
+ * 'homepage_blocked' tot we residential proxy + manueel-geregistreerde evasions
+ * inbouwen (V2).
  */
 export class PlaywrightFetcher {
   private browser: Browser | null = null
 
   async init(): Promise<void> {
     if (this.browser) return
-    if (!stealthInstalled) {
-      chromium.use(StealthPlugin())
-      stealthInstalled = true
-    }
-    const executablePath = await chromiumBin.executablePath()
-    this.browser = (await chromium.launch({
+    this.browser = await chromium.launch({
       args: chromiumBin.args,
-      executablePath,
+      executablePath: await chromiumBin.executablePath(),
       headless: true,
-    })) as unknown as Browser
+    })
   }
 
   async fetchPage(url: string): Promise<PlaywrightFetchResult> {

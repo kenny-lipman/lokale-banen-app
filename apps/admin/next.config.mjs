@@ -21,8 +21,6 @@ const nextConfig = {
   serverExternalPackages: [
     '@sparticuz/chromium',
     'playwright-core',
-    'playwright-extra',
-    'puppeteer-extra-plugin-stealth',
   ],
   // Reduce file watching issues
   onDemandEntries: {
