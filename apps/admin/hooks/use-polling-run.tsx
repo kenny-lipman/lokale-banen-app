@@ -1,97 +1,74 @@
-'use client'
+"use client"
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
-
-type PollingState = {
-  run: RunDetailResponse['run'] | null
-  loading: boolean
-  error: string | null
-  timedOut: boolean
-}
+import { useCallback, useEffect, useRef, useState } from "react"
+import useSWR from "swr"
+import type { RunDetailResponse } from "@/lib/services/sales-leads/types"
+import { swrKeys } from "@/lib/swr-keys"
+import { pollingOptions } from "@/lib/swr-polling"
 
 const POLL_MS = 1500
 const MAX_DURATION_MS = 5 * 60 * 1000 // matcht maxDuration=300 op orchestrator
 
+async function fetchSalesLeadsRun(runId: string): Promise<RunDetailResponse["run"]> {
+  const res = await fetch(`/api/sales-leads/${runId}`, { cache: "no-store" })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.error ?? `HTTP ${res.status}`)
+  }
+  const json = (await res.json()) as RunDetailResponse
+  return json.run
+}
+
 export function usePollingRun(runId: string | null) {
-  const [state, setState] = useState<PollingState>({
-    run: null,
-    loading: true,
-    error: null,
-    timedOut: false,
-  })
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [timedOut, setTimedOut] = useState(false)
   const startedAtRef = useRef<number>(Date.now())
-  const mountedRef = useRef<boolean>(true)
-  const currentRunIdRef = useRef<string | null>(null)
+  const lastRunIdRef = useRef<string | null>(null)
 
-  const stop = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-  }, [])
+  // Reset start-tijd zodra er een nieuwe runId binnenkomt
+  if (runId && lastRunIdRef.current !== runId) {
+    startedAtRef.current = Date.now()
+    lastRunIdRef.current = runId
+    if (timedOut) setTimedOut(false)
+  }
 
-  const fetchOnce = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/sales-leads/${id}`, { cache: 'no-store' })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body?.error ?? `HTTP ${res.status}`)
-      }
-      const json = (await res.json()) as RunDetailResponse
-      if (!mountedRef.current || currentRunIdRef.current !== id) return null
-      setState((s) => ({ ...s, run: json.run, loading: false, error: null }))
-      return json.run
-    } catch (e) {
-      if (!mountedRef.current || currentRunIdRef.current !== id) return null
-      setState((s) => ({ ...s, loading: false, error: (e as Error).message }))
-      return null
-    }
-  }, [])
+  const { data, error, isLoading, mutate } = useSWR<RunDetailResponse["run"]>(
+    runId ? swrKeys.salesLeadsRun(runId) : null,
+    () => fetchSalesLeadsRun(runId as string),
+    pollingOptions((latestData) => {
+      if (timedOut) return 0
+      if (!latestData) return POLL_MS
+      if (latestData.status !== "enriching") return 0
+      if (Date.now() - startedAtRef.current > MAX_DURATION_MS) return 0
+      return POLL_MS
+    }),
+  )
 
-  // Mount/unmount tracking
+  // Trigger timedOut wanneer we de duur overschrijden tijdens polling
   useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    stop()
-    currentRunIdRef.current = runId
-    if (!runId) {
-      setState({ run: null, loading: false, error: null, timedOut: false })
+    if (!runId) return
+    if (data?.status !== "enriching") return
+    const remaining = MAX_DURATION_MS - (Date.now() - startedAtRef.current)
+    if (remaining <= 0) {
+      setTimedOut(true)
       return
     }
-    startedAtRef.current = Date.now()
-    setState((s) => ({ ...s, timedOut: false }))
-    void fetchOnce(runId).then((run) => {
-      if (currentRunIdRef.current !== runId) return
-      if (!run || run.status !== 'enriching') return
-      timerRef.current = setInterval(async () => {
-        if (currentRunIdRef.current !== runId) return stop()
-        const r = await fetchOnce(runId)
-        if (currentRunIdRef.current !== runId) return stop()
-        if (!r) return stop()
-        if (r.status !== 'enriching') return stop()
-        if (Date.now() - startedAtRef.current > MAX_DURATION_MS) {
-          if (mountedRef.current) setState((s) => ({ ...s, timedOut: true }))
-          return stop()
-        }
-      }, POLL_MS)
-    })
-    return () => {
-      stop()
-    }
-  }, [runId, stop, fetchOnce])
+    const handle = setTimeout(() => setTimedOut(true), remaining)
+    return () => clearTimeout(handle)
+  }, [runId, data?.status])
 
   const refetch = useCallback(async () => {
     if (!runId) return null
-    if (mountedRef.current) setState((s) => ({ ...s, timedOut: false }))
-    return fetchOnce(runId)
-  }, [runId, fetchOnce])
+    setTimedOut(false)
+    startedAtRef.current = Date.now()
+    const result = await mutate()
+    return result ?? null
+  }, [runId, mutate])
 
-  return { ...state, refetch }
+  return {
+    run: data ?? null,
+    loading: isLoading,
+    error: error ? (error instanceof Error ? error.message : String(error)) : null,
+    timedOut,
+    refetch,
+  }
 }
