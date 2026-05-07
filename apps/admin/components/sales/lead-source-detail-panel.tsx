@@ -1,13 +1,19 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import type { PerSourceEnrichment, NormalizedFields } from '@/lib/services/sales-leads/types'
 import { formatFieldValue } from '@/lib/sales-leads/format-fields'
 
 type Props = {
   source: 'kvk' | 'google_maps' | 'apollo' | 'website'
   entry: PerSourceEnrichment
+  runId?: string
+  onCandidatePromoted?: () => void | Promise<void>
 }
 
 const GROUPS: Array<{ title: string; fields: Array<keyof NormalizedFields> }> = [
@@ -62,8 +68,10 @@ const GROUPS: Array<{ title: string; fields: Array<keyof NormalizedFields> }> = 
   },
 ]
 
-export function LeadSourceDetailPanel({ source, entry }: Props) {
+export function LeadSourceDetailPanel({ source, entry, runId, onCandidatePromoted }: Props) {
   const parsed = entry.parsed ?? {}
+  const showPicker =
+    source === 'google_maps' && (entry.candidates?.length ?? 0) > 1 && !!runId
   return (
     <Card>
       <CardHeader>
@@ -77,6 +85,14 @@ export function LeadSourceDetailPanel({ source, entry }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
+        {showPicker && (
+          <CandidatePicker
+            runId={runId!}
+            candidates={entry.candidates!}
+            selectedIndex={entry.selected_candidate_index ?? 0}
+            onPromoted={onCandidatePromoted}
+          />
+        )}
         {GROUPS.map((g) => {
           const rows = g.fields
             .map((f) => ({ field: f, value: parsed[f] }))
@@ -100,5 +116,86 @@ export function LeadSourceDetailPanel({ source, entry }: Props) {
         })}
       </CardContent>
     </Card>
+  )
+}
+
+type CandidatePickerProps = {
+  runId: string
+  candidates: NormalizedFields[]
+  selectedIndex: number
+  onPromoted?: () => void | Promise<void>
+}
+
+function CandidatePicker({ runId, candidates, selectedIndex, onPromoted }: CandidatePickerProps) {
+  const { toast } = useToast()
+  const [promoting, setPromoting] = useState<number | null>(null)
+
+  async function promote(index: number) {
+    setPromoting(index)
+    try {
+      const res = await fetch(`/api/sales-leads/${runId}/promote-candidate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'google_maps', index }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      toast({ title: `Candidate ${index + 1} geselecteerd` })
+      await onPromoted?.()
+    } catch (e) {
+      toast({
+        title: 'Promote mislukt',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setPromoting(null)
+    }
+  }
+
+  return (
+    <div>
+      <h4 className="text-xs uppercase text-gray-500 mb-2">Candidates ({candidates.length})</h4>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {candidates.map((c, i) => {
+          const isActive = selectedIndex === i
+          const isLoading = promoting === i
+          return (
+            <Card key={i} className={isActive ? 'ring-2 ring-orange-500' : ''}>
+              <CardContent className="p-3 text-xs space-y-1">
+                <div className="font-medium truncate">{c.company_name ?? '—'}</div>
+                <div className="text-gray-500 truncate">{c.address?.full ?? '—'}</div>
+                <div className="text-gray-600">
+                  {c.rating ? `${c.rating}★ (${c.ratings_total ?? 0})` : 'Geen rating'}
+                  {c.business_status && c.business_status !== 'OPERATIONAL'
+                    ? ` · ${c.business_status}`
+                    : ''}
+                </div>
+                {c.website && (
+                  <div className="text-gray-500 truncate">{c.website}</div>
+                )}
+                <Button
+                  size="sm"
+                  variant={isActive ? 'default' : 'outline'}
+                  disabled={isActive || promoting !== null}
+                  onClick={() => promote(i)}
+                  className="w-full mt-2"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : isActive ? (
+                    'Geselecteerd'
+                  ) : (
+                    'Selecteer'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+    </div>
   )
 }

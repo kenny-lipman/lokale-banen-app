@@ -69,9 +69,16 @@ function summarize(
 type Props = {
   enrichments: RunEnrichments
   runStatus: SalesLeadRunStatus
+  runId?: string
+  onCandidatePromoted?: () => void | Promise<void>
 }
 
-export function LeadSourceStatusGrid({ enrichments, runStatus }: Props) {
+export function LeadSourceStatusGrid({
+  enrichments,
+  runStatus,
+  runId,
+  onCandidatePromoted,
+}: Props) {
   const [open, setOpen] = useState<SourceKey | null>(null)
   const sources: SourceKey[] = ['kvk', 'google_maps', 'apollo', 'website']
   const openEntry = open ? enrichments[open] : null
@@ -102,7 +109,14 @@ export function LeadSourceStatusGrid({ enrichments, runStatus }: Props) {
           )
         })}
       </div>
-      {open && openEntry && <LeadSourceDetailPanel source={open} entry={openEntry} />}
+      {open && openEntry && (
+        <LeadSourceDetailPanel
+          source={open}
+          entry={openEntry}
+          runId={runId}
+          onCandidatePromoted={onCandidatePromoted}
+        />
+      )}
     </div>
   )
 }

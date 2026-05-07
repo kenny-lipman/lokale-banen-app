@@ -50,6 +50,14 @@ export type PerSourceEnrichment = {
   completed_at?: string
   raw?: unknown
   parsed?: NormalizedFields
+  /**
+   * Alternatieve top-N candidates voor sources die multi-result ondersteunen.
+   * V1: alleen `google_maps` (Apify levert top-3). User kan via UI een ander
+   * candidate als primair selecteren — `parsed` wordt dan vervangen.
+   */
+  candidates?: NormalizedFields[]
+  /** Index in `candidates[]` die nu actief is als `parsed`. Default 0. */
+  selected_candidate_index?: number
   error?: string
 }
 

@@ -85,14 +85,26 @@ export class EnrichmentOrchestratorService {
     const t0 = Date.now()
     try {
       const naamGuess = domainToCompanyGuess(domain)
-      const parsed = await this.maps.enrichByQuery(naamGuess)
-      await this.completeSource(runId, 'google_maps', startedAt, parsed)
-      await this.appendAudit(runId, this.audit('google_maps', 'enrichByQuery', t0, 'ok'))
+      const candidates = await this.maps.enrichByQueryMulti(naamGuess)
+      // Default: eerste candidate (Apify rank=1) als primaire parsed.
+      // User kan via UI promoten naar candidates[1] of [2].
+      await this.setSource(runId, 'google_maps', {
+        status: 'completed',
+        started_at: startedAt,
+        completed_at: new Date().toISOString(),
+        parsed: candidates[0],
+        candidates,
+        selected_candidate_index: 0,
+      })
+      await this.appendAudit(
+        runId,
+        this.audit('google_maps', `apify:${candidates.length}`, t0, 'ok'),
+      )
     } catch (e) {
       const reason = e instanceof MapsApiError ? e.reason : 'unknown'
       const status = reason === 'not_found' ? 'not_found' : 'failed'
       await this.failSource(runId, 'google_maps', startedAt, e, status)
-      await this.appendAudit(runId, this.audit('google_maps', 'enrichByQuery', t0, status, e))
+      await this.appendAudit(runId, this.audit('google_maps', 'apify', t0, status, e))
     }
   }
 

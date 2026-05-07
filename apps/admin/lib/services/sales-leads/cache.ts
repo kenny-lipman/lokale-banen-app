@@ -10,7 +10,7 @@ type CacheRow = {
 
 export type CacheSource =
   | 'kvk_zoeken' | 'kvk_basisprofiel'
-  | 'google_maps_find' | 'google_maps_details'
+  | 'google_maps_find' | 'google_maps_details' | 'apify_maps'
   | 'apollo_org'
   | 'website_page'
   | 'pipedrive_users' | 'pipedrive_pipelines' | 'pipedrive_stages' | 'pipedrive_deal_fields_date'

@@ -155,6 +155,14 @@ export default function RunDetailPage({ params }: PageProps) {
     }
   }, [])
 
+  // Na promote-candidate: server heeft master_record + enrichments al gemerged.
+  // Reset hydration zodat local master uit de fresh server-state wordt overschreven
+  // voor de Maps-velden. User-edits op andere velden blijven via server-merge behouden.
+  const onCandidatePromoted = useCallback(async () => {
+    hydratedRef.current = false
+    await refetch()
+  }, [refetch])
+
   const onCancel = useCallback(async () => {
     setCancelling(true)
     try {
@@ -245,7 +253,12 @@ export default function RunDetailPage({ params }: PageProps) {
         onCancel={cancelling ? undefined : onCancel}
         saveState={saveState}
       />
-      <LeadSourceStatusGrid enrichments={run.enrichments ?? {}} runStatus={run.status} />
+      <LeadSourceStatusGrid
+        enrichments={run.enrichments ?? {}}
+        runStatus={run.status}
+        runId={run_id}
+        onCandidatePromoted={onCandidatePromoted}
+      />
       {timedOut && showEnriching && (
         <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
           <div>
