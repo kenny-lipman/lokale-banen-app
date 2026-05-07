@@ -109,7 +109,7 @@ async function handler(req: NextRequest, auth: AuthResult) {
   }
 
   // Light shape-check op manual_vacancies: alleen objecten met een title
-  // door (verdere normalisatie gebeurt in fase 5 bij Pipedrive sync).
+  // door (verdere normalisatie gebeurt bij Pipedrive sync via internal-linking).
   const cleanedVacancies: Array<{ title: string; url?: string; location?: string }> = Array.isArray(manual_vacancies)
     ? (manual_vacancies as unknown[]).filter(
         (v): v is { title: string; url?: string; location?: string } =>

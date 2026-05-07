@@ -58,7 +58,7 @@ export default async function ScrapeBronnenPage() {
           <h3 className="font-semibold mb-2">Bedrijfs-werkenbij-pagina's ({careerPages.length})</h3>
           {careerPages.length === 0 ? (
             <p className="text-sm text-gray-500">
-              Nog geen career-pages — wordt gevuld vanaf fase 5 (Sales Lead Sync).
+              Nog geen career-pages — worden aangemaakt bij elke succesvolle Sales Lead Sync.
             </p>
           ) : (
             <table className="w-full text-sm">
