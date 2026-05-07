@@ -68,6 +68,7 @@ export default function RunDetailPage({ params }: PageProps) {
   const [selected, setSelected] = useState<NormalizedContact[]>([])
   const [owners, setOwners] = useState<OwnerConfig[] | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [replaying, setReplaying] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -177,6 +178,32 @@ export default function RunDetailPage({ params }: PageProps) {
     }
   }, [run_id, router, toast])
 
+  const onReplay = useCallback(async () => {
+    setReplaying(true)
+    try {
+      const res = await fetch(`/api/sales-leads/${run_id}/replay`, { method: 'POST' })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      toast({ title: 'Replay gestart' })
+      // Reset hydration zodat master/selected uit de fresh enriching-state
+      // worden ge-rehydrated zodra orchestrator klaar is.
+      hydratedRef.current = false
+      setMaster(null)
+      setSelected([])
+      await refetch()
+    } catch (e) {
+      toast({
+        title: 'Replay mislukt',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setReplaying(false)
+    }
+  }, [run_id, refetch, toast])
+
   if (loading && !run) return <div className="p-8 text-sm text-gray-500">Laden…</div>
   if (error && !run) return <div className="p-8 text-sm text-red-600">{error}</div>
   if (!run) return <div className="p-8 text-sm text-gray-500">Run niet gevonden.</div>
@@ -251,6 +278,8 @@ export default function RunDetailPage({ params }: PageProps) {
       <LeadStatusBanner
         run={run}
         onCancel={cancelling ? undefined : onCancel}
+        onReplay={onReplay}
+        replaying={replaying}
         saveState={saveState}
       />
       <LeadSourceStatusGrid

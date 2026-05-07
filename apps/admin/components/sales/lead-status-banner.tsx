@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2, CheckCircle2, XCircle, AlertTriangle, HelpCircle, Cloud, CloudOff } from 'lucide-react'
+import { ArrowLeft, Loader2, CheckCircle2, XCircle, AlertTriangle, HelpCircle, Cloud, CloudOff, RotateCcw } from 'lucide-react'
 import type { RunDetailResponse, SalesLeadRunStatus } from '@/lib/services/sales-leads/types'
 
 type StatusMeta = { label: string; className: string; Icon: typeof Loader2 }
@@ -30,13 +30,24 @@ export type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 type Props = {
   run: RunDetailResponse['run']
   onCancel?: () => void
+  onReplay?: () => void
+  replaying?: boolean
   saveState?: SaveState
 }
 
-export function LeadStatusBanner({ run, onCancel, saveState = 'idle' }: Props) {
+const REPLAYABLE_STATUSES: SalesLeadRunStatus[] = ['failed', 'duplicate']
+
+export function LeadStatusBanner({
+  run,
+  onCancel,
+  onReplay,
+  replaying = false,
+  saveState = 'idle',
+}: Props) {
   const meta: StatusMeta = STATUS_LABEL[run.status] ?? UNKNOWN_STATUS_META
   const { Icon } = meta
   const spinning = run.status === 'enriching' || run.status === 'syncing'
+  const canReplay = onReplay && REPLAYABLE_STATUSES.includes(run.status)
   return (
     <div className="flex items-center justify-between gap-4 mb-6">
       <div className="flex items-center gap-3">
@@ -60,6 +71,16 @@ export function LeadStatusBanner({ run, onCancel, saveState = 'idle' }: Props) {
         {run.status === 'enriching' && onCancel && (
           <Button variant="outline" size="sm" onClick={onCancel}>
             Annuleren
+          </Button>
+        )}
+        {canReplay && (
+          <Button variant="outline" size="sm" onClick={onReplay} disabled={replaying}>
+            {replaying ? (
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            ) : (
+              <RotateCcw className="w-3 h-3 mr-1" />
+            )}
+            Opnieuw runnen
           </Button>
         )}
       </div>
