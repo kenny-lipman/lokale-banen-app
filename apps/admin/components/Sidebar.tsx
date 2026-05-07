@@ -23,6 +23,7 @@ import {
   Workflow,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
+import { prefetchRoute } from "@/lib/swr-prefetch"
 
 const menu = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -130,6 +131,7 @@ export default function Sidebar() {
                       <Link
                         key={sub.href}
                         href={sub.href}
+                        onMouseEnter={() => prefetchRoute(sub.href)}
                         className="flex items-center gap-2 px-2 py-2 rounded-lg my-1 text-gray-700 hover:bg-orange-50 transition-all text-base font-normal"
                       >
                         <sub.icon className="w-5 h-5 text-orange-500" />
@@ -145,6 +147,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onMouseEnter={() => prefetchRoute(item.href)}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg mx-2 my-1 text-gray-800 hover:bg-orange-50 transition-all text-lg font-medium ${collapsed ? "justify-center px-2" : ""}`}
             >
               <item.icon className="w-6 h-6" />
