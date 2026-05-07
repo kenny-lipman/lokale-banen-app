@@ -69,6 +69,7 @@
     "recharts": "^3.0.2",
     "resend": "^6.9.3",
     "sonner": "^2.0.6",
+    "swr": "^2.4.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "turndown": "^7.2.0",

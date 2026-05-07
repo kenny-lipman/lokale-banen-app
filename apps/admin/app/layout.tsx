@@ -6,6 +6,7 @@ import { Toaster } from "sonner"
 import { AuthProvider } from "@/components/auth-provider"
 import AuthenticatedLayout from "@/components/authenticated-layout"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { SWRProvider } from "@/lib/swr-config"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -32,10 +33,12 @@ export default function RootLayout({
     <html lang="nl">
       <body className={inter.className}>
         <ErrorBoundary>
-          <AuthProvider>
-            <AuthenticatedLayout>{children}</AuthenticatedLayout>
-            <Toaster />
-          </AuthProvider>
+          <SWRProvider>
+            <AuthProvider>
+              <AuthenticatedLayout>{children}</AuthenticatedLayout>
+              <Toaster />
+            </AuthProvider>
+          </SWRProvider>
         </ErrorBoundary>
       </body>
     </html>
