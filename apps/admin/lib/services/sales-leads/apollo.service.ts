@@ -1,5 +1,5 @@
 import { cachedFetch } from './cache'
-import type { NormalizedFields, NormalizedContact, SourceHealth, NormalizedTechnology } from './types'
+import type { ColdContact, NormalizedFields, NormalizedContact, SourceHealth, NormalizedTechnology } from './types'
 
 const APOLLO_BASE = process.env.APOLLO_API_BASE_URL ?? 'https://api.apollo.io/api/v1'
 
@@ -66,6 +66,34 @@ type ApolloContactsSearchResponse = {
   error_code?: string
 }
 
+type ApolloMixedPerson = {
+  id?: string
+  first_name?: string
+  last_name?: string
+  last_name_obfuscated?: string
+  name?: string
+  title?: string
+  seniority?: string
+  departments?: string[]
+  has_email?: boolean
+  has_direct_phone?: string
+  organization_id?: string
+}
+
+type ApolloMixedPeopleSearchResponse = {
+  people?: ApolloMixedPerson[]
+  total_entries?: number
+  error_code?: string
+}
+
+type ApolloBulkMatchResponse = {
+  status?: string
+  matches?: Array<ApolloPerson | null>
+  credits_consumed?: number
+  error_code?: string
+  error_message?: string
+}
+
 export type ApolloUsageMeta = {
   endpoint: string
   cost_credits?: number
@@ -95,6 +123,14 @@ const SENIORITY_MAP: Record<string, NormalizedContact['seniority']> = {
   senior: 'senior',
   junior: 'junior',
   intern: 'intern',
+}
+
+function normalizeDirectPhone(value: string | undefined): ColdContact['has_direct_phone'] {
+  if (!value) return 'no'
+  const v = value.toLowerCase()
+  if (v === 'yes') return 'yes'
+  if (v.startsWith('maybe')) return 'maybe'
+  return 'no'
 }
 
 const DEPT_MAP: Record<string, NormalizedContact['department']> = {
@@ -265,6 +301,110 @@ export class ApolloService {
       usage: {
         endpoint: '/contacts/search',
         cost_credits: 0,
+        duration_ms: Date.now() - t0,
+        from_cache: false,
+      },
+    }
+  }
+
+  /**
+   * `/mixed_people/api_search` zoekt cold leads in de volledige Apollo database
+   * voor een bedrijfsdomein. 0 credits per call. Achternaam, email en telefoon
+   * zijn obfuscated — gebruik `bulkMatchPeople` om die te verrijken (1 credit
+   * per persoon).
+   */
+  async searchPeopleByDomain(
+    domain: string,
+    opts: { perPage?: number; seniorities?: string[] } = {},
+  ): Promise<{ candidates: ColdContact[]; total: number; usage: ApolloUsageMeta }> {
+    const t0 = Date.now()
+    const stripped = this.stripDomain(domain)
+    const seniorities = opts.seniorities ?? [
+      'owner',
+      'founder',
+      'c_suite',
+      'vp',
+      'head',
+      'director',
+      'manager',
+    ]
+    const data = await this.apolloFetch<ApolloMixedPeopleSearchResponse>(
+      'POST',
+      '/mixed_people/api_search',
+      {
+        q_organization_domains_list: [stripped],
+        per_page: opts.perPage ?? 25,
+        page: 1,
+        person_seniorities: seniorities,
+      },
+    )
+    const candidates: ColdContact[] = (data.people ?? [])
+      .filter((p) => !!p.id && !!p.first_name)
+      .map((p) => ({
+        apollo_id: p.id!,
+        first_name: p.first_name,
+        last_name_obfuscated: p.last_name_obfuscated,
+        title: p.title,
+        seniority: p.seniority ? SENIORITY_MAP[p.seniority] : undefined,
+        departments: p.departments,
+        has_email: !!p.has_email,
+        has_direct_phone: normalizeDirectPhone(p.has_direct_phone),
+        organization_id: p.organization_id,
+      }))
+    return {
+      candidates,
+      total: data.total_entries ?? candidates.length,
+      usage: {
+        endpoint: '/mixed_people/api_search',
+        cost_credits: 0,
+        duration_ms: Date.now() - t0,
+        from_cache: false,
+      },
+    }
+  }
+
+  /**
+   * Bulk-match Apollo person-IDs → volledige naam, email, LinkedIn, etc.
+   * 1 credit per match. Apollo accepteert max 10 IDs per call — chunkt
+   * automatisch. `reveal_personal_emails: false` voor GDPR-NL.
+   */
+  async bulkMatchPeople(
+    apolloIds: string[],
+  ): Promise<{ contacts: NormalizedContact[]; usage: ApolloUsageMeta }> {
+    const t0 = Date.now()
+    if (apolloIds.length === 0) {
+      return {
+        contacts: [],
+        usage: {
+          endpoint: '/people/bulk_match',
+          cost_credits: 0,
+          duration_ms: Date.now() - t0,
+          from_cache: false,
+        },
+      }
+    }
+    const chunks: string[][] = []
+    for (let i = 0; i < apolloIds.length; i += 10) chunks.push(apolloIds.slice(i, i + 10))
+
+    const all: NormalizedContact[] = []
+    let totalCredits = 0
+    for (const chunk of chunks) {
+      const data = await this.apolloFetch<ApolloBulkMatchResponse>('POST', '/people/bulk_match', {
+        reveal_personal_emails: false,
+        reveal_phone_number: false,
+        details: chunk.map((id) => ({ id })),
+      })
+      totalCredits += data.credits_consumed ?? 0
+      for (const m of data.matches ?? []) {
+        if (!m) continue
+        all.push(this.mapPersonToContact(m, ['apollo']))
+      }
+    }
+    return {
+      contacts: all,
+      usage: {
+        endpoint: '/people/bulk_match',
+        cost_credits: totalCredits || apolloIds.length,
         duration_ms: Date.now() - t0,
         from_cache: false,
       },

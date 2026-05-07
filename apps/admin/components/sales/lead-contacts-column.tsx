@@ -4,14 +4,43 @@ import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Star, Plus, ArrowUp, AlertTriangle } from 'lucide-react'
-import type { NormalizedContact, RunEnrichments } from '@/lib/services/sales-leads/types'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useToast } from '@/hooks/use-toast'
+import {
+  Star,
+  Plus,
+  ArrowUp,
+  AlertTriangle,
+  Mail,
+  Phone,
+  ChevronDown,
+  Sparkles,
+  Loader2,
+} from 'lucide-react'
+import type { ColdContact, NormalizedContact, RunEnrichments } from '@/lib/services/sales-leads/types'
 import { LeadAddContactModal } from './lead-add-contact-modal'
 
 type Props = {
+  runId: string
   enrichments: RunEnrichments
   selected: NormalizedContact[]
   onChange: (next: NormalizedContact[]) => void
+  onRevealed: () => void
 }
 
 const MAX_SELECTED = 2
@@ -66,8 +95,66 @@ function withCappedSelected(
   return [...current.filter((x) => x !== lowest), next]
 }
 
-export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
+export function LeadContactsColumn({ runId, enrichments, selected, onChange, onRevealed }: Props) {
+  const { toast } = useToast()
   const [modalOpen, setModalOpen] = useState(false)
+  const [coldOpen, setColdOpen] = useState(false)
+  const [coldSelected, setColdSelected] = useState<Set<string>>(new Set())
+  const [revealing, setRevealing] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const coldCandidates: ColdContact[] = enrichments.apollo?.parsed?.cold_candidates ?? []
+  const apolloStatus = enrichments.apollo?.status
+  const apolloHasContacts = (enrichments.apollo?.parsed?.contacts ?? []).length > 0
+  const apolloEmpty =
+    apolloStatus === 'completed' && coldCandidates.length === 0 && !apolloHasContacts
+
+  function toggleCold(id: string) {
+    setColdSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function performReveal() {
+    setConfirmOpen(false)
+    if (coldSelected.size === 0) return
+    setRevealing(true)
+    try {
+      const res = await fetch(`/api/sales-leads/${runId}/reveal-contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apollo_ids: Array.from(coldSelected) }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        revealed?: NormalizedContact[]
+        remaining_cold?: number
+        error?: string
+      }
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error ?? `HTTP ${res.status}`)
+      }
+      toast({
+        title: 'Contacten verrijkt',
+        description: `${json.revealed?.length ?? 0} contact${
+          (json.revealed?.length ?? 0) === 1 ? '' : 'en'
+        } via Apollo verrijkt.`,
+      })
+      setColdSelected(new Set())
+      onRevealed()
+    } catch (e) {
+      toast({
+        title: 'Verrijken mislukt',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setRevealing(false)
+    }
+  }
 
   // Manual contacten zijn binnen-sessie persistent: ze blijven zichtbaar in
   // "niet geselecteerd" ook na deselect of swap. Bij page-refresh bevat
@@ -163,9 +250,131 @@ export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
           </div>
         )}
 
+        {coldCandidates.length > 0 && (
+          <Collapsible open={coldOpen} onOpenChange={setColdOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
+              <span className="text-xs uppercase text-gray-500 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-orange-500" />
+                Apollo suggesties ({coldCandidates.length})
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-gray-400 transition-transform ${coldOpen ? 'rotate-180' : ''}`}
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 space-y-2">
+              <p className="text-[11px] text-gray-500">
+                Cold leads uit Apollo&apos;s database. Vink aan en verrijk om naam, e-mail
+                en LinkedIn op te halen — 1 credit per contact.
+              </p>
+              <div className="space-y-1.5">
+                {coldCandidates.map((c) => (
+                  <ColdContactRow
+                    key={c.apollo_id}
+                    contact={c}
+                    checked={coldSelected.has(c.apollo_id)}
+                    onToggle={() => toggleCold(c.apollo_id)}
+                    disabled={revealing}
+                  />
+                ))}
+              </div>
+              {coldSelected.size > 0 && (
+                <div className="sticky bottom-0 -mx-3 px-3 py-2 bg-orange-50/95 border-t border-orange-200 backdrop-blur flex items-center justify-between rounded-b-md">
+                  <span className="text-xs text-gray-700">
+                    <strong>{coldSelected.size}</strong> geselecteerd
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={revealing}
+                    className="bg-orange-500 hover:bg-orange-600"
+                  >
+                    {revealing ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                        Verrijken…
+                      </>
+                    ) : (
+                      <>Verrijken — {coldSelected.size} credit{coldSelected.size === 1 ? '' : 's'}</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {apolloEmpty && (
+          <div className="rounded-md border-dashed border p-3 text-xs text-gray-500">
+            Apollo kent dit bedrijf maar heeft geen mensen-data.
+          </div>
+        )}
+
         <LeadAddContactModal open={modalOpen} onOpenChange={setModalOpen} onAdd={addManual} />
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apollo contacten verrijken</AlertDialogTitle>
+              <AlertDialogDescription>
+                Je staat op het punt {coldSelected.size} contact
+                {coldSelected.size === 1 ? '' : 'en'} te verrijken via Apollo. Dit
+                verbruikt {coldSelected.size} credit{coldSelected.size === 1 ? '' : 's'}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuleren</AlertDialogCancel>
+              <AlertDialogAction onClick={performReveal} className="bg-orange-500 hover:bg-orange-600">
+                Bevestigen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
+  )
+}
+
+function ColdContactRow({
+  contact,
+  checked,
+  onToggle,
+  disabled,
+}: {
+  contact: ColdContact
+  checked: boolean
+  onToggle: () => void
+  disabled?: boolean
+}) {
+  const displayName = `${contact.first_name ?? ''} ${contact.last_name_obfuscated ?? ''}`.trim()
+  const phoneColor =
+    contact.has_direct_phone === 'yes'
+      ? 'text-green-600'
+      : contact.has_direct_phone === 'maybe'
+      ? 'text-orange-500'
+      : 'text-gray-300'
+  const emailColor = contact.has_email ? 'text-green-600' : 'text-gray-300'
+
+  return (
+    <label
+      className={`flex items-center gap-2 rounded-md border border-dashed border-gray-200 p-2 hover:bg-orange-50/50 transition cursor-pointer ${
+        checked ? 'bg-orange-50/70 border-orange-300' : ''
+      } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      <Checkbox
+        checked={checked}
+        onCheckedChange={onToggle}
+        disabled={disabled}
+        className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-gray-700">{displayName || 'Onbekend'}</div>
+        {contact.title && <div className="text-xs text-gray-500 truncate">{contact.title}</div>}
+      </div>
+      <div className="flex items-center gap-1.5 text-[11px]">
+        <Mail className={`w-3.5 h-3.5 ${emailColor}`} />
+        <Phone className={`w-3.5 h-3.5 ${phoneColor}`} />
+      </div>
+    </label>
   )
 }
 

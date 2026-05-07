@@ -251,9 +251,11 @@ export default function RunDetailPage({ params }: PageProps) {
         </div>
         <div className="lg:col-span-2 space-y-6">
           <LeadContactsColumn
+            runId={run_id}
             enrichments={run!.enrichments ?? {}}
             selected={selected}
             onChange={setSelected}
+            onRevealed={refetch}
           />
           <LeadVacanciesColumn
             manualVacancies={manualVacancies}

@@ -145,9 +145,10 @@ export class EnrichmentOrchestratorService {
     await this.markRunning(runId, 'apollo', startedAt)
     const t0 = Date.now()
     try {
-      const [orgRes, warmRes] = await Promise.allSettled([
+      const [orgRes, warmRes, coldRes] = await Promise.allSettled([
         this.apollo.enrichOrganization(domain),
         this.apollo.searchContactsByDomain(domain),
+        this.apollo.searchPeopleByDomain(domain),
       ])
 
       let parsed: NormalizedFields = { source: 'apollo' }
@@ -166,14 +167,19 @@ export class EnrichmentOrchestratorService {
         cost_credits += warmRes.value.usage.cost_credits ?? 0
       }
 
+      if (coldRes.status === 'fulfilled') {
+        parsed.cold_candidates = coldRes.value.candidates.length ? coldRes.value.candidates : undefined
+        cost_credits += coldRes.value.usage.cost_credits ?? 0
+      }
+
       parsed.contacts = warmContacts.length ? warmContacts : undefined
       await this.completeSource(runId, 'apollo', startedAt, parsed)
-      await this.appendAudit(runId, this.audit('apollo', 'enrich+contacts/search', t0, 'ok', undefined, cost_credits))
+      await this.appendAudit(runId, this.audit('apollo', 'enrich+contacts/search+mixed_people/api_search', t0, 'ok', undefined, cost_credits))
     } catch (e) {
       const reason = e instanceof ApolloApiError ? e.reason : 'unknown'
       const status = reason === 'not_found' ? 'not_found' : 'failed'
       await this.failSource(runId, 'apollo', startedAt, e, status)
-      await this.appendAudit(runId, this.audit('apollo', 'enrich+contacts/search', t0, status, e))
+      await this.appendAudit(runId, this.audit('apollo', 'enrich+contacts/search+mixed_people/api_search', t0, status, e))
     }
   }
 
@@ -301,6 +307,54 @@ export class EnrichmentOrchestratorService {
       .from('sales_lead_runs')
       .update({ selected_contacts: top2 as unknown as Json, updated_at: new Date().toISOString() })
       .eq('id', runId)
+  }
+
+  /**
+   * Reveal Apollo cold candidates → bulk_match → mergen in `contacts` →
+   * Mistral re-rank. Aangeroepen door de UI wanneer user N contacten
+   * geselecteerd heeft om te verrijken (1 credit per contact).
+   */
+  async revealColdContacts(
+    runId: string,
+    apolloIds: string[],
+  ): Promise<{ revealed: NormalizedContact[]; remaining_cold: number }> {
+    if (apolloIds.length === 0) return { revealed: [], remaining_cold: 0 }
+    const t0 = Date.now()
+    const run = await this.loadRun(runId)
+    const apolloEntry: PerSourceEnrichment = run.enrichments.apollo ?? { status: 'completed' }
+    const apolloParsed: NormalizedFields = apolloEntry.parsed ?? { source: 'apollo' }
+    const cold = apolloParsed.cold_candidates ?? []
+    const requested = new Set(apolloIds)
+    const validIds = cold.filter((c) => requested.has(c.apollo_id)).map((c) => c.apollo_id)
+
+    let bulkRes
+    try {
+      bulkRes = await this.apollo.bulkMatchPeople(validIds)
+    } catch (e) {
+      await this.appendAudit(runId, this.audit('apollo', '/people/bulk_match', t0, 'failed', e))
+      throw e
+    }
+
+    const revealedKeys = new Set(
+      bulkRes.contacts.map((c) => normalizeName(c.name)).filter((k) => !!k),
+    )
+    const existing = (apolloParsed.contacts ?? []).filter(
+      (c) => !revealedKeys.has(normalizeName(c.name)),
+    )
+    apolloParsed.contacts = [...existing, ...bulkRes.contacts]
+    apolloParsed.cold_candidates = cold.filter((c) => !requested.has(c.apollo_id))
+    if (apolloParsed.cold_candidates.length === 0) delete apolloParsed.cold_candidates
+
+    await this.setSource(runId, 'apollo', { ...apolloEntry, parsed: apolloParsed })
+    await this.appendAudit(
+      runId,
+      this.audit('apollo', '/people/bulk_match', t0, 'ok', undefined, bulkRes.usage.cost_credits),
+    )
+
+    // Mistral rank opnieuw zodat de nieuwe contacten een score krijgen.
+    await this.runContactRanking(runId)
+
+    return { revealed: bulkRes.contacts, remaining_cold: apolloParsed.cold_candidates?.length ?? 0 }
   }
 
   // ─── Fase D — master_record + auto-note + status='review' ─────────────

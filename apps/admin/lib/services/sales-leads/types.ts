@@ -105,6 +105,24 @@ export type NormalizedContact = {
   is_warm_lead?: boolean
 }
 
+/**
+ * Cold candidate uit Apollo `/mixed_people/api_search`. Achternaam, email en
+ * telefoon zijn obfuscated tot user expliciet via bulk_match verrijkt (1 credit
+ * per persoon). `apollo_id` is de stabiele Apollo person-ID — gebruikt als
+ * input voor `/people/bulk_match`.
+ */
+export type ColdContact = {
+  apollo_id: string
+  first_name?: string
+  last_name_obfuscated?: string
+  title?: string
+  seniority?: NormalizedContact['seniority']
+  departments?: string[]
+  has_email: boolean
+  has_direct_phone: 'yes' | 'maybe' | 'no'
+  organization_id?: string
+}
+
 export type NormalizedVacancy = {
   title: string
   url?: string
@@ -183,6 +201,11 @@ export type NormalizedFields = {
 
   // Lead-output
   contacts?: NormalizedContact[]
+  /**
+   * Apollo cold suggesties (uit `/mixed_people/api_search`, 0 credits). Worden
+   * pas naar `contacts` gepromoveerd nadat user ze via reveal-flow verrijkt.
+   */
+  cold_candidates?: ColdContact[]
   vacancies?: NormalizedVacancy[]
 
   // Bron-attribution
