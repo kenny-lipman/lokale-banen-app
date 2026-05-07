@@ -30,54 +30,30 @@ export class EnrichmentOrchestratorService {
    * "Opnieuw" knop per source-card wanneer 1 bron faalde maar de andere
    * succesvol waren — voorkomt dat user de hele run moet over-doen.
    *
-   * Tijdelijk zet run.status='enriching' zodat UI-polling weer activeert.
-   * Na completion: status terug op vorige terminal-state (review/failed).
+   * Touch'ed `run.status` NIET. De runner-method (runKvk/runMaps/etc) doet
+   * `markRunning` op de source-entry, en de polling-hook activeert op
+   * per-source 'running'-state. Daardoor blijft `showReview` in de UI
+   * waar zodat master_record + andere bron-data zichtbaar blijven.
    *
    * `master_record` wordt NIET hercomputeerd — user heeft mogelijk al edits
    * gemaakt. Wil de user nieuwe data van de hergeruvde bron mergen, dan
    * doen ze dat handmatig of via candidate-promotion (Maps).
    */
   async runSingleSource(runId: string, source: SourceName): Promise<void> {
-    // Save originele status om na afloop te herstellen
-    const { data: pre } = await this.supabase
-      .from('sales_lead_runs')
-      .select('status')
-      .eq('id', runId)
-      .single()
-    const previousStatus = (pre?.status ?? 'review') as
-      | 'review' | 'failed' | 'completed' | 'duplicate' | 'enriching' | 'syncing'
-
-    // Trigger UI-polling
-    await this.supabase
-      .from('sales_lead_runs')
-      .update({ status: 'enriching', updated_at: new Date().toISOString() })
-      .eq('id', runId)
-
-    try {
-      const { input_url, input_domain, scrape_vacancies } = await this.loadRun(runId)
-      switch (source) {
-        case 'kvk':
-          await this.runKvk(runId, input_domain)
-          break
-        case 'google_maps':
-          await this.runMaps(runId, input_domain)
-          break
-        case 'apollo':
-          await this.runApollo(runId, input_domain)
-          break
-        case 'website':
-          await this.runWebsite(runId, input_url, scrape_vacancies)
-          break
-      }
-    } finally {
-      // Herstel originele terminal-status. Bij previousStatus='enriching' (theoretisch
-      // edge case) blijven we ook op 'enriching' — de UI gaat dan wachten op een
-      // volledige run die hier niet draait. Daarom: alleen herstellen als terminal.
-      const targetStatus = previousStatus === 'enriching' ? 'review' : previousStatus
-      await this.supabase
-        .from('sales_lead_runs')
-        .update({ status: targetStatus, updated_at: new Date().toISOString() })
-        .eq('id', runId)
+    const { input_url, input_domain, scrape_vacancies } = await this.loadRun(runId)
+    switch (source) {
+      case 'kvk':
+        await this.runKvk(runId, input_domain)
+        break
+      case 'google_maps':
+        await this.runMaps(runId, input_domain)
+        break
+      case 'apollo':
+        await this.runApollo(runId, input_domain)
+        break
+      case 'website':
+        await this.runWebsite(runId, input_url, scrape_vacancies)
+        break
     }
   }
 
