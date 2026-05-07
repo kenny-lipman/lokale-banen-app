@@ -1,11 +1,70 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import useSWR from 'swr'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, Mail } from 'lucide-react'
+import { Mail, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LeadRunsFilters, EMPTY_FILTERS, type FilterState } from '@/components/sales/lead-runs-filters'
+import { LeadRunsTable } from '@/components/sales/lead-runs-table'
+import type { RunListResponse } from '@/lib/services/sales-leads/types'
+
+type Owner = { id: string; label: string }
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+function buildQueryString(f: FilterState, page: number, limit: number): string {
+  const p = new URLSearchParams()
+  if (f.search.trim()) p.set('search', f.search.trim())
+  if (f.status !== 'all') p.set('status', f.status)
+  if (f.owner !== 'all') p.set('owner', f.owner)
+  if (f.date_from) p.set('date_from', f.date_from)
+  if (f.date_to) p.set('date_to', f.date_to)
+  p.set('page', String(page))
+  p.set('limit', String(limit))
+  return p.toString()
+}
 
 export default function LeadVerrijkingPage() {
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  const [page, setPage] = useState(1)
+  const limit = 25
+
+  // Reset naar pagina 1 zodra filters wijzigen
+  useEffect(() => {
+    setPage(1)
+  }, [filters])
+
+  const queryString = useMemo(() => buildQueryString(filters, page, limit), [filters, page])
+
+  const { data, error, isLoading } = useSWR<RunListResponse>(
+    `/api/sales-leads?${queryString}`,
+    fetcher,
+    { revalidateOnFocus: false, keepPreviousData: true },
+  )
+
+  const [owners, setOwners] = useState<Owner[]>([])
+  useEffect(() => {
+    fetch('/api/sales-leads/owner-config')
+      .then((r) => r.json() as Promise<{ configs?: Owner[] }>)
+      .then((j) => setOwners(j.configs ?? []))
+      .catch(() => setOwners([]))
+  }, [])
+
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / limit))
+  const runs = data?.runs ?? []
+
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-8 max-w-7xl mx-auto">
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Lead Verrijking</h1>
@@ -25,14 +84,51 @@ export default function LeadVerrijkingPage() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Mail className="w-5 h-5 text-orange-600" />
-            <CardTitle>Run-historie</CardTitle>
+            <CardTitle>Run-historie ({total})</CardTitle>
           </div>
-          <CardDescription>De lijst met eerdere verrijkingen wordt opgeleverd in fase 6.</CardDescription>
+          <CardDescription>
+            Klik op het oog-icoon om een run te openen.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500">
-            Gebruik <span className="font-mono">/sales/lead-verrijking/[run_id]</span> direct als je een specifieke run wilt openen.
-          </p>
+          <LeadRunsFilters value={filters} onChange={setFilters} owners={owners} />
+
+          {error && (
+            <div className="text-sm text-red-600 py-2">
+              Kon runs niet laden: {(error as Error).message}
+            </div>
+          )}
+
+          <LeadRunsTable runs={runs} loading={isLoading && !data} />
+
+          {total > limit && (
+            <div className="flex items-center justify-between mt-4 pt-3 border-t">
+              <div className="text-xs text-gray-500">
+                {(page - 1) * limit + 1}–{Math.min(page * limit, total)} van {total}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-xs text-gray-600">
+                  Pagina {page} van {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
