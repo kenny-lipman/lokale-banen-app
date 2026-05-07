@@ -19,17 +19,50 @@ const MAX_DISCOVERY_URLS = 500
 const MAX_RECURSION_DEPTH = 2
 const TOP_N = 12
 
+// Eerste-match-wint, geordend op specificiteit (specifieke patterns voor algemene).
+// Voor 'careers' is een ruime regex preferent: Mistral kan non-relevante content
+// negeren; missen van een werken-bij pagina kost vacancies-data.
 const ROLE_RULES: Array<{ re: RegExp; role: DiscoveredUrlRole; priority: number }> = [
+  // CONTACT
   { re: /\/contact(?:[\/\-_]|$|\.)/i, role: 'contact', priority: 0 },
+
+  // ABOUT (Dutch + English variants)
   { re: /\/(?:over[-_]?ons|over)(?:[\/\-_]|$|\.)/i, role: 'about', priority: 1 },
   { re: /\/about(?:[-_]?us)?(?:[\/\-_]|$|\.)/i, role: 'about', priority: 1 },
-  { re: /\/(?:team|medewerkers|mensen|people)(?:[\/\-_]|$|\.)/i, role: 'team', priority: 2 },
+  { re: /\/(?:wie[-_]?(?:we[-_]?zijn|zijn[-_]?we))(?:[\/\-_]|$|\.)/i, role: 'about', priority: 1 },
+  { re: /\/who[-_]?we[-_]?are(?:[\/\-_]|$|\.)/i, role: 'about', priority: 1 },
+
+  // TEAM
+  { re: /\/(?:team|ons[-_]?team|medewerkers|mensen|people|our[-_]?team)(?:[\/\-_]|$|\.)/i, role: 'team', priority: 2 },
+
+  // CAREERS — ruim, NL + EN + variantvormen
   {
-    re: /\/(?:werken[-_]?bij|carrieres?|careers?|jobs?|vacatures?)(?:[\/\-_]|$|\.)/i,
+    // NL careers
+    re: /\/(?:werken[-_]?bij|werk[-_]?bij|werk[-_]?(?:met|bij)[-_]?ons|bij[-_]?ons[-_]?werken|werkenbij)(?:[\/\-_]|$|\.)/i,
     role: 'careers',
     priority: 3,
   },
-  { re: /\/(?:bedrijf|company|organisatie)(?:[\/\-_]|$|\.)/i, role: 'company', priority: 4 },
+  {
+    // NL vacatures + variants
+    re: /\/(?:vacatures?|openstaande[-_]?vacatures?|vacature[-_]?overzicht)(?:[\/\-_]|$|\.)/i,
+    role: 'careers',
+    priority: 3,
+  },
+  {
+    // EN careers/jobs
+    re: /\/(?:carri[èe]re?s?|careers?|jobs?|join[-_]?(?:us|our[-_]?team)?|hire(?:[-_]?us)?|work[-_]?(?:with|for|at)[-_]?us|opportunities)(?:[\/\-_]|$|\.)/i,
+    role: 'careers',
+    priority: 3,
+  },
+  {
+    // ATS-paths (komen vaak terug in zowel sitemap als links)
+    re: /\/(?:greenhouse|lever|workable|bamboohr|recruitee|homerun|teamtailor|personio|jobvite)(?:[\/\-_]|$|\.)/i,
+    role: 'careers',
+    priority: 3,
+  },
+
+  // COMPANY
+  { re: /\/(?:bedrijf|company|organisatie|organization)(?:[\/\-_]|$|\.)/i, role: 'company', priority: 4 },
 ]
 
 /**

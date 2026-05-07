@@ -94,6 +94,41 @@ describe('scoreUrl', () => {
     expect(scoreUrl('https://e.nl/vacatures').role).toBe('careers')
   })
 
+  it('uitgebreide careers-varianten worden gevonden', () => {
+    // NL
+    expect(scoreUrl('https://e.nl/werkenbij').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/werk-bij').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/werk-met-ons').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/bij-ons-werken').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/vacature').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/openstaande-vacatures').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/vacature-overzicht').role).toBe('careers')
+    // EN
+    expect(scoreUrl('https://e.nl/job').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/carriere').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/join-us').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/join-our-team').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/work-with-us').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/work-at-us').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/opportunities').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/hire').role).toBe('careers')
+    // ATS-paths
+    expect(scoreUrl('https://e.nl/greenhouse').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/recruitee').role).toBe('careers')
+    expect(scoreUrl('https://e.nl/homerun').role).toBe('careers')
+  })
+
+  it('about: who-we-are en wie-zijn-we varianten', () => {
+    expect(scoreUrl('https://e.nl/wie-zijn-we').role).toBe('about')
+    expect(scoreUrl('https://e.nl/wie-we-zijn').role).toBe('about')
+    expect(scoreUrl('https://e.nl/who-we-are').role).toBe('about')
+  })
+
+  it('team: ons-team / our-team variants', () => {
+    expect(scoreUrl('https://e.nl/ons-team').role).toBe('team')
+    expect(scoreUrl('https://e.nl/our-team').role).toBe('team')
+  })
+
   it('falls back to other with depth-based priority', () => {
     const r1 = scoreUrl('https://e.nl/products/widget')
     expect(r1.role).toBe('other')
