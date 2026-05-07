@@ -31,7 +31,9 @@ type ApifyGoogleMapsItem = {
 
 const ACTOR_ID = 'compass~crawler-google-places'
 const MAX_CANDIDATES = 3
-const SYNC_TIMEOUT_MS = 90_000
+// Apify cold-start + 3 places crawl: typisch 60-120s, soms tot 180s.
+// Vercel maxDuration is 300s — laat genoeg budget voor andere bronnen.
+const SYNC_TIMEOUT_MS = 180_000
 
 export class MapsApiError extends Error {
   constructor(

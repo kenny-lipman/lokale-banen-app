@@ -1,7 +1,13 @@
-import { chromium } from 'playwright-extra'
+import { addExtra } from 'playwright-extra'
+import { chromium as chromiumCore } from 'playwright-core'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import chromiumBin from '@sparticuz/chromium'
 import type { Browser } from 'playwright-core'
+
+// playwright-extra's auto-loader kan op Vercel + serverExternalPackages
+// niet altijd `playwright-core` via dynamic require vinden. Expliciet via
+// `addExtra(chromiumCore)` omzeilt die failure.
+const chromium = addExtra(chromiumCore)
 
 const UA_POOL = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
