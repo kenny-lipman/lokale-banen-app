@@ -57,12 +57,12 @@ export function LeadSyncStatus({ run, onSynced }: Props) {
         } else {
           toast({ title: 'Sync mislukt', description: json.error, variant: 'destructive' })
         }
-        await onSynced()
       } catch (e) {
         toast({ title: 'Sync mislukt', description: (e as Error).message, variant: 'destructive' })
       } finally {
         setSyncing(false)
         setConfirmingForce(false)
+        await onSynced()
       }
     },
     [run.id, onSynced, toast],
