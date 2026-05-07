@@ -9,7 +9,7 @@ import { LeadStatusBanner, type SaveState } from '@/components/sales/lead-status
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
 import { LeadSourceStatusGrid } from '@/components/sales/lead-source-status-grid'
-import { LeadStep3Placeholder } from '@/components/sales/lead-step3-placeholder'
+import { LeadSyncStatus } from '@/components/sales/lead-sync-status'
 import { LeadMasterRecord } from '@/components/sales/lead-master-record'
 import { LeadContactsColumn } from '@/components/sales/lead-contacts-column'
 import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
@@ -211,7 +211,8 @@ export default function RunDetailPage({ params }: PageProps) {
   const ownerConfig = owners?.find((o) => o.id === run.owner_config_id) ?? null
   const showReview = run.status === 'review'
   const showEnriching = run.status === 'enriching'
-  const showStep3 =
+  const showSyncCard =
+    run.status === 'review' ||
     run.status === 'syncing' ||
     run.status === 'completed' ||
     run.status === 'failed' ||
@@ -309,10 +310,15 @@ export default function RunDetailPage({ params }: PageProps) {
         </div>
       )}
       {showReview && master && renderReviewGrid(master)}
-      {showStep3 && <LeadStep3Placeholder run={run} />}
-      {!showReview && !showEnriching && !showStep3 && (
-        <div className="rounded-md border border-dashed p-6 text-sm text-gray-500">
-          Status: <span className="font-mono">{run.status}</span>
+      {showSyncCard && (
+        <div className="mt-6">
+          <LeadSyncStatus
+            run={run}
+            onSynced={async () => {
+              hydratedRef.current = false
+              await refetch()
+            }}
+          />
         </div>
       )}
     </div>
