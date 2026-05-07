@@ -32,6 +32,10 @@ async function safeTenant() {
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await safeTenant()
 
+  const faviconSvg = tenant?.favicon_url ?? null
+  // PNG-fallback ligt naast de SVG in dezelfde storage-folder
+  const faviconPng = faviconSvg ? faviconSvg.replace(/\.svg(\?.*)?$/, '.png$1') : null
+
   return {
     title: {
       default: tenant?.hero_title || 'Lokale Banen',
@@ -43,6 +47,16 @@ export async function generateMetadata(): Promise<Metadata> {
       follow: true,
       googleBot: { index: true, follow: true },
     },
+    icons: faviconSvg
+      ? {
+          icon: [
+            { url: faviconSvg, type: 'image/svg+xml' },
+            ...(faviconPng ? [{ url: faviconPng, type: 'image/png' }] : []),
+          ],
+          shortcut: faviconPng ?? faviconSvg,
+          apple: faviconPng ?? faviconSvg,
+        }
+      : undefined,
   }
 }
 
