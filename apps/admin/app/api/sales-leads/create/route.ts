@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { Json } from '@/lib/supabase'
@@ -137,11 +138,16 @@ async function handler(req: NextRequest, auth: AuthResult) {
     )
   }
 
-  // Fire-and-forget orchestrator. Errors landen in run.error via try/catch in service.
+  // Background orchestrator via waitUntil — vertelt Vercel runtime de function
+  // alive te houden tot deze promise resolved. Zonder waitUntil (gewone `void`)
+  // wordt de instance soms direct na de response gekild, vooral bij zwaardere
+  // bundles met Playwright/@sparticuz/chromium.
   const svc = new EnrichmentOrchestratorService()
-  void svc.runEnrichment(inserted.id).catch((e) => {
-    console.error('[orchestrator] unhandled', inserted.id, e)
-  })
+  waitUntil(
+    svc.runEnrichment(inserted.id).catch((e) => {
+      console.error('[orchestrator] unhandled', inserted.id, e)
+    }),
+  )
 
   return NextResponse.json({ run_id: inserted.id }, { status: 201 })
 }
