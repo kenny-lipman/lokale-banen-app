@@ -693,6 +693,67 @@ export class PipedriveClient {
   }
 
   /**
+   * Create a deal using V2 API (supports custom_fields object).
+   */
+  async createDealV2(deal: {
+    title: string
+    owner_id: number
+    person_id?: number
+    org_id?: number
+    pipeline_id: number
+    stage_id: number
+    value?: number
+    currency?: string
+    visible_to?: string
+    custom_fields?: Record<string, unknown>
+  }): Promise<{ id: number; [k: string]: unknown }> {
+    const data = await this.requestV2('POST', '/deals', deal)
+    return data
+  }
+
+  /**
+   * Add a note to a deal (V1 — notes endpoint not in V2).
+   */
+  async addNoteToDeal(dealId: number, content: string): Promise<{ id: number }> {
+    const v1BaseUrl = 'https://api.pipedrive.com/v1'
+    const url = `${v1BaseUrl}/notes?api_token=${this.apiKey}`
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ content, deal_id: dealId }),
+    })
+    this.checkDailyLimit(response)
+    if (!response.ok) {
+      const txt = await response.text()
+      throw new Error(`addNoteToDeal failed: ${response.status} ${txt.substring(0, 300)}`)
+    }
+    const json = await response.json()
+    return json.data
+  }
+
+  /**
+   * Attach a person as participant to a deal (V1).
+   */
+  async addDealParticipant(dealId: number, personId: number): Promise<void> {
+    await this.request('POST', `/deals/${dealId}/participants`, { person_id: personId })
+  }
+
+  /**
+   * Count deals on an organization created in the last 6 months.
+   * Used to populate the dedupe-warning card in Stap 3.
+   */
+  async getOrganizationDealCount6m(orgId: number): Promise<number> {
+    try {
+      const data = await this.request('GET', `/organizations/${orgId}/deals?status=all_not_deleted&limit=500`)
+      const deals = (data as Array<{ add_time: string }>) ?? []
+      const cutoff = Date.now() - 6 * 30 * 24 * 60 * 60 * 1000
+      return deals.filter((d) => new Date(d.add_time).getTime() >= cutoff).length
+    } catch {
+      return 0
+    }
+  }
+
+  /**
    * Add a note to a person (using V1 API - notes endpoint is not available in V2)
    */
   async addPersonNote(personId: number, content: string): Promise<any> {
