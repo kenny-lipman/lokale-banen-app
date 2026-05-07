@@ -70,6 +70,9 @@ export const swrKeys = {
   platformAutomationPreferences: ["automation-preferences", "platforms"] as const,
   apifyRuns: (p: ApifyRunsParams) => ["apify-runs", p] as const,
   contactLocations: (contactIds: string[]) => ["contacts", "locations", contactIds] as const,
+  backfillBatch: (batchId: string) => ["backfill", "batch", batchId] as const,
+  enrichmentBatch: (batchId: string) => ["enrichment", "batch", batchId] as const,
+  salesLeadsRun: (runId: string) => ["sales-leads", "run", runId] as const,
   companies: (p: CompaniesParams) => ["companies", p] as const,
   jobPostings: (p: JobPostingsFilterParams) => ["job-postings", p] as const,
 }
