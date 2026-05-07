@@ -145,6 +145,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
   const {
     data: jobPostingsResult,
     loading: loadingFromHook,
+    isValidating: isValidatingFromHook,
     error: errorFromHook,
     refetch,
   } = useJobPostingsCache(
@@ -689,7 +690,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
               <TableHead className="w-[120px]">Acties</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className={`transition-opacity duration-150 ${isValidatingFromHook && jobPostingsResult ? "opacity-60" : "opacity-100"}`}>
             {loading ? (
               <TableSkeleton rows={5} columns={10} />
             ) : filteredJobPostings.length === 0 ? (

@@ -109,6 +109,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   const {
     data: companiesResult,
     loading,
+    isValidating,
     error,
     refetch,
     updateCompanyOptimistically,
@@ -865,7 +866,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               <TableHead className="w-[120px]">Acties</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className={`transition-opacity duration-150 ${isValidating && companiesResult ? "opacity-60" : "opacity-100"}`}>
             {loading ? (
               <>
                 <TableSkeleton rows={8} columns={15} />
