@@ -15,7 +15,10 @@ async function handler(_req: NextRequest, _auth: AuthResult, ctx: RouteContext) 
     .select('master_record, owner_config_id')
     .eq('id', id)
     .maybeSingle()
-  if (error || !run) {
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!run) {
     return NextResponse.json({ error: 'run_not_found' }, { status: 404 })
   }
 
@@ -24,11 +27,14 @@ async function handler(_req: NextRequest, _auth: AuthResult, ctx: RouteContext) 
     return NextResponse.json({ error: 'master_record_missing' }, { status: 409 })
   }
 
-  const { data: cfg } = await supabase
+  const { data: cfg, error: cfgErr } = await supabase
     .from('sales_lead_owner_config')
-    .select('hoofddomein_strategy, hoofddomein_fixed_value')
+    .select('hoofddomein_strategy')
     .eq('id', run.owner_config_id)
     .maybeSingle()
+  if (cfgErr) {
+    return NextResponse.json({ error: cfgErr.message }, { status: 500 })
+  }
   if (cfg?.hoofddomein_strategy !== 'auto_match_by_address') {
     return NextResponse.json({ error: 'strategy_not_auto_match' }, { status: 409 })
   }
