@@ -1,0 +1,230 @@
+'use client'
+
+import { useCallback, useState } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
+import { Loader2, CheckCircle2, AlertTriangle, XCircle, ExternalLink, RotateCw } from 'lucide-react'
+import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
+
+type Run = RunDetailResponse['run']
+type Props = {
+  run: Run
+  onSynced: () => Promise<void>
+}
+
+const PIPEDRIVE_BASE = 'https://lokalebanen.pipedrive.com'
+
+type DupeInfo = { existing_org_id: number; existing_org_name: string | null; deal_count_6m: number }
+
+export function LeadSyncStatus({ run, onSynced }: Props) {
+  const { toast } = useToast()
+  const [syncing, setSyncing] = useState(false)
+  const [confirmingForce, setConfirmingForce] = useState(false)
+  const [dupeInfo, setDupeInfo] = useState<DupeInfo | null>(
+    run.existing_pipedrive_org_id
+      ? { existing_org_id: run.existing_pipedrive_org_id, existing_org_name: null, deal_count_6m: 0 }
+      : null,
+  )
+
+  const triggerSync = useCallback(
+    async (force: boolean) => {
+      setSyncing(true)
+      try {
+        const res = await fetch(`/api/sales-leads/${run.id}/sync-pipedrive`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force_duplicate: force }),
+        })
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string }
+          throw new Error(body.error ?? `HTTP ${res.status}`)
+        }
+        const json = (await res.json()) as
+          | { status: 'completed'; pipedrive_org_id: number; pipedrive_deal_id: number; pipedrive_person_ids: number[] }
+          | { status: 'duplicate'; existing_org_id: number; existing_org_name: string | null; deal_count_6m: number }
+          | { status: 'failed'; error: string }
+        if (json.status === 'duplicate') {
+          setDupeInfo({
+            existing_org_id: json.existing_org_id,
+            existing_org_name: json.existing_org_name,
+            deal_count_6m: json.deal_count_6m,
+          })
+          toast({ title: 'Duplicate gedetecteerd', description: `Org ${json.existing_org_id} bestaat al.` })
+        } else if (json.status === 'completed') {
+          toast({ title: 'Sync voltooid', description: `Deal ${json.pipedrive_deal_id} aangemaakt` })
+        } else {
+          toast({ title: 'Sync mislukt', description: json.error, variant: 'destructive' })
+        }
+        await onSynced()
+      } catch (e) {
+        toast({ title: 'Sync mislukt', description: (e as Error).message, variant: 'destructive' })
+      } finally {
+        setSyncing(false)
+        setConfirmingForce(false)
+      }
+    },
+    [run.id, onSynced, toast],
+  )
+
+  // ── State 1: nog niet gestart (status=review) → Start-sync knop ──
+  if (run.status === 'review') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Stap 3 — Sync naar Pipedrive</CardTitle>
+          <CardDescription>Klik op "Sync naar Pipedrive" om de deal aan te maken.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => triggerSync(false)} disabled={syncing}>
+            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            Sync naar Pipedrive
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // ── State 2: syncing → loading ──
+  if (run.status === 'syncing') {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+            <CardTitle>Sync loopt…</CardTitle>
+          </div>
+          <CardDescription>Dedupe → Org → Persons → Deal → Notitie</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm space-y-1 text-gray-600">
+          {run.pipedrive_org_id && <p>✓ Organisatie aangemaakt (id: {run.pipedrive_org_id})</p>}
+          {run.pipedrive_deal_id && <p>✓ Deal aangemaakt (id: {run.pipedrive_deal_id})</p>}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // ── State 3: duplicate ──
+  if (run.status === 'duplicate' && dupeInfo) {
+    return (
+      <Card className="border-yellow-300 bg-yellow-50">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-600" />
+            <CardTitle>Bedrijf bestaat al in Pipedrive</CardTitle>
+          </div>
+          <CardDescription>
+            {dupeInfo.existing_org_name
+              ? `"${dupeInfo.existing_org_name}" — `
+              : ''}
+            Org-id <span className="font-mono">{dupeInfo.existing_org_id}</span>
+            {dupeInfo.deal_count_6m > 0 && ` · ${dupeInfo.deal_count_6m} deal(s) afgelopen 6 mnd`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <a
+              href={`${PIPEDRIVE_BASE}/organization/${dupeInfo.existing_org_id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open in Pipedrive <ExternalLink className="w-3 h-3 ml-1" />
+            </a>
+          </Button>
+          {confirmingForce ? (
+            <>
+              <Button variant="destructive" disabled={syncing} onClick={() => triggerSync(true)}>
+                {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Bevestig: nieuwe deal aanmaken
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmingForce(false)}>
+                Annuleer
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => setConfirmingForce(true)}>
+              Toch nieuwe deal aanmaken
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // ── State 4: completed ──
+  if (run.status === 'completed') {
+    return (
+      <Card className="border-green-300 bg-green-50">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <CardTitle>Sync voltooid</CardTitle>
+          </div>
+          <CardDescription>Pipedrive deal aangemaakt + interne data gekoppeld.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {run.pipedrive_org_id && (
+            <Button asChild variant="outline" size="sm">
+              <a
+                href={`${PIPEDRIVE_BASE}/organization/${run.pipedrive_org_id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Org <ExternalLink className="w-3 h-3 ml-1" />
+              </a>
+            </Button>
+          )}
+          {run.pipedrive_deal_id && (
+            <Button asChild variant="outline" size="sm">
+              <a
+                href={`${PIPEDRIVE_BASE}/deal/${run.pipedrive_deal_id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Deal <ExternalLink className="w-3 h-3 ml-1" />
+              </a>
+            </Button>
+          )}
+          <Badge variant="outline" className="ml-auto self-center">
+            {run.pipedrive_person_ids?.length ?? 0} persoon(en)
+          </Badge>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // ── State 5: failed ──
+  if (run.status === 'failed') {
+    return (
+      <Card className="border-red-300 bg-red-50">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <XCircle className="w-5 h-5 text-red-600" />
+            <CardTitle>Sync mislukt</CardTitle>
+          </div>
+          <CardDescription className="text-red-800">{run.error ?? 'Onbekende fout'}</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm space-y-2">
+          {(run.pipedrive_org_id || run.pipedrive_deal_id || (run.pipedrive_person_ids?.length ?? 0) > 0) && (
+            <div className="text-gray-600">
+              <p className="font-medium">Reeds aangemaakt:</p>
+              {run.pipedrive_org_id && <p>· org {run.pipedrive_org_id}</p>}
+              {(run.pipedrive_person_ids ?? []).map((pid) => (
+                <p key={pid}>· person {pid}</p>
+              ))}
+              {run.pipedrive_deal_id && <p>· deal {run.pipedrive_deal_id}</p>}
+            </div>
+          )}
+          <Button onClick={() => triggerSync(false)} disabled={syncing}>
+            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCw className="w-4 h-4 mr-2" />}
+            Hervatten
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Fallback (kan niet gebeuren binnen de spec'd states)
+  return null
+}

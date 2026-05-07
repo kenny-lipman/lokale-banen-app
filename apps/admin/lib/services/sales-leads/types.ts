@@ -270,6 +270,7 @@ export type RunDetailResponse = {
     selected_contacts: NormalizedContact[]
     pipedrive_org_id: number | null
     pipedrive_deal_id: number | null
+    pipedrive_person_ids: number[]
     existing_pipedrive_org_id: number | null
     error: string | null
     created_at: string
