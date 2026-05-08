@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Werken-bij bronnen — UI mockup (2026-05-07)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .mockup-section { scroll-margin-top: 80px; }
+  .nav-bar { backdrop-filter: blur(8px); }
+</style>
+</head>
+<body class="bg-slate-100">
+
+<!-- Sticky nav voor navigatie tussen secties -->
+<nav class="nav-bar sticky top-0 z-50 bg-white/80 border-b border-slate-200 px-6 py-3">
+  <div class="max-w-6xl mx-auto flex items-center gap-6 text-sm">
+    <span class="font-semibold text-slate-900">Werken-bij bronnen — mockup</span>
+    <a href="#a" class="text-slate-600 hover:text-slate-900">1. Lead-verrijking detail</a>
+    <a href="#b" class="text-slate-600 hover:text-slate-900">2. Scrape-bronnen pagina</a>
+    <a href="#c" class="text-slate-600 hover:text-slate-900">3. Lead/company tab</a>
+    <a href="#d" class="text-slate-600 hover:text-slate-900">4. Manual add</a>
+    <span class="ml-auto text-xs text-slate-500">2026-05-07 · V1A</span>
+  </div>
+</nav>
+
+<!-- ============================================================ -->
+<!-- SECTIE A — /sales/lead-verrijking/[run_id] -->
+<!-- ============================================================ -->
+<section id="a" class="mockup-section py-10 px-6">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-4">
+      <span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">SECTIE 1</span>
+      <h2 class="text-xl font-bold text-slate-900 mt-2">/sales/lead-verrijking/[run_id]</h2>
+      <p class="text-sm text-slate-600 mt-1">
+        Bestaand: header + 4 source-cards (KvK, Google Maps, Apollo, Website). <strong>Nieuw:</strong> twee blokken
+        verschijnen ná run-completion onder de Website-card, alleen zichtbaar als de website-source vacancies/sitemap-data heeft.
+      </p>
+    </div>
+
+    <!-- Bestaand: Header + source-grid (referentie) -->
+    <div class="bg-white rounded-lg border border-slate-200 p-6 mb-4 opacity-70">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <button class="text-slate-500">← Overzicht</button>
+          <div>
+            <h1 class="text-lg font-bold">hbm-machines.com</h1>
+            <p class="text-xs text-slate-500">https://www.hbm-machines.com/nl</p>
+          </div>
+        </div>
+        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">✓ Klaar voor review</span>
+      </div>
+      <div class="grid grid-cols-4 gap-3">
+        <div class="border rounded-lg p-3"><div class="text-xs">KvK</div><div class="text-xs text-slate-500">12 velden · 1 SBI</div></div>
+        <div class="border rounded-lg p-3"><div class="text-xs">Google Maps</div><div class="text-xs text-slate-500">GPS · 4.7★</div></div>
+        <div class="border rounded-lg p-3"><div class="text-xs">Apollo</div><div class="text-xs text-slate-500">32 tech · 59 keywords</div></div>
+        <div class="border-2 border-orange-400 rounded-lg p-3"><div class="text-xs">Website</div><div class="text-xs text-slate-500">1 pagina · 0 contacten · 0 vacatures</div></div>
+      </div>
+      <p class="text-xs text-slate-400 mt-3 italic">↑ bestaand — referentie</p>
+    </div>
+
+    <!-- NIEUW BLOK 1: Potentiële Werken-bij websites (approval) -->
+    <div class="bg-white rounded-lg border-2 border-amber-300 mb-4 overflow-hidden">
+      <div class="bg-amber-50 px-6 py-3 border-b border-amber-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          <h3 class="font-semibold text-amber-900">Potentiële werken-bij websites</h3>
+          <span class="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-medium rounded">2 suggesties · review nodig</span>
+        </div>
+        <span class="text-xs text-amber-700">Worden scrape-bron na goedkeuring</span>
+      </div>
+      <div class="px-6 py-4">
+        <p class="text-sm text-slate-600 mb-4">
+          Uit de website-discovery zijn deze URLs herkend als <em>career-page</em>. Keur ze goed om ze aan
+          <a href="#b" class="text-blue-600 underline">scrape-bronnen</a> toe te voegen, of wijs af als ze onjuist zijn.
+        </p>
+
+        <!-- Suggestion row 1 -->
+        <div class="border border-slate-200 rounded-lg p-4 mb-3 hover:bg-slate-50">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <a href="#" class="font-mono text-sm text-blue-600 hover:underline truncate">https://www.hbm-machines.com/nl/werken-bij</a>
+                <span class="px-1.5 py-0.5 bg-slate-100 text-slate-700 text-xs rounded">via sitemap</span>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-slate-500">
+                <span>HTTP 200 · 18kb</span>
+                <span>·</span>
+                <span>Geen ATS gedetecteerd</span>
+                <span>·</span>
+                <span>Match: <span class="text-slate-700 font-medium">role=careers</span></span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700">✓ Goedkeuren</button>
+              <button class="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded hover:bg-slate-50">Afwijzen</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggestion row 2 -->
+        <div class="border border-slate-200 rounded-lg p-4 hover:bg-slate-50">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <a href="#" class="font-mono text-sm text-blue-600 hover:underline truncate">https://www.hbm-machines.com/nl/vacatures</a>
+                <span class="px-1.5 py-0.5 bg-slate-100 text-slate-700 text-xs rounded">via html-link</span>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-slate-500">
+                <span>HTTP 200 · 24kb</span>
+                <span>·</span>
+                <span>Geen ATS gedetecteerd</span>
+                <span>·</span>
+                <span>Match: <span class="text-slate-700 font-medium">role=careers</span></span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700">✓ Goedkeuren</button>
+              <button class="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded hover:bg-slate-50">Afwijzen</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual-add inline -->
+        <div class="mt-4 pt-4 border-t border-slate-200">
+          <button class="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Handmatig URL toevoegen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NIEUW BLOK 2: Geparsede sitemap (gevonden pagina's) -->
+    <div class="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+      <div class="px-6 py-3 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <h3 class="font-semibold text-slate-900">Geparsede sitemap</h3>
+          <span class="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs rounded">8 URLs gevonden · 1 gefetcht</span>
+        </div>
+        <button class="text-xs text-slate-500 hover:text-slate-700">Alles tonen ▾</button>
+      </div>
+      <div class="divide-y divide-slate-100">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th class="text-left px-6 py-2 font-medium">URL</th>
+              <th class="text-left py-2 font-medium">Role</th>
+              <th class="text-left py-2 font-medium">Bron</th>
+              <th class="text-left py-2 font-medium">Status</th>
+              <th class="text-left px-6 py-2 font-medium">Woorden</th>
+            </tr>
+          </thead>
+          <tbody class="text-xs">
+            <tr class="hover:bg-slate-50">
+              <td class="px-6 py-2 font-mono text-blue-600 truncate max-w-md">/nl</td>
+              <td class="py-2"><span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">homepage</span></td>
+              <td class="py-2 text-slate-500">sitemap.xml</td>
+              <td class="py-2"><span class="text-green-600">✓ 200</span> · t1</td>
+              <td class="px-6 py-2 text-slate-700">1.247</td>
+            </tr>
+            <tr class="hover:bg-slate-50 bg-amber-50/40">
+              <td class="px-6 py-2 font-mono text-blue-600 truncate max-w-md">/nl/werken-bij</td>
+              <td class="py-2"><span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">careers</span></td>
+              <td class="py-2 text-slate-500">sitemap.xml</td>
+              <td class="py-2"><span class="text-slate-400">— niet gefetcht</span></td>
+              <td class="px-6 py-2 text-slate-400">—</td>
+            </tr>
+            <tr class="hover:bg-slate-50 bg-amber-50/40">
+              <td class="px-6 py-2 font-mono text-blue-600 truncate max-w-md">/nl/vacatures</td>
+              <td class="py-2"><span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">careers</span></td>
+              <td class="py-2 text-slate-500">html-link</td>
+              <td class="py-2"><span class="text-slate-400">— niet gefetcht</span></td>
+              <td class="px-6 py-2 text-slate-400">—</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="px-6 py-2 font-mono text-blue-600 truncate max-w-md">/nl/contact</td>
+              <td class="py-2"><span class="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded">contact</span></td>
+              <td class="py-2 text-slate-500">sitemap.xml</td>
+              <td class="py-2"><span class="text-slate-400">— niet gefetcht</span></td>
+              <td class="px-6 py-2 text-slate-400">—</td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="px-6 py-2 font-mono text-blue-600 truncate max-w-md">/nl/over-ons</td>
+              <td class="py-2"><span class="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded">about</span></td>
+              <td class="py-2 text-slate-500">sitemap.xml</td>
+              <td class="py-2"><span class="text-slate-400">— niet gefetcht</span></td>
+              <td class="px-6 py-2 text-slate-400">—</td>
+            </tr>
+            <tr class="text-slate-400">
+              <td class="px-6 py-2" colspan="5"><em>+ 3 overige URLs (verbergen tijdens collapse)</em></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Bestaande website raw+parsed kaart blijft daaronder -->
+    <div class="bg-white rounded-lg border border-slate-200 p-6 opacity-70">
+      <h3 class="font-semibold text-slate-900 mb-2">website — raw + parsed</h3>
+      <p class="text-sm text-slate-500">↑ bestaand blok blijft hieronder zoals nu</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTIE B — /job-postings/scrape-bronnen -->
+<!-- ============================================================ -->
+<section id="b" class="mockup-section py-10 px-6 bg-slate-50">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-4">
+      <span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">SECTIE 2</span>
+      <h2 class="text-xl font-bold text-slate-900 mt-2">/job-postings/scrape-bronnen</h2>
+      <p class="text-sm text-slate-600 mt-1">
+        Vervangt de huidige placeholder. Twee tabs: aggregators (8) en werken-bij pagina's (groei = leads × ±1.2).
+        Tabel met filters + edit/delete per rij + manual-add.
+      </p>
+    </div>
+
+    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Scrape-bronnen</h1>
+            <p class="text-sm text-slate-500 mt-1">Alle bronnen waar wij vacatures van scrapen.</p>
+          </div>
+          <button class="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Werken-bij URL toevoegen
+          </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 border-b border-slate-200 -mb-4 px-0">
+          <button class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">
+            Aggregators <span class="ml-1 text-xs">(8)</span>
+          </button>
+          <button class="px-4 py-2 text-sm font-medium text-slate-900 border-b-2 border-slate-900">
+            Werken-bij pagina's <span class="ml-1 text-xs">(127)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="px-6 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-3 text-sm">
+        <input type="search" placeholder="Zoek op company-naam of URL…" class="flex-1 max-w-sm px-3 py-1.5 border border-slate-300 rounded text-sm">
+        <select class="px-3 py-1.5 border border-slate-300 rounded text-sm bg-white">
+          <option>Alle statussen</option>
+          <option>✓ Goedgekeurd</option>
+          <option>⏳ Pending review</option>
+          <option>✗ Afgewezen</option>
+        </select>
+        <select class="px-3 py-1.5 border border-slate-300 rounded text-sm bg-white">
+          <option>Alle frequenties</option>
+          <option>Dagelijks</option>
+          <option>Wekelijks</option>
+          <option>Maandelijks</option>
+        </select>
+        <label class="flex items-center gap-1.5 text-xs text-slate-600">
+          <input type="checkbox" class="rounded">
+          Alleen actief
+        </label>
+        <span class="ml-auto text-xs text-slate-500">127 resultaten</span>
+      </div>
+
+      <!-- Tabel -->
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
+          <tr>
+            <th class="text-left px-6 py-2 font-medium">Company</th>
+            <th class="text-left py-2 font-medium">URL</th>
+            <th class="text-left py-2 font-medium">Bron</th>
+            <th class="text-left py-2 font-medium">ATS</th>
+            <th class="text-left py-2 font-medium">Frequentie</th>
+            <th class="text-left py-2 font-medium">Laatst gescrapet</th>
+            <th class="text-left py-2 font-medium">Status</th>
+            <th class="text-left px-6 py-2 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr class="hover:bg-slate-50">
+            <td class="px-6 py-3"><a href="#c" class="text-blue-600 hover:underline">HBM Machines</a></td>
+            <td class="py-3 font-mono text-xs text-slate-600 truncate max-w-xs">.../nl/werken-bij</td>
+            <td class="py-3 text-xs text-slate-500">sitemap</td>
+            <td class="py-3 text-xs text-slate-500">—</td>
+            <td class="py-3 text-xs">Wekelijks</td>
+            <td class="py-3 text-xs text-slate-500">—</td>
+            <td class="py-3"><span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">✓ Actief</span></td>
+            <td class="px-6 py-3"><div class="flex gap-1"><button class="text-slate-400 hover:text-slate-700 text-xs">Edit</button><button class="text-slate-400 hover:text-red-600 text-xs">×</button></div></td>
+          </tr>
+          <tr class="hover:bg-slate-50">
+            <td class="px-6 py-3"><a href="#c" class="text-blue-600 hover:underline">Acme BV</a></td>
+            <td class="py-3 font-mono text-xs text-slate-600 truncate max-w-xs">acme.recruitee.com</td>
+            <td class="py-3 text-xs text-slate-500">manual</td>
+            <td class="py-3 text-xs"><span class="px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">recruitee</span></td>
+            <td class="py-3 text-xs">Dagelijks</td>
+            <td class="py-3 text-xs text-slate-500">—</td>
+            <td class="py-3"><span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">✓ Actief</span></td>
+            <td class="px-6 py-3"><div class="flex gap-1"><button class="text-slate-400 hover:text-slate-700 text-xs">Edit</button><button class="text-slate-400 hover:text-red-600 text-xs">×</button></div></td>
+          </tr>
+          <tr class="hover:bg-slate-50 bg-amber-50/40">
+            <td class="px-6 py-3"><a href="#c" class="text-blue-600 hover:underline">Bouwbedrijf Jansen</a></td>
+            <td class="py-3 font-mono text-xs text-slate-600 truncate max-w-xs">.../carriere</td>
+            <td class="py-3 text-xs text-slate-500">sitemap</td>
+            <td class="py-3 text-xs text-slate-500">—</td>
+            <td class="py-3 text-xs">Wekelijks</td>
+            <td class="py-3 text-xs text-slate-500">—</td>
+            <td class="py-3"><span class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded">⏳ Pending</span></td>
+            <td class="px-6 py-3"><div class="flex gap-1"><button class="text-green-600 hover:text-green-700 text-xs font-medium">Goedkeuren</button></div></td>
+          </tr>
+          <tr class="hover:bg-slate-50 opacity-60">
+            <td class="px-6 py-3"><a href="#c" class="text-blue-600 hover:underline">Logistiek NL</a></td>
+            <td class="py-3 font-mono text-xs text-slate-600 truncate max-w-xs">.../jobs</td>
+            <td class="py-3 text-xs text-slate-500">manual</td>
+            <td class="py-3 text-xs text-slate-500">—</td>
+            <td class="py-3 text-xs">Wekelijks</td>
+            <td class="py-3 text-xs text-slate-500">—</td>
+            <td class="py-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-500 text-xs rounded">— Inactief</span></td>
+            <td class="px-6 py-3"><div class="flex gap-1"><button class="text-slate-400 hover:text-slate-700 text-xs">Edit</button><button class="text-slate-400 hover:text-red-600 text-xs">×</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Footer -->
+      <div class="px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+        <span>Pagina 1 van 13</span>
+        <div class="flex gap-1">
+          <button class="px-2 py-1 border border-slate-300 rounded">‹</button>
+          <button class="px-2 py-1 border border-slate-300 rounded">›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTIE C — Lead/company detail tab -->
+<!-- ============================================================ -->
+<section id="c" class="mockup-section py-10 px-6">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-4">
+      <span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">SECTIE 3</span>
+      <h2 class="text-xl font-bold text-slate-900 mt-2">/companies — drawer-sectie "Werken-bij bronnen"</h2>
+      <p class="text-sm text-slate-600 mt-1">
+        Bestaande <code>CompanyDrawer</code> (Sheet vanaf rechts) krijgt een nieuwe sectie naast contacten en vacatures.
+        Geen aparte detail-page; consistent met huidig drawer-patroon.
+      </p>
+    </div>
+
+    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden ml-auto max-w-2xl shadow-2xl">
+      <!-- Drawer header -->
+      <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-bold">HBM Machines</h1>
+          <p class="text-xs text-slate-500">https://www.hbm-machines.com/nl</p>
+        </div>
+        <button class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+      </div>
+
+      <!-- Bestaande secties (referentie, ingeklapt weergegeven) -->
+      <div class="px-6 py-3 border-b border-slate-100 text-sm text-slate-500 flex items-center justify-between opacity-60">
+        <span>📋 Overzicht</span><span class="text-xs">▾</span>
+      </div>
+      <div class="px-6 py-3 border-b border-slate-100 text-sm text-slate-500 flex items-center justify-between opacity-60">
+        <span>👥 Contacten (3)</span><span class="text-xs">▾</span>
+      </div>
+      <div class="px-6 py-3 border-b border-slate-100 text-sm text-slate-500 flex items-center justify-between opacity-60">
+        <span>💼 Vacatures (0)</span><span class="text-xs">▾</span>
+      </div>
+
+      <!-- NIEUWE SECTIE: werken-bij bronnen -->
+      <div class="border-b border-slate-200">
+        <div class="px-6 py-3 bg-slate-50 flex items-center justify-between">
+          <span class="text-sm font-semibold text-slate-900">🔗 Werken-bij bronnen <span class="text-xs font-normal text-slate-500">(2)</span></span>
+          <span class="text-xs text-slate-400">▴</span>
+        </div>
+        <div class="px-6 py-4">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-sm text-slate-600">
+            Career-page bronnen voor deze lead. Worden periodiek gescrapet (later via Inngest, V1B).
+          </p>
+          <button class="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded hover:bg-slate-800">
+            + URL toevoegen
+          </button>
+        </div>
+
+        <!-- Lijst per row -->
+        <div class="space-y-2">
+          <div class="border border-slate-200 rounded-lg p-4 hover:bg-slate-50">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <a href="#" class="font-mono text-sm text-blue-600 hover:underline">https://www.hbm-machines.com/nl/werken-bij</a>
+                  <span class="px-1.5 py-0.5 bg-slate-100 text-slate-700 text-xs rounded">sitemap</span>
+                  <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded">✓ Actief</span>
+                </div>
+                <div class="flex items-center gap-3 text-xs text-slate-500">
+                  <span>Goedgekeurd 2026-05-07 · Kenny</span>
+                  <span>·</span>
+                  <span>Wekelijks</span>
+                  <span>·</span>
+                  <span>Nog nooit gescrapet</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button class="px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-100">Edit</button>
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked class="sr-only peer">
+                  <div class="w-9 h-5 bg-slate-300 peer-checked:bg-green-600 rounded-full relative transition-colors after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                </label>
+                <button class="text-slate-400 hover:text-red-600 text-sm px-1">×</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-4 hover:bg-slate-50">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <a href="#" class="font-mono text-sm text-blue-600 hover:underline">https://www.hbm-machines.com/nl/vacatures</a>
+                  <span class="px-1.5 py-0.5 bg-slate-100 text-slate-700 text-xs rounded">manual</span>
+                  <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded">✓ Actief</span>
+                </div>
+                <div class="flex items-center gap-3 text-xs text-slate-500">
+                  <span>Toegevoegd 2026-05-07 · Kenny</span>
+                  <span>·</span>
+                  <span>Wekelijks</span>
+                  <span>·</span>
+                  <span>Nog nooit gescrapet</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button class="px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-100">Edit</button>
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked class="sr-only peer">
+                  <div class="w-9 h-5 bg-slate-300 peer-checked:bg-green-600 rounded-full relative transition-colors after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                </label>
+                <button class="text-slate-400 hover:text-red-600 text-sm px-1">×</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state hint -->
+        <div class="mt-6 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+          <strong>V1B (later):</strong> hier komt ook scrape-historie + "Scrape nu" knop + diff-detectie van nieuwe vacatures.
+        </div>
+        </div>
+      </div>
+
+      <!-- Bestaande sectie onder werken-bij -->
+      <div class="px-6 py-3 text-sm text-slate-500 flex items-center justify-between opacity-60">
+        <span>📝 Notities</span><span class="text-xs">▾</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTIE D — Manual add modal -->
+<!-- ============================================================ -->
+<section id="d" class="mockup-section py-10 px-6 bg-slate-50">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-4">
+      <span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">SECTIE 4</span>
+      <h2 class="text-xl font-bold text-slate-900 mt-2">Modals</h2>
+      <p class="text-sm text-slate-600 mt-1">Manual-add (links) en edit (rechts).</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6">
+      <!-- Manual add modal -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200">
+          <h3 class="font-semibold text-slate-900">Werken-bij URL toevoegen</h3>
+          <p class="text-xs text-slate-500 mt-1">URL wordt gevalideerd + ATS gedetecteerd.</p>
+        </div>
+        <div class="p-6 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Company *</label>
+            <input type="text" placeholder="Zoek company…" value="HBM Machines" class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
+            <p class="text-xs text-slate-500 mt-1">Geen company geselecteerd? <a class="text-blue-600 hover:underline">Eerst aanmaken</a></p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">URL *</label>
+            <input type="url" placeholder="https://…" class="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono">
+            <p class="text-xs text-slate-500 mt-1">Volledige URL incl. https://. Sitemap of html-link wordt automatisch herkend.</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">Frequentie</label>
+              <select class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
+                <option>Wekelijks (default)</option>
+                <option>Dagelijks</option>
+                <option>Maandelijks</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">Status</label>
+              <select class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
+                <option>✓ Direct goedkeuren</option>
+                <option>⏳ Pending review</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2 bg-slate-50">
+          <button class="px-3 py-1.5 text-sm text-slate-700 hover:text-slate-900">Annuleren</button>
+          <button class="px-3 py-1.5 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800">Toevoegen</button>
+        </div>
+      </div>
+
+      <!-- Edit modal -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200">
+          <h3 class="font-semibold text-slate-900">Werken-bij bron bewerken</h3>
+          <p class="text-xs text-slate-500 mt-1 font-mono truncate">https://www.hbm-machines.com/nl/werken-bij</p>
+        </div>
+        <div class="p-6 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Frequentie</label>
+            <select class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
+              <option>Dagelijks</option>
+              <option selected>Wekelijks</option>
+              <option>Maandelijks</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">ATS-type (optioneel)</label>
+            <select class="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
+              <option>— Niet ingesteld</option>
+              <option>Greenhouse</option>
+              <option>Recruitee</option>
+              <option>Lever</option>
+              <option>Workable</option>
+              <option>Teamtailor</option>
+              <option>Personio</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">V1: alleen Mistral-extractor. ATS-API komt in V2.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="active" checked class="rounded">
+            <label for="active" class="text-sm text-slate-700">Actief — pickt op door scheduled scraper</label>
+          </div>
+          <div class="pt-2 border-t border-slate-200 text-xs text-slate-500">
+            <div class="flex justify-between"><span>Toegevoegd:</span><span>2026-05-07 17:42 · sitemap-discovery (run #abc123)</span></div>
+            <div class="flex justify-between mt-1"><span>Goedgekeurd:</span><span>2026-05-07 17:48 · Kenny</span></div>
+            <div class="flex justify-between mt-1"><span>Laatst gescrapet:</span><span>—</span></div>
+          </div>
+        </div>
+        <div class="px-6 py-3 border-t border-slate-200 flex justify-between bg-slate-50">
+          <button class="px-3 py-1.5 text-sm text-red-600 hover:text-red-700">Verwijderen</button>
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 text-sm text-slate-700 hover:text-slate-900">Annuleren</button>
+            <button class="px-3 py-1.5 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800">Opslaan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer notes -->
+<section class="py-10 px-6 bg-slate-900 text-slate-300">
+  <div class="max-w-6xl mx-auto text-sm">
+    <h3 class="font-semibold text-white mb-3">Belangrijke design-keuzes</h3>
+    <ul class="space-y-2 list-disc list-inside">
+      <li><strong>Approval-flow:</strong> nieuwe kolom <code>review_status</code> op <code>job_sources</code> (<code>pending</code> / <code>approved</code> / <code>rejected</code>). Default <code>pending</code> voor career-pages. Aggregators krijgen <code>approved</code> via migratie.</li>
+      <li><strong>Auto-creation timing:</strong> bij run <code>status='completed'</code>, ongeacht of Pipedrive-sync slaagt. Suggesties verschijnen op run-detail; echte rij in <code>job_sources</code> bestaat al maar met <code>review_status='pending'</code>.</li>
+      <li><strong>Geparsede sitemap:</strong> data zit al in <code>master_record.pages_crawled</code> + <code>website-source.parsed.discovered_urls</code>. Nieuw blok rendert dat — geen DB-werk.</li>
+      <li><strong>Forward-compat voor V1B (Inngest scraper):</strong> kolom <code>next_scrape_at</code> nu toevoegen. Scraper picks alleen <code>review_status='approved' AND active=true AND next_scrape_at &lt;= now()</code>.</li>
+      <li><strong>Tab-locatie:</strong> in <code>/companies/[id]</code> nieuwe "Werken-bij" tab (gevraagd). NIET in run-detail — die heeft alleen approval-blok.</li>
+    </ul>
+  </div>
+</section>
+
+</body>
+</html>
