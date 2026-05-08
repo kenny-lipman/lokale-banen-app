@@ -97,7 +97,10 @@ Campaign assignment uses a **parallel orchestrator + worker** pattern:
 - `job_postings` - All scraped vacancies
 - `companies` - Company records with enrichment data
 - `contacts` - Contact persons linked to companies
-- `job_sources` - Scraper sources (Indeed, LinkedIn, Baan in de Buurt, etc.)
+- `job_sources` - Scraper sources met `kind` veld:
+  - `kind='aggregator'` — Indeed, LinkedIn, Baanindebuurt, Debanensite, etc. (default `review_status='approved'`)
+  - `kind='company_career_page'` — werken-bij URL per company. Auto-aangemaakt door enrichment-orchestrator (`finalize()`) met `review_status='pending'`. User keurt goed/af op `/sales/lead-verrijking/[run_id]` of via `/job-postings/scrape-bronnen`. Unieke partial index `(company_id, url) WHERE kind='company_career_page'` — URLs worden gecanonicaliseerd via `lib/utils/url.ts:normalizeUrl()` (lowercase host, strip www., strip trailing slash/query/fragment).
+  - V1B forward-compat: `next_scrape_at` is gevuld; scheduler picks `kind='company_career_page' AND review_status='approved' AND active=true AND next_scrape_at <= now()`.
 - `campaign_assignment_batches` - Campaign assignment run tracking (with `orchestration_id` for parallel grouping)
 - `campaign_assignment_logs` - Per-contact processing logs
 - `wetarget_leads_staging` - Staging table for WeTarget campaign leads (sector-based)

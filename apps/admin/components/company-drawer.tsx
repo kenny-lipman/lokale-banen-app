@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Building2, ExternalLink, MapPin, Briefcase, Star, Users, Globe, CheckCircle, Clock, AlertCircle, Archive, Crown, RefreshCw, Mail, Link, Phone, Hash, Linkedin, Database, Calendar, Tag, Eye } from "lucide-react"
+import { CompanyDrawerCareerPages } from "@/components/company-drawer-career-pages"
 
 interface JobPosting {
   id: string
@@ -875,6 +876,9 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               </div>
             </div>
           }
+
+          {/* Werken-bij bronnen */}
+          <CompanyDrawerCareerPages companyId={company.id} companyName={company.name} />
 
           {/* Actions */}
           <div className="flex space-x-3 pt-4 border-t">

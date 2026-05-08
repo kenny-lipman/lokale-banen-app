@@ -7,6 +7,7 @@ import { WebsiteService } from './website.service'
 import { MistralService } from './mistral.service'
 import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
+import { upsertCompanyFromRun, upsertCareerPageSource } from './internal-linking'
 import type {
   RunEnrichments,
   PerSourceEnrichment,
@@ -411,6 +412,34 @@ export class EnrichmentOrchestratorService {
       (s) => s.status === 'completed' || s.status === 'not_found',
     )
     const finalStatus = hasUsableData ? 'review' : 'failed'
+
+    // Upsert company + career-page-suggesties zodra bruikbare data → user kan
+    // op /sales/lead-verrijking/[id] career-pages goedkeuren. Faalt deze stap,
+    // dan blokkeren we de status-update niet (suggesties zijn niet-kritiek).
+    if (finalStatus === 'review' && master.company_name) {
+      try {
+        const company = await upsertCompanyFromRun(this.supabase, {
+          id: runId,
+          input_domain: run.input_domain,
+          input_url: run.input_url,
+          pipedrive_org_id: null,
+          master_record: master,
+        })
+        for (const cand of master.career_page_candidates ?? []) {
+          await upsertCareerPageSource(this.supabase, {
+            company_id: company.id,
+            company_name: master.company_name,
+            run_id: runId,
+            url: cand.url,
+            discovery_method: cand.method,
+            is_external_ats: false,
+            ats_type: null,
+          })
+        }
+      } catch (e) {
+        console.error('[orchestrator] career-page suggesties opslaan faalde:', e)
+      }
+    }
 
     await this.supabase
       .from('sales_lead_runs')

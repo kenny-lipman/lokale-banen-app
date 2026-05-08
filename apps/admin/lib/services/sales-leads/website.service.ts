@@ -141,7 +141,7 @@ export class WebsiteService {
         throw new WebsiteServiceError('mistral_failed', e instanceof Error ? e.message : String(e))
       }
 
-      return this.mapToNormalized(homepageUrl, usable, extracted)
+      return this.mapToNormalized(homepageUrl, usable, extracted, discovered)
     } finally {
       await playwright.dispose()
     }
@@ -159,6 +159,7 @@ export class WebsiteService {
     homepageUrl: string,
     pages: FetchedPage[],
     e: MistralExtractResult,
+    discovered: DiscoveredUrl[],
   ): NormalizedFields {
     // Mistral kan contacten met null name terugleveren — die zijn onbruikbaar
     // (geen identiteit voor dedup of ranking). Filter ze hier weg.
@@ -191,6 +192,13 @@ export class WebsiteService {
     // uitsluitend via sitemap nu.
     const careerPage = pages.find((p) => p.role === 'careers')
 
+    // career_page_candidates = ALLE discovered URLs met role='careers',
+    // ongeacht of ze gefetched zijn. Worden bij run-completion aangemaakt
+    // als pending career-page-bronnen.
+    const careerCandidates = discovered
+      .filter((d) => d.role === 'careers')
+      .map((d) => ({ url: d.url, method: 'sitemap' as const, role: 'careers' as const }))
+
     return {
       company_name: e.company_name ?? undefined,
       kvk_number: e.kvk_number ?? undefined,
@@ -218,11 +226,13 @@ export class WebsiteService {
         path: safePathname(p.url),
         title: `${p.role}${p.tier === 2 ? ' [pw]' : ''}`,
         word_count: wordCount(p.markdown),
+        role: p.role,
       })),
       blog_post_count: e.blog_post_count ?? undefined,
       blog_last_post_date: e.blog_last_post_date ?? undefined,
       career_page_url: careerPage?.url,
       career_page_method: careerPage ? 'sitemap' : undefined,
+      career_page_candidates: careerCandidates.length ? careerCandidates : undefined,
       contacts: contacts.length ? contacts : undefined,
       vacancies: vacancies.length ? vacancies : undefined,
       source: 'website',

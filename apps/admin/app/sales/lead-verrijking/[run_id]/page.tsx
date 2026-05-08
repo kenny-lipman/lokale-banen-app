@@ -16,6 +16,8 @@ import { LeadColdContactsCard } from '@/components/sales/lead-cold-contacts-card
 import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
 import { LeadDealNoteTextarea } from '@/components/sales/lead-deal-note-textarea'
 import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-warnings'
+import { LeadCareerPageSuggestions } from '@/components/sales/lead-career-page-suggestions'
+import { LeadSitemapPages } from '@/components/sales/lead-sitemap-pages'
 import type { MasterRecord, NormalizedContact, NormalizedVacancy } from '@/lib/services/sales-leads/types'
 
 type PageProps = { params: Promise<{ run_id: string }> }
@@ -269,6 +271,8 @@ export default function RunDetailPage({ params }: PageProps) {
           />
         </div>
         <div className="lg:col-span-5 space-y-4">
+          <LeadCareerPageSuggestions runId={run_id} />
+          <LeadSitemapPages master={currentMaster} />
           <LeadColdContactsCard
             runId={run_id}
             coldCandidates={run!.enrichments?.apollo?.parsed?.cold_candidates ?? []}

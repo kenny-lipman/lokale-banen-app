@@ -1,3 +1,20 @@
+// Discovery-shared shapes
+export type DiscoveredRole =
+  | 'home'
+  | 'contact'
+  | 'about'
+  | 'team'
+  | 'careers'
+  | 'company'
+  | 'other'
+
+export type CareerPageMethod =
+  | 'sitemap'
+  | 'robots'
+  | 'common_path'
+  | 'html_link'
+  | 'manual'
+
 // Pipedrive-metadata shapes (subset van wat /v1 returnt; alleen wat de UI nodig heeft)
 
 export type PipedriveUser = {
@@ -188,16 +205,23 @@ export type NormalizedFields = {
   logo_url?: string
 
   // Website-specifiek
-  pages_crawled?: Array<{ path: string; title: string; word_count: number }>
+  pages_crawled?: Array<{ path: string; title: string; word_count: number; role?: DiscoveredRole }>
   blog_post_count?: number
   blog_last_post_date?: string
 
-  // Career-page
+  // Career-page (legacy: 1e gefetched career-URL)
   career_page_url?: string
-  career_page_method?: 'sitemap' | 'robots' | 'common_path' | 'html_link' | 'manual'
+  career_page_method?: CareerPageMethod
   career_page_external?: boolean
   career_page_ats_type?: string
   career_page_last_seen?: string
+
+  /**
+   * Alle discovered URLs met role='careers' (ook niet-gefetched). Wordt gebruikt door
+   * enrichment-orchestrator om bij run-completion potentiële career-page-bronnen
+   * aan te maken in `job_sources` met review_status='pending'.
+   */
+  career_page_candidates?: Array<{ url: string; method: CareerPageMethod; role: 'careers' }>
 
   // Lead-output
   contacts?: NormalizedContact[]

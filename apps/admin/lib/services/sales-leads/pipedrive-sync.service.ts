@@ -13,7 +13,6 @@ import {
 } from './pipedrive-payloads'
 import {
   upsertCompanyFromRun,
-  upsertCareerPageSource,
   upsertJobPostingsFromRun,
 } from './internal-linking'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -200,7 +199,11 @@ export class PipedriveSyncService {
         }
       }
 
-      // 8. Interne linking
+      // 8. Interne linking — company is meestal al aangemaakt in finalize(),
+      // upsertCompanyFromRun is idempotent (matcht op website/kvk) en update
+      // met pipedrive_org_id. Career-page-bron-suggesties worden eveneens
+      // in finalize() aangemaakt; vacancies krijgen source_id=null tot V1B
+      // de echte scrape-koppeling levert.
       const company = await upsertCompanyFromRun(this.supabase, {
         id: runId,
         input_domain: run.input_domain,
@@ -209,24 +212,11 @@ export class PipedriveSyncService {
         master_record: master,
       })
 
-      let careerSource: { id: string } | null = null
-      if (master.career_page_url && master.career_page_method) {
-        careerSource = await upsertCareerPageSource(this.supabase, {
-          company_id: company.id,
-          company_name: master.company_name,
-          run_id: runId,
-          url: master.career_page_url,
-          discovery_method: master.career_page_method,
-          is_external_ats: master.career_page_external ?? false,
-          ats_type: master.career_page_ats_type ?? null,
-        })
-      }
-
       const vacancies = (master.vacancies ?? []) as NormalizedVacancy[]
       if (vacancies.length > 0) {
         await upsertJobPostingsFromRun(this.supabase, {
           company_id: company.id,
-          source_id: careerSource?.id ?? null,
+          source_id: null,
           vacancies,
         })
       }

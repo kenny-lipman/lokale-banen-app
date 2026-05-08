@@ -2020,6 +2020,8 @@ export type Database = {
       job_sources: {
         Row: {
           active: boolean | null
+          approved_at: string | null
+          approved_by: string | null
           ats_type: string | null
           company_id: string | null
           consecutive_failures: number
@@ -2034,6 +2036,11 @@ export type Database = {
           last_scrape_status: string | null
           last_scraped_at: string | null
           name: string
+          next_scrape_at: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          review_status: string
           scrape_frequency: string | null
           scraping_method: string | null
           source_run_id: string | null
@@ -2043,6 +2050,8 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
           ats_type?: string | null
           company_id?: string | null
           consecutive_failures?: number
@@ -2057,6 +2066,11 @@ export type Database = {
           last_scrape_status?: string | null
           last_scraped_at?: string | null
           name: string
+          next_scrape_at?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          review_status?: string
           scrape_frequency?: string | null
           scraping_method?: string | null
           source_run_id?: string | null
@@ -2066,6 +2080,8 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
           ats_type?: string | null
           company_id?: string | null
           consecutive_failures?: number
@@ -2080,6 +2096,11 @@ export type Database = {
           last_scrape_status?: string | null
           last_scraped_at?: string | null
           name?: string
+          next_scrape_at?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          review_status?: string
           scrape_frequency?: string | null
           scraping_method?: string | null
           source_run_id?: string | null

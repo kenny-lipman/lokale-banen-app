@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { MasterRecord, NormalizedVacancy } from './types'
+import { normalizeUrl } from '@/lib/utils/url'
+import type { CareerPageMethod, MasterRecord, NormalizedVacancy } from './types'
 
 type SB = SupabaseClient
 
@@ -88,8 +89,16 @@ export async function upsertCompanyFromRun(
 }
 
 /**
- * Maakt of update een job_sources rij van kind='company_career_page'.
+ * Maakt een job_sources rij van kind='company_career_page' met review_status='pending'.
  * Idempotent via uniek-index (company_id, url) WHERE kind='company_career_page'.
+ *
+ * Niet-overschrijven gedrag:
+ * - Bestaande row met review_status='rejected' → skip (anti-resuggestion)
+ * - Bestaande row met review_status='approved' → skip (al actief)
+ * - Bestaande row met review_status='pending'  → update metadata (run_id, method)
+ *
+ * URL wordt gecanonicaliseerd via normalizeUrl voor consistente dedupe.
+ * Returnt null als URL niet valide is of suggestie wordt geskipt.
  */
 export async function upsertCareerPageSource(
   supabase: SB,
@@ -98,45 +107,68 @@ export async function upsertCareerPageSource(
     company_name: string
     run_id: string
     url: string
-    discovery_method: 'sitemap' | 'robots' | 'common_path' | 'html_link' | 'manual'
+    discovery_method: CareerPageMethod
     is_external_ats: boolean
     ats_type?: string | null
   },
-): Promise<{ id: string }> {
+): Promise<{ id: string; status: 'inserted' | 'updated' | 'skipped_rejected' | 'skipped_approved' | 'skipped_invalid_url' }> {
+  const canonical = normalizeUrl(args.url)
+  if (!canonical) {
+    return { id: '', status: 'skipped_invalid_url' }
+  }
+
   const { data: existing } = await supabase
     .from('job_sources')
-    .select('id')
+    .select('id, review_status')
     .eq('company_id', args.company_id)
-    .eq('url', args.url)
+    .eq('url', canonical)
+    .eq('kind', 'company_career_page')
     .maybeSingle()
 
-  const row = {
-    name: `${args.company_name} werkenbij`,
-    kind: 'company_career_page' as const,
-    company_id: args.company_id,
-    url: args.url,
-    discovery_method: args.discovery_method,
-    is_external_ats: args.is_external_ats,
-    ats_type: args.ats_type ?? null,
-    created_via: 'sales_lead_run' as const,
-    source_run_id: args.run_id,
-    active: true,
-    scrape_frequency: 'weekly' as const,
-    updated_at: new Date().toISOString(),
+  if (existing) {
+    if (existing.review_status === 'rejected') {
+      return { id: existing.id, status: 'skipped_rejected' }
+    }
+    if (existing.review_status === 'approved') {
+      return { id: existing.id, status: 'skipped_approved' }
+    }
+    // pending → update metadata zonder review_status aan te raken
+    const { error } = await supabase
+      .from('job_sources')
+      .update({
+        discovery_method: args.discovery_method,
+        is_external_ats: args.is_external_ats,
+        ats_type: args.ats_type ?? null,
+        source_run_id: args.run_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+    if (error) throw new Error(`upsertCareerPageSource update: ${error.message}`)
+    return { id: existing.id, status: 'updated' }
   }
 
-  if (existing) {
-    const { error } = await supabase.from('job_sources').update(row).eq('id', existing.id)
-    if (error) throw new Error(`upsertCareerPageSource update: ${error.message}`)
-    return existing
-  }
   const { data: inserted, error: insErr } = await supabase
     .from('job_sources')
-    .insert({ ...row, created_at: new Date().toISOString() })
+    .insert({
+      name: `${args.company_name} werkenbij`,
+      kind: 'company_career_page',
+      company_id: args.company_id,
+      url: canonical,
+      discovery_method: args.discovery_method,
+      is_external_ats: args.is_external_ats,
+      ats_type: args.ats_type ?? null,
+      created_via: 'sales_lead_run',
+      source_run_id: args.run_id,
+      active: true,
+      scrape_frequency: 'weekly',
+      review_status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     .select('id')
     .single()
   if (insErr || !inserted) throw new Error(`upsertCareerPageSource insert: ${insErr?.message}`)
-  return inserted
+  return { id: inserted.id, status: 'inserted' }
 }
 
 /**
