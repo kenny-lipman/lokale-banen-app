@@ -31,7 +31,8 @@ Geef ALLEEN geldig JSON terug, geen prose:
   }],
   "vacancies": [{ "title": string, "url": string|null, "location": string|null }],
   "blog_post_count": number|null,
-  "blog_last_post_date": string|null
+  "blog_last_post_date": string|null,
+  "career_page_urls": string[]
 }
 
 REGELS:
@@ -40,4 +41,11 @@ REGELS:
 - Voor /werkenbij of /vacatures: extract alle vacaturetitels + URLs
 - Mobiele telefoon (06): zet in phone als duidelijk persoonlijk; anders bedrijfs-vast
 - Emails: alleen geldige formaten, geen "info@example.com"-placeholders
+
+career_page_urls:
+- ALLE absolute URLs (https://...) op de pagina's die linken naar een werken-bij/vacatures sectie
+- Vooral checken: navigatie-menu's, footer-links, hero-CTAs, "join us"/"hiring"/"recruitment" buttons
+- Inclusief externe ATS-platforms (recruitee.com, greenhouse.io, lever.co, workable.com, teamtailor.com, personio.com)
+- Inclusief subdomain-careers (careers.x.com, werkenbij.x.nl, jobs.x.com)
+- Lege array [] als er geen werken-bij/vacatures-link op de pagina's staat
 `

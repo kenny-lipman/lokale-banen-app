@@ -13,6 +13,7 @@ export type CareerPageMethod =
   | 'robots'
   | 'common_path'
   | 'html_link'
+  | 'subdomain_probe'
   | 'manual'
 
 // Pipedrive-metadata shapes (subset van wat /v1 returnt; alleen wat de UI nodig heeft)

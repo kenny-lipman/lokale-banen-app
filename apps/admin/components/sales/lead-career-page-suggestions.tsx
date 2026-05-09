@@ -13,6 +13,7 @@ type Suggestion = {
   discovery_method: string | null
   ats_type: string | null
   review_status: string
+  is_external_ats: boolean | null
   created_at: string
 }
 
@@ -28,6 +29,7 @@ type Props = {
 export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
   const { toast } = useToast()
   const [items, setItems] = useState<Suggestion[]>([])
+  const [autoApproved, setAutoApproved] = useState<Suggestion[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<Set<string>>(new Set())
 
@@ -36,14 +38,15 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
     try {
       const params = new URLSearchParams({
         kind: 'company_career_page',
-        review_status: 'pending',
         source_run_id: runId,
         pageSize: '50',
       })
       const res = await fetch(`/api/job-sources/career-pages?${params}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Onbekende fout')
-      setItems(data.rows ?? [])
+      const all = (data.rows ?? []) as Suggestion[]
+      setItems(all.filter((r) => r.review_status === 'pending'))
+      setAutoApproved(all.filter((r) => r.review_status === 'approved'))
     } catch (e) {
       toast({ title: 'Suggesties laden mislukt', description: (e as Error).message, variant: 'destructive' })
     } finally {
@@ -96,8 +99,26 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
     }
   }
 
-  // Empty state = niets renderen (mockup-eis)
-  if (!loading && items.length === 0) return null
+  // Empty state = niets renderen tenzij er auto-approved zijn (info-hint)
+  if (!loading && items.length === 0 && autoApproved.length === 0) return null
+
+  // Alleen auto-approved (geen pending) → kleine info-hint
+  if (!loading && items.length === 0 && autoApproved.length > 0) {
+    return (
+      <Card className="border-green-200 bg-green-50/50">
+        <CardContent className="pt-4 pb-3">
+          <div className="flex items-center gap-2 text-sm text-green-900">
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+            <span>
+              <strong>{autoApproved.length}</strong> werken-bij {autoApproved.length === 1 ? 'bron' : 'bronnen'} automatisch toegevoegd
+              {autoApproved.some((a) => a.is_external_ats) && ' (incl. herkende ATS-platforms)'}
+            </span>
+            <span className="text-xs text-green-700 ml-auto">Beheer via scrape-bronnen</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="border-amber-200 bg-amber-50/40">
@@ -117,6 +138,11 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
             </Button>
           )}
         </div>
+        {autoApproved.length > 0 && (
+          <p className="text-xs text-amber-700 pt-1">
+            + {autoApproved.length} {autoApproved.length === 1 ? 'bron' : 'bronnen'} al automatisch toegevoegd (high-confidence)
+          </p>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {loading ? (

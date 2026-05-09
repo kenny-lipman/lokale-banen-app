@@ -1,16 +1,68 @@
-import { SsrfBlockedError, FetchSizeExceededError } from './website/ssrf-fetch'
+import { SsrfBlockedError, FetchSizeExceededError, safeFetch } from './website/ssrf-fetch'
 import { htmlToMarkdown, truncateForLLM, wordCount } from './website/markdown'
 import { discoverUrls, type DiscoveredUrl } from './website/sitemap-discovery'
 import { tieredFetch, type FetchTier } from './website/tiered-fetch'
 import { PlaywrightFetcher } from './website/playwright-fetcher'
 import { MistralService } from './mistral.service'
 import { WEBSITE_EXTRACTION_PROMPT_V1 } from './prompts/website-extraction.v1'
+import { normalizeUrl } from '@/lib/utils/url'
+import { detectAts } from './ats-detect'
 import type {
+  CareerPageMethod,
   NormalizedFields,
   NormalizedContact,
   NormalizedVacancy,
   SourceHealth,
 } from './types'
+
+/**
+ * Extracteert "registrable" apex (laatste 2 labels van hostname).
+ * Werkt voor `.com`, `.nl`, `.de`. NIET voor multi-label TLDs zoals `.co.uk`.
+ * Voor NL B2B (huidige scope) is dat acceptabel.
+ */
+function extractApex(host: string): string {
+  const parts = host.toLowerCase().replace(/^www\./, '').split('.')
+  if (parts.length <= 2) return parts.join('.')
+  return parts.slice(-2).join('.')
+}
+
+/**
+ * V1A.1 filter: accepteer een Mistral-extracted career-URL alleen als hij
+ * (a) op hetzelfde apex-domain als de homepage staat, of
+ * (b) een herkend ATS-platform is (recruitee/greenhouse/...).
+ *
+ * Anders: skip — Mistral kan LinkedIn/Indeed/etc. URLs teruggeven die we
+ * niet als auto-approved career-source willen aanmaken.
+ */
+function isAcceptableCareerUrl(url: string, homepageApex: string): boolean {
+  let host: string
+  try {
+    host = new URL(url).hostname
+  } catch {
+    return false
+  }
+  if (extractApex(host) === homepageApex) return true
+  if (detectAts(url)) return true
+  return false
+}
+
+type CareerCandidate = { url: string; method: CareerPageMethod; role: 'careers' }
+
+/**
+ * Dedupe career-page candidates op canonical URL. Behoudt eerste-match-method
+ * (volgorde caller bepaalt prioriteit: html_link > sitemap > subdomain_probe).
+ */
+function mergeCareerCandidates(input: Array<{ url: string; method: CareerPageMethod }>): CareerCandidate[] {
+  const seen = new Set<string>()
+  const out: CareerCandidate[] = []
+  for (const item of input) {
+    const canon = normalizeUrl(item.url)
+    if (!canon || seen.has(canon)) continue
+    seen.add(canon)
+    out.push({ url: canon, method: item.method, role: 'careers' })
+  }
+  return out
+}
 
 const MAX_TOTAL_TOKENS = 30_000
 const MAX_PAGES = 6
@@ -43,6 +95,7 @@ type MistralExtractResult = {
   vacancies: Array<{ title: string; url: string | null; location: string | null }>
   blog_post_count: number | null
   blog_last_post_date: string | null
+  career_page_urls?: string[]
 }
 
 export class WebsiteServiceError extends Error {
@@ -141,10 +194,57 @@ export class WebsiteService {
         throw new WebsiteServiceError('mistral_failed', e instanceof Error ? e.message : String(e))
       }
 
-      return this.mapToNormalized(homepageUrl, usable, extracted, discovered)
+      const normalized = this.mapToNormalized(homepageUrl, usable, extracted, discovered)
+
+      // V1A.1 trap 3: subdomain-probe als trap 1+2 niets opleverde.
+      // Cheap (4× HEAD parallel) en alleen wanneer nodig.
+      if (!normalized.career_page_candidates || normalized.career_page_candidates.length === 0) {
+        const probed = await this.probeSubdomains(homepageUrl)
+        if (probed.length > 0) {
+          normalized.career_page_candidates = probed
+        }
+      }
+      return normalized
     } finally {
       await playwright.dispose()
     }
+  }
+
+  /**
+   * V1A.1 trap 3: probe common career-subdomains parallel via HEAD.
+   * Filtert weg: redirects naar het root-domain (telt als false-positive,
+   * want de subdomain bestaat niet echt — DNS catch-all).
+   */
+  private async probeSubdomains(homepageUrl: string): Promise<CareerCandidate[]> {
+    let host: string
+    try {
+      host = new URL(homepageUrl).hostname.replace(/^www\./i, '')
+    } catch {
+      return []
+    }
+    const subdomains = ['careers', 'werkenbij', 'jobs', 'vacatures']
+    const probes = subdomains.map(async (sub): Promise<CareerCandidate | null> => {
+      const url = `https://${sub}.${host}`
+      try {
+        const r = await safeFetch(url, { method: 'HEAD' })
+        if (r.status < 200 || r.status >= 400) return null
+        // Verwerp redirect naar root-domain (DNS catch-all kan elk subdomain naar
+        // homepage sturen — dat is geen echte career-subsite).
+        const finalHost = new URL(r.url).hostname.replace(/^www\./i, '')
+        if (finalHost === host) return null
+        // Gebruik finalUrl (na redirects) voor canonical zodat jobs.x → careers.x
+        // de-dupliceert in mergeCareerCandidates downstream.
+        return { url: normalizeUrl(r.url) ?? r.url, method: 'subdomain_probe', role: 'careers' }
+      } catch {
+        return null
+      }
+    })
+    const results = await Promise.allSettled(probes)
+    const raw: Array<{ url: string; method: CareerPageMethod }> = []
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) raw.push({ url: r.value.url, method: r.value.method })
+    }
+    return mergeCareerCandidates(raw)
   }
 
   private normalizeUrl(input: string): string {
@@ -192,12 +292,21 @@ export class WebsiteService {
     // uitsluitend via sitemap nu.
     const careerPage = pages.find((p) => p.role === 'careers')
 
-    // career_page_candidates = ALLE discovered URLs met role='careers',
-    // ongeacht of ze gefetched zijn. Worden bij run-completion aangemaakt
-    // als pending career-page-bronnen.
-    const careerCandidates = discovered
-      .filter((d) => d.role === 'careers')
-      .map((d) => ({ url: d.url, method: 'sitemap' as const, role: 'careers' as const }))
+    // V1A.1 cascade: merge candidates uit Mistral (homepage-link extraction)
+    // en sitemap-discovery. Dedupe via canonical URL.
+    // Mistral-URLs worden gefilterd op same-apex of ATS — zonder filter zou
+    // Mistral LinkedIn/Indeed-URLs als auto-approved career-source aanmaken.
+    // Trap 3 (subdomain-probe) wordt elders aangeroepen wanneer dit leeg blijft.
+    const homepageApex = extractApex(new URL(homepageUrl).hostname)
+    const acceptableMistralUrls = (e.career_page_urls ?? []).filter((url) =>
+      isAcceptableCareerUrl(url, homepageApex),
+    )
+    const careerCandidates = mergeCareerCandidates([
+      ...acceptableMistralUrls.map((url) => ({ url, method: 'html_link' as const })),
+      ...discovered
+        .filter((d) => d.role === 'careers')
+        .map((d) => ({ url: d.url, method: 'sitemap' as const })),
+    ])
 
     return {
       company_name: e.company_name ?? undefined,

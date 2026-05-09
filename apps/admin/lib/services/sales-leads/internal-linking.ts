@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeUrl } from '@/lib/utils/url'
+import { detectAts } from './ats-detect'
 import type { CareerPageMethod, MasterRecord, NormalizedVacancy } from './types'
 
 type SB = SupabaseClient
@@ -125,6 +126,12 @@ export async function upsertCareerPageSource(
     .eq('kind', 'company_career_page')
     .maybeSingle()
 
+  // V1A.1 confidence-tier: bepaal review_status + ats velden o.b.v. URL en method.
+  // ATS-detect op pre-canonical URL: normalizeUrl strip query, en sommige ATS-URLs
+  // (Greenhouse embed) hebben de slug juist in de query (?for=acme).
+  const tier = determineCareerPageTier(args.url, args.discovery_method)
+  const now = new Date().toISOString()
+
   if (existing) {
     if (existing.review_status === 'rejected') {
       return { id: existing.id, status: 'skipped_rejected' }
@@ -132,15 +139,18 @@ export async function upsertCareerPageSource(
     if (existing.review_status === 'approved') {
       return { id: existing.id, status: 'skipped_approved' }
     }
-    // pending → update metadata zonder review_status aan te raken
+    // pending → update metadata. Bij hogere-confidence info (tier='approved')
+    // promoten naar approved zodat user niet alsnog moet klikken.
+    const promote = tier.review_status === 'approved'
     const { error } = await supabase
       .from('job_sources')
       .update({
         discovery_method: args.discovery_method,
-        is_external_ats: args.is_external_ats,
-        ats_type: args.ats_type ?? null,
+        is_external_ats: tier.is_external_ats,
+        ats_type: tier.ats_type,
         source_run_id: args.run_id,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
+        ...(promote ? { review_status: 'approved', approved_at: now } : {}),
       })
       .eq('id', existing.id)
     if (error) throw new Error(`upsertCareerPageSource update: ${error.message}`)
@@ -155,20 +165,58 @@ export async function upsertCareerPageSource(
       company_id: args.company_id,
       url: canonical,
       discovery_method: args.discovery_method,
-      is_external_ats: args.is_external_ats,
-      ats_type: args.ats_type ?? null,
+      is_external_ats: tier.is_external_ats,
+      ats_type: tier.ats_type,
       created_via: 'sales_lead_run',
       source_run_id: args.run_id,
       active: true,
       scrape_frequency: 'weekly',
-      review_status: 'pending',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      review_status: tier.review_status,
+      approved_at: tier.review_status === 'approved' ? now : null,
+      // approved_by NULL bij auto-approval (geen user) — kunnen we later filteren als "system"
+      created_at: now,
+      updated_at: now,
     })
     .select('id')
     .single()
-  if (insErr || !inserted) throw new Error(`upsertCareerPageSource insert: ${insErr?.message}`)
+  if (insErr || !inserted) {
+    // Race-condition: 2 parallelle runs raceden voorbij onze SELECT-check op
+    // dezelfde (company_id, url). Unique partial index gooit 23505 — re-select
+    // de winnende rij en treat als 'updated' zodat de loop niet breekt.
+    if (insErr?.code === '23505') {
+      const { data: raced } = await supabase
+        .from('job_sources')
+        .select('id')
+        .eq('company_id', args.company_id)
+        .eq('url', canonical)
+        .eq('kind', 'company_career_page')
+        .maybeSingle()
+      if (raced) return { id: raced.id, status: 'updated' }
+    }
+    throw new Error(`upsertCareerPageSource insert: ${insErr?.message}`)
+  }
   return { id: inserted.id, status: 'inserted' }
+}
+
+/**
+ * V1A.1 confidence-tier:
+ * - ATS-URL match (recruitee/greenhouse/lever/workable/teamtailor/personio) → auto-approved + ats_type
+ * - method='html_link' (Mistral heeft echte link op homepage gezien) → auto-approved
+ * - method='sitemap' of 'subdomain_probe' → pending review
+ * - method='manual' → caller-bepaald (gebeurt elders, niet hier)
+ */
+function determineCareerPageTier(
+  url: string,
+  method: CareerPageMethod,
+): { review_status: 'pending' | 'approved'; ats_type: string | null; is_external_ats: boolean } {
+  const ats = detectAts(url)
+  if (ats) {
+    return { review_status: 'approved', ats_type: ats.type, is_external_ats: true }
+  }
+  if (method === 'html_link') {
+    return { review_status: 'approved', ats_type: null, is_external_ats: false }
+  }
+  return { review_status: 'pending', ats_type: null, is_external_ats: false }
 }
 
 /**

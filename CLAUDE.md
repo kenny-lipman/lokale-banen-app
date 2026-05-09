@@ -99,7 +99,17 @@ Campaign assignment uses a **parallel orchestrator + worker** pattern:
 - `contacts` - Contact persons linked to companies
 - `job_sources` - Scraper sources met `kind` veld:
   - `kind='aggregator'` — Indeed, LinkedIn, Baanindebuurt, Debanensite, etc. (default `review_status='approved'`)
-  - `kind='company_career_page'` — werken-bij URL per company. Auto-aangemaakt door enrichment-orchestrator (`finalize()`) met `review_status='pending'`. User keurt goed/af op `/sales/lead-verrijking/[run_id]` of via `/job-postings/scrape-bronnen`. Unieke partial index `(company_id, url) WHERE kind='company_career_page'` — URLs worden gecanonicaliseerd via `lib/utils/url.ts:normalizeUrl()` (lowercase host, strip www., strip trailing slash/query/fragment).
+  - `kind='company_career_page'` — werken-bij URL per company. Auto-aangemaakt door enrichment-orchestrator (`finalize()`). User keurt goed/af op `/sales/lead-verrijking/[run_id]` of via `/job-postings/scrape-bronnen`. Unieke partial index `(company_id, url) WHERE kind='company_career_page'` — URLs worden gecanonicaliseerd via `lib/utils/url.ts:normalizeUrl()` (lowercase host, strip www., strip trailing slash/query/fragment).
+
+    **Discovery-cascade in `WebsiteService.crawlAndParse`** (V1A.1):
+    1. Mistral-prompt veld `career_page_urls` op homepage-markdown → method `html_link`
+    2. Sitemap-discovery → method `sitemap`
+    3. Subdomain-probe (`careers./werkenbij./jobs./vacatures.{domain}`, parallel HEAD, alleen als 1+2 leeg) → method `subdomain_probe`
+
+    **Confidence-tier in `internal-linking.upsertCareerPageSource`** bepaalt `review_status` automatisch:
+    - URL match in `ats-detect.ts` (recruitee/greenhouse/lever/workable/teamtailor/personio) → `'approved'` + `is_external_ats=true` + `ats_type=...`
+    - method `html_link` (Mistral heeft echte link gezien) → `'approved'`
+    - method `sitemap` of `subdomain_probe` → `'pending'` (vereist user-approval)
   - V1B forward-compat: `next_scrape_at` is gevuld; scheduler picks `kind='company_career_page' AND review_status='approved' AND active=true AND next_scrape_at <= now()`.
 - `campaign_assignment_batches` - Campaign assignment run tracking (with `orchestration_id` for parallel grouping)
 - `campaign_assignment_logs` - Per-contact processing logs

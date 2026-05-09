@@ -482,3 +482,73 @@ Wat in V1A nu al klaar moet zijn zodat V1B alleen scraper-logic toevoegt:
 - Approval-flow (scraper picks alleen `review_status='approved' AND active=true`)
 - API-route-structuur (`/api/job-sources/career-pages/[id]/scrape` + `/scrapes` later passen erin)
 - UI-tabel kolommen `last_scraped_at`/`last_scrape_status` al getoond met "—" placeholder
+
+---
+
+# V1A.1 — Schaalbare auto-discovery (2026-05-08, akkoord Kenny)
+
+## Probleem (geverifieerd op echte data 2026-05-08)
+
+Sitemap-discovery vindt 0 careers-URLs op alle 5 geteste sites:
+- HBM Machines: terecht 0 (geen werken-bij pagina, 404 op alle paths)
+- Adyen/Coolblue/Picnic/Bunq: careers gehost op aparte subdomain (`careers.adyen.com` etc), niet in main-sitemap
+
+Geverifieerd via `enrichment_cache` dat Apollo's organization-response GEEN careers-veld bevat (alle 56 velden geinventariseerd, geen `careers_url`/`jobs_url`/`recruitment_page`).
+
+Implicatie: V1A werkt fail-safe (lege blok, manual-add altijd mogelijk) maar auto-discovery hit-rate is laag.
+
+## Doel V1A.1
+
+- Hit-rate auto-discovery: ~30% → **~80%** verwacht
+- Approval-burden: alleen low-confidence vereist user-click (~25% van candidates ipv 100%)
+- 0 marginale Mistral-kosten (zelfde call, extra veld in prompt)
+- Max 4 extra HEAD-requests per lead (alleen als trap-1+2 niets opleveren)
+
+## Discovery-cascade
+
+| Trap | Bron | Method | Auto-approve? |
+|---|---|---|---|
+| 1 | Mistral prompt veld `career_page_urls` op homepage-markdown | `html_link` | **ja** — Mistral heeft echte link gezien |
+| 2 | Sitemap-discovery (huidig) | `sitemap` | nee — regex-match kan misclassify |
+| 3 | Subdomain-probe `careers.\|werkenbij.\|jobs.\|vacatures.{domain}` (4× HEAD parallel, alleen als trap 1+2 leeg) | `subdomain_probe` | nee |
+| Plus | URL match ATS (recruitee/greenhouse/lever/workable/teamtailor/personio) | overrides bovenstaande | **ja** — 100% zekerheid |
+
+## Plan-stappen
+
+| # | Stap | Verify |
+|---|------|--------|
+| 1 | `lib/services/sales-leads/ats-detect.ts` — pure functie `detectAts(url): { type: string, slug?: string } \| null` met 6 regexen voor recruitee/greenhouse/lever/workable/teamtailor/personio | unit-aanroep met sample-URLs |
+| 2 | `prompts/website-extraction.v1.ts` — voeg veld `career_page_urls: string[]` toe aan prompt + uitleg "Geef ALLE absolute URLs op deze pagina die naar een werken-bij/vacatures sectie linken (uit nav, footer, hero-CTA's). Lege array als geen". Update `MistralExtractResult` type in `website.service.ts` | type-check + 1 test-call |
+| 3 | `website.service.ts` `mapToNormalized` — bouw `career_page_candidates` uit Mistral-output (method='html_link') + sitemap-discovery (method='sitemap'). Dedupe via canonical URL via `normalizeUrl()` | 1 test-call op site met werken-bij in nav |
+| 4 | `website.service.ts` `subdomainProbe(homepage): Promise<{url, status}[]>` — `Promise.allSettled` op 4 subdomains met `safeFetch` (HEAD niet ondersteund door safeFetch — gebruik GET met early-abort op 200-detection). 5s timeout per probe. Alleen aangeroepen als trap 1+2 leeg | 1 test-call op site met `careers.x.nl` |
+| 5 | `internal-linking.ts` `upsertCareerPageSource` — bij INSERT: `detectAts(canonical)` aanroepen. Als ATS-match → `review_status='approved'`, `is_external_ats=true`, `ats_type=type`. Anders: `review_status` op basis van `discovery_method` (html_link → approved, sitemap/subdomain_probe → pending) | DB-row inspectie na test-run |
+| 6 | `enrichment-orchestrator.finalize()` — geen wijziging nodig (loop over candidates blijft hetzelfde, upsert-functie regelt confidence-tier) | bestaande flow blijft werken |
+| 7 | UI-aanpassing in `lead-career-page-suggestions.tsx` — alleen `pending` items tonen (al filter via `review_status='pending'`). Approved items komen direct in scrape-bronnen tabel + drawer-sectie zonder approval-stap. Eventueel "X bronnen automatisch toegevoegd" hint als er ATS-detected approves bij zaten | browser-check |
+| 8 | CLAUDE.md update met cascade-volgorde + auto-approval regels | grep |
+
+## Confidence-tier regels (in 1 plek)
+
+```ts
+function determineReviewStatus(
+  url: string,
+  method: CareerPageMethod,
+): { review_status: 'pending' | 'approved'; ats_type: string | null; is_external_ats: boolean } {
+  const ats = detectAts(url)
+  if (ats) return { review_status: 'approved', ats_type: ats.type, is_external_ats: true }
+  if (method === 'html_link') return { review_status: 'approved', ats_type: null, is_external_ats: false }
+  return { review_status: 'pending', ats_type: null, is_external_ats: false }
+}
+```
+
+## Niet in V1A.1
+
+- ATS-API integratie (Greenhouse/Recruitee JSON-APIs) — V2
+- LinkedIn careers — V3
+- Multi-language / regionale sitemap recursie — V3
+
+## Verify-criteria voor "klaar"
+
+- Type-check groen
+- Test op 5 sample-leads in dev: minstens 3 krijgen ≥1 candidate
+- DB-check na test: ATS-URLs hebben `review_status='approved'` + `ats_type` ingevuld
+- Geen regressions: HBM (no-careers) levert nog steeds 0 candidates, geen false-positives
