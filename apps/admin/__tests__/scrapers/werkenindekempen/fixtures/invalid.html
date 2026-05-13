@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Invalid fixture — JobPosting met missing required field</title>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    "title": "Test Functie",
+    "datePosted": "2026-05-12",
+    "description": "Test description",
+    "hiringOrganization": {
+      "@type": "Organization"
+    },
+    "jobLocation": {
+      "@type": "Place",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Eindhoven",
+        "addressCountry": "NL"
+      }
+    }
+  }
+  </script>
+</head>
+<body>
+  Deze fixture mist hiringOrganization.name → moet ValidationError geven.
+</body>
+</html>

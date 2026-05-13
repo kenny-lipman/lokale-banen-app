@@ -23,6 +23,7 @@ All cron jobs run via **Vercel Cron** (configured in `vercel.json`). Auth via `C
 |-----|---------------|-------------------|----------|
 | Cleanup Instantly Leads | `0 3 * * *` | 04:00 | `/api/cron/cleanup-instantly-leads` |
 | Baanindebuurt Scraper | `0 5 * * *` | 06:00 | `/api/scrapers/baanindebuurt` |
+| Werkenindekempen Scraper | `30 5 * * *` | 06:30 (+0-30m jitter) | `/api/scrapers/werkenindekempen` |
 | Debanensite Scraper | `0 6 * * *` | 07:00 | `/api/scrapers/debanensite` |
 | Refresh Campaign Eligible | `30 6 * * *` | 07:30 | `/api/cron/refresh-campaign-eligible` |
 | Campaign Assignment (parallel) | `0 7,13 * * *` | 08:00, 14:00 | `/api/cron/campaign-assignment-parallel` |
@@ -68,6 +69,22 @@ The watchdog job checks all jobs every 15 min and sends Slack alerts for overdue
 - **API**: `POST /api/scrapers/debanensite`
 - **Config options**: `maxPagesPerRun`, `startPage`, `mode` (full/incremental)
 
+### Werkenindekempen.nl
+- **Source**: `sitemap-wik-vacancies.xml` (dagelijks ververst, ~1.099 actieve vacatures, regio Kempen + Eindhoven e.o.)
+- **Method**: Sitemap-driven incremental (geen pagineerde scraping)
+- **AI**: Mistral op description voor `contact`/`working_hours_min`/`working_hours_max`/`education_level`/`career_level`/`categories`
+- **Anti-detection**: realistic Chrome-fingerprint (3 identity-pool), `preferredRegion: ['fra1','ams1']` (EU-IPs), 30-min start jitter, 2-5s human-delay tussen detail-fetches, session-cookie reuse binnen run, geen identificeerbare LokaleBanen/KempenseBanen strings in headers
+- **Features**:
+  - JSON-LD JobPosting parse (Zod-validated, strict)
+  - 3-laagse company-dedup: `companies.werkenindekempen_id` → `normalized_name` → `hoofddomein` → create
+  - Delisted-detection via `job_postings.last_seen_in_sitemap` + 3-dagen grace → `archived_reason='not_in_sitemap'`
+  - Geen platform-mapping in scraper zelf — bestaande `fix-job-postings-geocoding` cron mapt city/postcode → `platform_id` (KempenseBanen/HelmondseBanen/EindhovenseBanen)
+- **API**:
+  - `GET /api/scrapers/werkenindekempen` — Vercel Cron (30 min jitter)
+  - `POST /api/scrapers/werkenindekempen` — manual, custom config
+  - `POST /api/scrapers/werkenindekempen/backfill` — handmatige bulk-run met `Authorization: Bearer $CRON_SECRET`
+- **Config options**: `maxUrlsPerRun` (default 200), `delayMinMs`/`delayMaxMs`, `skipAI`, `dryRun`, `skipStartJitter`
+
 ### Other Scrapers (Apify-based)
 - Indeed
 - LinkedIn
@@ -94,8 +111,8 @@ Campaign assignment uses a **parallel orchestrator + worker** pattern:
 
 ## Database Key Tables
 
-- `job_postings` - All scraped vacancies
-- `companies` - Company records with enrichment data
+- `job_postings` - All scraped vacancies — kolom `last_seen_in_sitemap` (timestamptz) gebruikt door werkenindekempen-scraper voor delisted-detection (3-dagen grace voor archive)
+- `companies` - Company records with enrichment data — kolom `werkenindekempen_id` (text, partial unique index) als primaire dedup-key voor werkenindekempen-source, fallback naar `normalized_name`/`hoofddomein`
 - `contacts` - Contact persons linked to companies
 - `job_sources` - Scraper sources met `kind` veld:
   - `kind='aggregator'` — Indeed, LinkedIn, Baanindebuurt, Debanensite, etc. (default `review_status='approved'`)
