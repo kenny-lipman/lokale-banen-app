@@ -8,22 +8,13 @@ export interface FilterPanelProps {
   activeHours?: string
   activeEducation?: string
   activeSector?: string
-  /** Single value (radio): "5" | "15" | "25" | "all". */
-  activeDistance?: string
   /** Header weglaten — bv. in mobile drawer waar de drawer-head al "Filters" toont. */
   hideHeading?: boolean
 }
 
-const DISTANCE_OPTIONS = [
-  { value: '5',   label: 'Binnen 5 km' },
-  { value: '15',  label: 'Binnen 15 km' },
-  { value: '25',  label: 'Binnen 25 km' },
-  { value: 'all', label: 'Heel de regio' },
-]
-
 const HOURS_LABELS: Record<string, string> = {
   lt32:    'Parttime < 32 uur',
-  '32-40': 'Fulltime 32 - 40 uur',
+  '32-40': 'Fulltime 36 - 40 uur',
   gt40:    'Meer dan 40 uur',
 }
 
@@ -41,14 +32,12 @@ export function FilterPanel({
   activeHours,
   activeEducation: _activeEducation,
   activeSector,
-  activeDistance,
   hideHeading,
 }: FilterPanelProps) {
   // URL-strings → arrays voor checkbox-groepen
   const typeValues = activeType ? activeType.split(',') : []
   const hoursValues = activeHours ? activeHours.split(',') : []
   const sectorValues = activeSector ? activeSector.split(',') : []
-  const distanceValues = activeDistance ? [activeDistance] : []
 
   return (
     <aside className="bg-surface w-full px-7 py-7 sm:px-8" aria-label="Filters">
@@ -57,14 +46,6 @@ export function FilterPanel({
           Filters
         </h2>
       )}
-
-      <FilterGroup
-        label="Afstand"
-        paramName="distance"
-        type="radio"
-        options={DISTANCE_OPTIONS}
-        activeValues={distanceValues}
-      />
 
       <FilterGroup
         label="Dienstverband"

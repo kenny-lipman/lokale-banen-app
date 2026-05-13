@@ -51,7 +51,7 @@ export function VacatureCard({ job, distanceKm }: VacatureCardProps) {
 
         {job.description && (
           <p
-            className="m-0 text-meta font-light text-body leading-relaxed line-clamp-3 max-w-[60ch]"
+            className="m-0 text-meta font-normal text-[#1F2937] leading-relaxed line-clamp-3 max-w-[60ch]"
             // line-clamp via Tailwind
           >
             {plainText(job.description)}
@@ -74,13 +74,17 @@ export function VacatureCard({ job, distanceKm }: VacatureCardProps) {
           <ArrowRight width={13} height={8} />
           Bekijk vacature
         </Link>
-        <Link
-          href={`${detailHref}?share=open`}
-          className="relative z-[2] inline-flex items-center gap-2 text-meta font-regular text-secondary hover:text-secondary-hover hover:underline underline-offset-2"
-        >
-          <ArrowRight width={13} height={8} />
-          Stuur vacature door
-        </Link>
+        {job.url && (
+          <a
+            href={job.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative z-[2] inline-flex items-center gap-2 text-meta font-bold text-primary hover:text-primary-hover hover:underline underline-offset-2"
+          >
+            <ArrowRight width={13} height={8} />
+            Solliciteer direct
+          </a>
+        )}
       </div>
 
       <div className="absolute top-0 right-0 z-[2]">
@@ -153,6 +157,7 @@ function plainText(input: string): string {
   return input
     .replace(/<[^>]+>/g, ' ')
     .replace(/[*_#]+/g, '')
+    .replace(/(^|\s)-{2,}(?=\s|$)/g, '$1') // strip "--" / "---" artefacten
     .replace(/\s+/g, ' ')
     .trim()
 }

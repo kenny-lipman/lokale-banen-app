@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { Briefcase, Clock, GraduationCap, MapPin, Calendar, Globe, Linkedin } from 'lucide-react'
-import { formatRelative } from '@/lib/utils'
+import { formatRelative, stripChatGptArtifacts } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { slugifyCity } from '@lokale-banen/database'
 import { ApplyButton } from './apply-button'
@@ -26,7 +26,9 @@ interface JobDetailProps {
 export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
   const companyName = job.company?.name || 'Onbekend bedrijf'
   const isExpired = !!(job.end_date && new Date(job.end_date) < new Date())
-  const markdownContent = (job.content_md || job.description || '').trim()
+  const markdownContent = stripChatGptArtifacts(
+    (job.content_md || job.description || '').trim()
+  )
 
   return (
     <article className="lg:grid lg:gap-gap-content lg:items-start lg:[grid-template-columns:1fr_344px]">
@@ -70,6 +72,17 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
             )}
           </p>
         </header>
+
+        {/* Apply CTA boven de fold — mobile + tablet (op desktop dekt sticky sidebar af) */}
+        <div className="lg:hidden mt-6">
+          <ApplyButton
+            jobUrl={job.url}
+            jobId={job.id}
+            jobTitle={job.title}
+            isExpired={isExpired}
+            variant="inline"
+          />
+        </div>
 
         {/* Key facts — mobile + tablet (op desktop dekt de sticky sidebar dit af) */}
         <MobileFacts job={job} />

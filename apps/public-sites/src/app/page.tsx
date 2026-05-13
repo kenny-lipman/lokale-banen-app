@@ -145,8 +145,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     (params.type ? params.type.split(',').length : 0) +
     (params.hours ? params.hours.split(',').length : 0) +
     (educationValues?.length || 0) +
-    (sectorValues?.length || 0) +
-    (params.distance && params.distance !== 'all' ? 1 : 0)
+    (sectorValues?.length || 0)
 
   const region = tenant.central_place || stripBanenSuffix(tenant.name)
   const hasLocation = userLat != null && userLng != null
@@ -169,7 +168,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     activeHours: params.hours,
     activeEducation: params.education,
     activeSector: params.sector,
-    activeDistance: params.distance,
   }
 
   return (

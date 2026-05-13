@@ -65,16 +65,16 @@ export function FilterGroup({
   }
 
   return (
-    <fieldset className="relative border-0 m-0 min-w-0 pt-[18px] pb-3 first:pt-0">
+    <fieldset className="relative border-0 m-0 min-w-0 pt-3 pb-2 first:pt-0">
       {/* Divider — pseudo-element omdat <legend> de fieldset border-top afdekt */}
       <span
         aria-hidden="true"
         className="absolute top-0 left-0 right-0 h-px bg-divider first:hidden"
       />
-      <legend className="text-body font-bold text-primary tracking-tight mb-2">
+      <legend className="text-body font-medium text-primary tracking-tight mb-1.5">
         {label}
       </legend>
-      <div className="grid gap-1">
+      <div className="grid gap-0">
         {options.map((opt) => {
           const checked = activeValues.includes(opt.value)
           if (type === 'radio') {

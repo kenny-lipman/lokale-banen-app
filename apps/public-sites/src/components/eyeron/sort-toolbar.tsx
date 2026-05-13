@@ -80,7 +80,7 @@ export function SortToolbar({
 
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-3 py-3 ${className ?? ''}`}
+      className={`flex flex-wrap items-center justify-between gap-3 pt-3 pb-5 ${className ?? ''}`}
     >
       <span
         className="text-meta font-bold text-primary tracking-tight"

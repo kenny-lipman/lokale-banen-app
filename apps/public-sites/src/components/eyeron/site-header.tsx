@@ -36,31 +36,33 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
           />
         </Link>
 
-        <nav
-          aria-label="Hoofdnavigatie"
-          className="hidden lg:flex items-center gap-7"
-        >
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="text-body font-regular text-secondary hover:text-secondary-hover hover:underline underline-offset-4 transition-colors"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-1">
-          <Link
-            href="/account/opgeslagen"
-            aria-label="Opgeslagen vacatures"
-            className="hidden sm:inline-flex items-center justify-center min-w-11 min-h-11 rounded-md text-primary hover:bg-primary-tint transition-colors"
+        <div className="flex items-center gap-6 lg:gap-7">
+          <nav
+            aria-label="Hoofdnavigatie"
+            className="hidden lg:flex items-center gap-7"
           >
-            <Bookmark className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-          </Link>
-          <UserNav />
-          <MobileMenu tenantName={tenant.name} />
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="text-body font-regular text-secondary hover:text-secondary-hover hover:underline underline-offset-4 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-1">
+            <Link
+              href="/account/opgeslagen"
+              aria-label="Opgeslagen vacatures"
+              className="hidden sm:inline-flex items-center justify-center min-w-11 min-h-11 rounded-md text-primary hover:bg-primary-tint transition-colors"
+            >
+              <Bookmark className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+            </Link>
+            <UserNav />
+            <MobileMenu tenantName={tenant.name} />
+          </div>
         </div>
       </div>
     </header>

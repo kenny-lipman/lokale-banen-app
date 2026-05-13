@@ -18,7 +18,9 @@ export function ShareButtons({ url, title, variant = 'inline' }: ShareButtonsPro
   const [copied, setCopied] = useState(false)
 
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${title} ${url}`)}`
-  const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`
+  // shareArticle is robuuster dan share-offsite: title-param zorgt voor
+  // gevulde dialog ook als LinkedIn de OG-tags nog niet heeft gecrawld.
+  const linkedinUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`
 
   async function copyLink() {
     try {

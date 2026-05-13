@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import type { Tenant } from '@/lib/tenant'
-import { MasterLogo } from './portal-logo'
-import { Wordmark } from './wordmark'
+import { MasterLogo, PortalLogo } from './portal-logo'
 
 interface SiteFooterProps {
   tenant: Tenant
@@ -46,11 +45,18 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
     <footer className="bg-primary text-on-dark mt-auto">
       <div className="max-w-content mx-auto px-pad pt-14 pb-7">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr] gap-8 sm:gap-9 pb-9 border-b border-[rgba(255,255,255,0.18)]">
-          {/* Brand-kolom */}
+          {/* Brand-kolom — logo i.p.v. tekst (Joost-feedback). brightness-0+invert
+             rendert zowel pre-processed SVG met var(--primary) als uploaded
+             tenant.logo_url universeel in wit. */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <h1 className="m-0 mb-4 text-h1 leading-none">
-              <Wordmark name={tenant.name} onDark mono />
-            </h1>
+            <div className="mb-4">
+              <PortalLogo
+                tenantName={tenant.name}
+                logoUrl={tenant.logo_url}
+                height={42}
+                className="brightness-0 invert"
+              />
+            </div>
             <p className="text-meta font-light leading-relaxed max-w-[24ch]">
               Onderdeel van het LokaleBanen-netwerk. Tientallen regionale sites,
               één missie: werk dichtbij huis vinden.
@@ -97,7 +103,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
               className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
               aria-label="LokaleBanen netwerk"
             >
-              <MasterLogo height={28} />
+              <MasterLogo height={28} className="brightness-0 invert" />
             </Link>
           )}
         </div>

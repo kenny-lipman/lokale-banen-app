@@ -126,6 +126,23 @@ export function createSlug(title: string, id: string): string {
 }
 
 /**
+ * Strip "--" artefacten uit content (typisch ChatGPT/Mistral-output dat de
+ * site er AI-gegenereerd uit doet zien). Markdown horizontal-rules (`---` op
+ * eigen regel) blijven behouden.
+ */
+export function stripChatGptArtifacts(input: string): string {
+  if (!input) return input
+  return input
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim()
+      if (/^-{3,}\s*$/.test(trimmed)) return line // markdown <hr>
+      return line.replace(/\s+-{2,}(?=\s|$)/g, '')
+    })
+    .join('\n')
+}
+
+/**
  * Compute the great-circle distance between two coordinates (km).
  * Haversine formula — accurate enough for regional distances.
  */
