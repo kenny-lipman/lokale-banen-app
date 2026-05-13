@@ -288,15 +288,37 @@ export async function scrapeWerkenindekempen(
   }
 
   const duration_ms = Date.now() - startTime;
+  const success = !errorMessage && (stats.fresh === 0 || stats.errors < stats.fresh);
   console.log(
     `[werkenindekempen] Done in ${duration_ms}ms — new:${stats.new} updated:${stats.updated} skipped:${stats.skipped} errors:${stats.errors} delisted:${stats.delisted}`
   );
 
+  // ── 6) Update job_sources metadata (zichtbaar op /job-postings/scrape-bronnen) ─
+  if (!cfg.dryRun) {
+    const scrapeStatus = earlyExitReason ?? (success ? "success" : "error");
+    const patch: Record<string, unknown> = {
+      last_scraped_at: new Date().toISOString(),
+      last_scrape_status: scrapeStatus,
+      last_scrape_count: stats.new + stats.updated,
+    };
+    if (success) {
+      patch.consecutive_failures = 0;
+    } else {
+      // bump failure-counter (Supabase JS heeft geen native increment)
+      const { data: src } = await supabase
+        .from("job_sources")
+        .select("consecutive_failures")
+        .eq("id", sourceId)
+        .single();
+      patch.consecutive_failures = (src?.consecutive_failures ?? 0) + 1;
+    }
+    const { error: srcErr } = await supabase.from("job_sources").update(patch).eq("id", sourceId);
+    if (srcErr) console.error(`[werkenindekempen] update job_sources failed:`, srcErr.message);
+  }
+
   return {
     ...stats,
-    // success = geen fatale error EN niet meer errors dan fresh URLs.
-    // Bij fresh=0 (steady-state, niets nieuws) is een run nog steeds succesvol.
-    success: !errorMessage && (stats.fresh === 0 || stats.errors < stats.fresh),
+    success,
     earlyExitReason,
     errorMessage,
     duration_ms,
