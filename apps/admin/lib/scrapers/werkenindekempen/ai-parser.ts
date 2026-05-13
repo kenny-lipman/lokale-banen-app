@@ -66,11 +66,9 @@ export function emptyMistralResult(): MistralResult {
  * Extract gestructureerde data uit vacature-description.
  *
  * @param plainText  Plain-text description (HTML stripped)
- * @param companyDomain  Hoofddomein van company.website (voor email domain-check). Bv "anna.nl"
  */
 export async function extractFromDescription(
-  plainText: string,
-  _companyDomain: string | null
+  plainText: string
 ): Promise<MistralResult> {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) {

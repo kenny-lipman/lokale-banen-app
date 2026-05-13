@@ -16,7 +16,11 @@ import { z } from "zod";
  * JSON-LD bronnen schrijven vaak `"foo": null` ipv het veld weg te laten.
  */
 const nullableString = () => z.string().nullable().optional();
-const nullableUrl = () => z.string().url().nullable().optional().or(z.literal(""));
+// Voor URL-velden (sameAs/logo): we doen GEEN .url() check.
+// Reden: werkenindekempen.nl publiceert soms bare domains, lege strings, of relative paths.
+// Strikte URL-validatie skipped vacatures onnodig.
+// Downstream gebruiken we extractHoofddomein() die zelf protocol-handling doet.
+const nullableUrl = () => z.string().nullable().optional();
 
 export const AddressSchema = z.object({
   "@type": z.literal("PostalAddress").optional(),

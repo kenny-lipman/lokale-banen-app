@@ -82,7 +82,6 @@ export const testConnection = async () => {
     return { success: false, error: "Failed to connect to Supabase" }
   }
 }
-
 export type Json =
   | string
   | number
@@ -626,6 +625,7 @@ export type Database = {
           subdomeinen: string[] | null
           verified: boolean | null
           website: string | null
+          werkenindekempen_id: string | null
           WeTarget: string | null
         }
         Insert: {
@@ -709,6 +709,7 @@ export type Database = {
           subdomeinen?: string[] | null
           verified?: boolean | null
           website?: string | null
+          werkenindekempen_id?: string | null
           WeTarget?: string | null
         }
         Update: {
@@ -792,6 +793,7 @@ export type Database = {
           subdomeinen?: string[] | null
           verified?: boolean | null
           website?: string | null
+          werkenindekempen_id?: string | null
           WeTarget?: string | null
         }
         Relationships: [
@@ -1823,6 +1825,7 @@ export type Database = {
           header_image_url: string | null
           id: string
           job_type: string[] | null
+          last_seen_in_sitemap: string | null
           latitude: string | null
           location: string | null
           lokalebanen_id: string | null
@@ -1877,6 +1880,7 @@ export type Database = {
           header_image_url?: string | null
           id?: string
           job_type?: string[] | null
+          last_seen_in_sitemap?: string | null
           latitude?: string | null
           location?: string | null
           lokalebanen_id?: string | null
@@ -1931,6 +1935,7 @@ export type Database = {
           header_image_url?: string | null
           id?: string
           job_type?: string[] | null
+          last_seen_in_sitemap?: string | null
           latitude?: string | null
           location?: string | null
           lokalebanen_id?: string | null
@@ -4745,4 +4750,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -30,7 +30,7 @@ import {
 } from "./detail-parser";
 import { extractFromDescription, emptyMistralResult } from "./ai-parser";
 import { findOrCreateCompanyThreeLayer } from "./dedup";
-import { refreshSitemapPresence } from "./delisted";
+import { refreshLastSeen, archiveDelisted } from "./delisted";
 import * as N from "./normalizers";
 import {
   DEFAULT_CONFIG,
@@ -108,13 +108,12 @@ export async function scrapeWerkenindekempen(
       const publishedAt = N.parsePublishedAt(jp.datePosted);
       const endDate = jp.validThrough ? jp.validThrough.slice(0, 10) : null;
       const plain = N.stripHtml(jp.description ?? "");
-      const websiteHoofddomein = N.extractHoofddomein(jp.hiringOrganization.sameAs ?? null);
 
       // Mistral
       let ai: MistralResult = emptyMistralResult();
       if (!cfg.skipAI) {
         stats.mistral_calls++;
-        ai = await extractFromDescription(plain, websiteHoofddomein);
+        ai = await extractFromDescription(plain);
       }
 
       if (cfg.dryRun) {
@@ -262,15 +261,28 @@ export async function scrapeWerkenindekempen(
     }
   }
 
-  // ── 4) Refresh sitemap presence + archive delisted ───────────
-  if (!cfg.dryRun && !earlyExitReason) {
+  // ── 4) Refresh sitemap presence (ALTIJD) ─────────────────────
+  // Update last_seen_in_sitemap voor alle URLs uit sitemap, ook bij early-exit.
+  // Voorkomt false-positive archives bij flaky/timed-out runs.
+  if (!cfg.dryRun) {
     try {
       const allUrls = allEntries.map((e) => e.url);
-      const { archived } = await refreshSitemapPresence(supabase, sourceId, allUrls);
-      stats.delisted = archived;
-      console.log(`[werkenindekempen] Delisted-check: ${archived} archived`);
+      const { touched } = await refreshLastSeen(supabase, sourceId, allUrls);
+      console.log(`[werkenindekempen] refreshLastSeen: ${touched} touched`);
     } catch (err) {
-      console.error(`[werkenindekempen] refreshSitemapPresence failed:`, err);
+      console.error(`[werkenindekempen] refreshLastSeen failed:`, err);
+      stats.errors++;
+    }
+  }
+
+  // ── 5) Archive delisted (alleen bij volledig succesvolle run) ─
+  if (!cfg.dryRun && !earlyExitReason) {
+    try {
+      const { archived } = await archiveDelisted(supabase, sourceId);
+      stats.delisted = archived;
+      console.log(`[werkenindekempen] archiveDelisted: ${archived} archived`);
+    } catch (err) {
+      console.error(`[werkenindekempen] archiveDelisted failed:`, err);
       stats.errors++;
     }
   }
@@ -282,7 +294,9 @@ export async function scrapeWerkenindekempen(
 
   return {
     ...stats,
-    success: !errorMessage && stats.errors < stats.fresh,
+    // success = geen fatale error EN niet meer errors dan fresh URLs.
+    // Bij fresh=0 (steady-state, niets nieuws) is een run nog steeds succesvol.
+    success: !errorMessage && (stats.fresh === 0 || stats.errors < stats.fresh),
     earlyExitReason,
     errorMessage,
     duration_ms,

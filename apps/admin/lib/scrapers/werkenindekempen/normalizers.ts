@@ -181,8 +181,9 @@ export function normalizePostalCode(raw: string | null | undefined): string | nu
  */
 export function parsePublishedAt(isoDate: string): string {
   const dateOnly = isoDate.slice(0, 10);
-  // Tentatief UTC-midnight om de offset te bepalen
-  const probe = new Date(dateOnly + "T00:00:00Z");
+  // Probe op 12:00 UTC ipv midnight. DST-transitie (laatste zondag maart om 02:00 NL)
+  // valt op 00:00-03:00 UTC; 12:00 UTC zit veilig na de overgang.
+  const probe = new Date(dateOnly + "T12:00:00Z");
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Amsterdam",
     timeZoneName: "shortOffset",
