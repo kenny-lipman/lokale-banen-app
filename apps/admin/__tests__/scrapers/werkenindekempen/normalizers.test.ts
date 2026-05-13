@@ -60,37 +60,49 @@ describe("normalizeEmploymentType", () => {
   test("JSON-string array", () => {
     expect(N.normalizeEmploymentType('["FULL_TIME","PART_TIME"]')).toEqual({
       types: ["FULL_TIME", "PART_TIME"],
+      labels: ["Fulltime", "Parttime"],
       label: "Fulltime/Parttime",
     });
   });
   test("plain array FULL_TIME only", () => {
     expect(N.normalizeEmploymentType(["FULL_TIME"])).toEqual({
       types: ["FULL_TIME"],
+      labels: ["Fulltime"],
       label: "Fulltime",
     });
   });
   test("plain array PART_TIME only", () => {
     expect(N.normalizeEmploymentType(["PART_TIME"])).toEqual({
       types: ["PART_TIME"],
+      labels: ["Parttime"],
       label: "Parttime",
     });
   });
   test("plain string single", () => {
     expect(N.normalizeEmploymentType("FULL_TIME")).toEqual({
       types: ["FULL_TIME"],
+      labels: ["Fulltime"],
       label: "Fulltime",
     });
   });
   test("undefined → empty", () => {
-    expect(N.normalizeEmploymentType(undefined)).toEqual({ types: [], label: null });
+    expect(N.normalizeEmploymentType(undefined)).toEqual({ types: [], labels: [], label: null });
   });
   test("null → empty", () => {
-    expect(N.normalizeEmploymentType(null)).toEqual({ types: [], label: null });
+    expect(N.normalizeEmploymentType(null)).toEqual({ types: [], labels: [], label: null });
   });
-  test("contract types passthrough", () => {
+  test("contractor → Freelance", () => {
     expect(N.normalizeEmploymentType(["CONTRACTOR"])).toEqual({
       types: ["CONTRACTOR"],
-      label: "CONTRACTOR",
+      labels: ["Freelance"],
+      label: "Freelance",
+    });
+  });
+  test("intern → Stage", () => {
+    expect(N.normalizeEmploymentType("INTERN")).toEqual({
+      types: ["INTERN"],
+      labels: ["Stage"],
+      label: "Stage",
     });
   });
 });

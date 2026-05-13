@@ -54,6 +54,18 @@ export function normalizeCountry(raw: string | null | undefined): string | null 
   return raw;
 }
 
+/** Map Schema.org employment type → Nederlands display-label. */
+const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
+  FULL_TIME: "Fulltime",
+  PART_TIME: "Parttime",
+  CONTRACTOR: "Freelance",
+  TEMPORARY: "Tijdelijk",
+  INTERN: "Stage",
+  VOLUNTEER: "Vrijwilliger",
+  PER_DIEM: "Oproep",
+  OTHER: "Overig",
+};
+
 /**
  * employmentType kan zijn:
  * - JSON-string array: '["FULL_TIME","PART_TIME"]'
@@ -61,10 +73,14 @@ export function normalizeCountry(raw: string | null | undefined): string | null 
  * - Plain string: "FULL_TIME"
  * - undefined
  *
- * Returnt array van types + display-label.
+ * Returnt:
+ *   - types: raw Schema.org enums (bv ["FULL_TIME","PART_TIME"])
+ *   - labels: NL display-labels (bv ["Fulltime","Parttime"]) — voor opslag in job_type
+ *   - label: gecombineerd display-string (bv "Fulltime/Parttime") — voor opslag in employment
  */
 export function normalizeEmploymentType(raw: string | string[] | undefined | null): {
   types: string[];
+  labels: string[];
   label: string | null;
 } {
   let types: string[] = [];
@@ -82,6 +98,8 @@ export function normalizeEmploymentType(raw: string | string[] | undefined | nul
     .map((t) => String(t).toUpperCase().trim())
     .filter((t) => t.length > 0);
 
+  const labels = types.map((t) => EMPLOYMENT_TYPE_LABEL[t] ?? t);
+
   const hasFull = types.includes("FULL_TIME");
   const hasPart = types.includes("PART_TIME");
 
@@ -89,9 +107,9 @@ export function normalizeEmploymentType(raw: string | string[] | undefined | nul
   if (hasFull && hasPart) label = "Fulltime/Parttime";
   else if (hasFull) label = "Fulltime";
   else if (hasPart) label = "Parttime";
-  else if (types.length) label = types.join("/");
+  else if (labels.length) label = labels.join("/");
 
-  return { types, label };
+  return { types, labels, label };
 }
 
 export interface ParsedSalary {

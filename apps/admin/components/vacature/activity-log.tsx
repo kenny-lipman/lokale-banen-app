@@ -225,10 +225,13 @@ export function ActivityLog({ vacature }: ActivityLogProps) {
       list.push({
         key: "published",
         icon: Globe,
-        iconTone: "positive",
+        iconTone: "info",
         title: (
           <>
-            <span className="font-medium">Gepubliceerd</span>
+            <span className="font-medium">Op bron gepubliceerd</span>
+            {vacature.job_sources?.name ? (
+              <span className="text-muted-foreground"> ({vacature.job_sources.name})</span>
+            ) : null}
           </>
         ),
         at: vacature.published_at,
