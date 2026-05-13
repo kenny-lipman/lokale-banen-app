@@ -208,7 +208,8 @@ export async function scrapeWerkenindekempen(
           employment: employment.label,
           salary: salary.displayLabel,
           published_at: publishedAt,
-          created_at: publishedAt,
+          // created_at: weggelaten → DB default now() = wanneer WIJ het record aanmaakten.
+          // published_at houdt bron-publicatiedatum (datePosted uit JSON-LD).
           end_date: endDate,
           scraped_at: now,
           content_hash: contentHash,

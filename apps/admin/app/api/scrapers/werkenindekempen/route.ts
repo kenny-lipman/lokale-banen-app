@@ -17,10 +17,13 @@ export const runtime = "nodejs";
 export const preferredRegion = ["fra1", "ams1"];
 export const maxDuration = 300;
 
-const CRON_DEFAULTS: ScraperConfig = { ...DEFAULT_CONFIG };
+// Cron-run config: kleiner per-run aantal want we draaien nu uurlijks i.p.v. 1×/dag.
+// 25 URLs × ~8.5s gemiddeld = ~213s, past comfortabel in 280s timeout-budget.
+// 14 runs/dag (07:00-20:00 NL) × 25 = 350 URLs/dag potential → ~3 dagen voor full backfill van 1099.
+const CRON_DEFAULTS: ScraperConfig = { ...DEFAULT_CONFIG, maxUrlsPerRun: 25 };
 
-/** Random jitter 0-30 min aan start van cron-run zodat we niet exact om 07:30 vuren. */
-const MAX_JITTER_MS = 30 * 60 * 1000;
+/** Random jitter 0-10 min binnen het uurlijkse cron-slot om niet exact op :00 te vuren. */
+const MAX_JITTER_MS = 10 * 60 * 1000;
 
 async function runWithConfig(
   cfg: ScraperConfig,
