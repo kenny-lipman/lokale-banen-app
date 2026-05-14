@@ -11,6 +11,7 @@
 export {
   createSupabaseClient,
   getOrCreateJobSource,
+  updateJobSourceStatus,
   vacancyExists,
   type SupabaseClient,
 } from "./db-client";

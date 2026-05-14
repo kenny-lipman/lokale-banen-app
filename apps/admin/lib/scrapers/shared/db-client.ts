@@ -56,6 +56,53 @@ export async function getOrCreateJobSource(
 }
 
 /**
+ * Update job_sources metadata na een scraper-run.
+ *
+ * Wordt zichtbaar op /job-postings/scrape-bronnen (Laatst gescrapet / Status / Aantal).
+ *
+ * Status-resolutie:
+ *   - earlyExitReason gegeven (timeout / rate_limited / etc) → status = earlyExitReason
+ *   - success && geen earlyExitReason → status = "success", consecutive_failures = 0
+ *   - anders → status = "error", consecutive_failures += 1
+ *
+ * Roep deze NIET aan voor dryRun of skipped runs.
+ * Voor "happy" early-exits (zoals consecutive_skips bij incremental mode) laat
+ * je earlyExitReason undefined zodat de status "success" wordt.
+ */
+export async function updateJobSourceStatus(
+  supabase: SupabaseClient,
+  sourceId: string,
+  result: { success: boolean; earlyExitReason?: string; count: number }
+): Promise<void> {
+  const status =
+    result.earlyExitReason ?? (result.success ? "success" : "error");
+  const patch: Record<string, unknown> = {
+    last_scraped_at: new Date().toISOString(),
+    last_scrape_status: status,
+    last_scrape_count: result.count,
+  };
+
+  if (result.success && !result.earlyExitReason) {
+    patch.consecutive_failures = 0;
+  } else {
+    const { data } = await supabase
+      .from("job_sources")
+      .select("consecutive_failures")
+      .eq("id", sourceId)
+      .single();
+    patch.consecutive_failures = (data?.consecutive_failures ?? 0) + 1;
+  }
+
+  const { error } = await supabase
+    .from("job_sources")
+    .update(patch)
+    .eq("id", sourceId);
+  if (error) {
+    console.error(`[updateJobSourceStatus] failed: ${error.message}`);
+  }
+}
+
+/**
  * Check if a vacancy already exists
  */
 export async function vacancyExists(

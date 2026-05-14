@@ -11,6 +11,7 @@
 import {
   createSupabaseClient,
   getOrCreateJobSource,
+  updateJobSourceStatus,
   vacancyExists,
   findOrCreateCompany,
   findOrCreateContact,
@@ -130,7 +131,9 @@ async function insertJobPosting(
     working_hours_max: workingHoursMax,
 
     // Dates
-    created_at: vacancy.date_posted || new Date().toISOString(),
+    // created_at: weggelaten → DB default now() = wanneer WIJ het record aanmaakten.
+    // published_at houdt de bron-publicatiedatum (date_posted uit JSON-LD).
+    published_at: vacancy.date_posted,
     end_date: vacancy.date_expires,
     scraped_at: new Date().toISOString(),
 
@@ -414,6 +417,18 @@ export async function scrapeDebanensite(
     console.log(
       `Companies: ${result.companiesCreated} created, ${result.companiesUpdated} updated | Contacts: ${result.contactsCreated} created, ${result.contactsUpdated} updated`
     );
+
+    // Update job_sources metadata (zichtbaar op /job-postings/scrape-bronnen).
+    // consecutive_skips = "happy" incremental exit → behandel als success.
+    const failureExit =
+      result.earlyExitReason && result.earlyExitReason !== "consecutive_skips"
+        ? result.earlyExitReason
+        : undefined;
+    await updateJobSourceStatus(supabase, sourceId, {
+      success: result.success,
+      earlyExitReason: failureExit,
+      count: result.inserted + result.updated,
+    });
   } catch (error) {
     console.error("Scraper failed:", error);
     result.success = false;

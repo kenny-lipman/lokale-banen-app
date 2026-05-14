@@ -16,6 +16,7 @@ import type { PageInfo, ScrapeResult, ScrapedPdf } from "./types";
 import {
   createSupabaseClient,
   getOrCreateJobSource,
+  updateJobSourceStatus,
   vacancyExists,
   findOrCreateCompany,
   findOrCreateContact,
@@ -319,6 +320,13 @@ export async function scrapeBaanindebuurt(): Promise<ScrapeResult> {
     console.log(
       `Companies: ${result.companiesCreated} created, ${result.companiesUpdated} updated | Contacts: ${result.contactsCreated} created, ${result.contactsUpdated} updated`
     );
+
+    // Update job_sources metadata (zichtbaar op /job-postings/scrape-bronnen).
+    // published_at wordt niet gezet: PDFs zijn flyers zonder structured date_posted.
+    await updateJobSourceStatus(supabase, sourceId, {
+      success: result.success,
+      count: result.inserted,
+    });
   } catch (error) {
     console.error("Scraper failed:", error);
     result.success = false;
