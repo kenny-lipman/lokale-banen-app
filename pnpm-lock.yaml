@@ -296,6 +296,9 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      resend:
+        specifier: ^6.9.3
+        version: 6.10.0
       tailwind-merge:
         specifier: ^2.6.0
         version: 2.6.1
@@ -5140,6 +5143,7 @@ packages:
 
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   vaul@1.1.2:

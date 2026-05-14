@@ -49,3 +49,6 @@ export { ShareButtons } from './share-buttons'
 
 // Static content (fase 9)
 export { ProseContent } from './prose-content'
+
+// Forms
+export { ContactForm } from './contact-form'

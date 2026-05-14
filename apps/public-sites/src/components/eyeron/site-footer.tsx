@@ -18,7 +18,7 @@ interface FooterLink {
 
 const WERKGEVERS_LINKS: FooterLink[] = [
   { label: 'Plaats vacature', href: '/werkgevers' },
-  { label: 'Tarieven',        href: '/werkgevers#tarieven' },
+  { label: 'Tarieven',        href: '/werkgevers/pakketten' },
   { label: 'Succesverhalen',  href: '/werkgevers#succesverhalen' },
 ]
 

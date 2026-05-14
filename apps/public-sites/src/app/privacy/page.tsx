@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
 import { getCitiesWithJobCounts } from '@/lib/queries'
+import { renderLegalTemplate } from '@/lib/legal/render'
 import {
   SiteHeader,
   SiteFooter,
@@ -30,8 +31,12 @@ export default async function PrivacyPage() {
     )
   }
 
-  const cities = await getCitiesWithJobCounts(tenant.id)
-  const hasContent = !!tenant.privacy_text
+  const [cities, content] = await Promise.all([
+    getCitiesWithJobCounts(tenant.id),
+    tenant.privacy_text
+      ? Promise.resolve(tenant.privacy_text)
+      : renderLegalTemplate('privacy', tenant.name),
+  ])
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -44,13 +49,7 @@ export default async function PrivacyPage() {
         />
         <PageHero title="Privacybeleid" />
 
-        {hasContent ? (
-          <ProseContent>{tenant.privacy_text!}</ProseContent>
-        ) : (
-          <p className="text-meta font-light text-body max-w-prose">
-            Het privacybeleid wordt binnenkort gepubliceerd.
-          </p>
-        )}
+        <ProseContent>{content}</ProseContent>
       </main>
 
       <SiteFooter tenant={tenant} cities={cities} />

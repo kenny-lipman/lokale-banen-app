@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTenant } from '@/lib/tenant'
 import { getCitiesWithJobCounts } from '@/lib/queries'
+import { renderLegalTemplate } from '@/lib/legal/render'
 import {
   SiteHeader,
   SiteFooter,
@@ -30,8 +31,13 @@ export default async function VoorwaardenPage() {
     )
   }
 
-  const cities = await getCitiesWithJobCounts(tenant.id)
-  const hasContent = !!tenant.terms_text
+  const [cities, content] = await Promise.all([
+    getCitiesWithJobCounts(tenant.id),
+    // tenant.terms_text override → fallback naar gedeelde template met naam-substitutie
+    tenant.terms_text
+      ? Promise.resolve(tenant.terms_text)
+      : renderLegalTemplate('terms', tenant.name),
+  ])
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -44,13 +50,7 @@ export default async function VoorwaardenPage() {
         />
         <PageHero title="Algemene Voorwaarden" />
 
-        {hasContent ? (
-          <ProseContent>{tenant.terms_text!}</ProseContent>
-        ) : (
-          <p className="text-meta font-light text-body max-w-prose">
-            De algemene voorwaarden worden binnenkort gepubliceerd.
-          </p>
-        )}
+        <ProseContent>{content}</ProseContent>
       </main>
 
       <SiteFooter tenant={tenant} cities={cities} />
