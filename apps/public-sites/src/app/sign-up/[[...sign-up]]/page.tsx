@@ -54,6 +54,24 @@ export default async function SignUpPage() {
             signInUrl="/sign-in"
           />
 
+          <p className="text-center mt-5 text-small font-light text-body leading-relaxed max-w-prose mx-auto">
+            Door een account aan te maken ga je akkoord met onze{' '}
+            <Link
+              href="/voorwaarden"
+              className="text-secondary hover:underline underline-offset-2"
+            >
+              algemene voorwaarden
+            </Link>{' '}
+            en het{' '}
+            <Link
+              href="/privacy"
+              className="text-secondary hover:underline underline-offset-2"
+            >
+              privacybeleid
+            </Link>
+            .
+          </p>
+
           <p className="text-center mt-6 text-meta font-light text-body">
             <Link
               href="/"

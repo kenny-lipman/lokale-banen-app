@@ -446,6 +446,50 @@ export async function getRelatedJobs(
   })) as unknown as JobPosting[]
 }
 
+/**
+ * Suggesties voor het zoekveld — top-N unieke job-titles die matchen op
+ * de query. Sorteert op frequentie (vacatures met dezelfde titel komen
+ * eerst). Gebruikt door /api/search/suggest voor de autosuggest-dropdown
+ * in de SearchBanner.
+ */
+export async function getJobTitleSuggestions(
+  tenantId: string,
+  query: string,
+  limit = 8,
+): Promise<string[]> {
+  const trimmed = query.trim()
+  if (trimmed.length < 2) return []
+
+  const supabase = createPublicClient()
+  const q = escapeIlike(trimmed)
+
+  // Pull top-200 matching titles; dedupe + count in-memory (Supabase RPC
+  // group-by zou robuuster zijn, maar 200 rows is goed te overzien).
+  const { data, error } = await supabase
+    .from('job_postings')
+    .select('title')
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .is('archived_at', null)
+    .ilike('title', `%${q}%`)
+    .limit(200)
+
+  if (error || !data) return []
+
+  const counts = new Map<string, number>()
+  for (const row of data) {
+    const title = (row.title as string | null)?.trim()
+    if (!title) continue
+    counts.set(title, (counts.get(title) ?? 0) + 1)
+  }
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([title]) => title)
+}
+
 /** Lightweight type for sitemap entries */
 export interface SitemapJob {
   slug: string

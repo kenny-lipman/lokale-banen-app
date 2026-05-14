@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, PlusCircle } from 'lucide-react'
 import type { Tenant } from '@/lib/tenant'
 import { PortalLogo } from './portal-logo'
 import { UserNav } from './user-nav'
@@ -36,7 +36,7 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
           />
         </Link>
 
-        <div className="flex items-center gap-6 lg:gap-7">
+        <div className="flex items-center gap-4 lg:gap-6">
           <nav
             aria-label="Hoofdnavigatie"
             className="hidden lg:flex items-center gap-7"
@@ -51,6 +51,14 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
               </Link>
             ))}
           </nav>
+
+          <Link
+            href="/werkgevers/pakketten"
+            className="hidden md:inline-flex items-center gap-2 h-10 px-5 rounded-button bg-secondary text-secondary-ink text-meta font-bold tracking-tight transition-colors hover:bg-secondary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2"
+          >
+            <PlusCircle className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Vacature plaatsen
+          </Link>
 
           <div className="flex items-center gap-1">
             <Link
