@@ -41,9 +41,6 @@ async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: RouteConte
     if (!Array.isArray(body.selected_contacts)) {
       return NextResponse.json({ error: 'selected_contacts moet array zijn' }, { status: 400 })
     }
-    if ((body.selected_contacts as unknown[]).length > 5) {
-      return NextResponse.json({ error: 'max 5 selected_contacts' }, { status: 400 })
-    }
     update.selected_contacts = body.selected_contacts as Json
     touched = true
   }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Star, Plus, ArrowUp, AlertTriangle, Pencil } from 'lucide-react'
+import { Star, Plus, AlertTriangle, Pencil } from 'lucide-react'
 import type { NormalizedContact, RunEnrichments } from '@/lib/services/sales-leads/types'
 import { LeadAddContactModal } from './lead-add-contact-modal'
 import { LeadEditContactModal } from './lead-edit-contact-modal'
@@ -16,8 +16,6 @@ type Props = {
   runId?: string
   onContactEdited?: () => void | Promise<void>
 }
-
-const MAX_SELECTED = 2
 
 function dedupe(contacts: NormalizedContact[]): NormalizedContact[] {
   const seen = new Map<string, NormalizedContact>()
@@ -54,19 +52,6 @@ function dedupe(contacts: NormalizedContact[]): NormalizedContact[] {
     seen.set(key, merged)
   }
   return Array.from(seen.values())
-}
-
-function withCappedSelected(
-  current: NormalizedContact[],
-  next: NormalizedContact,
-): NormalizedContact[] {
-  if (current.length < MAX_SELECTED) return [...current, next]
-  // Bij gelijke score wint de oudste in de array (V8 Array.sort is stable),
-  // dus de meest recent toegevoegde laagst-scorende wordt verdrongen.
-  const [lowest] = [...current].sort(
-    (a, b) => (a.ai_priority_score ?? 0) - (b.ai_priority_score ?? 0),
-  )
-  return [...current.filter((x) => x !== lowest), next]
 }
 
 export function LeadContactsColumn({
@@ -125,7 +110,7 @@ export function LeadContactsColumn({
       onChange(selected.filter((x) => x.name.trim().toLowerCase() !== key))
       return
     }
-    onChange(withCappedSelected(selected, c))
+    onChange([...selected, c])
   }
 
   function addManual(c: NormalizedContact) {
@@ -134,7 +119,7 @@ export function LeadContactsColumn({
       if (prev.some((x) => x.name.trim().toLowerCase() === key)) return prev
       return [...prev, c]
     })
-    onChange(withCappedSelected(selected, c))
+    onChange([...selected, c])
   }
 
   return (
@@ -162,9 +147,6 @@ export function LeadContactsColumn({
                 onEdit={runId ? () => setEditingContact(c) : undefined}
               />
             ))}
-            {selected.length === 1 && (
-              <p className="text-xs text-gray-500">1 contact geselecteerd — klik op een ander om +1.</p>
-            )}
           </div>
         )}
 
@@ -178,7 +160,6 @@ export function LeadContactsColumn({
                   contact={c}
                   onClick={() => toggleSelect(c)}
                   onEdit={runId ? () => setEditingContact(c) : undefined}
-                  swapHint={selected.length >= MAX_SELECTED}
                 />
               ))}
             </div>
@@ -214,13 +195,11 @@ export function LeadContactsColumn({
 function ContactCard({
   contact,
   highlighted,
-  swapHint,
   onClick,
   onEdit,
 }: {
   contact: NormalizedContact
   highlighted?: boolean
-  swapHint?: boolean
   onClick: () => void
   onEdit?: () => void
 }) {
@@ -261,7 +240,6 @@ function ContactCard({
                 {contact.ai_priority_score}
               </span>
             )}
-            {swapHint && <ArrowUp className="w-3 h-3 text-gray-400" />}
           </div>
         </div>
       </button>
