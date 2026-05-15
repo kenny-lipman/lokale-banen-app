@@ -9,6 +9,8 @@ export interface CityListRow {
   platform_id: string | null
   source: string
   is_active: boolean | null
+  created_at: string | null
+  updated_at: string
   current_regio_platform: string | null
   suggested_platform_id: string | null
   suggested_regio_platform: string | null
@@ -18,52 +20,47 @@ export interface CityListRow {
 type Status = 'all' | 'mapped' | 'unmapped' | 'suggestion'
 type Source = 'all' | 'manual' | 'cbs_pc4'
 
-async function handler(req: NextRequest, auth: AuthResult) {
-  const url = new URL(req.url)
-  const status = (url.searchParams.get('status') ?? 'all') as Status
-  const source = (url.searchParams.get('source') ?? 'all') as Source
-  const platformId = url.searchParams.get('platform_id')
-  const search = url.searchParams.get('q')?.trim().toLowerCase() ?? ''
-  const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 500)
-  const offset = parseInt(url.searchParams.get('offset') ?? '0', 10)
+const VALID_STATUS: Status[] = ['all', 'mapped', 'unmapped', 'suggestion']
+const VALID_SOURCE: Source[] = ['all', 'manual', 'cbs_pc4']
 
-  // RPC heeft alleen service_role-grant; bypass user-token.
+async function handler(req: NextRequest, _auth: AuthResult) {
+  const url = new URL(req.url)
+  const status = url.searchParams.get('status') ?? 'all'
+  const source = url.searchParams.get('source') ?? 'all'
+  const platformId = url.searchParams.get('platform_id')
+  const search = url.searchParams.get('q')?.trim() ?? null
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '50', 10), 1), 500)
+  const offset = Math.max(parseInt(url.searchParams.get('offset') ?? '0', 10), 0)
+
+  if (!VALID_STATUS.includes(status as Status))
+    return NextResponse.json({ error: 'invalid status' }, { status: 400 })
+  if (!VALID_SOURCE.includes(source as Source))
+    return NextResponse.json({ error: 'invalid source' }, { status: 400 })
+  if (platformId && !/^[0-9a-f-]{36}$/i.test(platformId))
+    return NextResponse.json({ error: 'invalid platform_id' }, { status: 400 })
+
   const svc = createServiceRoleClient()
-  const { data, error } = await svc.rpc('cities_with_suggestions')
+  const { data, error } = await svc.rpc('cities_with_suggestions_paged', {
+    p_status: status,
+    p_source: source,
+    p_platform_id: platformId,
+    p_search: search || null,
+    p_limit: limit,
+    p_offset: offset,
+  })
   if (error) {
-    console.error('cities_with_suggestions RPC error:', error)
+    console.error('cities_with_suggestions_paged RPC error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  let rows = (data ?? []) as CityListRow[]
+  const rows = (data ?? []) as Array<CityListRow & { total_count: number }>
+  const total = rows[0]?.total_count ?? 0
 
-  if (status === 'mapped') rows = rows.filter((r) => r.platform_id !== null)
-  if (status === 'unmapped') rows = rows.filter((r) => r.platform_id === null)
-  if (status === 'suggestion')
-    rows = rows.filter((r) => r.platform_id === null && r.suggested_platform_id !== null)
-
-  if (source !== 'all') rows = rows.filter((r) => r.source === source)
-
-  if (platformId) rows = rows.filter((r) => r.platform_id === platformId)
-
-  if (search) {
-    rows = rows.filter(
-      (r) =>
-        r.plaats.toLowerCase().includes(search) ||
-        (r.postcode ?? '').includes(search) ||
-        (r.current_regio_platform?.toLowerCase().includes(search) ?? false),
-    )
-  }
-
-  rows.sort((a, b) => {
-    const p = a.plaats.localeCompare(b.plaats, 'nl')
-    if (p !== 0) return p
-    return (a.postcode ?? '').localeCompare(b.postcode ?? '')
+  return NextResponse.json({
+    rows: rows.map(({ total_count: _t, ...r }) => r),
+    total: Number(total),
+    limit,
+    offset,
   })
-
-  const total = rows.length
-  const page = rows.slice(offset, offset + limit)
-
-  return NextResponse.json({ rows: page, total, limit, offset })
 }
 
 export const GET = withAdminAuth(handler)

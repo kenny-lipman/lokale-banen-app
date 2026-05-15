@@ -1,32 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { bulkLinkSchema } from '@/lib/cities/schemas'
 
 async function handler(req: NextRequest, auth: AuthResult) {
-  const body = await req.json().catch(() => null) as
-    | { ids?: string[]; platform_id?: string | null; activate?: boolean }
-    | null
-  if (!body || !Array.isArray(body.ids) || body.ids.length === 0)
-    return NextResponse.json({ error: 'ids ontbreekt' }, { status: 400 })
-
-  const ids = body.ids.filter((x) => typeof x === 'string' && x.length === 36)
-  if (ids.length === 0) return NextResponse.json({ error: 'geen geldige ids' }, { status: 400 })
+  const raw = await req.json().catch(() => null)
+  const parsed = bulkLinkSchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'validation_failed', details: parsed.error.flatten() },
+      { status: 400 },
+    )
+  }
+  const { ids, platform_id, activate } = parsed.data
 
   const update: Record<string, unknown> = {}
-  if ('platform_id' in body) update.platform_id = body.platform_id ?? null
-  if (typeof body.activate === 'boolean') update.is_active = body.activate
+  if ('platform_id' in parsed.data) update.platform_id = platform_id ?? null
+  if (typeof activate === 'boolean') update.is_active = activate
 
-  if (Object.keys(update).length === 0)
-    return NextResponse.json({ error: 'geen velden om te updaten' }, { status: 400 })
-
-  const { error, count } = await auth.supabase
+  // Eerste poging: 1 query voor alle ids (fast path)
+  const { error: bulkError, count } = await auth.supabase
     .from('cities')
     .update(update, { count: 'exact' })
     .in('id', ids)
-  if (error) {
-    console.error('cities bulk-link error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (!bulkError) {
+    return NextResponse.json({ updated: count ?? ids.length, failed: [] })
   }
-  return NextResponse.json({ updated: count ?? ids.length })
+
+  // Fout (waarschijnlijk 23505 conflict op (plaats, postcode, platform_id))
+  // → val terug op per-id update zodat we per rij rapporteren
+  if (bulkError.code !== '23505') {
+    console.error('cities bulk-link unexpected error:', bulkError)
+    return NextResponse.json({ error: bulkError.message }, { status: 500 })
+  }
+
+  const failed: Array<{ id: string; error: string }> = []
+  let updated = 0
+  for (const id of ids) {
+    const { error } = await auth.supabase.from('cities').update(update).eq('id', id)
+    if (error) {
+      failed.push({
+        id,
+        error: error.code === '23505' ? 'duplicate_combination' : (error.message || 'unknown'),
+      })
+    } else {
+      updated++
+    }
+  }
+  return NextResponse.json({ updated, failed })
 }
 
 export const POST = withAdminAuth(handler)

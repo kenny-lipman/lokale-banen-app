@@ -205,8 +205,9 @@ export function CityBulkLinkModal({ selected, platforms, open, onClose, onApplie
                 <span className="text-gray-500">Geen wachtende vacatures voor deze plaatsen.</span>
               )}
             </div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <label htmlFor="rerun-prematch-toggle" className="flex items-center gap-2 text-sm cursor-pointer">
               <input
+                id="rerun-prematch-toggle"
                 type="checkbox"
                 checked={rerunPrematch}
                 onChange={(e) => setRerunPrematch(e.target.checked)}

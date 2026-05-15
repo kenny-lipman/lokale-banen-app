@@ -162,10 +162,12 @@ export function CityEditModal({ city, platforms, open, onClose, onSaved }: Props
             {city.suggested_platform_id && city.platform_id === null && (
               <button
                 type="button"
+                aria-label={`Accepteer platform-suggestie: ${city.suggested_regio_platform}`}
                 className="mt-2 text-xs text-orange-700 hover:underline"
                 onClick={acceptSuggestion}
               >
-                ✦ Accepteer suggestie: {city.suggested_regio_platform}
+                <span aria-hidden="true">✦ </span>
+                Accepteer suggestie: {city.suggested_regio_platform}
               </button>
             )}
           </div>

@@ -24,9 +24,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { TablePagination } from "@/components/ui/table-filters"
-import { AddRegionModal } from "@/components/AddRegionModal"
 import { CityEditModal, type CityEditTarget } from "@/components/cities/CityEditModal"
 import { CityBulkLinkModal, type BulkTargetRow } from "@/components/cities/CityBulkLinkModal"
+import { CityAddModal } from "@/components/cities/CityAddModal"
 
 interface CityRow {
   id: string
@@ -86,10 +86,10 @@ export default function RegionsPage() {
     if (status !== "all") params.set("status", status)
     if (source !== "all") params.set("source", source)
     if (platformFilter !== "all") params.set("platform_id", platformFilter)
-    params.set("limit", "500")
-    params.set("offset", "0")
+    params.set("limit", String(pageSize))
+    params.set("offset", String((page - 1) * pageSize))
     return `/api/cities/list?${params.toString()}`
-  }, [search, status, source, platformFilter])
+  }, [search, status, source, platformFilter, page, pageSize])
 
   const {
     data: listData,
@@ -102,33 +102,23 @@ export default function RegionsPage() {
     fetcher,
   )
 
-  const { data: platformsData } = useSWR<{ success: boolean; data?: PlatformOption[] }>(
-    "/api/platforms?format=full",
-    async (url) => {
-      const res = await fetch(url)
-      const json = await res.json()
-      return json
-    },
+  const { data: platformsData } = useSWR<{ platforms: PlatformOption[] }>(
+    "/api/platforms/options",
+    fetcher,
   )
 
-  const platforms: PlatformOption[] = useMemo(() => {
-    const d = platformsData?.data
-    if (!d) return []
-    if (Array.isArray(d) && d.length > 0 && typeof d[0] === "string") {
-      // legacy API returns string[]
-      return (d as unknown as string[]).map((name) => ({ id: name, regio_platform: name }))
-    }
-    return d as PlatformOption[]
-  }, [platformsData])
+  const platforms: PlatformOption[] = useMemo(
+    () => platformsData?.platforms ?? [],
+    [platformsData],
+  )
 
   const refresh = useCallback(() => {
     mutateList()
     mutateStats()
   }, [mutateList, mutateStats])
 
-  const rows = listData?.rows ?? []
+  const pagedRows = listData?.rows ?? []
   const total = listData?.total ?? 0
-  const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize)
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   const stats = statsData?.stats
@@ -158,9 +148,33 @@ export default function RegionsPage() {
     })
   }
 
+  // Cache geselecteerde rij-data: gebruikers kunnen over paginas heen selecteren
+  const [selectedRowCache, setSelectedRowCache] = useState<Map<string, BulkTargetRow>>(new Map())
+
+  useEffect(() => {
+    setSelectedRowCache((prev) => {
+      const next = new Map(prev)
+      for (const r of pagedRows) {
+        if (selectedIds.has(r.id)) {
+          next.set(r.id, {
+            id: r.id,
+            plaats: r.plaats,
+            postcode: r.postcode,
+            suggested_platform_id: r.suggested_platform_id,
+            suggested_regio_platform: r.suggested_regio_platform,
+          })
+        }
+      }
+      for (const id of Array.from(next.keys())) {
+        if (!selectedIds.has(id)) next.delete(id)
+      }
+      return next
+    })
+  }, [pagedRows, selectedIds])
+
   const selectedRows: BulkTargetRow[] = useMemo(
-    () => rows.filter((r) => selectedIds.has(r.id)),
-    [rows, selectedIds],
+    () => Array.from(selectedRowCache.values()),
+    [selectedRowCache],
   )
 
   const acceptSingleSuggestion = async (r: CityRow) => {
@@ -226,7 +240,7 @@ export default function RegionsPage() {
           <Button variant="outline" onClick={runPrematchNow} disabled={runningPrematch}>
             {runningPrematch ? "Prematch draait…" : "Run prematch nu"}
           </Button>
-          <AddRegionModal />
+          <CityAddModal platforms={platforms} onAdded={refresh} />
         </div>
       </div>
 
@@ -411,10 +425,12 @@ export default function RegionsPage() {
                       {r.suggested_platform_id && r.suggested_regio_platform && (
                         <button
                           type="button"
+                          aria-label={`Accepteer suggestie ${r.suggested_regio_platform} voor ${r.plaats}`}
                           onClick={() => acceptSingleSuggestion(r)}
                           className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-800 hover:bg-orange-200"
                         >
-                          ✦ Suggestie: {r.suggested_regio_platform}
+                          <span aria-hidden="true">✦ </span>
+                          Suggestie: {r.suggested_regio_platform}
                         </button>
                       )}
                     </div>
