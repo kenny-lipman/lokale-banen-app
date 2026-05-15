@@ -114,19 +114,26 @@ async function fetchCsv(source) {
 
 async function buildPlatformSuggestionMap() {
   // PC4-prefix → platform_id, alleen waar uniek (count(distinct platform_id) = 1)
-  const { data, error } = await supabase
-    .from('cities')
-    .select('postcode, platform_id')
-    .not('platform_id', 'is', null)
-    .not('postcode', 'is', null)
-  if (error) throw new Error(`platform-suggestie load: ${error.message}`)
-
   const byPc4 = new Map()
-  for (const row of data ?? []) {
-    if (!row.postcode || !row.platform_id) continue
-    const pc4 = row.postcode.substring(0, 4)
-    if (!byPc4.has(pc4)) byPc4.set(pc4, new Set())
-    byPc4.get(pc4).add(row.platform_id)
+  const pageSize = 1000
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('cities')
+      .select('postcode, platform_id')
+      .not('platform_id', 'is', null)
+      .not('postcode', 'is', null)
+      .range(from, from + pageSize - 1)
+    if (error) throw new Error(`platform-suggestie load: ${error.message}`)
+    if (!data || data.length === 0) break
+    for (const row of data) {
+      if (!row.postcode || !row.platform_id) continue
+      const pc4 = row.postcode.substring(0, 4)
+      if (!byPc4.has(pc4)) byPc4.set(pc4, new Set())
+      byPc4.get(pc4).add(row.platform_id)
+    }
+    if (data.length < pageSize) break
+    from += pageSize
   }
 
   const unique = new Map()
@@ -139,18 +146,25 @@ async function buildPlatformSuggestionMap() {
 }
 
 async function loadExistingCities() {
-  const { data, error } = await supabase
-    .from('cities')
-    .select('plaats, postcode, platform_id')
-  if (error) throw new Error(`existing cities load: ${error.message}`)
-
-  // Twee maps: voor exact-match dedup en voor "any mapped at (plaats, postcode)"
-  const exactKeys = new Set() // plaats_lc|postcode|platform_id
-  const mappedAt = new Set() // plaats_lc|postcode (alleen waar platform_id gevuld)
-  for (const row of data ?? []) {
-    const key = `${row.plaats.toLowerCase()}|${row.postcode ?? ''}`
-    exactKeys.add(`${key}|${row.platform_id ?? '_null'}`)
-    if (row.platform_id) mappedAt.add(key)
+  // Pagineer: Supabase heeft default-limit van 1000 rijen per query
+  const exactKeys = new Set()
+  const mappedAt = new Set()
+  const pageSize = 1000
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('cities')
+      .select('plaats, postcode, platform_id')
+      .range(from, from + pageSize - 1)
+    if (error) throw new Error(`existing cities load: ${error.message}`)
+    if (!data || data.length === 0) break
+    for (const row of data) {
+      const key = `${row.plaats.toLowerCase()}|${row.postcode ?? ''}`
+      exactKeys.add(`${key}|${row.platform_id ?? '_null'}`)
+      if (row.platform_id) mappedAt.add(key)
+    }
+    if (data.length < pageSize) break
+    from += pageSize
   }
   return { exactKeys, mappedAt }
 }
