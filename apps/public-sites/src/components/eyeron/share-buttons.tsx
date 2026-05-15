@@ -43,7 +43,7 @@ export function ShareButtons({ url, title, variant = 'inline' }: ShareButtonsPro
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-meta font-light text-body">Delen:</span>
+      <span className="text-meta font-light text-muted">Delen:</span>
       <a
         href={whatsappUrl}
         target="_blank"

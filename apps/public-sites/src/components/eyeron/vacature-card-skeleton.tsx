@@ -11,7 +11,7 @@ interface VacatureCardSkeletonProps {
  */
 export function VacatureCardSkeleton({ count = 1 }: VacatureCardSkeletonProps) {
   return (
-    <div className="flex flex-col gap-[18px]" aria-hidden="true">
+    <div className="flex flex-col gap-s3" aria-hidden="true">
       {Array.from({ length: count }).map((_, i) => (
         <article
           key={i}

@@ -26,7 +26,7 @@ export default async function VoorwaardenPage() {
   if (!tenant) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-meta font-light text-body">Platform niet gevonden.</p>
+        <p className="text-meta font-light text-muted">Platform niet gevonden.</p>
       </div>
     )
   }

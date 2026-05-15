@@ -120,7 +120,7 @@ export default async function VacaturesPage({ searchParams }: VacaturesPageProps
           />
 
           {jobs.length > 0 ? (
-            <div className="flex flex-col gap-[18px]">
+            <div className="flex flex-col gap-s3">
               {jobs.map((job) => (
                 <VacatureCard key={job.id} job={job} />
               ))}
@@ -198,7 +198,7 @@ export default async function VacaturesPage({ searchParams }: VacaturesPageProps
     <div className="flex flex-col min-h-screen">
       <SiteHeader tenant={tenant} />
 
-      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8 pb-15">
+      <main className="flex-1 max-w-content mx-auto w-full px-pad py-8 pb-s6">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -237,7 +237,7 @@ export default async function VacaturesPage({ searchParams }: VacaturesPageProps
             />
 
             {jobs.length > 0 ? (
-              <div className="flex flex-col gap-[18px]">
+              <div className="flex flex-col gap-s3">
                 {jobs.map((job) => (
                   <VacatureCard key={job.id} job={job} />
                 ))}

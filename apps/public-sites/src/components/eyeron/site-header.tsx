@@ -54,7 +54,7 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
 
           <Link
             href="/werkgevers/pakketten"
-            className="hidden md:inline-flex items-center gap-2 h-10 px-5 rounded-button bg-secondary text-secondary-ink text-meta font-bold tracking-tight transition-colors hover:bg-secondary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2"
+            className="hidden md:inline-flex items-center gap-2 h-11 px-[22px] rounded-button bg-secondary text-secondary-ink text-meta font-bold tracking-tight transition-colors hover:bg-secondary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2"
           >
             <PlusCircle className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             Vacature plaatsen

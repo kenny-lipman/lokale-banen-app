@@ -28,7 +28,7 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'group flex items-center gap-2.5 py-0.5 cursor-pointer min-h-7',
+        'group flex items-center gap-3 py-[5px] cursor-pointer min-h-8',
         className
       )}
     >
@@ -44,18 +44,18 @@ export function Checkbox({
       <span
         aria-hidden="true"
         className={cn(
-          'relative inline-flex w-[18px] h-[18px] shrink-0 rounded-card',
-          'border border-neutral-400 bg-transparent',
+          'relative inline-flex w-5 h-5 shrink-0 rounded-card',
+          'border-2 border-primary bg-transparent',
           'transition-colors duration-150 ease-eyeron',
-          'group-hover:border-primary',
+          'group-hover:border-primary-hover',
           'peer-focus-visible:ring-2 peer-focus-visible:ring-secondary peer-focus-visible:ring-offset-2',
           'after:content-[""] after:absolute after:inset-1/2 after:-translate-x-1/2 after:-translate-y-1/2',
-          'after:w-[10px] after:h-[10px] after:bg-primary',
+          'after:w-3 after:h-3 after:bg-primary',
           'after:opacity-0 after:transition-opacity after:duration-150',
-          'peer-checked:after:opacity-100 peer-checked:border-primary'
+          'peer-checked:after:opacity-100'
         )}
       />
-      <span className="text-meta font-light text-neutral-700 leading-snug">
+      <span className="text-meta font-light text-primary leading-[1.45]">
         {children}
       </span>
     </label>

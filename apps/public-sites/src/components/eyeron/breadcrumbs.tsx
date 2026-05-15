@@ -18,7 +18,7 @@ interface BreadcrumbsProps {
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   return (
     <nav aria-label="Kruimelpad" className={className}>
-      <ol className="flex flex-wrap items-center gap-2 text-meta font-light text-body">
+      <ol className="flex flex-wrap items-center gap-2 text-meta font-light text-muted">
         {items.map((item, i) => {
           const isLast = i === items.length - 1
           return (
@@ -31,13 +31,13 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
                   {item.label}
                 </Link>
               ) : (
-                <span aria-current={isLast ? 'page' : undefined} className="text-body">
+                <span aria-current={isLast ? 'page' : undefined} className="text-muted">
                   {item.label}
                 </span>
               )}
               {!isLast && (
                 <ChevronRight
-                  className="w-3 h-3 text-secondary shrink-0"
+                  className="w-3.5 h-3.5 text-secondary shrink-0"
                   strokeWidth={2}
                   aria-hidden="true"
                 />

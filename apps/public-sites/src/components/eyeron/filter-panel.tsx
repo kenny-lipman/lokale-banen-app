@@ -40,9 +40,9 @@ export function FilterPanel({
   const sectorValues = activeSector ? activeSector.split(',') : []
 
   return (
-    <aside className="bg-surface w-full px-7 py-7 sm:px-8" aria-label="Filters">
+    <aside className="bg-surface w-full px-[30px] pt-7 pb-[30px]" aria-label="Filters">
       {!hideHeading && (
-        <h2 className="text-h1 font-bold text-primary tracking-tight mb-3 m-0">
+        <h2 className="text-h1 font-bold text-primary tracking-tight mb-3.5 m-0">
           Filters
         </h2>
       )}

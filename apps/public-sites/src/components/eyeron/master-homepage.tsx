@@ -79,7 +79,7 @@ export async function MasterHomepage({
               <ArrowRight width={13} height={8} />
             </Link>
           </div>
-          <div className="grid gap-[18px]">
+          <div className="grid gap-s3">
             {recentJobs.map((job) => (
               <VacatureCard key={job.id} job={job} />
             ))}
@@ -114,11 +114,11 @@ function PlatformTile({ platform }: { platform: PlatformSummary }) {
         {platform.name}
       </h3>
       {platform.central_place && (
-        <p className="m-0 mt-1 text-meta font-light text-body">
+        <p className="m-0 mt-1 text-meta font-light text-muted">
           {platform.central_place}
         </p>
       )}
-      <p className="m-0 mt-2 text-meta font-light text-body">
+      <p className="m-0 mt-2 text-meta font-light text-muted">
         {platform.job_count.toLocaleString('nl-NL')} vacatures
       </p>
     </a>

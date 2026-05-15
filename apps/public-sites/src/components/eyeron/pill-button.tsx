@@ -3,9 +3,11 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 type Variant = 'outline' | 'primary'
+type Size = 'md' | 'lg'
 
 type CommonProps = {
   variant?: Variant
+  size?: Size
   className?: string
   children: React.ReactNode
 }
@@ -24,21 +26,26 @@ type Props = ButtonProps | LinkProps
 
 const baseClasses = cn(
   'inline-flex items-center justify-center gap-3',
-  'h-11 px-5 rounded-button',
+  'rounded-button',
   'font-bold text-meta tracking-tight',
   'whitespace-nowrap transition-colors duration-150 ease-eyeron',
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2',
   'disabled:pointer-events-none'
 )
 
+const sizeClasses: Record<Size, string> = {
+  md: 'h-11 px-[22px]',
+  lg: 'h-12 px-6',
+}
+
 const variantClasses: Record<Variant, string> = {
   outline: cn(
     'border border-primary bg-transparent text-primary',
     'hover:bg-primary-tint active:bg-primary-tint-strong',
-    'disabled:border-body disabled:text-body'
+    'disabled:border-muted disabled:text-muted'
   ),
   primary: cn(
-    'border border-primary bg-primary text-primary-ink',
+    'bg-primary text-primary-ink',
     'hover:bg-primary-hover active:bg-primary-active'
   ),
 }
@@ -51,13 +58,14 @@ const variantClasses: Record<Variant, string> = {
  * Werkt zowel als `<button>` als (met `href`) als Next.js `<Link>`.
  */
 export function PillButton(props: Props) {
-  const { variant = 'outline', className, children, ...rest } = props as Props & {
+  const { variant = 'outline', size = 'md', className, children, ...rest } = props as Props & {
     variant?: Variant
+    size?: Size
     className?: string
     children: React.ReactNode
   }
 
-  const classes = cn(baseClasses, variantClasses[variant], className)
+  const classes = cn(baseClasses, sizeClasses[size], variantClasses[variant], className)
 
   if ('href' in rest && rest.href) {
     const { href, ...anchorRest } = rest as LinkProps

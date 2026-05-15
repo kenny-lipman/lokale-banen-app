@@ -22,10 +22,16 @@ const config: Config = {
         'h1':    ['var(--fs-h1)',  { lineHeight: '1.15', letterSpacing: '-0.025em' }],
         'h2':    ['var(--fs-h2)',  { lineHeight: '1.4',  letterSpacing: '-0.012em' }],
         'h3':    ['var(--fs-h3)',  { lineHeight: '1.4' }],
+        'lead':  ['var(--fs-lead)',{ lineHeight: '1.55' }],
         'body':  ['1rem',          { lineHeight: '1.6' }],
         'meta':  ['0.875rem',      { lineHeight: '1.5' }],
         'small': ['0.75rem',       { lineHeight: '1.4' }],
         'input': ['1.125rem',      { lineHeight: '1.4' }],
+      },
+      lineHeight: {
+        tight:   '1.15',
+        snug:    '1.4',
+        relaxed: '1.75',
       },
       colors: {
         // ── Brand: per-tenant ─────────────────────────────────────────
@@ -49,7 +55,7 @@ const config: Config = {
         // ── Neutralen (statisch) ──────────────────────────────────────
         page:         'var(--bg-page)',
         surface:      'var(--bg-surface)',
-        body:         'var(--text-body)',
+        muted:        'var(--text-body)',
         placeholder:  'var(--text-placeholder)',
         'on-dark':    'var(--text-on-dark)',
         divider:      'var(--border-medium)',
@@ -75,6 +81,13 @@ const config: Config = {
         'header-desk':  'var(--header-height-desk)',
         'header-mob':   'var(--header-height-mob)',
         'gap-content':  'var(--content-gap)',
+        // Eyeron spacing-schaal
+        's1':           'var(--space-1)',  /*  8px */
+        's2':           'var(--space-2)',  /* 12px */
+        's3':           'var(--space-3)',  /* 18px */
+        's4':           'var(--space-4)',  /* 30px */
+        's5':           'var(--space-5)',  /* 44px */
+        's6':           'var(--space-6)',  /* 60px */
       },
       transitionTimingFunction: {
         'eyeron': 'cubic-bezier(0.22, 1, 0.36, 1)',

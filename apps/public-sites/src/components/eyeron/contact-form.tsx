@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Send } from 'lucide-react'
 import { submitContactForm, type ContactFormResult } from '@/app/actions/contact'
+import { PillButton } from './pill-button'
 
 /**
  * Contactformulier - server-action submit naar info@lokalebanen.nl.
@@ -94,14 +95,16 @@ export function ContactForm() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button
+        <PillButton
           type="submit"
+          variant="primary"
+          size="lg"
           disabled={pending}
-          className="inline-flex items-center justify-center gap-2 h-12 px-7 rounded-button bg-primary text-primary-ink text-meta font-bold tracking-tight transition-colors hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed"
+          className="disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <Send className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
           {pending ? 'Versturen...' : 'Verstuur bericht'}
-        </button>
+        </PillButton>
       </div>
 
       {result && (

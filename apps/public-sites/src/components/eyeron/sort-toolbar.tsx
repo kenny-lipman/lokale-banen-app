@@ -80,7 +80,7 @@ export function SortToolbar({
 
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-3 pt-3 pb-5 ${className ?? ''}`}
+      className={`flex flex-wrap items-center justify-between gap-3 pt-1.5 pb-3.5 ${className ?? ''}`}
     >
       <span
         className="text-meta font-bold text-primary tracking-tight"
@@ -124,7 +124,7 @@ export function SortToolbar({
                   >
                     {opt.label}
                     {disabled && (
-                      <span className="block text-small font-light text-body mt-0.5">
+                      <span className="block text-small font-light text-muted mt-0.5">
                         Schakel locatie in
                       </span>
                     )}

@@ -82,11 +82,11 @@ export default async function ApplicationsPage() {
                       <p className="m-0 text-body font-bold text-primary tracking-tight truncate group-hover:text-primary-hover">
                         {job.title}
                       </p>
-                      <p className="m-0 mt-0.5 text-meta font-light text-body">
+                      <p className="m-0 mt-0.5 text-meta font-light text-muted">
                         {job.company_name || 'Onbekend bedrijf'}
                         {job.city && ` · ${job.city}`}
                       </p>
-                      <p className="m-0 mt-1 text-small font-light text-body">
+                      <p className="m-0 mt-1 text-small font-light text-muted">
                         Gesolliciteerd {formatRelative(item.applied_at)}
                         {item.method && ` · Via: ${METHOD_LABELS[item.method] || item.method}`}
                       </p>

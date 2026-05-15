@@ -71,7 +71,7 @@ export default async function PakkettenPage() {
             <h2 className="m-0 text-h1 font-bold text-primary tracking-tight">
               Waarom jouw vacature op {tenant.name}
             </h2>
-            <p className="m-0 mt-2 text-body font-light text-body">
+            <p className="m-0 mt-2 text-body font-light text-muted">
               We zetten het even op een rijtje:
             </p>
 
@@ -152,7 +152,7 @@ export default async function PakkettenPage() {
               />
             </div>
 
-            <p className="mt-10 text-center text-meta font-light text-body">
+            <p className="mt-10 text-center text-meta font-light text-muted">
               Heb je meerdere vacatures? Neem dan vrijblijvend contact met ons op en vraag naar de mogelijkheden.
             </p>
           </section>
@@ -205,7 +205,7 @@ function PriceCard({
   const priceClass = highlighted ? 'text-primary-ink' : 'text-primary'
   const featureTextClass = highlighted ? 'text-primary-ink' : 'text-primary'
   const featureIconClass = highlighted ? 'text-primary-ink' : 'text-secondary'
-  const disclaimerClass = highlighted ? 'text-primary-ink/80' : 'text-body'
+  const disclaimerClass = highlighted ? 'text-primary-ink/80' : 'text-muted'
 
   return (
     <div className={`flex flex-col rounded-card shadow-card ${containerClass}`}>

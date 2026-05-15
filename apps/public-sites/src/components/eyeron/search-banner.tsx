@@ -119,7 +119,7 @@ export function SearchBanner({
   return (
     <section
       className={cn(
-        'bg-primary px-5 sm:px-10 pt-6 pb-7 sm:pt-7 sm:pb-8',
+        'bg-primary px-5 sm:px-10 pt-[22px] pb-6 sm:pt-[30px] sm:pb-8',
         className,
       )}
       aria-labelledby="search-title"
@@ -132,7 +132,7 @@ export function SearchBanner({
           Zoek vacature in <em className="not-italic text-secondary">{region}</em>
         </h1>
         {typeof jobCount === 'number' && jobCount > 0 && (
-          <span className="self-start inline-flex items-center h-9 px-4 rounded-pill border border-on-dark text-on-dark text-body whitespace-nowrap">
+          <span className="self-start inline-flex items-center h-[34px] px-4 rounded-pill border border-on-dark text-on-dark text-body whitespace-nowrap">
             {jobCount.toLocaleString('nl-NL')} open posities
           </span>
         )}
@@ -202,7 +202,7 @@ export function SearchBanner({
                   )}
                 >
                   <Search
-                    className="inline-block h-4 w-4 text-body mr-3 align-text-bottom"
+                    className="inline-block h-4 w-4 text-muted mr-3 align-text-bottom"
                     strokeWidth={1.75}
                     aria-hidden="true"
                   />

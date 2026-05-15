@@ -24,15 +24,15 @@ export function ProseContent({
   return (
     <div
       className={cn(
-        'prose prose-sm',
+        'prose',
         variant === 'wide' ? 'max-w-none' : 'max-w-prose',
         // Headings → primary bold
         'prose-headings:text-primary prose-headings:font-bold prose-headings:tracking-tight',
         'prose-h1:text-h1 prose-h2:text-h2 prose-h3:text-h3',
         'prose-h2:mt-10 prose-h2:mb-4 prose-h3:mt-8 prose-h3:mb-3',
         // Body
-        'prose-p:font-light prose-p:text-body prose-p:leading-relaxed',
-        'prose-li:font-light prose-li:text-body',
+        'prose-p:font-light prose-p:text-muted prose-p:leading-relaxed',
+        'prose-li:font-light prose-li:text-muted',
         // Strong → primary bold
         'prose-strong:text-primary prose-strong:font-bold',
         // Links → secondary
@@ -40,7 +40,7 @@ export function ProseContent({
         // Code
         'prose-code:text-primary prose-code:bg-divider-subtle prose-code:px-1 prose-code:rounded-none',
         // Blockquote
-        'prose-blockquote:border-l-secondary prose-blockquote:text-body',
+        'prose-blockquote:border-l-secondary prose-blockquote:text-muted',
         // Tables
         'prose-table:text-meta prose-th:text-primary prose-th:font-bold',
         className

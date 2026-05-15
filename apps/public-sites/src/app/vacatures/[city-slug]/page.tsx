@@ -131,7 +131,7 @@ export default async function CityPage({ params, searchParams }: CityPageProps) 
         />
 
         {jobs.length > 0 ? (
-          <div className="flex flex-col gap-[18px]">
+          <div className="flex flex-col gap-s3">
             {jobs.map((job) => (
               <VacatureCard key={job.id} job={job} />
             ))}
@@ -163,7 +163,7 @@ export default async function CityPage({ params, searchParams }: CityPageProps) 
                     className="inline-flex items-center gap-2 px-4 py-2 border border-primary text-meta font-bold tracking-tight text-primary hover:bg-primary-tint transition-colors"
                   >
                     {c.city}
-                    <span className="text-body font-light">({c.count})</span>
+                    <span className="text-muted font-light">({c.count})</span>
                     <ArrowRight width={11} height={8} className="text-secondary" />
                   </Link>
                 </li>

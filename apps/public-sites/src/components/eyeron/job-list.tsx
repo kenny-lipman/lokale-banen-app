@@ -56,7 +56,7 @@ async function JobListContent({ tenantId, filter }: JobListProps) {
 
   return (
     <div>
-      <div className="flex flex-col gap-[18px]">
+      <div className="flex flex-col gap-s3">
         {jobs.map((job) => (
           <VacatureCard
             key={job.id}

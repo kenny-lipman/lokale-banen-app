@@ -91,20 +91,21 @@ export default async function WerkgeversPage() {
         {/* CTA */}
         <div className="mt-12 pt-8 border-t border-divider-subtle flex flex-wrap gap-3">
           {tenant.contact_email ? (
-            <a
+            <PillButton
               href={`mailto:${tenant.contact_email}?subject=Vacature plaatsen op ${tenant.name}`}
-              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-button bg-primary text-primary-ink text-meta font-bold tracking-tight transition-colors hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2"
+              variant="primary"
+              size="lg"
             >
               <Mail className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
               Plaats jouw vacature
-            </a>
+            </PillButton>
           ) : (
-            <PillButton href="/contact" variant="primary">
+            <PillButton href="/contact" variant="primary" size="lg">
               Neem contact op
               <ArrowRight />
             </PillButton>
           )}
-          <PillButton href="/">Bekijk de vacatures</PillButton>
+          <PillButton href="/" size="lg">Bekijk de vacatures</PillButton>
         </div>
       </main>
 
@@ -126,7 +127,7 @@ function Stat({
     <div className="bg-surface border border-divider-subtle p-5">
       <Icon className="h-5 w-5 text-secondary" strokeWidth={1.75} aria-hidden="true" />
       <p className="m-0 mt-3 text-h2 font-bold text-primary tracking-tight">{value}</p>
-      <p className="m-0 mt-1 text-meta font-light text-body">{label}</p>
+      <p className="m-0 mt-1 text-meta font-light text-muted">{label}</p>
     </div>
   )
 }
@@ -147,7 +148,7 @@ function Step({
       </span>
       <div>
         <h3 className="m-0 text-h3 font-bold text-primary tracking-tight">{title}</h3>
-        <p className="m-0 mt-1 text-meta font-light text-body leading-relaxed">{body}</p>
+        <p className="m-0 mt-1 text-meta font-light text-muted leading-relaxed">{body}</p>
       </div>
     </li>
   )

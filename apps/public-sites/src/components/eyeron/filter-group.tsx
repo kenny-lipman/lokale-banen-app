@@ -65,16 +65,16 @@ export function FilterGroup({
   }
 
   return (
-    <fieldset className="relative border-0 m-0 min-w-0 pt-3 pb-2 first:pt-0">
+    <fieldset className="relative border-0 m-0 min-w-0 pt-[18px] pb-3 first:pt-0">
       {/* Divider - pseudo-element omdat <legend> de fieldset border-top afdekt */}
       <span
         aria-hidden="true"
         className="absolute top-0 left-0 right-0 h-px bg-divider first:hidden"
       />
-      <legend className="text-body font-medium text-primary tracking-tight mb-1.5">
+      <legend className="block w-full p-0 ml-0 text-body font-bold text-primary tracking-tight mb-2">
         {label}
       </legend>
-      <div className="grid gap-0">
+      <div className="flex flex-col">
         {options.map((opt) => {
           const checked = activeValues.includes(opt.value)
           if (type === 'radio') {
@@ -88,7 +88,7 @@ export function FilterGroup({
               >
                 {opt.label}
                 {typeof opt.count === 'number' && opt.count > 0 && (
-                  <span className="ml-1 text-body/70">({opt.count})</span>
+                  <span className="ml-1 text-muted/70">({opt.count})</span>
                 )}
               </Radio>
             )
@@ -103,7 +103,7 @@ export function FilterGroup({
             >
               {opt.label}
               {typeof opt.count === 'number' && opt.count > 0 && (
-                <span className="ml-1 text-body/70">({opt.count})</span>
+                <span className="ml-1 text-muted/70">({opt.count})</span>
               )}
             </Checkbox>
           )

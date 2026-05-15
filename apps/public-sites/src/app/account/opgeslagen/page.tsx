@@ -71,7 +71,7 @@ export default async function SavedJobsPage() {
                     <p className="m-0 text-body font-bold text-primary tracking-tight truncate group-hover:text-primary-hover group-hover:underline underline-offset-2">
                       {job.title}
                     </p>
-                    <p className="m-0 mt-0.5 text-meta font-light text-body">
+                    <p className="m-0 mt-0.5 text-meta font-light text-muted">
                       {job.company_name || 'Onbekend bedrijf'}
                       {job.city && ` · ${job.city}`}
                     </p>
@@ -80,7 +80,7 @@ export default async function SavedJobsPage() {
                         {job.salary}
                       </p>
                     )}
-                    <p className="m-0 mt-1 text-small font-light text-body">
+                    <p className="m-0 mt-1 text-small font-light text-muted">
                       Opgeslagen {formatRelative(item.saved_at)}
                     </p>
                   </Link>

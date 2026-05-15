@@ -79,7 +79,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-h2 font-bold text-primary mb-2">Domein niet gevonden</h1>
-          <p className="text-meta font-light text-body">
+          <p className="text-meta font-light text-muted">
             Dit domein is niet gekoppeld aan een platform.
           </p>
         </div>
@@ -183,7 +183,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       <SiteHeader tenant={tenant} />
 
-      <main className="flex-1 max-w-content mx-auto w-full px-pad pb-15">
+      <main className="flex-1 max-w-content mx-auto w-full px-pad pb-s6">
         <div className="lg:grid lg:gap-gap-content lg:items-start lg:pt-6 lg:[grid-template-columns:var(--content-main-width)_var(--content-sidebar-width)]">
           <div className="min-w-0 pt-5 lg:pt-0">
             <SearchBanner
@@ -192,7 +192,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               defaultQuery={params.q}
             />
 
-            <p className="text-h2 font-regular text-primary leading-snug tracking-tight mt-7 mb-0 max-w-prose">
+            <p className="text-lead text-primary tracking-tight mt-7 mb-0 max-w-prose">
               Wij verzamelen vacatures van lokale werkgevers in de {region}.
               Alle openstaande functies, dagelijks bijgewerkt.
             </p>

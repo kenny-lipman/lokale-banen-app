@@ -47,7 +47,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
           <h1 className="m-0 text-h1 font-bold text-primary tracking-tight leading-tight">
             {job.title}
           </h1>
-          <p className="m-0 mt-3 text-body tracking-tight">
+          <p className="m-0 mt-3 text-body tracking-tight text-muted">
             {job.company?.slug ? (
               <Link
                 href={`/bedrijf/${job.company.slug}`}
@@ -60,10 +60,10 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
             )}
             {job.city && (
               <>
-                <span className="text-body mx-2" aria-hidden="true">·</span>
+                <span className="text-muted mx-2" aria-hidden="true">·</span>
                 <Link
                   href={`/vacatures/${slugifyCity(job.city)}`}
-                  className="text-body hover:text-primary hover:underline underline-offset-2"
+                  className="text-muted hover:text-primary hover:underline underline-offset-2"
                 >
                   {job.city}
                   {job.state && `, ${job.state}`}
@@ -90,12 +90,12 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
         {/* Description */}
         <div className="mt-8">
           {!markdownContent ? (
-            <p className="text-meta text-body italic">
+            <p className="text-meta text-muted italic">
               Er is geen beschrijving beschikbaar voor deze vacature. Bezoek de
               website van de werkgever voor meer informatie.
             </p>
           ) : (
-            <div className="prose max-w-none prose-headings:text-primary prose-headings:font-bold prose-headings:tracking-tight prose-h2:text-h2 prose-h2:mt-10 prose-h2:mb-4 prose-h3:text-h3 prose-h3:mt-8 prose-h3:mb-3 prose-p:text-[18px] prose-p:font-normal prose-p:text-[#1F2937] prose-p:leading-[1.7] prose-li:text-[18px] prose-li:font-normal prose-li:text-[#1F2937] prose-li:leading-[1.7] prose-strong:text-primary prose-strong:font-bold prose-a:text-secondary prose-a:no-underline hover:prose-a:underline">
+            <div className="prose max-w-none prose-headings:text-primary prose-headings:font-bold prose-headings:tracking-tight prose-h2:text-h2 prose-h2:mt-10 prose-h2:mb-4 prose-h3:text-h3 prose-h3:mt-8 prose-h3:mb-3 prose-p:text-lead prose-p:font-light prose-p:text-muted prose-li:text-lead prose-li:font-light prose-li:text-muted prose-strong:text-primary prose-strong:font-bold prose-a:text-secondary prose-a:no-underline hover:prose-a:underline">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                 {markdownContent}
               </ReactMarkdown>
@@ -110,7 +110,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
               Over {companyName}
             </h2>
             {job.company.description && (
-              <p className="m-0 mt-2 text-meta text-body line-clamp-4">
+              <p className="m-0 mt-2 text-meta text-muted line-clamp-4">
                 {job.company.description}
               </p>
             )}
@@ -155,10 +155,10 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
             <h2 className="m-0 text-h2 font-bold text-primary tracking-tight">
               {job.city ? `Andere vacatures in ${job.city}` : 'Andere vacatures'}
             </h2>
-            <p className="m-0 mt-1 mb-6 text-meta text-body">
+            <p className="m-0 mt-1 mb-6 text-meta text-muted">
               Vacatures bij andere werkgevers in dezelfde regio
             </p>
-            <div className="flex flex-col gap-[18px]">
+            <div className="flex flex-col gap-s3">
               {relatedJobs.slice(0, 3).map((relatedJob) => (
                 <VacatureCard key={relatedJob.id} job={relatedJob} />
               ))}
@@ -238,7 +238,7 @@ function FactRow({
     <div className="flex items-start gap-3">
       <Icon className="w-4 h-4 mt-0.5 shrink-0 text-secondary" strokeWidth={1.8} aria-hidden="true" />
       <div className="min-w-0">
-        <dt className="m-0 text-small text-body uppercase tracking-[0.06em]">
+        <dt className="m-0 text-small text-muted uppercase tracking-[0.06em]">
           {label}
         </dt>
         <dd className="m-0 mt-0.5 text-meta font-regular text-primary">{value}</dd>

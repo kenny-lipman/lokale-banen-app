@@ -26,11 +26,11 @@ export function VacatureCard({ job, distanceKm }: VacatureCardProps) {
   const education = job.education_level
 
   return (
-    <article className="group relative grid grid-cols-1 sm:grid-cols-[141px_1fr_168px] bg-surface shadow-card hover:shadow-card-hover focus-within:shadow-card-hover transition-shadow duration-200 ease-eyeron min-h-[222px]">
+    <article className="group relative grid grid-cols-1 md:grid-cols-[141px_1fr_168px] bg-surface shadow-card hover:shadow-card-hover focus-within:shadow-card-hover transition-shadow duration-200 ease-eyeron md:min-h-[222px]">
       <CompanyLogoCell company={company} />
 
-      <div className="flex flex-col gap-1 px-5 sm:px-7 py-5 sm:py-6 min-w-0">
-        <h2 className="inline-flex items-center gap-2.5 text-h2 font-regular text-primary leading-snug tracking-tight m-0">
+      <div className="flex flex-col gap-1 px-5 md:pt-[26px] md:pr-6 md:pb-[22px] md:pl-[30px] py-5 min-w-0">
+        <h2 className="inline-flex items-center gap-2.5 text-h2 font-regular text-primary leading-tight tracking-tight m-0">
           <Link
             href={detailHref}
             className="text-primary no-underline group-hover:underline group-hover:underline-offset-4 group-hover:decoration-secondary"
@@ -41,7 +41,7 @@ export function VacatureCard({ job, distanceKm }: VacatureCardProps) {
           <ArrowRight width={19} height={13} className="text-secondary" />
         </h2>
 
-        <p className="m-0 mb-2 text-body tracking-tight font-light text-body">
+        <p className="m-0 mb-2 text-body tracking-tight font-light text-muted">
           {company?.name && <strong className="font-bold text-primary">{company.name}</strong>}
           {company?.name && (job.city || company.city) && (
             <span className="mx-2" aria-hidden="true">·</span>
@@ -50,16 +50,13 @@ export function VacatureCard({ job, distanceKm }: VacatureCardProps) {
         </p>
 
         {job.description && (
-          <p
-            className="m-0 text-meta font-normal text-[#1F2937] leading-relaxed line-clamp-3 max-w-[60ch]"
-            // line-clamp via Tailwind
-          >
+          <p className="m-0 text-meta font-light text-muted leading-relaxed line-clamp-3 max-w-[60ch]">
             {plainText(job.description)}
           </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5 px-5 sm:px-6 sm:py-6 pb-5 sm:pl-0">
+      <div className="flex flex-row flex-wrap gap-y-2 gap-x-4 md:flex-col md:flex-nowrap md:gap-1.5 px-5 md:px-6 pb-5 md:pt-[26px] md:pb-[22px] md:pl-0">
         {employment && <MetaRow icon={Briefcase}>{employment}</MetaRow>}
         {hours && <MetaRow icon={Clock}>{hours}</MetaRow>}
         {education && <MetaRow icon={GraduationCap}>{education}</MetaRow>}
@@ -101,7 +98,7 @@ function CompanyLogoCell({ company }: { company: JobPosting['company'] }) {
 
   if (company?.logo_url) {
     return (
-      <div className="w-full h-[100px] sm:w-[141px] sm:h-[141px] self-stretch flex items-center justify-center bg-surface border-b sm:border-b-0 sm:border-r border-divider-subtle p-3">
+      <div className="w-full h-[100px] md:w-[141px] md:h-[141px] self-stretch flex items-center justify-center bg-surface border-b md:border-b-0 md:border-r border-divider-subtle p-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={company.logo_url}
@@ -115,7 +112,7 @@ function CompanyLogoCell({ company }: { company: JobPosting['company'] }) {
 
   // Fallback: gekleurde tegel met initialen - gebruik primary om brand-coherent te blijven.
   return (
-    <div className="w-full h-[100px] sm:w-[141px] sm:h-[141px] self-stretch flex items-center justify-center bg-primary text-primary-ink font-bold text-2xl">
+    <div className="w-full h-[100px] md:w-[141px] md:h-[141px] self-stretch flex items-center justify-center bg-primary text-primary-ink font-bold text-2xl">
       {initials}
     </div>
   )
@@ -129,7 +126,7 @@ function MetaRow({
   children: React.ReactNode
 }) {
   return (
-    <span className="inline-flex items-center gap-2 text-meta font-light text-body leading-snug">
+    <span className="inline-flex items-center gap-2 text-meta font-light text-muted leading-snug">
       <Icon className="w-[13px] h-[13px] shrink-0" strokeWidth={1.8} aria-hidden="true" />
       {children}
     </span>

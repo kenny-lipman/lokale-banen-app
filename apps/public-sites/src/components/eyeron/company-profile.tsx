@@ -45,13 +45,13 @@ export function CompanyProfile({ company, jobCount }: CompanyProfileProps) {
         <h1 className="m-0 text-h1 font-bold text-primary tracking-tight leading-tight">
           {company.name}
         </h1>
-        <p className="m-0 mt-2 text-meta font-light text-body">
+        <p className="m-0 mt-2 text-meta font-light text-muted">
           {jobCount.toLocaleString('nl-NL')} {jobCount === 1 ? 'vacature' : 'vacatures'}
           {company.city && ` · ${company.city}`}
         </p>
 
         {company.description && (
-          <p className="m-0 mt-4 text-meta font-light text-body leading-relaxed max-w-prose">
+          <p className="m-0 mt-4 text-meta font-light text-muted leading-relaxed max-w-prose">
             {company.description}
           </p>
         )}
@@ -80,7 +80,7 @@ export function CompanyProfile({ company, jobCount }: CompanyProfileProps) {
             </a>
           )}
           {addressParts && !company.website && !company.linkedin_url && (
-            <span className="inline-flex items-center gap-1.5 text-meta font-light text-body">
+            <span className="inline-flex items-center gap-1.5 text-meta font-light text-muted">
               <MapPin className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               {addressParts}
             </span>

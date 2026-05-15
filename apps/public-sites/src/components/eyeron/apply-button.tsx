@@ -3,6 +3,7 @@
 import { ExternalLink } from 'lucide-react'
 import { logApplication } from '@/app/actions/applications'
 import { cn } from '@/lib/utils'
+import { PillButton } from './pill-button'
 
 interface ApplyButtonProps {
   jobUrl: string | null
@@ -43,24 +44,22 @@ export function ApplyButton({
 
   if (variant === 'inline') {
     return disabled ? (
-      <button
-        type="button"
-        disabled
-        className="w-full inline-flex items-center justify-center h-12 px-6 rounded-button border border-divider text-meta font-bold tracking-tight text-body cursor-not-allowed"
-      >
+      <PillButton type="button" disabled size="lg" className="w-full">
         {buttonLabel}
-      </button>
+      </PillButton>
     ) : (
-      <a
+      <PillButton
         href={jobUrl as string}
+        variant="primary"
+        size="lg"
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="w-full inline-flex items-center justify-center gap-2 h-12 px-6 rounded-button bg-primary text-primary-ink text-meta font-bold tracking-tight transition-colors hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2"
+        className="w-full"
       >
         {buttonLabel}
         <ExternalLink className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-      </a>
+      </PillButton>
     )
   }
 
@@ -74,24 +73,22 @@ export function ApplyButton({
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
     >
       {disabled ? (
-        <button
-          type="button"
-          disabled
-          className="w-full inline-flex items-center justify-center h-12 px-6 rounded-button border border-divider text-meta font-bold tracking-tight text-body cursor-not-allowed"
-        >
+        <PillButton type="button" disabled size="lg" className="w-full">
           {buttonLabel}
-        </button>
+        </PillButton>
       ) : (
-        <a
+        <PillButton
           href={jobUrl as string}
+          variant="primary"
+          size="lg"
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleClick}
-          className="w-full inline-flex items-center justify-center gap-2 h-12 px-6 rounded-button bg-primary text-primary-ink text-meta font-bold tracking-tight transition-colors hover:bg-primary-hover"
+          className="w-full"
         >
           {buttonLabel}
           <ExternalLink className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-        </a>
+        </PillButton>
       )}
     </div>
   )

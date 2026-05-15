@@ -27,9 +27,9 @@ export function PageHero({
   className,
 }: PageHeroProps) {
   return (
-    <section className={cn('mb-7', className)}>
+    <section className={cn('mb-s4', className)}>
       {eyebrow && (
-        <p className="m-0 mb-2 text-small font-light tracking-[0.08em] uppercase text-body">
+        <p className="m-0 mb-2 text-small font-light tracking-[0.08em] uppercase text-muted">
           {eyebrow}
         </p>
       )}
@@ -37,7 +37,7 @@ export function PageHero({
         {accent ? renderWithAccent(title, accent) : title}
       </h1>
       {description && (
-        <p className="m-0 mt-3 text-h2 font-regular leading-snug text-primary max-w-prose">
+        <p className="m-0 mt-3 text-lead font-regular text-primary max-w-prose">
           {description}
         </p>
       )}

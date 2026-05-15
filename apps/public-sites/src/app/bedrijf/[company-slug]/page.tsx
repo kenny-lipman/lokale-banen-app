@@ -166,7 +166,7 @@ export default async function CompanyPage({ params, searchParams }: CompanyPageP
             <h2 className="text-h2 font-bold text-primary tracking-tight m-0 mb-6">
               Vacatures bij {company.name}
             </h2>
-            <div className="flex flex-col gap-[18px]">
+            <div className="flex flex-col gap-s3">
               {jobs.map((job) => (
                 <VacatureCard key={job.id} job={job} />
               ))}

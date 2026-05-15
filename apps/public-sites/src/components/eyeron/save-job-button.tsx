@@ -17,7 +17,7 @@ interface SaveJobButtonProps {
 const VARIANT_CLASSES: Record<Variant, string> = {
   'card-corner': cn(
     'min-w-11 min-h-11 px-2.5 py-2.5',
-    'text-body hover:text-primary'
+    'text-muted hover:text-primary'
   ),
   'detail': cn(
     'min-w-11 min-h-11 px-3 py-3 rounded-button border border-primary',
@@ -119,7 +119,7 @@ export function SaveJobButton({
 
       {showPrompt && (
         <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-surface border border-divider p-3 shadow-card-hover">
-          <p className="text-meta text-body font-light leading-snug">
+          <p className="text-meta text-muted font-light leading-snug">
             <a href="/sign-up" className="font-bold text-primary hover:underline">
               Maak een account aan
             </a>{' '}

@@ -81,7 +81,7 @@ export default async function AccountPage() {
           <div>
             <PageHero title={displayName} className="!mb-0" />
             {email && (
-              <p className="m-0 mt-1 text-meta font-light text-body">{email}</p>
+              <p className="m-0 mt-1 text-meta font-light text-muted">{email}</p>
             )}
           </div>
         </div>
@@ -106,7 +106,7 @@ export default async function AccountPage() {
                   <h2 className="m-0 text-body font-bold text-primary tracking-tight group-hover:text-primary-hover">
                     {item.label}
                   </h2>
-                  <p className="m-0 mt-0.5 text-meta font-light text-body">
+                  <p className="m-0 mt-0.5 text-meta font-light text-muted">
                     {item.description}
                   </p>
                 </div>

@@ -28,7 +28,7 @@ export default async function ContactPage() {
   if (!tenant) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-meta font-light text-body">Platform niet gevonden.</p>
+        <p className="text-meta font-light text-muted">Platform niet gevonden.</p>
       </div>
     )
   }
@@ -63,7 +63,7 @@ export default async function ContactPage() {
             >
               Stuur ons een bericht
             </h2>
-            <p className="m-0 mt-2 mb-6 text-meta font-light text-body max-w-prose">
+            <p className="m-0 mt-2 mb-6 text-meta font-light text-muted max-w-prose">
               Vul het formulier in en we nemen zo snel mogelijk contact met je op.
             </p>
             <ContactForm />
@@ -129,11 +129,11 @@ export default async function ContactPage() {
                 Bedrijfsgegevens
               </h3>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-meta">
-                <dt className="font-light text-body">KvK</dt>
+                <dt className="font-light text-muted">KvK</dt>
                 <dd className="m-0 font-regular text-primary">
                   {COMPANY_INFO.kvkNumber}
                 </dd>
-                <dt className="font-light text-body">BTW</dt>
+                <dt className="font-light text-muted">BTW</dt>
                 <dd className="m-0 font-regular text-primary">
                   {COMPANY_INFO.btwNumber}
                 </dd>
@@ -142,7 +142,7 @@ export default async function ContactPage() {
 
             {/* Sollicitatie-redirect note */}
             <div className="bg-surface border border-divider-subtle p-4 rounded-card">
-              <p className="m-0 text-meta font-light text-body leading-relaxed">
+              <p className="m-0 text-meta font-light text-muted leading-relaxed">
                 Vragen over een specifieke vacature? Neem direct contact op met de
                 werkgever. De contactgegevens vind je op de vacaturepagina.
               </p>

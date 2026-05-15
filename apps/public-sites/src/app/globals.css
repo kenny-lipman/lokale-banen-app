@@ -74,13 +74,26 @@
     --fs-h1:    clamp(1.75rem, 2.4vw + 0.5rem, 2.8rem);
     --fs-h2:    clamp(1.25rem, 1.2vw + 0.5rem, 1.5rem);
     --fs-h3:    1.125rem;
+    --fs-lead:  1.125rem;
     --fs-body:  1rem;
     --fs-meta:  0.875rem;
     --fs-small: 0.75rem;
     --fs-input: 1.125rem;
 
+    --lh-tight:   1.15;
+    --lh-snug:    1.4;
+    --lh-relaxed: 1.75;
+
     --tracking-tight:   -0.025em;
     --tracking-tighter: -0.05em;
+
+    /* ── SPACING-SCHAAL (Eyeron) ───────────────────────────────────── */
+    --space-1: 0.5rem;     /*  8px */
+    --space-2: 0.75rem;    /* 12px */
+    --space-3: 1.125rem;   /* 18px */
+    --space-4: 1.875rem;   /* 30px */
+    --space-5: 2.75rem;    /* 44px */
+    --space-6: 3.75rem;    /* 60px */
 
     /* ── SHADOWS ─────────────────────────────────────────────────────── */
     --shadow-card:        0 1px 2px rgba(15, 23, 42, 0.04);

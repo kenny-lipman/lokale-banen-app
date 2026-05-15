@@ -49,7 +49,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
              rendert zowel pre-processed SVG met var(--primary) als uploaded
              tenant.logo_url universeel in wit. */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <div className="mb-4">
+            <div className="mb-3.5">
               <PortalLogo
                 tenantName={tenant.name}
                 logoUrl={tenant.logo_url}
@@ -103,7 +103,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
               className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
               aria-label="LokaleBanen netwerk"
             >
-              <MasterLogo height={28} className="brightness-0 invert" />
+              <MasterLogo height={33} className="brightness-0 invert" />
             </Link>
           )}
         </div>
@@ -135,7 +135,7 @@ function FooterLinkItem({
   children: React.ReactNode
 }) {
   return (
-    <li className="leading-7">
+    <li className="leading-[30px]">
       <Link
         href={href}
         className="text-meta font-bold text-on-dark hover:underline underline-offset-2"

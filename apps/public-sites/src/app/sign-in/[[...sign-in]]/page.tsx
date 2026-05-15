@@ -22,7 +22,7 @@ export default async function SignInPage() {
             <h1 className="m-0 text-h1 font-bold text-primary tracking-tight">
               Welkom bij {tenant?.hero_title || tenant?.name || 'Lokale Banen'}
             </h1>
-            <p className="m-0 mt-3 text-meta font-light text-body">
+            <p className="m-0 mt-3 text-meta font-light text-muted">
               Log in of maak een account aan om vacatures op te slaan en te
               solliciteren.
             </p>
@@ -42,7 +42,7 @@ export default async function SignInPage() {
                 rootBox: 'w-full',
                 card: 'shadow-card border border-divider-subtle rounded-none bg-surface',
                 headerTitle: 'text-primary',
-                headerSubtitle: 'text-body',
+                headerSubtitle: 'text-muted',
                 socialButtonsBlockButton: 'border-divider hover:bg-primary-tint',
                 formButtonPrimary:
                   'bg-primary text-primary-ink hover:bg-primary-hover normal-case tracking-tight font-bold',
@@ -53,7 +53,7 @@ export default async function SignInPage() {
             signUpUrl="/sign-up"
           />
 
-          <p className="text-center mt-6 text-meta font-light text-body">
+          <p className="text-center mt-6 text-meta font-light text-muted">
             <Link
               href="/"
               className="inline-flex items-center gap-2 text-secondary hover:underline underline-offset-2"
