@@ -2297,6 +2297,7 @@ export type Database = {
           longitude: number | null
           mailerlite_group_id: string | null
           og_image_url: string | null
+          pipedrive_hoofddomein_option_id: number | null
           preview_domain: string | null
           primary_color: string | null
           privacy_text: string | null
@@ -2338,6 +2339,7 @@ export type Database = {
           longitude?: number | null
           mailerlite_group_id?: string | null
           og_image_url?: string | null
+          pipedrive_hoofddomein_option_id?: number | null
           preview_domain?: string | null
           primary_color?: string | null
           privacy_text?: string | null
@@ -2379,6 +2381,7 @@ export type Database = {
           longitude?: number | null
           mailerlite_group_id?: string | null
           og_image_url?: string | null
+          pipedrive_hoofddomein_option_id?: number | null
           preview_domain?: string | null
           primary_color?: string | null
           privacy_text?: string | null
@@ -2499,6 +2502,7 @@ export type Database = {
           contactmoment_offset_workdays: number
           created_at: string
           display_order: number
+          hoofddomein_fixed_option_id: number | null
           hoofddomein_fixed_value: string | null
           hoofddomein_strategy: string
           id: string
@@ -2516,6 +2520,7 @@ export type Database = {
           contactmoment_offset_workdays?: number
           created_at?: string
           display_order?: number
+          hoofddomein_fixed_option_id?: number | null
           hoofddomein_fixed_value?: string | null
           hoofddomein_strategy: string
           id?: string
@@ -2533,6 +2538,7 @@ export type Database = {
           contactmoment_offset_workdays?: number
           created_at?: string
           display_order?: number
+          hoofddomein_fixed_option_id?: number | null
           hoofddomein_fixed_value?: string | null
           hoofddomein_strategy?: string
           id?: string

@@ -96,7 +96,7 @@ export class PipedriveSyncService {
     const { data: cfg } = await this.supabase
       .from('sales_lead_owner_config')
       .select(
-        'id, pipedrive_user_id, pipedrive_pipeline_id, pipedrive_default_stage_id, hoofddomein_strategy, hoofddomein_fixed_value, wetarget_flag_value, contactmoment_field_key, contactmoment_offset_workdays',
+        'id, pipedrive_user_id, pipedrive_pipeline_id, pipedrive_default_stage_id, hoofddomein_strategy, hoofddomein_fixed_value, hoofddomein_fixed_option_id, wetarget_flag_value, contactmoment_field_key, contactmoment_offset_workdays',
       )
       .eq('id', run.owner_config_id)
       .maybeSingle()
@@ -146,7 +146,8 @@ export class PipedriveSyncService {
     try {
       // 3. Org
       if (!orgId) {
-        const orgPayload = buildOrgPayload(master, owner)
+        const hoofddomeinOptionId = await this.resolveHoofddomeinOptionId(owner, master.hoofddomein ?? undefined)
+        const orgPayload = buildOrgPayload(master, owner, { hoofddomeinOptionId })
         const created = await this.pd.createOrganization(
           orgPayload as unknown as PipedriveOrganization,
         )
@@ -292,5 +293,28 @@ export class PipedriveSyncService {
       error,
       partial,
     }
+  }
+
+  /**
+   * Resolve het Pipedrive Hoofddomein-option-ID:
+   *   1. strategy='fixed' → owner.hoofddomein_fixed_option_id
+   *   2. strategy='auto_match_by_address' → platforms.regio_platform = master.hoofddomein
+   * Returnt null als geen mapping bestaat — caller skipt het custom-field.
+   */
+  private async resolveHoofddomeinOptionId(
+    owner: OwnerConfigForSync,
+    hoofddomeinLabel: string | undefined,
+  ): Promise<number | null> {
+    if (owner.hoofddomein_strategy === 'fixed') {
+      return owner.hoofddomein_fixed_option_id ?? null
+    }
+    if (!hoofddomeinLabel) return null
+    const { data, error } = await this.supabase
+      .from('platforms')
+      .select('pipedrive_hoofddomein_option_id')
+      .eq('regio_platform', hoofddomeinLabel)
+      .maybeSingle()
+    if (error || !data) return null
+    return data.pipedrive_hoofddomein_option_id ?? null
   }
 }

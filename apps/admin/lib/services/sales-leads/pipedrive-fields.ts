@@ -59,3 +59,9 @@ export const WETARGET_ENUM = {
   JA: 265,
   NEE: 301,
 } as const
+
+// Hoofddomein-mapping: zie `platforms.pipedrive_hoofddomein_option_id` +
+// `sales_lead_owner_config.hoofddomein_fixed_option_id`. Geen hardcoded map
+// hier — owner-config (fixed strategy) of platforms-lookup (auto-match
+// strategy) levert het ID. PipedriveSyncService resolve't dit en geeft het
+// als parameter mee aan `buildOrgPayload`.

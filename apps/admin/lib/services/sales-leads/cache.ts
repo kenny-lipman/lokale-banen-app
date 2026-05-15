@@ -14,6 +14,7 @@ export type CacheSource =
   | 'apollo_org'
   | 'website_page'
   | 'pipedrive_users' | 'pipedrive_pipelines' | 'pipedrive_stages' | 'pipedrive_deal_fields_date'
+  | 'pipedrive_org_fields'
 
 export type TTL = '1h' | '24h' | '7d' | '30d'
 

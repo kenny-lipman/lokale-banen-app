@@ -4,7 +4,8 @@ import { createServiceRoleClient } from '@/lib/supabase-server'
 
 const UPDATABLE_FIELDS = [
   'label', 'pipedrive_user_id', 'pipedrive_pipeline_id', 'pipedrive_default_stage_id',
-  'hoofddomein_strategy', 'hoofddomein_fixed_value', 'wetarget_flag_value',
+  'hoofddomein_strategy', 'hoofddomein_fixed_value', 'hoofddomein_fixed_option_id',
+  'wetarget_flag_value',
   'contactmoment_field_key', 'contactmoment_offset_workdays', 'is_active', 'display_order',
 ] as const
 

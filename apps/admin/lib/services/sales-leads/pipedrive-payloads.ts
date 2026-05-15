@@ -13,6 +13,7 @@ export type OwnerConfigForSync = {
   pipedrive_default_stage_id: number
   hoofddomein_strategy: 'fixed' | 'auto_match_by_address'
   hoofddomein_fixed_value: string | null
+  hoofddomein_fixed_option_id: number | null
   wetarget_flag_value: number
   contactmoment_field_key: string | null
   contactmoment_offset_workdays: number
@@ -26,6 +27,7 @@ export type OwnerConfigForSync = {
 export function buildOrgPayload(
   master: MasterRecord,
   owner: OwnerConfigForSync,
+  resolved: { hoofddomeinOptionId: number | null },
 ): {
   name: string
   owner_id: number
@@ -51,7 +53,18 @@ export function buildOrgPayload(
   const branche = sbiToBrancheEnumId(firstSbi)
   if (branche) customFields[ORG_FIELD_KEYS.BRANCHE] = branche
 
-  if (master.hoofddomein) customFields[ORG_FIELD_KEYS.HOOFDDOMEIN] = master.hoofddomein
+  // Hoofddomein is een enum in PD — option_id resolveerd door PipedriveSync
+  // op basis van owner.hoofddomein_strategy ('fixed' → owner.option_id,
+  // 'auto_match_by_address' → platforms.regio_platform lookup).
+  // Skip-met-warning wanneer geen mapping — admin moet platforms-row of
+  // owner-config bijwerken.
+  if (resolved.hoofddomeinOptionId != null) {
+    customFields[ORG_FIELD_KEYS.HOOFDDOMEIN] = resolved.hoofddomeinOptionId
+  } else if (master.hoofddomein) {
+    console.warn(
+      `[pipedrive] Geen Hoofddomein option_id voor "${master.hoofddomein}" — set platforms.pipedrive_hoofddomein_option_id of owner.hoofddomein_fixed_option_id`,
+    )
+  }
   customFields[ORG_FIELD_KEYS.WETARGET_FLAG] = owner.wetarget_flag_value
 
   return {

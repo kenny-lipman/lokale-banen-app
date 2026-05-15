@@ -60,6 +60,21 @@ export class PipedriveMetaService {
     })
   }
 
+  async getHoofddomeinOptions(): Promise<Array<{ id: number; label: string }>> {
+    return this.cached('pipedrive_org_fields', 'hoofddomein', async () => {
+      const data = (await this.pdFetch('/organizationFields?limit=500')) as Array<{
+        key: string
+        name: string
+        field_type: string
+        options?: Array<{ id: number; label: string }>
+      }>
+      // 7180a712… = Hoofddomein enum (zie pipedrive-fields.ts ORG_FIELD_KEYS).
+      const field = data.find((f) => f.key === '7180a7123d1de658e8d1d642b8496802002ddc66')
+      if (!field?.options) return []
+      return field.options.map((o) => ({ id: o.id, label: o.label }))
+    })
+  }
+
   async getDateDealFields(): Promise<PipedriveDealField[]> {
     return this.cached('pipedrive_deal_fields_date', 'all', async () => {
       const data = (await this.pdFetch('/dealFields')) as Array<PipedriveDealField>

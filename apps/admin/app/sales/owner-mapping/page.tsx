@@ -16,6 +16,7 @@ type OwnerConfig = {
   pipedrive_default_stage_id: number
   hoofddomein_strategy: "fixed" | "auto_match_by_address"
   hoofddomein_fixed_value: string | null
+  hoofddomein_fixed_option_id: number | null
   wetarget_flag_value: number
   contactmoment_field_key: string | null
   contactmoment_offset_workdays: number

@@ -26,11 +26,17 @@ type OwnerConfig = {
   pipedrive_default_stage_id: number
   hoofddomein_strategy: "fixed" | "auto_match_by_address"
   hoofddomein_fixed_value: string | null
+  hoofddomein_fixed_option_id: number | null
   wetarget_flag_value: number
   contactmoment_field_key: string | null
   contactmoment_offset_workdays: number
   is_active: boolean
 }
+
+type HoofddomeinOption = { id: number; label: string }
+
+const WETARGET_OPTION_ID = 297
+const WETARGET_LABEL = "WeTarget"
 
 type Props = {
   open: boolean
@@ -45,14 +51,27 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
   const [pipelines, setPipelines] = useState<PipedrivePipeline[]>([])
   const [stages, setStages] = useState<PipedriveStage[]>([])
   const [dealFields, setDealFields] = useState<PipedriveDealField[]>([])
+  const [hoofddomeinOptions, setHoofddomeinOptions] = useState<HoofddomeinOption[]>([])
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<OwnerConfigTestResult | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  // Reset form als config-prop verandert
+  // Reset form als config-prop verandert. Default WeTarget bij fixed-strategy
+  // zonder option_id zodat user direct kan opslaan zonder dropdown te openen.
   useEffect(() => {
-    setForm(config)
+    const next: OwnerConfig = {
+      ...config,
+      hoofddomein_fixed_option_id:
+        config.hoofddomein_strategy === "fixed" && config.hoofddomein_fixed_option_id == null
+          ? WETARGET_OPTION_ID
+          : config.hoofddomein_fixed_option_id,
+      hoofddomein_fixed_value:
+        config.hoofddomein_strategy === "fixed" && !config.hoofddomein_fixed_value
+          ? WETARGET_LABEL
+          : config.hoofddomein_fixed_value,
+    }
+    setForm(next)
     setTestResult(null)
     setSaveError(null)
   }, [config, open])
@@ -66,12 +85,21 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
       fetch("/api/sales-leads/pipedrive-meta/pipelines").then((r) => r.json()),
       fetch("/api/sales-leads/pipedrive-meta/deal-fields").then((r) => r.json()),
       fetch(`/api/sales-leads/pipedrive-meta/stages?pipeline_id=${form.pipedrive_pipeline_id}`).then((r) => r.json()),
+      fetch("/api/sales-leads/pipedrive-meta/hoofddomein-options").then((r) => r.json()),
     ])
-      .then(([u, p, d, s]) => {
+      .then(([u, p, d, s, h]) => {
         setUsers(u.users ?? [])
         setPipelines(p.pipelines ?? [])
         setDealFields(d.deal_fields ?? [])
         setStages(s.stages ?? [])
+        const opts: HoofddomeinOption[] = h.options ?? []
+        // WeTarget bovenaan voor snelle default-keuze, daarna alfabetisch.
+        opts.sort((a, b) => {
+          if (a.label === WETARGET_LABEL) return -1
+          if (b.label === WETARGET_LABEL) return 1
+          return a.label.localeCompare(b.label)
+        })
+        setHoofddomeinOptions(opts)
       })
       .finally(() => setLoading(false))
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -107,6 +135,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
         pipedrive_default_stage_id: form.pipedrive_default_stage_id,
         hoofddomein_strategy: form.hoofddomein_strategy,
         hoofddomein_fixed_value: form.hoofddomein_fixed_value,
+        hoofddomein_fixed_option_id: form.hoofddomein_fixed_option_id,
         wetarget_flag_value: form.wetarget_flag_value,
         contactmoment_field_key: form.contactmoment_field_key,
         contactmoment_offset_workdays: form.contactmoment_offset_workdays,
@@ -213,12 +242,25 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
                   <RadioGroupItem id="strat-fixed" value="fixed" />
                   <Label htmlFor="strat-fixed" className="font-normal">Vast</Label>
                   {form.hoofddomein_strategy === "fixed" && (
-                    <Input
-                      className="ml-2 w-48"
-                      placeholder="bv. WeTarget"
-                      value={form.hoofddomein_fixed_value ?? ""}
-                      onChange={(e) => setForm({ ...form, hoofddomein_fixed_value: e.target.value })}
-                    />
+                    <Select
+                      value={form.hoofddomein_fixed_option_id ? String(form.hoofddomein_fixed_option_id) : String(WETARGET_OPTION_ID)}
+                      onValueChange={(v) => {
+                        const id = parseInt(v, 10)
+                        const opt = hoofddomeinOptions.find((o) => o.id === id)
+                        setForm({
+                          ...form,
+                          hoofddomein_fixed_option_id: id,
+                          hoofddomein_fixed_value: opt?.label ?? null,
+                        })
+                      }}
+                    >
+                      <SelectTrigger className="ml-2 w-56"><SelectValue placeholder="Kies hoofddomein" /></SelectTrigger>
+                      <SelectContent>
+                        {hoofddomeinOptions.map((o) => (
+                          <SelectItem key={o.id} value={String(o.id)}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
                 <div className="flex items-center space-x-2">

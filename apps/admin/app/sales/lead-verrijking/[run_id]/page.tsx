@@ -274,7 +274,16 @@ export default function RunDetailPage({ params }: PageProps) {
         </div>
         <div className="lg:col-span-5 space-y-4">
           <LeadCareerPageSuggestions runId={run_id} />
-          <LeadSitemapPages master={currentMaster} />
+          {/* pages_crawled/pages_discovered direct uit fresh run-data lezen
+              i.p.v. lokale `currentMaster` — die wordt door `hydratedRef`
+              maar éénmaal gehydrateerd en mist updates uit een website-replay. */}
+          <LeadSitemapPages
+            master={{
+              ...currentMaster,
+              pages_crawled: run!.master_record?.pages_crawled ?? currentMaster.pages_crawled,
+              pages_discovered: run!.master_record?.pages_discovered ?? currentMaster.pages_discovered,
+            }}
+          />
           <LeadColdContactsCard
             runId={run_id}
             coldCandidates={run!.enrichments?.apollo?.parsed?.cold_candidates ?? []}
