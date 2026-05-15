@@ -217,7 +217,12 @@ export default function RunDetailPage({ params }: PageProps) {
   if (!run) return <div className="p-8 text-sm text-gray-500">Run niet gevonden.</div>
 
   const ownerConfig = owners?.find((o) => o.id === run.owner_config_id) ?? null
-  const showReview = run.status === 'review'
+  // Toon review-grid ook bij status='failed' MITS master_record bestaat —
+  // failed kan ook van een failed Pipedrive-sync komen (na succesvolle
+  // enrichment), dan moet user de bron-data + contacten/vacatures niet
+  // verliezen om een retry-sync te kunnen doen.
+  const showReview =
+    run.status === 'review' || (run.status === 'failed' && !!run.master_record)
   const showEnriching = run.status === 'enriching'
   const showSyncCard =
     run.status === 'review' ||

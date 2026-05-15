@@ -31,7 +31,7 @@ export function buildOrgPayload(
 ): {
   name: string
   owner_id: number
-  visible_to: string
+  visible_to: number
   address?: string
   custom_fields: Record<string, unknown>
 } {
@@ -70,7 +70,8 @@ export function buildOrgPayload(
   return {
     name: master.company_name,
     owner_id: owner.pipedrive_user_id,
-    visible_to: '3',
+    // V2 vereist visible_to als integer (V1 accepteerde string). 3 = "Entire company".
+    visible_to: 3,
     ...(master.address?.full ? { address: master.address.full } : {}),
     custom_fields: customFields,
   }
@@ -87,7 +88,7 @@ export function buildPersonPayload(
   name: string
   org_id: number
   owner_id: number
-  visible_to: string
+  visible_to: number
   email?: Array<{ value: string; primary: boolean }>
   phone?: Array<{ value: string; primary: boolean }>
 } & Record<string, unknown> {
@@ -95,7 +96,7 @@ export function buildPersonPayload(
     name: contact.name,
     org_id: orgId,
     owner_id: owner.pipedrive_user_id,
-    visible_to: '3',
+    visible_to: 3,
   }
   if (contact.email) out.email = [{ value: contact.email, primary: true }]
   const phone = contact.phone_mobile ?? contact.phone_other
@@ -123,7 +124,7 @@ export function buildDealPayload(
   stage_id: number
   value: number
   currency: string
-  visible_to: string
+  visible_to: number
   custom_fields: Record<string, string>
 } {
   const today = new Date().toISOString().split('T')[0]
@@ -140,7 +141,7 @@ export function buildDealPayload(
     stage_id: owner.pipedrive_default_stage_id,
     value: 0,
     currency: 'EUR',
-    visible_to: '3',
+    visible_to: 3,
     custom_fields: customFields,
   }
 }

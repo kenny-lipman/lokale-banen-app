@@ -489,7 +489,7 @@ export class PipedriveClient {
   async createOrganizationV2(org: {
     name: string
     owner_id?: number
-    visible_to?: string
+    visible_to?: number
     address?: string
     custom_fields?: Record<string, unknown>
   }): Promise<{ id: number; [k: string]: unknown }> {
@@ -719,7 +719,7 @@ export class PipedriveClient {
     stage_id: number
     value?: number
     currency?: string
-    visible_to?: string
+    visible_to?: number
     custom_fields?: Record<string, unknown>
   }): Promise<{ id: number; [k: string]: unknown }> {
     const data = await this.requestV2('POST', '/deals', deal)
