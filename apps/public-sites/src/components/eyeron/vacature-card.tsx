@@ -127,7 +127,9 @@ function MetaRow({
 }) {
   return (
     <span className="inline-flex items-start gap-2 text-meta font-light text-muted leading-snug">
-      <Icon className="w-[13px] h-[13px] shrink-0 mt-[3px]" strokeWidth={1.8} aria-hidden="true" />
+      <span className="inline-flex items-center justify-center h-[1.5em] shrink-0" aria-hidden="true">
+        <Icon className="w-[13px] h-[13px]" strokeWidth={1.8} />
+      </span>
       <span className="min-w-0">{children}</span>
     </span>
   )
