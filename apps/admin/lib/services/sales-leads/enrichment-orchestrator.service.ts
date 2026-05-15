@@ -8,7 +8,6 @@ import { MistralService } from './mistral.service'
 import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
 import { upsertCompanyFromRun, upsertCareerPageSource } from './internal-linking'
-import { isPlaceholderContactName } from './contact-filters'
 import type {
   RunEnrichments,
   PerSourceEnrichment,
@@ -68,12 +67,33 @@ export class EnrichmentOrchestratorService {
         break
       case 'website':
         await this.runWebsite(runId, input_url, scrape_vacancies)
+        // pages_crawled is een single-source veld dat de UI-sitemap aanstuurt
+        // en niet door user wordt geëdit — bij website-replay altijd resyncen
+        // zodat de geparsede sitemap meebeweegt met de nieuwe crawl.
+        await this.syncPagesCrawledToMaster(runId)
         break
     }
     // Self-heal: als master_record ontbreekt (legacy/corrupted runs waar
     // finalize ooit niet voltooide), bouw hem op uit huidige enrichments.
     // Touch'ed niets als master_record al bestaat — user-edits blijven veilig.
     await this.rebuildMasterIfMissing(runId)
+  }
+
+  private async syncPagesCrawledToMaster(runId: string): Promise<void> {
+    const { data } = await this.supabase
+      .from('sales_lead_runs')
+      .select('master_record, enrichments')
+      .eq('id', runId)
+      .single()
+    if (!data?.master_record) return
+    const pages =
+      (data.enrichments as RunEnrichments | null)?.website?.parsed?.pages_crawled
+    if (!pages?.length) return
+    const master = { ...(data.master_record as Record<string, unknown>), pages_crawled: pages }
+    await this.supabase
+      .from('sales_lead_runs')
+      .update({ master_record: master as unknown as Json, updated_at: new Date().toISOString() })
+      .eq('id', runId)
   }
 
   private async rebuildMasterIfMissing(runId: string): Promise<void> {
@@ -292,15 +312,8 @@ export class EnrichmentOrchestratorService {
   private async runPersonMatching(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const enr = run.enrichments
-    // Skip placeholders ('Niet gespecificeerd', 'Afdeling Personeelszaken')
-    // zowel uit website-input als uit Apollo's reeds bekende set — die geven
-    // false-positive matches en verspillen credits.
-    const websiteContacts = (enr.website?.parsed?.contacts ?? []).filter(
-      (c) => !!c.name && !isPlaceholderContactName(c.name),
-    )
-    const apolloWarm = (enr.apollo?.parsed?.contacts ?? []).filter(
-      (c) => !!c.name && !isPlaceholderContactName(c.name),
-    )
+    const websiteContacts = (enr.website?.parsed?.contacts ?? []).filter((c) => !!c.name)
+    const apolloWarm = (enr.apollo?.parsed?.contacts ?? []).filter((c) => !!c.name)
     if (!websiteContacts.length) return
 
     const warmNames = new Set(apolloWarm.map((c) => normalizeName(c.name)))

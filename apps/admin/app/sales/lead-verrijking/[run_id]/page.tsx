@@ -262,6 +262,8 @@ export default function RunDetailPage({ params }: PageProps) {
             enrichments={run!.enrichments ?? {}}
             selected={selected}
             onChange={setSelected}
+            runId={run_id}
+            onContactEdited={onCandidatePromoted}
           />
           <LeadVacanciesColumn
             manualVacancies={manualVacancies}

@@ -4,15 +4,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Star, Plus, ArrowUp, AlertTriangle } from 'lucide-react'
+import { Star, Plus, ArrowUp, AlertTriangle, Pencil } from 'lucide-react'
 import type { NormalizedContact, RunEnrichments } from '@/lib/services/sales-leads/types'
-import { isPlaceholderContactName } from '@/lib/services/sales-leads/contact-filters'
 import { LeadAddContactModal } from './lead-add-contact-modal'
+import { LeadEditContactModal } from './lead-edit-contact-modal'
 
 type Props = {
   enrichments: RunEnrichments
   selected: NormalizedContact[]
   onChange: (next: NormalizedContact[]) => void
+  runId?: string
+  onContactEdited?: () => void | Promise<void>
 }
 
 const MAX_SELECTED = 2
@@ -67,8 +69,15 @@ function withCappedSelected(
   return [...current.filter((x) => x !== lowest), next]
 }
 
-export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
+export function LeadContactsColumn({
+  enrichments,
+  selected,
+  onChange,
+  runId,
+  onContactEdited,
+}: Props) {
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingContact, setEditingContact] = useState<NormalizedContact | null>(null)
 
   const coldCount = enrichments.apollo?.parsed?.cold_candidates?.length ?? 0
   const apolloStatus = enrichments.apollo?.status
@@ -101,13 +110,7 @@ export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
   const allCandidates = useMemo(() => {
     const apollo = enrichments.apollo?.parsed?.contacts ?? []
     const website = enrichments.website?.parsed?.contacts ?? []
-    // Safety-net voor runs van vóór de placeholder-filter (zoals
-    // 'Niet Gespecificeerd' met info@-email). Manuals laten we door zodat
-    // user bewust mag toevoegen wat-dan-ook.
-    const merged = dedupe([...apollo, ...website, ...manualPool])
-    return merged.filter(
-      (c) => !isPlaceholderContactName(c.name) || c.source_origin.includes('manual'),
-    )
+    return dedupe([...apollo, ...website, ...manualPool])
   }, [enrichments, manualPool])
 
   const selectedKeys = new Set(selected.map((c) => c.name.trim().toLowerCase()))
@@ -151,7 +154,13 @@ export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
         ) : (
           <div className="space-y-2">
             {selected.map((c) => (
-              <ContactCard key={c.name} contact={c} highlighted onClick={() => toggleSelect(c)} />
+              <ContactCard
+                key={c.name}
+                contact={c}
+                highlighted
+                onClick={() => toggleSelect(c)}
+                onEdit={runId ? () => setEditingContact(c) : undefined}
+              />
             ))}
             {selected.length === 1 && (
               <p className="text-xs text-gray-500">1 contact geselecteerd — klik op een ander om +1.</p>
@@ -168,6 +177,7 @@ export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
                   key={c.name}
                   contact={c}
                   onClick={() => toggleSelect(c)}
+                  onEdit={runId ? () => setEditingContact(c) : undefined}
                   swapHint={selected.length >= MAX_SELECTED}
                 />
               ))}
@@ -187,6 +197,15 @@ export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
         )}
 
         <LeadAddContactModal open={modalOpen} onOpenChange={setModalOpen} onAdd={addManual} />
+        {runId && (
+          <LeadEditContactModal
+            open={editingContact !== null}
+            onOpenChange={(o) => { if (!o) setEditingContact(null) }}
+            contact={editingContact}
+            runId={runId}
+            onSaved={onContactEdited}
+          />
+        )}
       </CardContent>
     </Card>
   )
@@ -197,49 +216,65 @@ function ContactCard({
   highlighted,
   swapHint,
   onClick,
+  onEdit,
 }: {
   contact: NormalizedContact
   highlighted?: boolean
   swapHint?: boolean
   onClick: () => void
+  onEdit?: () => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full text-left rounded-md border p-3 hover:bg-orange-50 transition ${
+    <div
+      className={`relative w-full rounded-md border hover:bg-orange-50 transition ${
         highlighted ? 'border-orange-300 bg-orange-50/50' : 'border-gray-200'
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{contact.name}</span>
-            {contact.is_warm_lead && contact.source_origin.includes('apollo') && (
-              <Badge variant="outline" className="text-yellow-700 border-yellow-300 text-[10px]">
-                <AlertTriangle className="w-3 h-3 mr-0.5" />
-                Apollo CRM
-              </Badge>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left p-3"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 pr-7">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{contact.name}</span>
+              {contact.is_warm_lead && contact.source_origin.includes('apollo') && (
+                <Badge variant="outline" className="text-yellow-700 border-yellow-300 text-[10px]">
+                  <AlertTriangle className="w-3 h-3 mr-0.5" />
+                  Apollo CRM
+                </Badge>
+              )}
+            </div>
+            {contact.title && <p className="text-xs text-gray-500">{contact.title}</p>}
+            <p className="text-[11px] text-gray-400 mt-1">
+              {contact.email ?? 'geen e-mail'} · {contact.phone_mobile ?? '—'}
+            </p>
+            {contact.ai_priority_reason && (
+              <p className="text-[11px] text-gray-500 mt-1 italic">{contact.ai_priority_reason}</p>
             )}
           </div>
-          {contact.title && <p className="text-xs text-gray-500">{contact.title}</p>}
-          <p className="text-[11px] text-gray-400 mt-1">
-            {contact.email ?? 'geen e-mail'} · {contact.phone_mobile ?? '—'}
-          </p>
-          {contact.ai_priority_reason && (
-            <p className="text-[11px] text-gray-500 mt-1 italic">{contact.ai_priority_reason}</p>
-          )}
+          <div className="flex flex-col items-end gap-1">
+            {contact.ai_priority_score !== undefined && (
+              <span className="flex items-center text-xs text-orange-600">
+                <Star className="w-3 h-3 mr-0.5 fill-orange-500" />
+                {contact.ai_priority_score}
+              </span>
+            )}
+            {swapHint && <ArrowUp className="w-3 h-3 text-gray-400" />}
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          {contact.ai_priority_score !== undefined && (
-            <span className="flex items-center text-xs text-orange-600">
-              <Star className="w-3 h-3 mr-0.5 fill-orange-500" />
-              {contact.ai_priority_score}
-            </span>
-          )}
-          {swapHint && <ArrowUp className="w-3 h-3 text-gray-400" />}
-        </div>
-      </div>
-    </button>
+      </button>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEdit() }}
+          aria-label="Contact bewerken"
+          className="absolute top-2 right-2 p-1 rounded text-gray-400 hover:text-orange-700 hover:bg-white transition"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
   )
 }

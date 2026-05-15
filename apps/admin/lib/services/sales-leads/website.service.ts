@@ -262,26 +262,30 @@ export class WebsiteService {
     e: MistralExtractResult,
     discovered: DiscoveredUrl[],
   ): NormalizedFields {
-    // Mistral kan contacten met null name OF placeholder-namen ("Niet
-    // gespecificeerd", "Afdeling Personeelszaken") terugleveren wanneer er
-    // alleen een generiek info@-adres op de pagina staat. Beide soorten zijn
-    // onbruikbaar voor Pipedrive-person creation en mogen niet in de UI
-    // verschijnen of Apollo /people/match-credits verspillen.
+    // Mistral kan contacten met null name terugleveren — drop die. Voor
+    // placeholder-namen ("Niet gespecificeerd", "Niet expliciet genoemd",
+    // etc.) normaliseren we naar "Afdeling Personeelszaken" zodat user de
+    // contact-record in de UI kan editen i.p.v. opnieuw moet aanmaken.
+    // Email/phone/department blijven behouden — alleen de naam is fallback.
     const contacts: NormalizedContact[] = (e.contacts ?? [])
       .filter((c): c is typeof c & { name: string } =>
-        typeof c.name === 'string' &&
-        c.name.trim().length > 0 &&
-        !isPlaceholderContactName(c.name),
+        typeof c.name === 'string' && c.name.trim().length > 0,
       )
-      .map((c) => ({
-        name: c.name,
-        title: c.title ?? undefined,
-        email: c.email ?? undefined,
-        phone_other: c.phone ?? undefined,
-        linkedin_url: c.linkedin_url ?? undefined,
-        department: c.department_guess ?? undefined,
-        source_origin: ['website'],
-      }))
+      .map((c) => {
+        const isPlaceholder = isPlaceholderContactName(c.name)
+        const name = isPlaceholder ? 'Afdeling Personeelszaken' : c.name
+        return {
+          name,
+          first_name: isPlaceholder ? 'Afdeling Personeelszaken' : undefined,
+          last_name: isPlaceholder ? '' : undefined,
+          title: c.title ?? undefined,
+          email: c.email ?? undefined,
+          phone_other: c.phone ?? undefined,
+          linkedin_url: c.linkedin_url ?? undefined,
+          department: c.department_guess ?? undefined,
+          source_origin: ['website'],
+        }
+      })
 
     const vacancies: NormalizedVacancy[] = (e.vacancies ?? [])
       .filter((v): v is typeof v & { title: string } => typeof v.title === 'string' && v.title.trim().length > 0)

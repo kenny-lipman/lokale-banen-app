@@ -41,6 +41,14 @@ REGELS:
 - Voor /werkenbij of /vacatures: extract alle vacaturetitels + URLs
 - Mobiele telefoon (06): zet in phone als duidelijk persoonlijk; anders bedrijfs-vast
 - Emails: alleen geldige formaten, geen "info@example.com"-placeholders
+- contacts: bij voorkeur records met een echte voor- en/of achternaam.
+  Als de pagina ALLEEN generieke contactgegevens heeft (info@, algemeen
+  telefoonnummer) zonder bijbehorende persoonsnaam, gebruik dan
+  letterlijk name "Afdeling Personeelszaken" — NIET fabriceren met
+  varianten als "Niet gespecificeerd", "Niet vermeld", "Niet expliciet
+  genoemd", "Onbekend", "Info", "Contact". Behoud de email en telefoon
+  bij het Afdeling Personeelszaken-record zodat user de naam later kan
+  editen.
 
 career_page_urls:
 - ALLE absolute URLs (https://...) op de pagina's die linken naar een werken-bij/vacatures sectie

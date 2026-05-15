@@ -38,6 +38,15 @@ export function isPlaceholderContactName(name: string | undefined | null): boole
   const norm = name.trim().toLowerCase()
   if (norm.length < 2) return true
   if (PLACEHOLDER_NAMES.has(norm)) return true
+  // Prefix-detectie voor zinsnede-achtige placeholders die Mistral fabriceert
+  // wanneer er geen echte persoonsnaam op de pagina staat:
+  //   "Niet vermeld", "Niet expliciet genoemd", "Niet ingevuld" → "niet ..."
+  //   "Geen contact bekend", "Geen naam vermeld" → "geen ..."
+  //   "Afdeling Personeelszaken", "Afdeling Sales" → "afdeling ..."
+  // Echte NL achternamen die met "niet"/"geen" beginnen (bv. "Nietzsche")
+  // hebben geen spatie na het prefix, dus geen false positive.
   if (norm.startsWith('afdeling ')) return true
+  if (norm.startsWith('niet ')) return true
+  if (norm.startsWith('geen ')) return true
   return false
 }
