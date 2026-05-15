@@ -423,7 +423,8 @@ export async function getRelatedJobs(
       `
       id, title, slug, company_id, city, state,
       employment, job_type, salary,
-      published_at, end_date, created_at,
+      description, url, published_at, end_date, created_at,
+      education_level, working_hours_min, working_hours_max,
       companies!company_id (
         id, name, slug, logo_url, website, linkedin_url, description, city
       )
