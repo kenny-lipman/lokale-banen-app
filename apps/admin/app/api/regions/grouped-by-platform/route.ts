@@ -75,18 +75,17 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Query to get cities grouped by platform
+    // Query to get cities grouped by platform — leest regio_platform via JOIN met platforms
     const { data: regions, error } = await supabase
       .from('cities')
       .select(`
         id,
         plaats,
         postcode,
-        regio_platform,
-        platform_id
+        platform_id,
+        platforms!inner ( regio_platform )
       `)
-      .not('regio_platform', 'is', null)
-      .order('regio_platform', { ascending: true })
+      .not('platform_id', 'is', null)
       .order('plaats', { ascending: true })
 
     if (error) {
@@ -128,13 +127,16 @@ export async function GET(request: NextRequest) {
     
     // Then add regions to their respective platforms
     regions?.forEach(region => {
-      const platform = region.regio_platform || 'Unknown'
-      
+      const platformsRel = region.platforms as { regio_platform: string } | { regio_platform: string }[] | null
+      const platform = Array.isArray(platformsRel)
+        ? (platformsRel[0]?.regio_platform ?? 'Unknown')
+        : (platformsRel?.regio_platform ?? 'Unknown')
+
       if (!platformGroups.has(platform)) {
         // This platform exists in cities but not in platforms table - add it anyway
         platformGroups.set(platform, [])
       }
-      
+
       platformGroups.get(platform)!.push({
         id: region.id,
         plaats: region.plaats,

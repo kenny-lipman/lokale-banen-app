@@ -30,11 +30,10 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServiceRoleClient()
 
-    // Get all valid regio_platforms from our database
+    // Get all valid regio_platforms — direct uit platforms-tabel (single source of truth)
     const { data: validPlatforms, error } = await supabase
-      .from('cities')
+      .from('platforms')
       .select('regio_platform')
-      .not('regio_platform', 'is', null)
 
     if (error) {
       throw new Error(`Failed to get valid platforms: ${error.message}`)

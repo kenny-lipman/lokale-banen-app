@@ -270,6 +270,13 @@ function getQualificationStatusForEvent(eventType: SyncEventType): Qualification
 // SYNC SERVICE CLASS
 // ============================================================================
 
+// PostgREST levert embedded relations soms als object, soms als array.
+function extractRegioPlatformRel(rel: unknown): string | null {
+  if (!rel) return null
+  const obj = Array.isArray(rel) ? rel[0] : rel
+  return (obj as { regio_platform?: string } | null)?.regio_platform ?? null
+}
+
 export class InstantlyPipedriveSyncService {
   private supabase = createServiceRoleClient();
   private pipedriveClient: PipedriveClient;
@@ -4269,17 +4276,19 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
         return null;
       }
 
-      // First try: exact match
+      // First try: exact match — leest regio_platform via JOIN met platforms
       const { data, error } = await this.supabase
         .from('cities')
-        .select('regio_platform')
+        .select('platforms ( regio_platform )')
         .eq('postcode', postcodePrefix)
+        .not('platform_id', 'is', null)
         .limit(1)
         .single();
 
-      if (data?.regio_platform) {
-        console.log(`📍 Mapped postal code ${postcodePrefix} → ${data.regio_platform}`);
-        return data.regio_platform;
+      const exactRegioPlatform = extractRegioPlatformRel(data?.platforms);
+      if (exactRegioPlatform) {
+        console.log(`📍 Mapped postal code ${postcodePrefix} → ${exactRegioPlatform}`);
+        return exactRegioPlatform;
       }
 
       // Second try: find nearest postcode in the same range
@@ -4290,10 +4299,11 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
       // Search within ±50 range for nearest match
       const { data: nearbyData } = await this.supabase
         .from('cities')
-        .select('postcode, regio_platform')
+        .select('postcode, platforms ( regio_platform )')
         .gte('postcode', String(postcodeNum - 50).padStart(4, '0'))
         .lte('postcode', String(postcodeNum + 50).padStart(4, '0'))
         .not('postcode', 'like', '%XX%') // Exclude non-numeric postcodes
+        .not('platform_id', 'is', null)
         .order('postcode');
 
       if (nearbyData && nearbyData.length > 0) {
@@ -4318,8 +4328,9 @@ Antwoord ALLEEN met het branche nummer (bijv. "67"). Als je het niet zeker weet,
           return null;
         }
 
-        console.log(`📍 Mapped postal code ${postcodePrefix} → ${closest.regio_platform} (via nearby ${closest.postcode}, distance: ${minDistance})`);
-        return closest.regio_platform;
+        const closestRegioPlatform = extractRegioPlatformRel(closest.platforms);
+        console.log(`📍 Mapped postal code ${postcodePrefix} → ${closestRegioPlatform} (via nearby ${closest.postcode}, distance: ${minDistance})`);
+        return closestRegioPlatform;
       }
 
       console.log(`📍 No platform found for postal code ${postcodePrefix} (even with nearby search)`);

@@ -32,6 +32,17 @@ export interface FullEnrichmentResult extends PlatformResult {
 }
 
 // ============================================================================
+// HELPERS
+// ============================================================================
+
+// PostgREST levert embedded relations soms als object, soms als array.
+function extractRegioPlatform(rel: unknown): string | null {
+  if (!rel) return null;
+  const obj = Array.isArray(rel) ? rel[0] : rel;
+  return (obj as { regio_platform?: string } | null)?.regio_platform ?? null;
+}
+
+// ============================================================================
 // SERVICE
 // ============================================================================
 
@@ -79,34 +90,37 @@ export class CompanyEnrichmentService {
         return lookupData.regio_platform;
       }
 
-      // Fallback: Direct cities table query (for newly added cities)
+      // Fallback: Direct cities table query (for newly added cities) — leest via JOIN platforms
       const { data: cityData } = await this.supabase
         .from('cities')
-        .select('regio_platform')
+        .select('platforms ( regio_platform )')
         .eq('postcode', pc4)
+        .not('platform_id', 'is', null)
         .limit(1)
         .single();
 
-      if (cityData?.regio_platform) {
+      const cityRegioPlatform = extractRegioPlatform(cityData?.platforms);
+      if (cityRegioPlatform) {
         // Add to lookup table for future queries
         await this.supabase
           .from('postcode_platform_lookup')
           .upsert({
             postcode: pc4,
-            regio_platform: cityData.regio_platform,
+            regio_platform: cityRegioPlatform,
             distance: 0,
             source_postcode: pc4
           });
-        return cityData.regio_platform;
+        return cityRegioPlatform;
       }
 
       // Last resort: fuzzy search in cities table (±20 range)
       const postcodeNum = parseInt(pc4, 10);
       const { data: nearbyData } = await this.supabase
         .from('cities')
-        .select('postcode, regio_platform')
+        .select('postcode, platforms ( regio_platform )')
         .gte('postcode', String(postcodeNum - 20).padStart(4, '0'))
-        .lte('postcode', String(postcodeNum + 20).padStart(4, '0'));
+        .lte('postcode', String(postcodeNum + 20).padStart(4, '0'))
+        .not('platform_id', 'is', null);
 
       if (nearbyData && nearbyData.length > 0) {
         let closest = nearbyData[0];
@@ -120,17 +134,20 @@ export class CompanyEnrichmentService {
           }
         }
 
+        const closestRegioPlatform = extractRegioPlatform(closest.platforms);
+        if (!closestRegioPlatform) return null;
+
         // Cache in lookup table
         await this.supabase
           .from('postcode_platform_lookup')
           .upsert({
             postcode: pc4,
-            regio_platform: closest.regio_platform,
+            regio_platform: closestRegioPlatform,
             distance: minDistance,
             source_postcode: closest.postcode
           });
 
-        return closest.regio_platform;
+        return closestRegioPlatform;
       }
 
       console.log(`📍 No platform found for postal code ${pc4}`);

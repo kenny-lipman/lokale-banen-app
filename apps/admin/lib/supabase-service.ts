@@ -2093,11 +2093,11 @@ export class SupabaseService {
     }
   }
 
-  // Get regions that have active central places 
+  // Get regions that have active central places — filter via platform_id (FK)
   async getActiveRegions() {
     const { data: activePlatforms, error: platformsError } = await this.client
       .from("platforms")
-      .select("regio_platform")
+      .select("id, regio_platform")
       .eq("is_active", true)
 
     if (platformsError) {
@@ -2105,16 +2105,16 @@ export class SupabaseService {
       throw new Error(platformsError.message || "Failed to fetch active platforms")
     }
 
-    const activePlatformsList = activePlatforms?.map(p => p.regio_platform) || []
+    const activePlatformIds = activePlatforms?.map(p => p.id) || []
 
-    if (activePlatformsList.length === 0) {
+    if (activePlatformIds.length === 0) {
       return []
     }
 
     const { data, error } = await this.client
       .from("cities")
-      .select("*")
-      .in("regio_platform", activePlatformsList)
+      .select("*, platforms ( regio_platform )")
+      .in("platform_id", activePlatformIds)
       .order("plaats", { ascending: true })
 
     if (error) {
@@ -2122,20 +2122,25 @@ export class SupabaseService {
       throw new Error(error.message || "Failed to fetch active regions")
     }
 
-    return data || []
+    // Flatten platforms.regio_platform back to top-level for backward compat
+    return (data || []).map((row: any) => {
+      const rel = row.platforms
+      const regio_platform = Array.isArray(rel) ? rel[0]?.regio_platform : rel?.regio_platform
+      return { ...row, regio_platform: regio_platform ?? null }
+    })
   }
 
   // Get all unique regio_platform values for hoofddomein filter
-  // Uses materialized view to avoid 1000 row query limit issue
+  // Direct uit platforms-tabel (single source of truth)
   async getUniqueRegioPlatforms() {
     try {
       const { data, error } = await this.client
-        .from("unique_regio_platforms")
+        .from("platforms")
         .select("regio_platform")
-      
+        .order("regio_platform", { ascending: true })
+
       if (error) throw error
-      
-      // Data is already unique and sorted from the materialized view
+
       return (data || []).map((row: any) => row.regio_platform).filter(
         (platform): platform is string => typeof platform === "string" && platform.trim() !== ""
       )
@@ -2625,23 +2630,9 @@ export class SupabaseService {
         return platforms
       }
       
-      console.log("⚠️ No platforms found in platforms table, falling back to cities table")
-      
-      // Fallback to unique platforms from cities table if platforms table fails
-      console.log("Falling back to unique platforms from cities table...")
-      const { data: citiesData, error: citiesError } = await this.serviceClient
-        .from("cities")
-        .select("regio_platform")
-        .not("regio_platform", "is", null)
-        .not("regio_platform", "eq", "")
-      
-      if (citiesError) throw citiesError
-      
-      const uniquePlatforms = Array.from(new Set((citiesData || []).map((item: any) => item.regio_platform)))
-      console.log(`Fallback: Found ${uniquePlatforms.length} unique platforms from cities`)
-      
-      return uniquePlatforms.sort()
-      
+      console.log("⚠️ No platforms found in platforms table")
+      return []
+
     } catch (error) {
       console.error("Error fetching platforms:", error)
       return []
