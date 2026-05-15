@@ -187,18 +187,20 @@ async function main() {
   const { exactKeys, mappedAt } = await loadExistingCities()
   console.log(`Bestaande cities-rijen: exact-keys ${exactKeys.size}, mapped-at ${mappedAt.size}`)
 
-  // Selecteer toe-te-voegen rijen
+  // Selecteer toe-te-voegen rijen. We dedupliceren extra in-batch op
+  // (plaats_lc, postcode) om partial-unique-index 23505 op case-sensitivity te voorkomen
+  // (cities_uniq_unmapped is case-sensitive op plaats).
   const toInsert = []
+  const batchKeys = new Set()
   for (const r of rows) {
     const platformId = suggestionMap.get(r.postcode) ?? null
     const baseKey = `${r.plaats.toLowerCase()}|${r.postcode}`
 
-    // Skip als al een mapped versie bestaat (manual heeft voorrang)
     if (mappedAt.has(baseKey)) continue
-
-    // Skip als deze exact al bestaat (incl. platform_id match)
     const exact = `${baseKey}|${platformId ?? '_null'}`
     if (exactKeys.has(exact)) continue
+    if (batchKeys.has(baseKey)) continue
+    batchKeys.add(baseKey)
 
     toInsert.push({
       plaats: r.plaats,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { createServiceRoleClient } from '@/lib/supabase-server'
 
 export interface CityListRow {
   id: string
@@ -26,9 +27,9 @@ async function handler(req: NextRequest, auth: AuthResult) {
   const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 500)
   const offset = parseInt(url.searchParams.get('offset') ?? '0', 10)
 
-  // RPC return is unbounded — we filteren client-side voor flexibiliteit.
-  // 4.675 rijen past makkelijk; pagineer alleen het response.
-  const { data, error } = await auth.supabase.rpc('cities_with_suggestions')
+  // RPC heeft alleen service_role-grant; bypass user-token.
+  const svc = createServiceRoleClient()
+  const { data, error } = await svc.rpc('cities_with_suggestions')
   if (error) {
     console.error('cities_with_suggestions RPC error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

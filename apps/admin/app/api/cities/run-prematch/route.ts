@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+import { createServiceRoleClient } from '@/lib/supabase-server'
 
 /**
  * Triggert 1 chunk van bulk_prematch_geocoding_chunk.
  * UI kan opnieuw aanroepen tot rows_updated = 0 voor volledige run.
  * Max-runtime per chunk: 240s server-side (handled in functie).
  */
-async function handler(req: NextRequest, auth: AuthResult) {
+async function handler(req: NextRequest, _auth: AuthResult) {
   const url = new URL(req.url)
   const chunkSize = Math.min(
     Math.max(parseInt(url.searchParams.get('chunk') ?? '10000', 10), 100),
     20000,
   )
 
-  const { data, error } = await auth.supabase.rpc('bulk_prematch_geocoding_chunk', {
+  const svc = createServiceRoleClient()
+  const { data, error } = await svc.rpc('bulk_prematch_geocoding_chunk', {
     chunk_size: chunkSize,
   })
   if (error) {
