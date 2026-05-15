@@ -164,8 +164,8 @@ function ContactInfoRow({
   children: React.ReactNode
 }) {
   const content = (
-    <span className="inline-flex items-start gap-3">
-      <span className="inline-flex items-center justify-center w-9 h-9 shrink-0 bg-primary-tint rounded-button mt-0.5">
+    <span className="inline-flex items-center gap-3">
+      <span className="inline-flex items-center justify-center w-9 h-9 shrink-0 bg-primary-tint rounded-button">
         <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden="true" />
       </span>
       <span className="text-meta font-regular text-primary leading-relaxed">
