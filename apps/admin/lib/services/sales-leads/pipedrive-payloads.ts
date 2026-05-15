@@ -47,8 +47,8 @@ export function buildOrgPayload(
     const num = Number(String(master.kvk_number).replace(/\D/g, ''))
     if (Number.isFinite(num)) customFields[ORG_FIELD_KEYS.KVK_NUMMER] = num
   }
-  // TELEFOON custom field is type 'phone' in PD V2 — wrap in array van objects.
-  if (master.phone) customFields[ORG_FIELD_KEYS.TELEFOON] = [{ value: master.phone, primary: true }]
+  // TELEFOON custom field is type 'phone' in PD V2 — verwacht string.
+  if (master.phone) customFields[ORG_FIELD_KEYS.TELEFOON] = master.phone
   if (master.email) customFields[ORG_FIELD_KEYS.EMAIL] = master.email
   if (master.website) customFields[ORG_FIELD_KEYS.WEBSITE] = master.website
 
