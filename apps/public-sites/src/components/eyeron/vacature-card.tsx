@@ -50,13 +50,13 @@ export function VacatureCard({ job, distanceKm }: VacatureCardProps) {
         </p>
 
         {job.description && (
-          <p className="m-0 text-meta font-light text-muted leading-relaxed line-clamp-3 max-w-[60ch]">
+          <p className="m-0 text-meta font-normal text-muted leading-relaxed line-clamp-3 max-w-[60ch]">
             {plainText(job.description)}
           </p>
         )}
       </div>
 
-      <div className="flex flex-row flex-wrap gap-y-2 gap-x-4 md:flex-col md:flex-nowrap md:gap-1.5 px-5 md:px-6 pb-5 md:pt-[26px] md:pb-[22px] md:pl-0">
+      <div className="flex flex-row flex-wrap gap-y-2 gap-x-4 md:flex-col md:flex-nowrap md:gap-1.5 px-5 md:pr-6 pb-5 md:pt-[56px] md:pb-[22px] md:pl-0">
         {employment && <MetaRow icon={Briefcase}>{employment}</MetaRow>}
         {hours && <MetaRow icon={Clock}>{hours}</MetaRow>}
         {education && <MetaRow icon={GraduationCap}>{education}</MetaRow>}
