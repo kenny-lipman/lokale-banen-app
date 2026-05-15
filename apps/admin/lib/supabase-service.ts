@@ -2735,25 +2735,23 @@ export class SupabaseService {
     }
   }
 
-  // Create a new region in the cities table
+  // Create a new region in the cities table (gekoppeld aan een platform via platform_id)
   async createRegion(regionData: {
     plaats: string
     postcode: string
-    regio_platform: string
-    platform_id?: string
-    central_place?: string
-    central_postcode?: string
-    is_new_platform?: boolean
+    platform_id?: string | null
   }) {
     try {
-      // Check for duplicate (plaats + postcode + regio_platform combination)
-      const { data: existing, error: checkError } = await this.client
+      // Check for duplicate (plaats + postcode + platform_id combination)
+      let query = this.client
         .from("cities")
         .select("id")
         .eq("plaats", regionData.plaats)
         .eq("postcode", regionData.postcode)
-        .eq("regio_platform", regionData.regio_platform)
-        .maybeSingle()
+      query = regionData.platform_id
+        ? query.eq("platform_id", regionData.platform_id)
+        : query.is("platform_id", null)
+      const { data: existing, error: checkError } = await query.maybeSingle()
 
       if (checkError) {
         console.error("Error checking for duplicates:", checkError)
@@ -2764,27 +2762,14 @@ export class SupabaseService {
         throw new Error("A region with this plaats, postcode, and platform combination already exists")
       }
 
-      // Prepare the data for insertion
-      const insertData: any = {
-        plaats: regionData.plaats,
-        postcode: regionData.postcode,
-        regio_platform: regionData.regio_platform,
-        platform_id: regionData.platform_id,
-        is_active: false
-      }
-
-      // Log platform information for new platforms (for future reference/setup)
-      if (regionData.is_new_platform && regionData.central_place && regionData.central_postcode) {
-        console.log(`New platform created: ${regionData.regio_platform}`)
-        console.log(`Central place: ${regionData.central_place}`)
-        console.log(`Central postcode: ${regionData.central_postcode}`)
-        console.log(`This information can be used for setting up job scraping for this platform`)
-      }
-
-      // Insert the new region
       const { data, error } = await this.client
         .from("cities")
-        .insert(insertData)
+        .insert({
+          plaats: regionData.plaats,
+          postcode: regionData.postcode,
+          platform_id: regionData.platform_id ?? null,
+          is_active: false,
+        })
         .select()
         .single()
 

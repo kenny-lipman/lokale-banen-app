@@ -506,7 +506,6 @@ export type Database = {
           plaats: string
           platform_id: string | null
           postcode: string | null
-          regio_platform: string
         }
         Insert: {
           created_at?: string | null
@@ -515,7 +514,6 @@ export type Database = {
           plaats: string
           platform_id?: string | null
           postcode?: string | null
-          regio_platform: string
         }
         Update: {
           created_at?: string | null
@@ -524,7 +522,6 @@ export type Database = {
           plaats?: string
           platform_id?: string | null
           postcode?: string | null
-          regio_platform?: string
         }
         Relationships: [
           {
