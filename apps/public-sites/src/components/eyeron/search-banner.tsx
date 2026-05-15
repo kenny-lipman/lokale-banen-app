@@ -5,13 +5,13 @@ import { Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface SearchBannerProps {
-  /** Regio-naam in de h1 — wordt accent-gekleurd (secondary). */
+  /** Regio-naam in de h1 - wordt accent-gekleurd (secondary). */
   region: string
   /** Aantal open vacatures voor de pill rechtsboven. */
   jobCount?: number | null
   /** Pre-fill de input met deze waarde. */
   defaultQuery?: string
-  /** Form action — default `/`. */
+  /** Form action - default `/`. */
   formAction?: string
   className?: string
 }

@@ -35,7 +35,7 @@ export async function generateMetadata({ params, searchParams }: CityPageProps):
 
   const page = parseInt(sp.page || '1', 10) || 1
   const title = page > 1
-    ? `Vacatures in ${cityName} — Pagina ${page} | ${tenant.name}`
+    ? `Vacatures in ${cityName}, pagina ${page} | ${tenant.name}`
     : `Vacatures in ${cityName} | ${tenant.name}`
   const description = total > 0
     ? `${total} vacature${total !== 1 ? 's' : ''} in ${cityName}. Bekijk het actuele aanbod bij ${tenant.name}.`

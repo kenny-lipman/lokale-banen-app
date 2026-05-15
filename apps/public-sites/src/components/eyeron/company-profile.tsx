@@ -11,12 +11,12 @@ interface CompanyProfileProps {
     postal_code: string | null
     street_address: string | null
   }
-  /** Aantal vacatures bij dit bedrijf — voor de subtitel. */
+  /** Aantal vacatures bij dit bedrijf - voor de subtitel. */
   jobCount: number
 }
 
 /**
- * Bedrijf-detail hero — logo + naam + locatie + website/linkedin + over.
+ * Bedrijf-detail hero - logo + naam + locatie + website/linkedin + over.
  * Top van de /bedrijf/[company-slug] pagina, vóór de vacature-lijst.
  */
 export function CompanyProfile({ company, jobCount }: CompanyProfileProps) {

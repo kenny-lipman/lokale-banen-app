@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 /**
- * Tailwind theme — Eyeron design system.
+ * Tailwind theme - Eyeron design system.
  *
  * Alle kleuren mappen op CSS custom properties zodat per-tenant theming
  * zuiver via runtime CSS-vars gebeurt (zie `lib/theme.ts` →

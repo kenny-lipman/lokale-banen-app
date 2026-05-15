@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { EyeronShowcase } from './showcase'
 
 /**
- * Eyeron design-system showcase — fase 2 visual QA.
+ * Eyeron design-system showcase - fase 2 visual QA.
  * Toont alle primitives in 4 brand-varianten zodat we per-portal-theming
  * kunnen valideren. Alleen beschikbaar in development.
  */

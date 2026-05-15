@@ -26,14 +26,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const DEFAULT_ABOUT = `## Onze missie
 
-Wij geloven dat de beste banen dicht bij huis te vinden zijn. Ons platform maakt het eenvoudig om vacatures in jouw regio te ontdekken — zonder ruis, zonder dezelfde vacature in tien tabbladen.
+Wij geloven dat de beste banen dicht bij huis te vinden zijn. Ons platform maakt het eenvoudig om vacatures in jouw regio te ontdekken, zonder ruis en zonder dezelfde vacature in tien tabbladen.
 
 ## Wat wij doen
 
 - Dagelijks nieuwe vacatures uit de regio
 - Eenvoudig zoeken op functie, locatie en uren
 - Direct solliciteren bij de werkgever
-- Lokale werkgevers, lokale banen — niet de grote landelijke spelers
+- Lokale werkgevers, lokale banen, niet de grote landelijke spelers
 
 ## Onderdeel van het LokaleBanen-netwerk
 

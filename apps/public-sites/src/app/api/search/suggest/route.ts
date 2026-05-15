@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
  *
  * Autosuggest-endpoint voor het zoekveld. Returns top-8 matchende
  * job-titles van de huidige tenant. Master-aggregator returnt leeg
- * (suggesties zijn alleen op regio-tenants relevant — de master toont
+ * (suggesties zijn alleen op regio-tenants relevant - de master toont
  * het hele netwerk en zoekt op city).
  */
 export async function GET(request: Request) {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     { suggestions },
     {
       headers: {
-        // Korte cache — suggesties veranderen niet vaak, en query-set is
+        // Korte cache - suggesties veranderen niet vaak, en query-set is
         // beperkt (typische queries: "verpleegkundige", "monteur", etc).
         'Cache-Control': 's-maxage=60, stale-while-revalidate=300',
       },

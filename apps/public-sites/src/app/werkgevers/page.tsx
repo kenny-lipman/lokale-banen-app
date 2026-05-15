@@ -50,7 +50,7 @@ export default async function WerkgeversPage() {
           eyebrow="Voor werkgevers"
           title={`Bereik kandidaten in ${place}`}
           accent={place}
-          description={`Plaats jouw vacatures op ${tenant.name} en bereik gericht werkzoekenden in jouw regio. Geen massapublicatie, geen ruis — alleen lokale matches.`}
+          description={`Plaats jouw vacatures op ${tenant.name} en bereik gericht werkzoekenden in jouw regio. Geen massapublicatie, geen ruis, alleen lokale matches.`}
         />
 
         {/* Trust-signals */}
@@ -83,7 +83,7 @@ export default async function WerkgeversPage() {
             <Step
               n={3}
               title="Direct contact met kandidaten"
-              body="Werkzoekenden klikken direct door naar jouw eigen sollicitatieproces — wij zitten er niet tussen."
+              body="Werkzoekenden klikken direct door naar jouw eigen sollicitatieproces. Wij zitten er niet tussen."
             />
           </ol>
         </section>

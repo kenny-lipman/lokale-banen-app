@@ -132,7 +132,7 @@ export default async function JobPage({ params }: JobPageProps) {
   const isInGrace = archivedAt && archiveAgeMs < ARCHIVE_GRACE_MS
   const isPermanentlyGone = archivedAt && !isInGrace
 
-  // Permanent gone — Next.js heeft geen native 410, dus 404 (Google
+  // Permanent gone - Next.js heeft geen native 410, dus 404 (Google
   // de-indexeert beide statussen).
   if (isPermanentlyGone) notFound()
 
@@ -270,7 +270,7 @@ export default async function JobPage({ params }: JobPageProps) {
 
       <SiteFooter tenant={tenant} cities={cities} />
 
-      {/* Sticky bottom apply CTA — mobile + tablet (sidebar heeft eigen CTA op desktop) */}
+      {/* Sticky bottom apply CTA - mobile + tablet (sidebar heeft eigen CTA op desktop) */}
       <ApplyButton
         jobUrl={job.url}
         jobId={job.id}

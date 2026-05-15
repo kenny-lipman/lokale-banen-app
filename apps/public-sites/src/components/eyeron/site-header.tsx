@@ -20,7 +20,7 @@ const NAV_ITEMS = [
  * Top header per Eyeron-spec: 99px desktop / 64px mobile, witte achtergrond,
  * logo links, nav rechts (>=lg), bookmark + user-actions, hamburger op mobile.
  *
- * Sticky positioning zodat search altijd binnen handbereik blijft op mobile —
+ * Sticky positioning zodat search altijd binnen handbereik blijft op mobile -
  * standaard UX-pattern voor job-boards.
  */
 export function SiteHeader({ tenant }: SiteHeaderProps) {

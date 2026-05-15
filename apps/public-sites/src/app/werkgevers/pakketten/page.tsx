@@ -30,7 +30,7 @@ const USP_ITEMS: { left: string[]; right: string[] } = {
   right: [
     'Lokale doelgroep, regionale focus',
     'Aanwezig op Facebook, Instagram & LinkedIn',
-    'Snelle plaatsing — binnen 24 uur live',
+    'Snelle plaatsing: binnen 24 uur live',
     'Onderdeel van het LokaleBanen-netwerk',
   ],
 }
@@ -48,7 +48,7 @@ export default async function PakkettenPage() {
       <SiteHeader tenant={tenant} />
 
       <main className="flex-1">
-        {/* Hero — brand-color band */}
+        {/* Hero - brand-color band */}
         <div className="bg-primary text-primary-ink">
           <div className="max-w-content mx-auto px-pad py-12 sm:py-16">
             <Breadcrumbs
@@ -106,7 +106,7 @@ export default async function PakkettenPage() {
             </h2>
 
             <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch">
-              {/* Card 1 — Gratis */}
+              {/* Card 1 - Gratis */}
               <PriceCard
                 title="Online vacatureplaatsing"
                 price="Gratis"
@@ -120,7 +120,7 @@ export default async function PakkettenPage() {
                 ctaHref={mailto}
               />
 
-              {/* Card 2 — Op aanvraag (highlighted, brand) */}
+              {/* Card 2 - Op aanvraag (highlighted, brand) */}
               <PriceCard
                 title="Online vacatureplaatsing & social campagne"
                 price="Op aanvraag"
@@ -136,7 +136,7 @@ export default async function PakkettenPage() {
                 highlighted
               />
 
-              {/* Card 3 — Onbeperkt online (Gratis) */}
+              {/* Card 3 - Onbeperkt online (Gratis) */}
               <PriceCard
                 title="Onbeperkt online"
                 price="Gratis"

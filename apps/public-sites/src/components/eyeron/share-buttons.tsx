@@ -11,7 +11,7 @@ interface ShareButtonsProps {
 }
 
 /**
- * Share-buttons — WhatsApp, LinkedIn, en kopieer-link. Eyeron-styled met
+ * Share-buttons - WhatsApp, LinkedIn, en kopieer-link. Eyeron-styled met
  * primary-tint hover en secondary check-feedback bij gekopieerd.
  */
 export function ShareButtons({ url, title, variant = 'inline' }: ShareButtonsProps) {

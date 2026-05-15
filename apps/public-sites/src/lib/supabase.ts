@@ -17,7 +17,7 @@ export function createPublicClient() {
 
 /**
  * Service-role Supabase client for admin preview queries only.
- * Bypasses RLS — must ONLY be called from routes that verify an
+ * Bypasses RLS - must ONLY be called from routes that verify an
  * HMAC preview token first. Never expose to public routes.
  */
 export function createPreviewServiceClient() {

@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 interface PageHeroProps {
   /** Optionele eyebrow boven de h1. */
   eyebrow?: string
-  /** Hoofdtitel — bv. "Vacatures in Doetinchem" of "Bedrijven". */
+  /** Hoofdtitel - bv. "Vacatures in Doetinchem" of "Bedrijven". */
   title: string
   /** Optionele accent-substring binnen de title (in secondary kleur). */
   accent?: string
@@ -13,10 +13,10 @@ interface PageHeroProps {
 }
 
 /**
- * Generieke page-hero — h1 + optionele eyebrow + description. Gebruikt op
+ * Generieke page-hero - h1 + optionele eyebrow + description. Gebruikt op
  * list-routes als titel-blok onder de header (vóór de cards).
  *
- * Style is subtiel — geen primary-banner zoals SearchBanner. Tekst-only,
+ * Style is subtiel - geen primary-banner zoals SearchBanner. Tekst-only,
  * primary kleur, max-width voor leesbaarheid.
  */
 export function PageHero({

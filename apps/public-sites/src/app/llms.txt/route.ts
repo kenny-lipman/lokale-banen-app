@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { createPublicClient } from '@/lib/supabase'
 
 /**
- * /llms.txt — AI-readable index per tenant.
+ * /llms.txt - AI-readable index per tenant.
  *
  * Follows the llmstxt.org spec:
  *   # Platform Name

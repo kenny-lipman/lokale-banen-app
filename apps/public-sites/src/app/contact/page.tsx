@@ -144,7 +144,7 @@ export default async function ContactPage() {
             <div className="bg-surface border border-divider-subtle p-4 rounded-card">
               <p className="m-0 text-meta font-light text-body leading-relaxed">
                 Vragen over een specifieke vacature? Neem direct contact op met de
-                werkgever — de contactgegevens vind je op de vacaturepagina.
+                werkgever. De contactgegevens vind je op de vacaturepagina.
               </p>
             </div>
           </aside>

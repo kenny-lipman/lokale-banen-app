@@ -1,5 +1,9 @@
 # Lokale Banen - Claude Code Context
 
+## Writing Conventions
+
+**Geen em-dash toegestaan** (Unicode U+2014, het lange streepje dat tussen twee zinsdelen wordt geplakt). Dit geldt voor user-facing content (JSX strings, Markdown, e-mails, SEO titles), code comments, JSDoc en commit messages. Gebruik in plaats daarvan een punt, komma, dubbele punt of gewone hyphen (`-`), of herfraseer. Geldt voor alle apps in deze monorepo (`apps/admin`, `apps/public-sites`, scripts, docs).
+
 ## Project Overview
 
 Lokale Banen is a job posting aggregation platform that scrapes vacancies from multiple sources, enriches company data, and syncs with CRM systems (Pipedrive, Instantly).
@@ -78,11 +82,11 @@ The watchdog job checks all jobs every 15 min and sends Slack alerts for overdue
   - JSON-LD JobPosting parse (Zod-validated, strict)
   - 3-laagse company-dedup: `companies.werkenindekempen_id` → `normalized_name` → `hoofddomein` → create
   - Delisted-detection via `job_postings.last_seen_in_sitemap` + 3-dagen grace → `archived_reason='not_in_sitemap'`
-  - Geen platform-mapping in scraper zelf — bestaande `fix-job-postings-geocoding` cron mapt city/postcode → `platform_id` (KempenseBanen/HelmondseBanen/EindhovenseBanen)
+  - Geen platform-mapping in scraper zelf - bestaande `fix-job-postings-geocoding` cron mapt city/postcode → `platform_id` (KempenseBanen/HelmondseBanen/EindhovenseBanen)
 - **API**:
-  - `GET /api/scrapers/werkenindekempen` — Vercel Cron (30 min jitter)
-  - `POST /api/scrapers/werkenindekempen` — manual, custom config
-  - `POST /api/scrapers/werkenindekempen/backfill` — handmatige bulk-run met `Authorization: Bearer $CRON_SECRET`
+  - `GET /api/scrapers/werkenindekempen` - Vercel Cron (30 min jitter)
+  - `POST /api/scrapers/werkenindekempen` - manual, custom config
+  - `POST /api/scrapers/werkenindekempen/backfill` - handmatige bulk-run met `Authorization: Bearer $CRON_SECRET`
 - **Config options**: `maxUrlsPerRun` (default 200), `delayMinMs`/`delayMaxMs`, `skipAI`, `dryRun`, `skipStartJitter`
 
 ### Other Scrapers (Apify-based)
@@ -111,12 +115,12 @@ Campaign assignment uses a **parallel orchestrator + worker** pattern:
 
 ## Database Key Tables
 
-- `job_postings` - All scraped vacancies — kolom `last_seen_in_sitemap` (timestamptz) gebruikt door werkenindekempen-scraper voor delisted-detection (3-dagen grace voor archive)
-- `companies` - Company records with enrichment data — kolom `werkenindekempen_id` (text, partial unique index) als primaire dedup-key voor werkenindekempen-source, fallback naar `normalized_name`/`hoofddomein`
+- `job_postings` - All scraped vacancies - kolom `last_seen_in_sitemap` (timestamptz) gebruikt door werkenindekempen-scraper voor delisted-detection (3-dagen grace voor archive)
+- `companies` - Company records with enrichment data - kolom `werkenindekempen_id` (text, partial unique index) als primaire dedup-key voor werkenindekempen-source, fallback naar `normalized_name`/`hoofddomein`
 - `contacts` - Contact persons linked to companies
 - `job_sources` - Scraper sources met `kind` veld:
-  - `kind='aggregator'` — Indeed, LinkedIn, Baanindebuurt, Debanensite, etc. (default `review_status='approved'`)
-  - `kind='company_career_page'` — werken-bij URL per company. Auto-aangemaakt door enrichment-orchestrator (`finalize()`). User keurt goed/af op `/sales/lead-verrijking/[run_id]` of via `/job-postings/scrape-bronnen`. Unieke partial index `(company_id, url) WHERE kind='company_career_page'` — URLs worden gecanonicaliseerd via `lib/utils/url.ts:normalizeUrl()` (lowercase host, strip www., strip trailing slash/query/fragment).
+  - `kind='aggregator'` - Indeed, LinkedIn, Baanindebuurt, Debanensite, etc. (default `review_status='approved'`)
+  - `kind='company_career_page'` - werken-bij URL per company. Auto-aangemaakt door enrichment-orchestrator (`finalize()`). User keurt goed/af op `/sales/lead-verrijking/[run_id]` of via `/job-postings/scrape-bronnen`. Unieke partial index `(company_id, url) WHERE kind='company_career_page'` - URLs worden gecanonicaliseerd via `lib/utils/url.ts:normalizeUrl()` (lowercase host, strip www., strip trailing slash/query/fragment).
 
     **Discovery-cascade in `WebsiteService.crawlAndParse`** (V1A.1):
     1. Mistral-prompt veld `career_page_urls` op homepage-markdown → method `html_link`
@@ -131,38 +135,38 @@ Campaign assignment uses a **parallel orchestrator + worker** pattern:
 - `campaign_assignment_batches` - Campaign assignment run tracking (with `orchestration_id` for parallel grouping)
 - `campaign_assignment_logs` - Per-contact processing logs
 - `wetarget_leads_staging` - Staging table for WeTarget campaign leads (sector-based)
-- `profiles` - Read-only mirror van `auth.users` (id, email, full_name, role) — gesynced via DB-trigger `sync_profile_role`
+- `profiles` - Read-only mirror van `auth.users` (id, email, full_name, role) - gesynced via DB-trigger `sync_profile_role`
 - `password_reset_tokens` - Custom 15-min reset tokens (hash-only opslag, RLS aan zonder policies)
 
 ## Authentication & User Management
 
-**Session management — cookie-based via `@supabase/ssr` + Next middleware:**
+**Session management - cookie-based via `@supabase/ssr` + Next middleware:**
 - Browser-client (`apps/admin/lib/supabase.ts`) gebruikt `createBrowserClient` → schrijft `sb-*` cookies
 - `apps/admin/middleware.ts` verfrist cookies op elke request en redirect naar `/login` bij ontbrekende session
 - Public paths in middleware: `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/api/auth/reset/*`, `/api/cron/*`, `/api/scrapers/*`
 - Plain `fetch()` werkt voor alle same-origin client→/api/* calls (geen `authFetch` helper meer)
 
-**Role-system — `app_metadata.role` is single source of truth:**
+**Role-system - `app_metadata.role` is single source of truth:**
 - Bron: `auth.users.raw_app_meta_data->>'role'` ('admin' of 'member'), alleen via service-role schrijfbaar
 - Mirror: `profiles.role` automatisch gesynced via DB-trigger `sync_profile_role`
 - Server check: `lib/auth-middleware.ts:resolveRole`
 - Client check: `auth-provider.tsx` `isAdmin = user?.app_metadata?.role === 'admin'`
 - API routes: `withAuth` (alle ingelogde users) of `withAdminAuth` (admin-only)
 
-**Users CRUD — admin-only (`/admin/gebruikers` UI):**
-- `GET /api/admin/users` — list
-- `POST /api/admin/users` — create (email + password + role, `email_confirm: true`)
+**Users CRUD - admin-only (`/admin/gebruikers` UI):**
+- `GET /api/admin/users` - list
+- `POST /api/admin/users` - create (email + password + role, `email_confirm: true`)
 - `PATCH /api/admin/users/[id]/role`
-- `POST /api/admin/users/[id]/disable` — `ban_duration: '87600h'` + global signOut
+- `POST /api/admin/users/[id]/disable` - `ban_duration: '87600h'` + global signOut
 - `POST /api/admin/users/[id]/enable`
-- `POST /api/admin/users/[id]/force-logout` — `auth.admin.signOut(id, 'global')`
-- `DELETE /api/admin/users/[id]` — hard delete
+- `POST /api/admin/users/[id]/force-logout` - `auth.admin.signOut(id, 'global')`
+- `DELETE /api/admin/users/[id]` - hard delete
 - Anti-lockout: admin kan eigen account niet disablen of deleten
 
-**Custom password reset — eigen 15-min tokens (geen Supabase magic links):**
-- `POST /api/auth/reset/request` — rate-limited 5/uur per IP + 3/uur per email; **altijd 200** (geen email enumeration); stuurt Resend mail vanaf `noreply@cas.works`
-- `POST /api/auth/reset/validate` — page-load check (valid|missing|invalid|used|expired)
-- `POST /api/auth/reset/confirm` — `updateUserById(password)` + markeer token used + global signOut
+**Custom password reset - eigen 15-min tokens (geen Supabase magic links):**
+- `POST /api/auth/reset/request` - rate-limited 5/uur per IP + 3/uur per email; **altijd 200** (geen email enumeration); stuurt Resend mail vanaf `noreply@cas.works`
+- `POST /api/auth/reset/validate` - page-load check (valid|missing|invalid|used|expired)
+- `POST /api/auth/reset/confirm` - `updateUserById(password)` + markeer token used + global signOut
 - Tokens: SHA-256 hash-only opslag, partial unique index → max 1 actieve token per user
 - Pages: `/forgot-password` (email request) + `/reset-password?token=...` (password set)
 - Cleanup-cron `cleanup-reset-tokens` deletet rijen waar `expires_at < now() - 7d`

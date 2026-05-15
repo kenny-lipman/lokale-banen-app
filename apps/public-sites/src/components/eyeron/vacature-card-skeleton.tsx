@@ -6,7 +6,7 @@ interface VacatureCardSkeletonProps {
 
 /**
  * Loading skeleton in dezelfde grid-shape als VacatureCard. Gebruikt subtiele
- * shimmer-animatie binnen `divider-subtle`-tinten — gerespecteerd door
+ * shimmer-animatie binnen `divider-subtle`-tinten - gerespecteerd door
  * `prefers-reduced-motion` (animatie-duur op 0.01ms).
  */
 export function VacatureCardSkeleton({ count = 1 }: VacatureCardSkeletonProps) {

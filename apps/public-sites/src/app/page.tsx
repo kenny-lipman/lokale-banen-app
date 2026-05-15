@@ -161,7 +161,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       })
     : null
 
-  // Filter-paneel — gedeeld tussen desktop sidebar en mobile drawer
+  // Filter-paneel - gedeeld tussen desktop sidebar en mobile drawer
   const filterPanelProps = {
     facets,
     activeType: params.type,

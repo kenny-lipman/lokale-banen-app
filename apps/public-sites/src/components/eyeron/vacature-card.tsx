@@ -11,7 +11,7 @@ interface VacatureCardProps {
 }
 
 /**
- * Vacature-kaart per Eyeron-spec — 3-koloms grid (141 logo / content / 168 meta).
+ * Vacature-kaart per Eyeron-spec - 3-koloms grid (141 logo / content / 168 meta).
  * Card-wide click-target via absolute pseudo-element zodat de hele card naar de
  * detail-pagina linkt; meta-links en bookmark blijven hun eigen click-handlers
  * houden via z-index.
@@ -113,7 +113,7 @@ function CompanyLogoCell({ company }: { company: JobPosting['company'] }) {
     )
   }
 
-  // Fallback: gekleurde tegel met initialen — gebruik primary om brand-coherent te blijven.
+  // Fallback: gekleurde tegel met initialen - gebruik primary om brand-coherent te blijven.
   return (
     <div className="w-full h-[100px] sm:w-[141px] sm:h-[141px] self-stretch flex items-center justify-center bg-primary text-primary-ink font-bold text-2xl">
       {initials}

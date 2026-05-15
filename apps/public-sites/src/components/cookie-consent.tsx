@@ -8,7 +8,7 @@ const STORAGE_KEY = 'cookie-consent-accepted'
 /**
  * Compact cookie consent banner.
  * Fixed to bottom, z-50 (above sticky apply button).
- * Only functional cookies — no tracking.
+ * Only functional cookies - no tracking.
  */
 export function CookieConsent() {
   const [visible, setVisible] = useState(false)

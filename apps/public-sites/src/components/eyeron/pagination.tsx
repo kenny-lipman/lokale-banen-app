@@ -13,7 +13,7 @@ interface PaginationProps {
 }
 
 /**
- * Server-rendered pagination per Eyeron-stijl — geen border-radius op pill,
+ * Server-rendered pagination per Eyeron-stijl - geen border-radius op pill,
  * primary outline-stijl, current-page in primary fill. Gebruikt op SEO-
  * paginated routes (/vacatures, /vacatures/[city-slug]) waar URL-pagination
  * de "Nog X tonen"-CTA vervangt.

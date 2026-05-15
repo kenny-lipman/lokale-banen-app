@@ -1,7 +1,7 @@
 import { Resend } from 'resend'
 
 /**
- * Lazy Resend client — instantieert pas bij eerste gebruik zodat builds
+ * Lazy Resend client - instantieert pas bij eerste gebruik zodat builds
  * zonder RESEND_API_KEY niet falen. Calls die geen key hebben → throw.
  * Op de public-sites wordt dit alleen aangeroepen vanuit server-actions
  * voor contactformulier-submissions naar info@lokalebanen.nl.

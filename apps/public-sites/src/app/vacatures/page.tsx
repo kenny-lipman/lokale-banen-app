@@ -57,7 +57,7 @@ export async function generateMetadata({
     return {
       title:
         page > 1
-          ? `Alle vacatures — Pagina ${page} | Lokale Banen`
+          ? `Alle vacatures, pagina ${page} | Lokale Banen`
           : 'Alle vacatures | Lokale Banen',
       description:
         'Bladeren door honderden lokale vacatures van tientallen regionale jobboards door heel Nederland.',
@@ -66,12 +66,12 @@ export async function generateMetadata({
   }
 
   return {
-    title: page > 1 ? `Alle vacatures — Pagina ${page}` : 'Alle vacatures',
+    title: page > 1 ? `Alle vacatures, pagina ${page}` : 'Alle vacatures',
     description:
       tenant.seo_description ?? `Bekijk het actuele vacature-aanbod bij ${tenant.name}.`,
     alternates: { canonical },
     openGraph: {
-      title: page > 1 ? `Alle vacatures — Pagina ${page}` : 'Alle vacatures',
+      title: page > 1 ? `Alle vacatures, pagina ${page}` : 'Alle vacatures',
       description:
         tenant.seo_description ?? `Bekijk het actuele vacature-aanbod bij ${tenant.name}.`,
       type: 'website',

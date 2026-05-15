@@ -44,7 +44,7 @@ const variantClasses: Record<Variant, string> = {
 }
 
 /**
- * Pill-knop volgens Eyeron-spec — outline-stijl met 1px primary border,
+ * Pill-knop volgens Eyeron-spec - outline-stijl met 1px primary border,
  * 44px hoog, 20px border-radius, Tomica Bold tekst. Optionele primary
  * variant (gevuld) voor CTA-context.
  *

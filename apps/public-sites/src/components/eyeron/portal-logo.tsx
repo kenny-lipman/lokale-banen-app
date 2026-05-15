@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { Wordmark } from './wordmark'
 
 interface PortalLogoProps {
-  /** DB regio_platform — komt 1-op-1 overeen met de SVG-bestandsnaam. */
+  /** DB regio_platform - komt 1-op-1 overeen met de SVG-bestandsnaam. */
   tenantName: string
   /**
    * Custom uploaded logo (platforms.logo_url). Wordt verkozen boven de
@@ -61,7 +61,7 @@ interface MasterLogoProps {
 }
 
 /**
- * LokaleBanen master-logo (lokalebanen.nl). Eigen kleuren — geen tenant-
+ * LokaleBanen master-logo (lokalebanen.nl). Eigen kleuren - geen tenant-
  * theming. Gebruikt het pre-processed `_master.svg` asset.
  */
 export function MasterLogo({

@@ -59,7 +59,7 @@ export interface JobFilter {
   sector?: string[]       // categories values
   page?: number
   sort?: SortOption
-  /** User's geolocation for distance chip — from URL ?lat=X&lng=Y. */
+  /** User's geolocation for distance chip - from URL ?lat=X&lng=Y. */
   userLat?: number
   userLng?: number
 }
@@ -273,7 +273,7 @@ export async function getJobCount(
 }
 
 /**
- * Filter facet counts for the sidebar — one DB round-trip via RPC.
+ * Filter facet counts for the sidebar - one DB round-trip via RPC.
  */
 export interface FilterFacets {
   employment: { value: string; count: number }[]
@@ -447,7 +447,7 @@ export async function getRelatedJobs(
 }
 
 /**
- * Suggesties voor het zoekveld — top-N unieke job-titles die matchen op
+ * Suggesties voor het zoekveld - top-N unieke job-titles die matchen op
  * de query. Sorteert op frequentie (vacatures met dezelfde titel komen
  * eerst). Gebruikt door /api/search/suggest voor de autosuggest-dropdown
  * in de SearchBanner.
@@ -615,7 +615,7 @@ export async function getCitiesWithJobCounts(
 
   const supabase = createPublicClient()
 
-  // Use DB-side aggregation (GROUP BY) — returns ~100 rows instead of ~50k
+  // Use DB-side aggregation (GROUP BY) - returns ~100 rows instead of ~50k
   const { data, error } = await supabase.rpc('get_city_job_counts', {
     p_platform_id: tenantId,
   })
@@ -668,7 +668,7 @@ export async function getJobsByCitySlug(
     return { jobs: [], total: 0, cityName: null }
   }
 
-  // Use the display city name directly — getCitiesWithJobCounts already merged variants.
+  // Use the display city name directly - getCitiesWithJobCounts already merged variants.
   // For the .in() filter, use ILIKE on the canonical display name (covers case variants).
   const supabase = createPublicClient()
   const from = (page - 1) * JOBS_PER_PAGE
@@ -910,10 +910,10 @@ export function mapEmploymentType(type: string | null): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Master aggregator queries (lokalebanen.nl — tier='master')
+// Master aggregator queries (lokalebanen.nl - tier='master')
 // ---------------------------------------------------------------------------
 
-/** Job row returned by master aggregator queries — includes primary platform info. */
+/** Job row returned by master aggregator queries - includes primary platform info. */
 export interface MasterJobPosting extends JobPosting {
   primary_platform: {
     id: string

@@ -5,7 +5,7 @@ import { Send } from 'lucide-react'
 import { submitContactForm, type ContactFormResult } from '@/app/actions/contact'
 
 /**
- * Contactformulier — server-action submit naar info@lokalebanen.nl.
+ * Contactformulier - server-action submit naar info@lokalebanen.nl.
  * Honeypot `website` veld tegen bots, server-side rate-limit per IP.
  *
  * UX:
@@ -37,7 +37,7 @@ export function ContactForm() {
       className="space-y-4"
       noValidate
     >
-      {/* Honeypot — verborgen voor users, bots vullen 'm vaak in */}
+      {/* Honeypot - verborgen voor users, bots vullen 'm vaak in */}
       <div
         aria-hidden="true"
         style={{ position: 'absolute', left: '-9999px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}

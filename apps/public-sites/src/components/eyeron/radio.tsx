@@ -12,7 +12,7 @@ interface RadioProps {
 }
 
 /**
- * Custom radio per Eyeron-spec — 20×20 cirkel, 2px primary border, 13×13
+ * Custom radio per Eyeron-spec - 20×20 cirkel, 2px primary border, 13×13
  * gevulde dot binnen bij checked. Native `<input>` is visueel verborgen
  * maar volledig keyboard- en screenreader-toegankelijk.
  *

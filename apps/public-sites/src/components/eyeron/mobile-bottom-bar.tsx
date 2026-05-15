@@ -15,7 +15,7 @@ interface MobileBottomBarProps {
   resultCount: number
   /** Huidige sort uit URL. */
   currentSort: SortOption
-  /** True als ?lat=&lng= in URL — dan is "Dichtstbij" beschikbaar. */
+  /** True als ?lat=&lng= in URL - dan is "Dichtstbij" beschikbaar. */
   hasLocation: boolean
 }
 
@@ -27,7 +27,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ]
 
 /**
- * Sticky bottom-bar voor mobile/tablet (<lg) — twee pill-buttons:
+ * Sticky bottom-bar voor mobile/tablet (<lg) - twee pill-buttons:
  *   1. Filters (opent slide-in drawer met FilterPanel-content)
  *   2. Sort (opent een mini-popover met sort-opties)
  *

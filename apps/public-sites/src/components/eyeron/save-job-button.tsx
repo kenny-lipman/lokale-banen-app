@@ -26,7 +26,7 @@ const VARIANT_CLASSES: Record<Variant, string> = {
 }
 
 /**
- * Bookmark-knop per Eyeron-spec — saved-state in secondary kleur (gevuld).
+ * Bookmark-knop per Eyeron-spec - saved-state in secondary kleur (gevuld).
  * Hergebruikt de bestaande server-actions (`saveJob`/`unsaveJob`) voor
  * signed-in users; localStorage + sign-up prompt voor anonymous.
  *

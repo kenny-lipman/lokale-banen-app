@@ -9,7 +9,7 @@ import { CookieConsent } from '@/components/cookie-consent'
 import './globals.css'
 
 /**
- * Default brand-kleuren tijdens static prerender — Achterhoek-groen
+ * Default brand-kleuren tijdens static prerender - Achterhoek-groen
  * (de facto LokaleBanen-merkkleur, gebruikt in alle Eyeron brand-docs).
  * Wordt request-time overschreven door <TenantTheme>.
  */

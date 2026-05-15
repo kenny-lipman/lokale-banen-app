@@ -12,7 +12,7 @@ interface BreadcrumbsProps {
 }
 
 /**
- * Eyeron breadcrumbs — primary tekst, secondary chevrons. Laatste item
+ * Eyeron breadcrumbs - primary tekst, secondary chevrons. Laatste item
  * (de huidige pagina) is geen link.
  */
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {

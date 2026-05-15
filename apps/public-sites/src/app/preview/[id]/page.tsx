@@ -64,7 +64,7 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* DRAFT PREVIEW banner — sticky boven de header, onmiskenbaar */}
+      {/* DRAFT PREVIEW banner - sticky boven de header, onmiskenbaar */}
       <div
         role="alert"
         className="sticky top-0 z-50 bg-amber-500 text-black"
@@ -76,7 +76,7 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
             aria-hidden="true"
           />
           <span className="flex-1">
-            <strong className="font-bold">DRAFT PREVIEW</strong> — Voorbeeld voor
+            <strong className="font-bold">DRAFT PREVIEW</strong>: Voorbeeld voor
             admins. Status: {statusLabel}. Niet zichtbaar voor bezoekers.
           </span>
           <span className="text-small font-light hidden sm:inline opacity-75">

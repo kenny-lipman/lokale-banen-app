@@ -24,8 +24,8 @@ export default async function SignUpPage() {
             </h1>
             <p className="m-0 mt-3 text-meta font-light text-body">
               Gratis account bij{' '}
-              {tenant?.hero_title || tenant?.name || 'Lokale Banen'} —
-              opslaan, sollicitaties bijhouden, e-mailalerts.
+              {tenant?.hero_title || tenant?.name || 'Lokale Banen'}: opslaan,
+              sollicitaties bijhouden, e-mailalerts.
             </p>
           </div>
 

@@ -37,7 +37,7 @@ export async function generateMetadata({
   const page = parseInt(sp.page || '1', 10) || 1
   const title =
     page > 1
-      ? `Vacatures bij ${company.name} — Pagina ${page} | ${tenant.name}`
+      ? `Vacatures bij ${company.name}, pagina ${page} | ${tenant.name}`
       : `Vacatures bij ${company.name} | ${tenant.name}`
   const description =
     total > 0
@@ -180,7 +180,7 @@ export default async function CompanyPage({ params, searchParams }: CompanyPageP
         ) : (
           <EmptyState
             title={`Geen openstaande vacatures bij ${company.name}`}
-            body="Er zijn momenteel geen openstaande posities. Kom binnenkort terug — er komen regelmatig nieuwe vacatures bij."
+            body="Er zijn momenteel geen openstaande posities. Kom binnenkort terug, er komen regelmatig nieuwe vacatures bij."
           />
         )}
       </main>

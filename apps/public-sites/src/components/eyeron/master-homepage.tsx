@@ -20,7 +20,7 @@ interface MasterHomepageProps {
  *
  * Layout:
  *   1. SiteHeader (zelfde chrome als regio-portals, eigen LokaleBanen-palet)
- *   2. Hero — primary banner met netwerk-counts
+ *   2. Hero - primary banner met netwerk-counts
  *   3. Regio-grid (4-koloms tegels)
  *   4. Recente vacatures grid
  *   5. SiteFooter (master krijgt geen master-logo onder zichzelf)

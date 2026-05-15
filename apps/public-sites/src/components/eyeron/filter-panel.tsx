@@ -8,7 +8,7 @@ export interface FilterPanelProps {
   activeHours?: string
   activeEducation?: string
   activeSector?: string
-  /** Header weglaten — bv. in mobile drawer waar de drawer-head al "Filters" toont. */
+  /** Header weglaten - bv. in mobile drawer waar de drawer-head al "Filters" toont. */
   hideHeading?: boolean
 }
 
@@ -19,7 +19,7 @@ const HOURS_LABELS: Record<string, string> = {
 }
 
 /**
- * Filter-paneel per Eyeron-spec — 344px breed sidebar op desktop.
+ * Filter-paneel per Eyeron-spec - 344px breed sidebar op desktop.
  * Componeert 4 FilterGroups: Afstand (radio) + Dienstverband, Vakgebied,
  * Aantal uur per week (allemaal checkbox).
  *

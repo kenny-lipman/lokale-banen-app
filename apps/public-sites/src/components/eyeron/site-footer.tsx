@@ -45,7 +45,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
     <footer className="bg-primary text-on-dark mt-auto">
       <div className="max-w-content mx-auto px-pad pt-14 pb-7">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr] gap-8 sm:gap-9 pb-9 border-b border-[rgba(255,255,255,0.18)]">
-          {/* Brand-kolom — logo i.p.v. tekst (Joost-feedback). brightness-0+invert
+          {/* Brand-kolom - logo i.p.v. tekst (Joost-feedback). brightness-0+invert
              rendert zowel pre-processed SVG met var(--primary) als uploaded
              tenant.logo_url universeel in wit. */}
           <div className="sm:col-span-2 lg:col-span-1">
@@ -63,7 +63,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
             </p>
           </div>
 
-          {/* Werkzoekenden — data-driven steden */}
+          {/* Werkzoekenden - data-driven steden */}
           <FooterColumn heading="Werkzoekenden">
             <FooterLinkItem href="/">Vacatures zoeken</FooterLinkItem>
             {topCities.map(({ city, slug }) => (

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   Tomica — self-hosted webfont (5 weights, woff2)
+   Tomica - self-hosted webfont (5 weights, woff2)
    ========================================================================== */
 @font-face {
   font-family: "Tomica";
@@ -46,7 +46,7 @@
    ========================================================================== */
 @layer base {
   :root {
-    /* ── BRAND — per-tenant overschreven via <TenantTheme> ──────────── */
+    /* ── BRAND - per-tenant overschreven via <TenantTheme> ──────────── */
     --primary:           #0A6333;
     --primary-hover:     #094B27;
     --primary-active:    #073A1E;

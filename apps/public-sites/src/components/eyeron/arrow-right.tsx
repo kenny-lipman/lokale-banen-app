@@ -7,7 +7,7 @@ interface ArrowRightProps {
 }
 
 /**
- * Custom gevulde pijl per Eyeron-spec — NIET de Lucide-versie (die is
+ * Custom gevulde pijl per Eyeron-spec - NIET de Lucide-versie (die is
  * stroke-based). Gebruikt `currentColor` zodat hij erft van parent text-color.
  *
  * Default 13×13px, schaalt mee als width/height worden meegegeven.

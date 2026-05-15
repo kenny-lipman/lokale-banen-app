@@ -19,13 +19,13 @@ interface FilterGroupProps {
   /** "radio" = single value, "checkbox" = comma-separated multiple values. */
   type: 'radio' | 'checkbox'
   options: FilterOption[]
-  /** Geactiveerde waarden uit URL — voor radio max 1, voor checkbox 0..N. */
+  /** Geactiveerde waarden uit URL - voor radio max 1, voor checkbox 0..N. */
   activeValues: string[]
 }
 
 /**
  * Eén filter-groep met label + radio/checkbox opties. URL is de single source
- * of truth — elke change triggert een `router.push` naar dezelfde pagina met
+ * of truth - elke change triggert een `router.push` naar dezelfde pagina met
  * bijgewerkte queryparams. Pagina re-renderet server-side met nieuwe filter.
  *
  * `useTransition` houdt de UI responsief tijdens server-re-render.
@@ -66,7 +66,7 @@ export function FilterGroup({
 
   return (
     <fieldset className="relative border-0 m-0 min-w-0 pt-3 pb-2 first:pt-0">
-      {/* Divider — pseudo-element omdat <legend> de fieldset border-top afdekt */}
+      {/* Divider - pseudo-element omdat <legend> de fieldset border-top afdekt */}
       <span
         aria-hidden="true"
         className="absolute top-0 left-0 right-0 h-px bg-divider first:hidden"

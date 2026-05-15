@@ -73,7 +73,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
           </p>
         </header>
 
-        {/* Apply CTA boven de fold — mobile + tablet (op desktop dekt sticky sidebar af) */}
+        {/* Apply CTA boven de fold - mobile + tablet (op desktop dekt sticky sidebar af) */}
         <div className="lg:hidden mt-6">
           <ApplyButton
             jobUrl={job.url}
@@ -84,7 +84,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
           />
         </div>
 
-        {/* Key facts — mobile + tablet (op desktop dekt de sticky sidebar dit af) */}
+        {/* Key facts - mobile + tablet (op desktop dekt de sticky sidebar dit af) */}
         <MobileFacts job={job} />
 
         {/* Description */}
@@ -149,7 +149,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
           </section>
         )}
 
-        {/* Related — query filtert alleen op city, dus copy is "andere in stad" ipv "vergelijkbaar" */}
+        {/* Related - query filtert alleen op city, dus copy is "andere in stad" ipv "vergelijkbaar" */}
         {relatedJobs.length > 0 && (
           <section className="mt-12 pt-8 border-t border-divider">
             <h2 className="m-0 text-h2 font-bold text-primary tracking-tight">

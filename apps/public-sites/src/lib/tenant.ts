@@ -33,7 +33,7 @@ export interface Tenant {
   terms_text: string | null
 }
 
-// `indexnow_key` zit BEWUST niet in deze whitelist — die kolom is via
+// `indexnow_key` zit BEWUST niet in deze whitelist - die kolom is via
 // column-level GRANT niet leesbaar voor de anon-rol (zie migration
 // 20260504_platforms_anon_column_grants.sql) en wordt server-side via
 // service-role gelezen door de IndexNow-key handler.
@@ -60,7 +60,7 @@ export async function getTenant(): Promise<Tenant | null> {
 }
 
 async function fetchTenantByHostUncached(host: string): Promise<Tenant | null> {
-  // Separate queries instead of .or() — PostgREST's or-filter mis-parses
+  // Separate queries instead of .or() - PostgREST's or-filter mis-parses
   // dots in hostnames as resource separators, causing lookups for hosts like
   // `bollenstreeksebanen.vercel.app` to silently fail.
   const supabase = createPublicClient()
@@ -95,7 +95,7 @@ async function fetchTenantByHostUncached(host: string): Promise<Tenant | null> {
  */
 export async function getTenantByHost(host: string): Promise<Tenant | null> {
   // Cache-key version: bump bij elke change in TENANT_SELECT of in de
-  // RLS/grants laag — Next.js' unstable_cache persisteert tussen
+  // RLS/grants laag - Next.js' unstable_cache persisteert tussen
   // deployments en serveert anders stale `null`-resultaten van een
   // vorige (gebroken) query-versie.
   // v2: PostgREST .or() bug fix.
@@ -112,7 +112,7 @@ export async function getTenantByHost(host: string): Promise<Tenant | null> {
 }
 
 /**
- * Server-side lookup van een tenant's IndexNow-key via service-role —
+ * Server-side lookup van een tenant's IndexNow-key via service-role -
  * de kolom `indexnow_key` is via column-grants niet leesbaar voor anon.
  * Returnt alleen de key (verder geen tenant-data) en filtert op
  * `is_public=true` zodat een offline-platform geen key meer prijsgeeft.

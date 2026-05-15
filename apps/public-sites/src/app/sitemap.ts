@@ -19,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = createPublicClient()
 
   // Resolve tenant by domain or preview_domain. PostgREST .or() faalt op
-  // hostnames met punten — gebruik twee aparte queries.
+  // hostnames met punten - gebruik twee aparte queries.
   const { data: domainMatch } = await supabase
     .from('platforms')
     .select('id, tier')

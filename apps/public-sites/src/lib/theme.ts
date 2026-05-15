@@ -5,7 +5,7 @@
  * states (hover/active/tint/ink). Statische neutralen leven in `globals.css`
  * en worden hier niet aangeraakt.
  *
- * De DB heeft historisch een `tertiary_color` kolom — die wordt door het
+ * De DB heeft historisch een `tertiary_color` kolom - die wordt door het
  * Eyeron-design niet gebruikt en hier ook niet gerendered. Kolom blijft
  * bestaan voor data-compatibiliteit met de admin-app.
  */
@@ -17,7 +17,7 @@ export interface ThemeInputs {
   secondary?: string | null
 }
 
-/** Default brand-kleuren (Achterhoek-groen) — fallback als DB geen waarden heeft. */
+/** Default brand-kleuren (Achterhoek-groen) - fallback als DB geen waarden heeft. */
 const DEFAULT_PRIMARY = '#0A6333'
 const DEFAULT_SECONDARY = '#7BC142'
 
@@ -57,7 +57,7 @@ export function resolveTheme(inputs: ThemeInputs): ResolvedTheme {
 }
 
 /**
- * Build een `:root { ... }` CSS-blok voor een tenant — bedoeld om via
+ * Build een `:root { ... }` CSS-blok voor een tenant - bedoeld om via
  * `<style dangerouslySetInnerHTML>` in `<head>` te injecteren.
  */
 export function buildTenantThemeCss(inputs: ThemeInputs): string {

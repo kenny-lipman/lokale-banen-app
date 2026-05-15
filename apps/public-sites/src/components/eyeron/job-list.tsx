@@ -17,7 +17,7 @@ const PAGE_SIZE = 20
  * Server-component die vacatures fetcht en als VacatureCard-grid rendert.
  * Suspense-boundary toont VacatureCardSkeleton tijdens het wachten.
  *
- * Geen sort/filter UI hier — die leeft op page-niveau (zie SortToolbar in
+ * Geen sort/filter UI hier - die leeft op page-niveau (zie SortToolbar in
  * fase 5 + page.tsx in fase 6).
  */
 export function JobList({ tenantId, filter }: JobListProps) {

@@ -14,7 +14,7 @@ import {
 import { resolveTheme } from '@/lib/theme'
 
 /**
- * Vier brand-varianten — Achterhoek/Alkmaar/Assen/Bollenstreek — uit de
+ * Vier brand-varianten - Achterhoek/Alkmaar/Assen/Bollenstreek - uit de
  * Eyeron PSDs. Elke variant rendert dezelfde primitives onder verschillende
  * `--primary`/`--secondary` CSS vars, zodat we visueel kunnen valideren of
  * de tokens correct doorpropageren.
@@ -209,7 +209,7 @@ export function EyeronShowcase() {
         <section className="mb-12 bg-surface p-8 border border-divider-subtle">
           <h2 className="text-h2 font-bold text-primary mb-4">MasterLogo (LokaleBanen)</h2>
           <p className="text-meta text-body font-light mb-4">
-            Het master-logo behoudt eigen kleuren — geen tenant-theming. Gebruikt voor de
+            Het master-logo behoudt eigen kleuren, geen tenant-theming. Gebruikt voor de
             footer-attribution en lokalebanen.nl zelf.
           </p>
           <div className="bg-primary p-6 inline-flex">

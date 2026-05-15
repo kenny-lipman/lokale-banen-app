@@ -144,7 +144,7 @@ export function stripChatGptArtifacts(input: string): string {
 
 /**
  * Compute the great-circle distance between two coordinates (km).
- * Haversine formula — accurate enough for regional distances.
+ * Haversine formula - accurate enough for regional distances.
  */
 export function haversineKm(
   lat1: number,

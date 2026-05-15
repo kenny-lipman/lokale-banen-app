@@ -10,7 +10,7 @@ interface ApplyLinkProps {
 }
 
 /**
- * Inline solliciteer-link — fire-and-forget logApplication call (alleen voor
+ * Inline solliciteer-link - fire-and-forget logApplication call (alleen voor
  * signed-in users) en daarna externe redirect naar de werkgever-URL.
  * Block redirect niet bij logging-failures.
  */

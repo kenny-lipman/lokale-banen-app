@@ -19,7 +19,7 @@ import { getIndexnowKeyForHost } from '@/lib/tenant'
  * `indexnow_key` is via column-level GRANT niet leesbaar voor de anon-rol;
  * deze handler gebruikt daarom service-role via `getIndexnowKeyForHost`.
  * De handler retourneert pas iets als de meegegeven `key` exact matcht met
- * de in de DB opgeslagen waarde — er kan dus niets uitgelokt worden door
+ * de in de DB opgeslagen waarde - er kan dus niets uitgelokt worden door
  * een willekeurige UUID te raden.
  */
 export async function GET(
@@ -46,7 +46,7 @@ export async function GET(
     status: 200,
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      // Let edge/CDN cache this cheaply — the key is static per tenant.
+      // Let edge/CDN cache this cheaply - the key is static per tenant.
       'Cache-Control': 'public, max-age=3600, s-maxage=86400',
     },
   })

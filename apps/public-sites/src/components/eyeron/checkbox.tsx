@@ -12,7 +12,7 @@ interface CheckboxProps {
 }
 
 /**
- * Custom checkbox per Eyeron-spec — 20×20 vierkant met **rechte hoeken**,
+ * Custom checkbox per Eyeron-spec - 20×20 vierkant met **rechte hoeken**,
  * 2px primary border, 12×12 gevuld vierkant binnen bij checked. Native
  * `<input>` visueel verborgen maar volledig toegankelijk.
  */

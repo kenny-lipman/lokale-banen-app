@@ -2,7 +2,7 @@ import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs'
 
 const nextConfig: NextConfig = {
-  // cacheComponents: true,  // disabled — re-enable after full RSC audit
+  // cacheComponents: true,  // disabled - re-enable after full RSC audit
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       // IndexNow key-file serving: /{uuid}.txt → /api/indexnow-key/{uuid}
-      // UUID-strict pattern — does NOT conflict with robots.txt / sitemap.xml
+      // UUID-strict pattern - does NOT conflict with robots.txt / sitemap.xml
       // (those are non-UUID filenames served by Next metadata routes).
       {
         source:

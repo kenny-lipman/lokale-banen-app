@@ -14,7 +14,7 @@ interface EmptyStateProps {
  */
 export function EmptyState({
   title = 'Geen vacatures gevonden',
-  body = 'Probeer minder filters of een bredere zoekterm — er komen dagelijks nieuwe vacatures bij.',
+  body = 'Probeer minder filters of een bredere zoekterm. Er komen dagelijks nieuwe vacatures bij.',
   action,
 }: EmptyStateProps) {
   return (

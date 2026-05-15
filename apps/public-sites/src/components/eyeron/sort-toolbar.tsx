@@ -6,13 +6,13 @@ import type { SortOption } from '@/lib/queries'
 import { PillButton } from './pill-button'
 
 interface SortToolbarProps {
-  /** Aantal resultaten — "Toont X - Y van Z". */
+  /** Aantal resultaten - "Toont X - Y van Z". */
   total: number
   currentPage: number
   pageSize?: number
   /** Huidige sort uit URL. */
   currentSort: SortOption
-  /** True als er ?lat=&lng= in URL zit — dan is "Dichtstbij" beschikbaar. */
+  /** True als er ?lat=&lng= in URL zit - dan is "Dichtstbij" beschikbaar. */
   hasLocation: boolean
   className?: string
 }
@@ -30,7 +30,7 @@ const SORT_OPTIONS: SortOptionDef[] = [
 ]
 
 /**
- * Sort-toolbar boven de vacature-lijst — count links, sort-pill rechts.
+ * Sort-toolbar boven de vacature-lijst - count links, sort-pill rechts.
  * Sort-pill opent een mini-popover met opties; selecteren = router.push.
  */
 export function SortToolbar({
