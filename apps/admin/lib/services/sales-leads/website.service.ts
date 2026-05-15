@@ -111,7 +111,8 @@ export class WebsiteServiceError extends Error {
 }
 
 type FetchedPage = {
-  url: string
+  url: string            // finalUrl ná eventuele redirects (gebruikt in Mistral-prompt)
+  originalUrl: string    // url waarmee we tieredFetch aanriepen (= sitemap-URL); voor pages_discovered mapping
   role: DiscoveredUrl['role']
   tier: FetchTier
   blocked: boolean
@@ -149,6 +150,7 @@ export class WebsiteService {
           const r = await tieredFetch(t.url, playwright)
           return {
             url: r.finalUrl,
+            originalUrl: t.url,
             role: t.role,
             tier: r.tier,
             blocked: r.blocked,
@@ -156,9 +158,9 @@ export class WebsiteService {
           }
         } catch (e) {
           if (e instanceof SsrfBlockedError || e instanceof FetchSizeExceededError) {
-            return { url: t.url, role: t.role, tier: 1, blocked: true, markdown: '' }
+            return { url: t.url, originalUrl: t.url, role: t.role, tier: 1, blocked: true, markdown: '' }
           }
-          return { url: t.url, role: t.role, tier: 2, blocked: true, markdown: '' }
+          return { url: t.url, originalUrl: t.url, role: t.role, tier: 2, blocked: true, markdown: '' }
         }
       })
 
@@ -352,7 +354,10 @@ export class WebsiteService {
             path: safePathname(d.url),
             role: d.role,
             priority: d.priority,
-            fetched: pages.some((p) => p.url === d.url),
+            // Match op originalUrl: sites kunnen 301-redirecten (vacatures-X →
+            // vacatures-overview) waardoor finalUrl afwijkt van de sitemap-URL.
+            // Zonder deze check zou een gefetchte page als 'niet gecrawled' tonen.
+            fetched: pages.some((p) => p.originalUrl === d.url || p.url === d.url),
           }))
         : undefined,
       blog_post_count: e.blog_post_count ?? undefined,

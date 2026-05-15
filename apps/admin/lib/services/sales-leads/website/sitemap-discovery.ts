@@ -30,7 +30,11 @@ const DEFAULT_ROLE_CAPS: RoleCap = {
   contact: 2,
   about: 2,
   team: 2,
-  careers: 5,
+  // Careers heeft de hoogste B2B-sales-waarde: vacature-detail-pages bevatten
+  // recruitment-context (functietitels, opleidingseisen) die master_record
+  // vacancies + Mistral-extraction voeden. Ruime cap zodat carrière-heavy
+  // sites volledig binnenkomen — uiteindelijk hard-gecapped op MAX_PAGES.
+  careers: 25,
   company: 2,
 }
 
