@@ -1,260 +1,489 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
+import useSWR from "swr"
+import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Table, TableHead, TableHeader, TableRow, TableCell, TableBody } from "@/components/ui/table"
-import { supabaseService } from "@/lib/supabase-service"
-import { Search, ChevronDown, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown as ChevronDownIcon } from "lucide-react"
-import React from "react"
-import { useRegionsCache } from "@/hooks/use-regions-cache"
-import { useActiveRegions } from "@/hooks/use-active-regions"
-import { usePlatformStats } from "@/hooks/use-platform-stats"
 import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import { TablePagination } from "@/components/ui/table-filters"
-import { ActiveDomainsFilter } from "@/components/ActiveDomainsFilter"
 import { AddRegionModal } from "@/components/AddRegionModal"
-import { QueryError } from "@/components/QueryState"
+import { CityEditModal, type CityEditTarget } from "@/components/cities/CityEditModal"
+import { CityBulkLinkModal, type BulkTargetRow } from "@/components/cities/CityBulkLinkModal"
 
-interface Region {
+interface CityRow {
+  id: string
+  plaats: string
+  postcode: string | null
+  platform_id: string | null
+  source: string
+  is_active: boolean | null
+  current_regio_platform: string | null
+  suggested_platform_id: string | null
+  suggested_regio_platform: string | null
+  job_postings_count: number
+}
+
+interface CitiesStats {
+  total: number
+  mapped: number
+  unmapped: number
+  unmapped_with_suggestion: number
+  unmapped_without_suggestion: number
+  ambiguous_plaats_count: number
+}
+
+interface PlatformOption {
   id: string
   regio_platform: string
-  plaats: string
-  postcode: string
-  created_at: string
-  job_postings_count?: number
+}
+
+type StatusFilter = "all" | "mapped" | "unmapped" | "suggestion"
+type SourceFilter = "all" | "manual" | "cbs_pc4"
+
+const fetcher = async <T,>(url: string): Promise<T> => {
+  const res = await fetch(url)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error(err.error || `HTTP ${res.status}`)
+  }
+  return res.json() as Promise<T>
 }
 
 export default function RegionsPage() {
-  // Vervang useState/useEffect door cache hook
-  const { data: regions, loading, error, refetch } = useRegionsCache()
-  const { data: activeRegions } = useActiveRegions()
-  const { stats: platformStats, loading: statsLoading, error: statsError } = usePlatformStats()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [showActiveOnly, setShowActiveOnly] = useState(false)
-  const [expanded, setExpanded] = useState<{ [plaats: string]: boolean }>({})
-  const [orderBy, setOrderBy] = useState<'plaats' | 'vacatures'>("plaats")
-  const [orderDirection, setOrderDirection] = useState<'asc' | 'desc'>("asc")
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [search, setSearch] = useState("")
+  const [status, setStatus] = useState<StatusFilter>("all")
+  const [source, setSource] = useState<SourceFilter>("all")
+  const [platformFilter, setPlatformFilter] = useState<string>("all")
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(25)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [editTarget, setEditTarget] = useState<CityEditTarget | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [applyingSuggestions, setApplyingSuggestions] = useState(false)
 
-  // Get active platforms for filtering
-  const activePlatforms = new Set(activeRegions?.map(r => r.regio_platform) || [])
-  
-  // Client-side filter op plaats, regio_platform of postcode
-  const filteredRegions = (regions || []).filter((region: Region) => {
-    const term = searchTerm.toLowerCase()
-    const matchesSearch = (
-      region.plaats.toLowerCase().includes(term) ||
-      region.regio_platform.toLowerCase().includes(term) ||
-      region.postcode.toLowerCase().includes(term)
-    )
-    
-    const matchesActiveFilter = showActiveOnly 
-      ? activePlatforms.has(region.regio_platform)
-      : true
-    
-    return matchesSearch && matchesActiveFilter
-  })
+  const listUrl = useMemo(() => {
+    const params = new URLSearchParams()
+    if (search) params.set("q", search)
+    if (status !== "all") params.set("status", status)
+    if (source !== "all") params.set("source", source)
+    if (platformFilter !== "all") params.set("platform_id", platformFilter)
+    params.set("limit", "500")
+    params.set("offset", "0")
+    return `/api/cities/list?${params.toString()}`
+  }, [search, status, source, platformFilter])
 
-  // Groepeer per plaats
-  const grouped = filteredRegions.reduce((acc: Record<string, Region[]>, region: Region) => {
-    if (!acc[region.plaats]) acc[region.plaats] = []
-    acc[region.plaats].push(region)
-    return acc
-  }, {})
+  const {
+    data: listData,
+    error: listError,
+    mutate: mutateList,
+  } = useSWR<{ rows: CityRow[]; total: number }>(listUrl, fetcher)
 
-  // Sorteer de plaatsen op basis van orderBy/orderDirection
-  const sortedPlaatsen = Object.entries(grouped).sort(([plaatsA, regionsA], [plaatsB, regionsB]) => {
-    if (orderBy === "vacatures") {
-      const totalA = (regionsA as Region[]).reduce((sum: number, r: Region) => sum + (r.job_postings_count ?? 0), 0)
-      const totalB = (regionsB as Region[]).reduce((sum: number, r: Region) => sum + (r.job_postings_count ?? 0), 0)
-      return orderDirection === "asc" ? totalA - totalB : totalB - totalA
-    } else {
-      return orderDirection === "asc"
-        ? plaatsA.localeCompare(plaatsB, "nl")
-        : plaatsB.localeCompare(plaatsA, "nl")
+  const { data: statsData, mutate: mutateStats } = useSWR<{ stats: CitiesStats }>(
+    "/api/cities/stats",
+    fetcher,
+  )
+
+  const { data: platformsData } = useSWR<{ success: boolean; data?: PlatformOption[] }>(
+    "/api/platforms?format=full",
+    async (url) => {
+      const res = await fetch(url)
+      const json = await res.json()
+      return json
+    },
+  )
+
+  const platforms: PlatformOption[] = useMemo(() => {
+    const d = platformsData?.data
+    if (!d) return []
+    if (Array.isArray(d) && d.length > 0 && typeof d[0] === "string") {
+      // legacy API returns string[]
+      return (d as unknown as string[]).map((name) => ({ id: name, regio_platform: name }))
     }
-  })
+    return d as PlatformOption[]
+  }, [platformsData])
 
-  // Expand/collapse gedrag
+  const refresh = useCallback(() => {
+    mutateList()
+    mutateStats()
+  }, [mutateList, mutateStats])
+
+  const rows = listData?.rows ?? []
+  const total = listData?.total ?? 0
+  const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize)
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const stats = statsData?.stats
+
   useEffect(() => {
-    if (searchTerm) {
-      // Expand alles bij zoeken
-      const allExpanded: { [plaats: string]: boolean } = {}
-      Object.keys(grouped).forEach((plaats) => {
-        allExpanded[plaats] = true
-      })
-      setExpanded(allExpanded)
-    } else {
-      // Collapse alles als er niet gezocht wordt
-      const allCollapsed: { [plaats: string]: boolean } = {}
-      Object.keys(grouped).forEach((plaats) => {
-        allCollapsed[plaats] = false
-      })
-      setExpanded(allCollapsed)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, Object.keys(grouped).join(",")])
+    // Reset page bij filter-wijzigingen
+    setPage(1)
+  }, [search, status, source, platformFilter])
 
-  const toggleExpand = (plaats: string) => {
-    setExpanded((prev) => ({ ...prev, [plaats]: !prev[plaats] }))
+  const toggleSelect = (id: string, on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
   }
 
-  // Get platform statistics from platforms table (not from regions)
-  const totalPlatforms = platformStats?.total ?? 0
-  const activePlatformsCount = platformStats?.active ?? 0
+  const togglePageSelection = (on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const r of pagedRows) {
+        if (on) next.add(r.id)
+        else next.delete(r.id)
+      }
+      return next
+    })
+  }
 
-  // Na sorteren/groeperen:
-  const sortedPlaatsenArray = sortedPlaatsen as [string, Region[]][];
-  const totalRows = sortedPlaatsenArray.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / itemsPerPage));
-  const pagedPlaatsen = sortedPlaatsenArray.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const selectedRows: BulkTargetRow[] = useMemo(
+    () => rows.filter((r) => selectedIds.has(r.id)),
+    [rows, selectedIds],
+  )
+
+  const acceptSingleSuggestion = async (r: CityRow) => {
+    if (!r.suggested_platform_id) return
+    try {
+      const res = await fetch(`/api/cities/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform_id: r.suggested_platform_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Koppelen mislukt")
+      toast.success(`${r.plaats} → ${r.suggested_regio_platform}`)
+      refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Onbekende fout")
+    }
+  }
+
+  const applyAllSuggestions = async () => {
+    if (!confirm(`Accepteer alle ${stats?.unmapped_with_suggestion ?? "?"} PC4-suggesties?`)) return
+    setApplyingSuggestions(true)
+    try {
+      const res = await fetch("/api/cities/apply-suggestions", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Mislukt")
+      toast.success(`${data.updated} plaatsen automatisch gekoppeld`)
+      refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Onbekende fout")
+    } finally {
+      setApplyingSuggestions(false)
+    }
+  }
 
   return (
     <div>
-      <div className="mb-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Regio's</h1>
-            <p className="text-gray-600 mt-2">Overzicht van alle regio's in de database</p>
-          </div>
-          <AddRegionModal />
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Regio&apos;s &amp; plaatsen</h1>
+          <p className="text-gray-600 mt-1">
+            Beheer alle plaatsen en hun platform-koppeling. Bron: handmatig of CBS PC4-import.
+          </p>
         </div>
+        <AddRegionModal />
       </div>
 
-      {/* Active Domains Filter */}
-      <ActiveDomainsFilter
-        showActiveOnly={showActiveOnly}
-        onFilterChange={setShowActiveOnly}
-        totalPlatforms={totalPlatforms}
-        activePlatforms={activePlatformsCount}
-      />
-
-      {/* Zoekveld met icoon */}
-      <div className="mb-4 max-w-md relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        <Input
-          placeholder="Zoek op plaats, regio platform of postcode..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
+      {/* Stats-bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <StatCard
+          label="Totaal plaatsen"
+          value={stats?.total ?? null}
+          variant="neutral"
+        />
+        <StatCard
+          label="Gekoppeld aan platform"
+          value={stats?.mapped ?? null}
+          variant="success"
+        />
+        <StatCard
+          label="Met PC4-suggestie"
+          value={stats?.unmapped_with_suggestion ?? null}
+          variant="warning"
+          action={
+            stats?.unmapped_with_suggestion && stats.unmapped_with_suggestion > 0
+              ? (
+                <button
+                  type="button"
+                  onClick={applyAllSuggestions}
+                  disabled={applyingSuggestions}
+                  className="mt-1 text-xs underline hover:no-underline disabled:opacity-50"
+                >
+                  {applyingSuggestions ? "Bezig…" : "Accepteer alle"}
+                </button>
+              )
+              : null
+          }
+        />
+        <StatCard
+          label="Niet gekoppeld (handmatig)"
+          value={stats?.unmapped_without_suggestion ?? null}
+          variant="danger"
         />
       </div>
-      <div className="border rounded-lg bg-white">
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative max-w-xs flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Zoek plaats, postcode of platform…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle statussen</SelectItem>
+            <SelectItem value="mapped">Gekoppeld</SelectItem>
+            <SelectItem value="unmapped">Niet gekoppeld</SelectItem>
+            <SelectItem value="suggestion">Met PC4-suggestie</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={source} onValueChange={(v) => setSource(v as SourceFilter)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle bronnen</SelectItem>
+            <SelectItem value="manual">Handmatig</SelectItem>
+            <SelectItem value="cbs_pc4">CBS PC4</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={platformFilter} onValueChange={setPlatformFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-[320px]">
+            <SelectItem value="all">Alle platforms</SelectItem>
+            {platforms
+              .slice()
+              .sort((a, b) => a.regio_platform.localeCompare(b.regio_platform, "nl"))
+              .map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.regio_platform}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+        {(search || status !== "all" || source !== "all" || platformFilter !== "all") && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearch("")
+              setStatus("all")
+              setSource("all")
+              setPlatformFilter("all")
+            }}
+          >
+            Reset
+          </Button>
+        )}
+        <div className="flex-1" />
+        {selectedIds.size > 0 && (
+          <Button
+            onClick={() => setBulkOpen(true)}
+            className="bg-orange-600 hover:bg-orange-700"
+          >
+            Bulk-koppel ({selectedIds.size})
+          </Button>
+        )}
+      </div>
+
+      {listError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+          Fout bij laden: {listError instanceof Error ? listError.message : String(listError)}
+        </div>
+      )}
+
+      {/* Tabel */}
+      <div className="border rounded-lg bg-white overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12"></TableHead>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={
+                    pagedRows.length > 0 &&
+                    pagedRows.every((r) => selectedIds.has(r.id))
+                  }
+                  onCheckedChange={(v) => togglePageSelection(Boolean(v))}
+                />
+              </TableHead>
               <TableHead>Plaats</TableHead>
               <TableHead>Postcode</TableHead>
-              <TableHead>Regio platform</TableHead>
-              <TableHead>Aangemaakt op</TableHead>
-              <TableHead>ID</TableHead>
-              <TableHead
-                className="cursor-pointer select-none"
-                onClick={() => {
-                  if (orderBy === "vacatures") {
-                    setOrderDirection(orderDirection === "desc" ? "asc" : "desc")
-                  } else {
-                    setOrderBy("vacatures")
-                    setOrderDirection("desc")
-                  }
-                }}
-              >
-                Vacatures
-                {orderBy !== "vacatures" && <ArrowUpDown className="inline w-4 h-4 ml-1 text-gray-400" />}
-                {orderBy === "vacatures" && orderDirection === "asc" && <ChevronUp className="inline w-4 h-4 ml-1 text-gray-600" />}
-                {orderBy === "vacatures" && orderDirection === "desc" && <ChevronDownIcon className="inline w-4 h-4 ml-1 text-gray-600" />}
-              </TableHead>
+              <TableHead>Platform-koppeling</TableHead>
+              <TableHead>Bron</TableHead>
+              <TableHead className="text-right">Vacatures</TableHead>
+              <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
-              Array.from({ length: 6 }).map((_, idx) => (
+            {!listData && !listError && (
+              Array.from({ length: 8 }).map((_, idx) => (
                 <TableRow key={idx}>
-                  {Array.from({ length: 7 }).map((_, cellIdx) => (
-                    <TableCell key={cellIdx}>
-                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  {Array.from({ length: 7 }).map((_, c) => (
+                    <TableCell key={c}>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse" />
                     </TableCell>
                   ))}
                 </TableRow>
               ))
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={7} className="p-0">
-                  <QueryError
-                    message={error instanceof Error ? error.message : undefined}
-                    onRetry={() => refetch()}
-                  />
-                </TableCell>
-              </TableRow>
-            ) : Object.keys(grouped).length === 0 ? (
+            )}
+            {listData && pagedRows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                  Geen regio's gevonden
+                  Geen plaatsen gevonden voor deze filters.
                 </TableCell>
               </TableRow>
-            ) : (
-              (pagedPlaatsen as [string, Region[]][]).map(([plaats, plaatsRegions]: [string, Region[]]) => {
-                // Totaal aantal vacatures voor deze plaats (som van alle regio's onder deze plaats)
-                const totalVacatures = plaatsRegions.reduce((sum: number, r: Region) => sum + (r.job_postings_count ?? 0), 0)
-                return (
-                  <React.Fragment key={plaats}>
-                    <TableRow key={plaats} className="bg-orange-50 hover:bg-orange-100 text-base md:text-sm h-10">
-                      <TableCell className="text-center py-1">
-                        <button
-                          aria-label={expanded[plaats] ? "Collapse" : "Expand"}
-                          onClick={() => toggleExpand(plaats)}
-                          className="focus:outline-none"
-                        >
-                          {expanded[plaats] ? (
-                            <ChevronDown className="w-4 h-4 text-orange-500" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-orange-500" />
-                          )}
-                        </button>
-                      </TableCell>
-                      <TableCell className="font-semibold text-base md:text-sm py-1">{plaats}</TableCell>
-                      <TableCell></TableCell>
-                      {/* Regio platform kolom */}
-                      <TableCell className="text-sm text-gray-700">
-                        {Array.from(new Set(plaatsRegions.map((r: Region) => r.regio_platform))).join(", ")}
-                      </TableCell>
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className="font-semibold text-base md:text-sm py-1 text-right">{totalVacatures}</TableCell>
-                    </TableRow>
-                    {expanded[plaats] &&
-                      plaatsRegions.map((region: Region) => (
-                        <TableRow key={region.id} className="hover:bg-orange-50">
-                          <TableCell></TableCell>
-                          <TableCell className="font-medium">{region.plaats}</TableCell>
-                          <TableCell>{region.postcode}</TableCell>
-                          <TableCell>{region.regio_platform}</TableCell>
-                          <TableCell>{region.created_at ? new Date(region.created_at).toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric" }) : '-'}</TableCell>
-                          <TableCell className="text-xs text-gray-400">{region.id}</TableCell>
-                          <TableCell className="text-right">{region.job_postings_count ?? 0}</TableCell>
-                        </TableRow>
-                      ))}
-                  </React.Fragment>
-                )
-              })
             )}
+            {pagedRows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.has(r.id)}
+                    onCheckedChange={(v) => toggleSelect(r.id, Boolean(v))}
+                  />
+                </TableCell>
+                <TableCell className="font-medium">{r.plaats}</TableCell>
+                <TableCell className="font-mono text-sm">{r.postcode ?? "—"}</TableCell>
+                <TableCell>
+                  {r.platform_id && r.current_regio_platform ? (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      ● {r.current_regio_platform}
+                    </Badge>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                        ○ Niet gekoppeld
+                      </Badge>
+                      {r.suggested_platform_id && r.suggested_regio_platform && (
+                        <button
+                          type="button"
+                          onClick={() => acceptSingleSuggestion(r)}
+                          className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-800 hover:bg-orange-200"
+                        >
+                          ✦ Suggestie: {r.suggested_regio_platform}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={
+                      r.source === "cbs_pc4"
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : "bg-gray-100 text-gray-600 border-gray-200"
+                    }
+                  >
+                    {r.source === "cbs_pc4" ? "CBS PC4" : "Handmatig"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right text-gray-600">
+                  {r.job_postings_count > 0 ? r.job_postings_count.toLocaleString("nl-NL") : "—"}
+                </TableCell>
+                <TableCell>
+                  <Button variant="ghost" size="sm" onClick={() => setEditTarget(r)}>
+                    Bewerk
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
-      {/* Pagination */}
+
       <TablePagination
-        currentPage={currentPage}
+        currentPage={page}
         totalPages={totalPages}
-        totalCount={totalRows}
-        itemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
-        onItemsPerPageChange={(items) => {
-          setItemsPerPage(items)
-          setCurrentPage(1)
+        totalItems={total}
+        itemsPerPage={pageSize}
+        onPageChange={setPage}
+        itemName="plaatsen"
+      />
+
+      <CityEditModal
+        city={editTarget}
+        platforms={platforms}
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        onSaved={refresh}
+      />
+
+      <CityBulkLinkModal
+        selected={selectedRows}
+        platforms={platforms}
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onApplied={() => {
+          setSelectedIds(new Set())
+          refresh()
         }}
       />
     </div>
   )
-} 
+}
+
+function StatCard({
+  label,
+  value,
+  variant,
+  action,
+}: {
+  label: string
+  value: number | null
+  variant: "neutral" | "success" | "warning" | "danger"
+  action?: React.ReactNode
+}) {
+  const bg = {
+    neutral: "bg-gray-50",
+    success: "bg-green-50",
+    warning: "bg-amber-50",
+    danger: "bg-red-50",
+  }[variant]
+  const fg = {
+    neutral: "text-gray-900",
+    success: "text-green-800",
+    warning: "text-amber-800",
+    danger: "text-red-800",
+  }[variant]
+  return (
+    <div className={`${bg} rounded-lg p-4`}>
+      <div className={`text-2xl font-bold ${fg}`}>
+        {value === null ? "—" : value.toLocaleString("nl-NL")}
+      </div>
+      <div className={`text-xs ${fg} opacity-80`}>{label}</div>
+      {action}
+    </div>
+  )
+}
