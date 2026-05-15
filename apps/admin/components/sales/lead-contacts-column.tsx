@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Star, Plus, ArrowUp, AlertTriangle } from 'lucide-react'
 import type { NormalizedContact, RunEnrichments } from '@/lib/services/sales-leads/types'
+import { isPlaceholderContactName } from '@/lib/services/sales-leads/contact-filters'
 import { LeadAddContactModal } from './lead-add-contact-modal'
 
 type Props = {
@@ -100,7 +101,13 @@ export function LeadContactsColumn({ enrichments, selected, onChange }: Props) {
   const allCandidates = useMemo(() => {
     const apollo = enrichments.apollo?.parsed?.contacts ?? []
     const website = enrichments.website?.parsed?.contacts ?? []
-    return dedupe([...apollo, ...website, ...manualPool])
+    // Safety-net voor runs van vóór de placeholder-filter (zoals
+    // 'Niet Gespecificeerd' met info@-email). Manuals laten we door zodat
+    // user bewust mag toevoegen wat-dan-ook.
+    const merged = dedupe([...apollo, ...website, ...manualPool])
+    return merged.filter(
+      (c) => !isPlaceholderContactName(c.name) || c.source_origin.includes('manual'),
+    )
   }, [enrichments, manualPool])
 
   const selectedKeys = new Set(selected.map((c) => c.name.trim().toLowerCase()))

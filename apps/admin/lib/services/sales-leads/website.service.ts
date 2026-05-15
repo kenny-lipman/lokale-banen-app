@@ -4,6 +4,7 @@ import { discoverUrls, type DiscoveredUrl } from './website/sitemap-discovery'
 import { tieredFetch, type FetchTier } from './website/tiered-fetch'
 import { PlaywrightFetcher } from './website/playwright-fetcher'
 import { MistralService } from './mistral.service'
+import { isPlaceholderContactName } from './contact-filters'
 import { WEBSITE_EXTRACTION_PROMPT_V1 } from './prompts/website-extraction.v1'
 import { normalizeUrl } from '@/lib/utils/url'
 import { detectAts } from './ats-detect'
@@ -261,10 +262,17 @@ export class WebsiteService {
     e: MistralExtractResult,
     discovered: DiscoveredUrl[],
   ): NormalizedFields {
-    // Mistral kan contacten met null name terugleveren — die zijn onbruikbaar
-    // (geen identiteit voor dedup of ranking). Filter ze hier weg.
+    // Mistral kan contacten met null name OF placeholder-namen ("Niet
+    // gespecificeerd", "Afdeling Personeelszaken") terugleveren wanneer er
+    // alleen een generiek info@-adres op de pagina staat. Beide soorten zijn
+    // onbruikbaar voor Pipedrive-person creation en mogen niet in de UI
+    // verschijnen of Apollo /people/match-credits verspillen.
     const contacts: NormalizedContact[] = (e.contacts ?? [])
-      .filter((c): c is typeof c & { name: string } => typeof c.name === 'string' && c.name.trim().length > 0)
+      .filter((c): c is typeof c & { name: string } =>
+        typeof c.name === 'string' &&
+        c.name.trim().length > 0 &&
+        !isPlaceholderContactName(c.name),
+      )
       .map((c) => ({
         name: c.name,
         title: c.title ?? undefined,

@@ -122,6 +122,13 @@ export function computePrimaryMaster(
     sourceOverrides.vacancies = 'website'
   }
 
+  // pages_crawled is een website-only array die de UI in een aparte
+  // sitemap-card toont (LeadSitemapPages leest van master.pages_crawled).
+  if (sourceParsed.website?.pages_crawled?.length) {
+    result.pages_crawled = sourceParsed.website.pages_crawled
+    sourceOverrides.pages_crawled = 'website'
+  }
+
   return {
     ...result,
     source_overrides: sourceOverrides,

@@ -8,6 +8,7 @@ import { MistralService } from './mistral.service'
 import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
 import { upsertCompanyFromRun, upsertCareerPageSource } from './internal-linking'
+import { isPlaceholderContactName } from './contact-filters'
 import type {
   RunEnrichments,
   PerSourceEnrichment,
@@ -291,8 +292,15 @@ export class EnrichmentOrchestratorService {
   private async runPersonMatching(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const enr = run.enrichments
-    const websiteContacts = (enr.website?.parsed?.contacts ?? []).filter((c) => !!c.name)
-    const apolloWarm = (enr.apollo?.parsed?.contacts ?? []).filter((c) => !!c.name)
+    // Skip placeholders ('Niet gespecificeerd', 'Afdeling Personeelszaken')
+    // zowel uit website-input als uit Apollo's reeds bekende set — die geven
+    // false-positive matches en verspillen credits.
+    const websiteContacts = (enr.website?.parsed?.contacts ?? []).filter(
+      (c) => !!c.name && !isPlaceholderContactName(c.name),
+    )
+    const apolloWarm = (enr.apollo?.parsed?.contacts ?? []).filter(
+      (c) => !!c.name && !isPlaceholderContactName(c.name),
+    )
     if (!websiteContacts.length) return
 
     const warmNames = new Set(apolloWarm.map((c) => normalizeName(c.name)))
