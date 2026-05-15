@@ -40,11 +40,24 @@ export class EnrichmentOrchestratorService {
    * gemaakt. Wil de user nieuwe data van de hergeruvde bron mergen, dan
    * doen ze dat handmatig of via candidate-promotion (Maps).
    */
+  /**
+   * Re-run KvK met expliciete user-input (manual override via UI of een
+   * suggestion-chip uit een andere bron). Bypassed `runSingleSource` zodat
+   * deze method niet vervuilt met source-specifieke override-params.
+   */
+  async runKvkWithOverride(runId: string, override: KvkLookupOverride): Promise<void> {
+    const { input_domain } = await this.loadRun(runId)
+    await this.runKvk(runId, input_domain, override)
+    await this.rebuildMasterIfMissing(runId)
+  }
+
   async runSingleSource(runId: string, source: SourceName): Promise<void> {
-    const { input_url, input_domain, scrape_vacancies } = await this.loadRun(runId)
+    const run = await this.loadRun(runId)
+    const { input_url, input_domain, scrape_vacancies } = run
     switch (source) {
       case 'kvk':
-        await this.runKvk(runId, input_domain)
+        // Gebruik website-data als die er al ligt (sterker signaal dan domein-guess).
+        await this.runKvk(runId, input_domain, pickKvkInputFromWebsite(run.enrichments, input_domain) ?? undefined)
         break
       case 'google_maps':
         await this.runMaps(runId, input_domain)
@@ -108,6 +121,14 @@ export class EnrichmentOrchestratorService {
         this.runWebsite(runId, input_url, scrape_vacancies),
       ])
 
+      // Fase A.5 — KvK-retry met website-data. Veel domeinen condenseren
+      // meerdere woorden zonder spatie (flexwonennh.nl, werkenindekempen.nl);
+      // de Zoeken-API doet whole-text match dus die guess geeft 404. Als
+      // Mistral op de site een KvK-nummer of betere bedrijfsnaam vond,
+      // gebruiken we die alsnog. Voor runPersonMatching omdat Apollo
+      // /people/match `organization_name` uit kvk.parsed leest.
+      await this.retryKvkWithWebsiteData(runId)
+
       // Fase B — Apollo matchPerson voor website-namen die nog niet als
       // warm-lead in Apollo zaten. Sequentieel om credits te beperken.
       await this.runPersonMatching(runId)
@@ -128,21 +149,55 @@ export class EnrichmentOrchestratorService {
 
   // ─── Fase A — per-bron runners ─────────────────────────────────────────
 
-  private async runKvk(runId: string, domain: string): Promise<void> {
+  /**
+   * KvK-lookup. Default: bedrijfsnaam-guess uit het domein.
+   * `override` wint wanneer aanwezig — gebruikt door de website-retry-pad en
+   * door `runSingleSource('kvk')` als website-data al beschikbaar is.
+   */
+  private async runKvk(
+    runId: string,
+    domain: string,
+    override?: KvkLookupOverride,
+  ): Promise<void> {
     const startedAt = new Date().toISOString()
     await this.markRunning(runId, 'kvk', startedAt)
     const t0 = Date.now()
+    const endpoint = override?.kvkNumber
+      ? `GET /v1/basisprofielen/${override.kvkNumber} (via ${override.via ?? 'website'})`
+      : override?.name
+      ? `GET /v2/zoeken (naam via ${override.via ?? 'website'})`
+      : 'GET /v1/basisprofielen'
     try {
-      const naamGuess = domainToCompanyGuess(domain)
-      const parsed = await this.kvk.enrichByName(naamGuess)
+      let parsed: NormalizedFields
+      if (override?.kvkNumber) {
+        parsed = await this.kvk.enrichByKvkNumber(override.kvkNumber)
+      } else if (override?.name) {
+        parsed = await this.kvk.enrichByName(override.name)
+      } else {
+        parsed = await this.kvk.enrichByName(domainToCompanyGuess(domain))
+      }
       await this.completeSource(runId, 'kvk', startedAt, parsed)
-      await this.appendAudit(runId, this.audit('kvk', 'GET /v1/basisprofielen', t0, 'ok'))
+      await this.appendAudit(runId, this.audit('kvk', endpoint, t0, 'ok'))
     } catch (e) {
       const reason = e instanceof KvkApiError ? e.reason : 'unknown'
       const status = reason === 'not_found' ? 'not_found' : 'failed'
       await this.failSource(runId, 'kvk', startedAt, e, status)
-      await this.appendAudit(runId, this.audit('kvk', 'GET /v1/basisprofielen', t0, status, e))
+      await this.appendAudit(runId, this.audit('kvk', endpoint, t0, status, e))
     }
+  }
+
+  /**
+   * Re-run KvK met website-data wanneer Phase-A op `not_found` eindigde.
+   * Geen-op als: KvK is gelukt, of website is gefaald, of website geen
+   * bruikbaar signaal opleverde (alleen domain-guess herhalen heeft geen zin).
+   */
+  private async retryKvkWithWebsiteData(runId: string): Promise<void> {
+    const run = await this.loadRun(runId)
+    if (run.enrichments.kvk?.status !== 'not_found') return
+    if (run.enrichments.website?.status !== 'completed') return
+    const override = pickKvkInputFromWebsite(run.enrichments, run.input_domain)
+    if (!override) return
+    await this.runKvk(runId, run.input_domain, override)
   }
 
   private async runMaps(runId: string, domain: string): Promise<void> {
@@ -566,4 +621,34 @@ function normalizeName(name: string): string {
 function domainToCompanyGuess(domain: string): string {
   const stem = domain.split('.')[0] ?? domain
   return stem.charAt(0).toUpperCase() + stem.slice(1)
+}
+
+export type KvkLookupOverride = {
+  kvkNumber?: string
+  name?: string
+  via?: 'website' | 'manual' | 'maps' | 'apollo'
+}
+
+/**
+ * Kies het sterkste KvK-input-signaal uit website-data:
+ *   1. KvK-nummer dat Mistral letterlijk op de site las (8 cijfers) → directe lookup.
+ *   2. Bedrijfsnaam die afwijkt van de domein-guess → Zoeken-API.
+ * Returnt `null` als website niets bruikbaars opleverde — voorkomt zinloze
+ * retries met dezelfde input die net 404 gaf.
+ */
+function pickKvkInputFromWebsite(
+  enrichments: RunEnrichments,
+  inputDomain: string,
+): KvkLookupOverride | null {
+  const website = enrichments.website?.parsed
+  if (!website) return null
+
+  const digits = (website.kvk_number ?? '').replace(/\D/g, '')
+  if (/^\d{8}$/.test(digits)) return { kvkNumber: digits, via: 'website' }
+
+  const websiteName = website.company_name?.trim()
+  if (!websiteName) return null
+  const guess = domainToCompanyGuess(inputDomain).toLowerCase()
+  if (websiteName.toLowerCase() === guess) return null
+  return { name: websiteName, via: 'website' }
 }

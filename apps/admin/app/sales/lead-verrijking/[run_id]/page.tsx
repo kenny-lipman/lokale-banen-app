@@ -306,6 +306,7 @@ export default function RunDetailPage({ params }: PageProps) {
         enrichments={run.enrichments ?? {}}
         runStatus={run.status}
         runId={run_id}
+        inputDomain={run.input_domain}
         onCandidatePromoted={onCandidatePromoted}
       />
       {timedOut && showEnriching && (

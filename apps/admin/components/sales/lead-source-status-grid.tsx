@@ -79,6 +79,7 @@ type Props = {
   enrichments: RunEnrichments
   runStatus: SalesLeadRunStatus
   runId?: string
+  inputDomain?: string
   onCandidatePromoted?: () => void | Promise<void>
 }
 
@@ -86,6 +87,7 @@ export function LeadSourceStatusGrid({
   enrichments,
   runStatus,
   runId,
+  inputDomain,
   onCandidatePromoted,
 }: Props) {
   const [open, setOpen] = useState<SourceKey | null>(null)
@@ -122,7 +124,9 @@ export function LeadSourceStatusGrid({
         <LeadSourceDetailPanel
           source={open}
           entry={openEntry}
+          enrichments={enrichments}
           runId={runId}
+          inputDomain={inputDomain}
           onCandidatePromoted={onCandidatePromoted}
         />
       )}

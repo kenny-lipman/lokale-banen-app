@@ -140,6 +140,16 @@ export class KvkService {
     return this.mapBasisprofielToNormalized(profiel, best)
   }
 
+  /**
+   * Directe lookup op KvK-nummer (8 cijfers). Skipt de Zoeken-stap volledig.
+   * Gebruikt door de orchestrator-retry wanneer Mistral een KvK-nummer letterlijk
+   * op de website heeft gevonden — sterker signaal dan een naam-zoektocht.
+   */
+  async enrichByKvkNumber(kvkNummer: string): Promise<NormalizedFields> {
+    const profiel = await this.getBasisprofiel(kvkNummer)
+    return this.mapBasisprofielToNormalized(profiel)
+  }
+
   private mapBasisprofielToNormalized(p: KvkBasisprofiel, hit?: KvkZoekResultaat): NormalizedFields {
     const hoofd = p._embedded?.hoofdvestiging
     const adresArr = hoofd?.adressen ?? []
