@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MessageCircle, Linkedin, Link2, Check } from 'lucide-react'
+import { MessageCircle, Link2, Check } from 'lucide-react'
 
 interface ShareButtonsProps {
   url: string
@@ -11,17 +11,13 @@ interface ShareButtonsProps {
 }
 
 /**
- * Share-buttons - WhatsApp, LinkedIn, en kopieer-link. Eyeron-styled met
- * primary-tint hover en secondary check-feedback bij gekopieerd.
+ * Share-buttons - WhatsApp en kopieer-link. Eyeron-styled met primary-tint
+ * hover en secondary check-feedback bij gekopieerd.
  */
 export function ShareButtons({ url, title, variant = 'inline' }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false)
 
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${title} ${url}`)}`
-  // share-offsite is het huidige officiele endpoint; shareArticle is uitgefaseerd
-  // en opende vaak een lege dialog. LinkedIn haalt title/description/image
-  // zelf op via de OG-tags op de gedeelde pagina.
-  const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`
 
   async function copyLink() {
     try {
@@ -55,17 +51,6 @@ export function ShareButtons({ url, title, variant = 'inline' }: ShareButtonsPro
         aria-label="Deel via WhatsApp"
       >
         <MessageCircle className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-      </a>
-      <a
-        href={linkedinUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center justify-center min-w-11 min-h-11 ${
-          isCard ? 'rounded-button border border-primary text-primary' : 'text-primary'
-        } hover:bg-primary-tint transition-colors`}
-        aria-label="Deel via LinkedIn"
-      >
-        <Linkedin className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
       </a>
       <button
         type="button"
