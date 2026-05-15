@@ -327,7 +327,7 @@ export function HoursRangeFilter({
   const presets = [
     { label: "Parttime (0-24u)", min: 0, max: 24 },
     { label: "Fulltime (36-40u)", min: 36, max: 40 },
-    { label: "24-32 uur", min: 24, max: 32 },
+    { label: "24-36 uur", min: 24, max: 36 },
     { label: "Alle uren", min: null, max: null },
   ]
 

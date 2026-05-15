@@ -169,7 +169,9 @@ async function fetchApprovedJobsUncached(
         .gte('working_hours_min', 36)
         .or('working_hours_max.is.null,working_hours_max.lte.40')
     } else if (filter.hours === 'gt40') {
-      query = query.gt('working_hours_min', 40)
+      // Match jobs waarvan ofwel min > 40 (puur overwerk) ofwel max > 40
+      // (range strekt zich uit boven fulltime, bv. 36-44).
+      query = query.or('working_hours_min.gt.40,working_hours_max.gt.40')
     }
   }
 
