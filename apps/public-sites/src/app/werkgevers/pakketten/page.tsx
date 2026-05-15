@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-const USP_ITEMS: { left: string[]; right: string[] } = {
+const STATIC_USPS: { left: string[]; right: string[] } = {
   left: [
     'Grootste bereik van de regio',
     'Maatwerk oplossingen voor het vinden van de juiste kandidaat',
@@ -29,10 +29,16 @@ const USP_ITEMS: { left: string[]; right: string[] } = {
   ],
   right: [
     'Lokale doelgroep, regionale focus',
-    'Aanwezig op Facebook, Instagram & LinkedIn',
     'Snelle plaatsing: binnen 24 uur live',
     'Onderdeel van het LokaleBanen-netwerk',
   ],
+}
+
+/** NL-grammatica join: ['A','B','C'] -> "A, B & C" / ['A','B'] -> "A & B" */
+function joinNl(items: string[]): string {
+  if (items.length === 0) return ''
+  if (items.length === 1) return items[0]
+  return `${items.slice(0, -1).join(', ')} & ${items[items.length - 1]}`
 }
 
 export default async function PakkettenPage() {
@@ -42,6 +48,25 @@ export default async function PakkettenPage() {
   const cities = await getCitiesWithJobCounts(tenant.id)
   const mailSubjectBase = encodeURIComponent(`[${tenant.name}] Vacature plaatsen`)
   const mailto = `mailto:${COMPANY_INFO.centralEmail}?subject=${mailSubjectBase}`
+
+  // Welke socials heeft dit portaal? Bepaalt of we de "Aanwezig op X"
+  // USP tonen + welke icoontjes op de social-campaign card komen.
+  const socialPresence = {
+    facebook: !!tenant.social_facebook,
+    instagram: !!tenant.social_instagram,
+    linkedin: !!tenant.social_linkedin,
+  }
+  const presenceLabels: string[] = []
+  if (socialPresence.facebook) presenceLabels.push('Facebook')
+  if (socialPresence.instagram) presenceLabels.push('Instagram')
+  if (socialPresence.linkedin) presenceLabels.push('LinkedIn')
+
+  // Render USP-lijsten — voeg "Aanwezig op X" alleen toe als 1+ social bestaat
+  const rightUsps = [...STATIC_USPS.right]
+  if (presenceLabels.length > 0) {
+    rightUsps.splice(1, 0, `Aanwezig op ${joinNl(presenceLabels)}`)
+  }
+  const uspItems = { left: STATIC_USPS.left, right: rightUsps }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -77,12 +102,12 @@ export default async function PakkettenPage() {
 
             <div className="mt-9 grid sm:grid-cols-2 gap-x-10 gap-y-5 text-left">
               <ul className="space-y-4 m-0 p-0 list-none">
-                {USP_ITEMS.left.map((item) => (
+                {uspItems.left.map((item) => (
                   <UspItem key={item}>{item}</UspItem>
                 ))}
               </ul>
               <ul className="space-y-4 m-0 p-0 list-none">
-                {USP_ITEMS.right.map((item) => (
+                {uspItems.right.map((item) => (
                   <UspItem key={item}>{item}</UspItem>
                 ))}
               </ul>
@@ -134,6 +159,7 @@ export default async function PakkettenPage() {
                 disclaimer="Vraag vrijblijvend een prijsvoorstel aan! Op basis van de functie kunnen wij passend advies geven."
                 ctaHref={mailto}
                 highlighted
+                socialPresence={socialPresence}
               />
 
               {/* Card 3 - Onbeperkt online (Gratis) */}
@@ -187,6 +213,13 @@ interface PriceCardProps {
   disclaimer?: string
   ctaHref: string
   highlighted?: boolean
+  /** Bepaalt welke social-iconen bovenop de highlighted-card komen.
+   *  Geen socials gevuld = geen iconen. */
+  socialPresence?: {
+    facebook: boolean
+    instagram: boolean
+    linkedin: boolean
+  }
 }
 
 function PriceCard({
@@ -196,7 +229,11 @@ function PriceCard({
   disclaimer,
   ctaHref,
   highlighted,
+  socialPresence,
 }: PriceCardProps) {
+  const hasAnySocial =
+    !!socialPresence &&
+    (socialPresence.facebook || socialPresence.instagram || socialPresence.linkedin)
   const containerClass = highlighted
     ? 'bg-primary text-primary-ink ring-1 ring-primary'
     : 'bg-surface text-primary border border-divider'
@@ -210,11 +247,17 @@ function PriceCard({
   return (
     <div className={`flex flex-col rounded-card shadow-card ${containerClass}`}>
       <div className="px-6 pt-8 pb-6 flex flex-col items-center">
-        {highlighted && (
+        {highlighted && hasAnySocial && (
           <div className="flex items-center gap-3 mb-5" aria-hidden="true">
-            <Instagram className="h-6 w-6" strokeWidth={1.75} />
-            <Facebook className="h-6 w-6" strokeWidth={1.75} />
-            <Linkedin className="h-6 w-6" strokeWidth={1.75} />
+            {socialPresence!.instagram && (
+              <Instagram className="h-6 w-6" strokeWidth={1.75} />
+            )}
+            {socialPresence!.facebook && (
+              <Facebook className="h-6 w-6" strokeWidth={1.75} />
+            )}
+            {socialPresence!.linkedin && (
+              <Linkedin className="h-6 w-6" strokeWidth={1.75} />
+            )}
           </div>
         )}
         <h3
