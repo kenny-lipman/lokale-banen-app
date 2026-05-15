@@ -126,9 +126,9 @@ function MetaRow({
   children: React.ReactNode
 }) {
   return (
-    <span className="inline-flex items-center gap-2 text-meta font-light text-muted leading-snug">
-      <Icon className="w-[13px] h-[13px] shrink-0" strokeWidth={1.8} aria-hidden="true" />
-      {children}
+    <span className="inline-flex items-start gap-2 text-meta font-light text-muted leading-snug">
+      <Icon className="w-[13px] h-[13px] shrink-0 mt-[3px]" strokeWidth={1.8} aria-hidden="true" />
+      <span className="min-w-0">{children}</span>
     </span>
   )
 }
