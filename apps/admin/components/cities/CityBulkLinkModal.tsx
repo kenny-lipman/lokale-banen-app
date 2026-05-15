@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -44,6 +44,36 @@ interface Props {
 export function CityBulkLinkModal({ selected, platforms, open, onClose, onApplied }: Props) {
   const [platformId, setPlatformId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [rerunPrematch, setRerunPrematch] = useState(true)
+  const [pendingJobs, setPendingJobs] = useState<number | null>(null)
+  const [pendingLoading, setPendingLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open || selected.length === 0) {
+      setPendingJobs(null)
+      return
+    }
+    let cancelled = false
+    setPendingLoading(true)
+    fetch("/api/cities/pending-jobs-count", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: selected.map((r) => r.id) }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setPendingJobs(typeof d.count === "number" ? d.count : 0)
+      })
+      .catch(() => {
+        if (!cancelled) setPendingJobs(null)
+      })
+      .finally(() => {
+        if (!cancelled) setPendingLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, selected])
 
   const dominantSuggestion = useMemo(() => {
     const counts = new Map<string, { id: string; name: string; count: number }>()
@@ -85,6 +115,20 @@ export function CityBulkLinkModal({ selected, platforms, open, onClose, onApplie
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Bulk-koppeling mislukt")
       toast.success(`${data.updated} plaatsen gekoppeld`)
+
+      // Optioneel: direct prematch draaien zodat wachtende vacatures direct gekoppeld worden
+      if (rerunPrematch && pendingJobs && pendingJobs > 0) {
+        try {
+          const pre = await fetch("/api/cities/run-prematch?chunk=10000", { method: "POST" })
+          const preData = await pre.json()
+          if (pre.ok && typeof preData.rows_updated === "number") {
+            toast.success(`Prematch: ${preData.rows_updated} vacatures gekoppeld`)
+          }
+        } catch {
+          toast.warning("Prematch kon niet automatisch starten — start handmatig")
+        }
+      }
+
       onApplied()
       onClose()
     } catch (err) {
@@ -146,6 +190,30 @@ export function CityBulkLinkModal({ selected, platforms, open, onClose, onApplie
                 Die krijgen alsnog dit platform.
               </p>
             )}
+          </div>
+
+          <div className="border-t pt-3 space-y-2">
+            <div className="text-sm text-gray-700">
+              {pendingLoading && <>Wachtende vacatures berekenen…</>}
+              {!pendingLoading && pendingJobs !== null && pendingJobs > 0 && (
+                <>
+                  📊 <strong>{pendingJobs.toLocaleString("nl-NL")}</strong> vacatures
+                  in queue wachten op deze plaatsen.
+                </>
+              )}
+              {!pendingLoading && pendingJobs === 0 && (
+                <span className="text-gray-500">Geen wachtende vacatures voor deze plaatsen.</span>
+              )}
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rerunPrematch}
+                onChange={(e) => setRerunPrematch(e.target.checked)}
+                disabled={!pendingJobs}
+              />
+              Run prematch-job direct na koppeling
+            </label>
           </div>
         </div>
 

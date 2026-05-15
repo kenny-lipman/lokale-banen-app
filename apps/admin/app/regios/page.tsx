@@ -78,6 +78,7 @@ export default function RegionsPage() {
   const [editTarget, setEditTarget] = useState<CityEditTarget | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [applyingSuggestions, setApplyingSuggestions] = useState(false)
+  const [runningPrematch, setRunningPrematch] = useState(false)
 
   const listUrl = useMemo(() => {
     const params = new URLSearchParams()
@@ -195,16 +196,38 @@ export default function RegionsPage() {
     }
   }
 
+  const runPrematchNow = async () => {
+    setRunningPrematch(true)
+    try {
+      const res = await fetch("/api/cities/run-prematch?chunk=10000", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Prematch mislukt")
+      const n = data.rows_updated ?? 0
+      if (n === 0) toast.info("Niets te doen — geen nieuwe matches in de queue")
+      else toast.success(`Prematch: ${n.toLocaleString("nl-NL")} vacatures gekoppeld`)
+      refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Onbekende fout")
+    } finally {
+      setRunningPrematch(false)
+    }
+  }
+
   return (
     <div>
-      <div className="mb-6 flex justify-between items-start">
+      <div className="mb-6 flex justify-between items-start gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Regio&apos;s &amp; plaatsen</h1>
           <p className="text-gray-600 mt-1">
             Beheer alle plaatsen en hun platform-koppeling. Bron: handmatig of CBS PC4-import.
           </p>
         </div>
-        <AddRegionModal />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={runPrematchNow} disabled={runningPrematch}>
+            {runningPrematch ? "Prematch draait…" : "Run prematch nu"}
+          </Button>
+          <AddRegionModal />
+        </div>
       </div>
 
       {/* Stats-bar */}
