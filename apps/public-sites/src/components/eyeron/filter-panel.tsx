@@ -13,8 +13,8 @@ export interface FilterPanelProps {
 }
 
 const HOURS_LABELS: Record<string, string> = {
-  lt32:    'Parttime < 32 uur',
-  '32-40': 'Fulltime 36 - 40 uur',
+  lt36:    'Parttime < 36 uur',
+  '36-40': 'Fulltime 36 - 40 uur',
   gt40:    'Meer dan 40 uur',
 }
 
@@ -42,7 +42,7 @@ export function FilterPanel({
   return (
     <aside className="bg-surface w-full px-[30px] pt-7 pb-[30px]" aria-label="Filters">
       {!hideHeading && (
-        <h2 className="text-h1 font-bold text-primary tracking-tight mb-3.5 m-0">
+        <h2 className="text-h1 font-bold text-primary tracking-tight mb-[22px] m-0">
           Filters
         </h2>
       )}

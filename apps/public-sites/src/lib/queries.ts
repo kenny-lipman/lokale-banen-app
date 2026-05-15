@@ -54,7 +54,7 @@ export interface JobFilter {
   query?: string
   location?: string
   type?: string
-  hours?: string          // 'lt32' | '32-40' | 'gt40'
+  hours?: string          // 'lt36' | '36-40' | 'gt40'
   education?: string[]    // education_level values
   sector?: string[]       // categories values
   page?: number
@@ -160,10 +160,10 @@ async function fetchApprovedJobsUncached(
 
   // Working hours filter
   if (filter.hours) {
-    if (filter.hours === 'lt32') {
-      query = query.lt('working_hours_max', 32)
-    } else if (filter.hours === '32-40') {
-      query = query.gte('working_hours_min', 32).lte('working_hours_max', 40)
+    if (filter.hours === 'lt36') {
+      query = query.lt('working_hours_max', 36)
+    } else if (filter.hours === '36-40') {
+      query = query.gte('working_hours_min', 36).lte('working_hours_max', 40)
     } else if (filter.hours === 'gt40') {
       query = query.gt('working_hours_min', 40)
     }
