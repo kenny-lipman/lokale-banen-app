@@ -67,6 +67,7 @@ function mergeCareerCandidates(input: Array<{ url: string; method: CareerPageMet
 
 const MAX_TOTAL_TOKENS = 30_000
 const MAX_PAGES = 50
+const FETCH_CONCURRENCY = 5
 
 type MistralExtractResult = {
   company_name: string | null
@@ -139,33 +140,27 @@ export class WebsiteService {
           ? selectTargetsByRole(discovered, MAX_PAGES)
           : [{ url: homepageUrl, role: 'home', priority: 0 }]
 
-      // Sequentieel om browser-context-druk laag te houden + per-URL timing
-      // duidelijk te kunnen loggen in audit.
-      const fetched: FetchedPage[] = []
-      for (const t of targets) {
+      // Concurrent fetch met cap van FETCH_CONCURRENCY. PlaywrightFetcher is
+      // safe voor parallelle aanroepen (elke fetchPage opent eigen context).
+      // Order van targets behouden door indexed-result map zodat de Mistral-
+      // prompt home-first ziet.
+      const fetched = await mapConcurrent(targets, FETCH_CONCURRENCY, async (t): Promise<FetchedPage> => {
         try {
           const r = await tieredFetch(t.url, playwright)
-          fetched.push({
+          return {
             url: r.finalUrl,
             role: t.role,
             tier: r.tier,
             blocked: r.blocked,
             markdown: r.blocked ? '' : htmlToMarkdown(r.html),
-          })
+          }
         } catch (e) {
-          if (e instanceof SsrfBlockedError) {
-            // SSRF-fail per URL: skip, laat andere URLs door
-            fetched.push({ url: t.url, role: t.role, tier: 1, blocked: true, markdown: '' })
-            continue
+          if (e instanceof SsrfBlockedError || e instanceof FetchSizeExceededError) {
+            return { url: t.url, role: t.role, tier: 1, blocked: true, markdown: '' }
           }
-          if (e instanceof FetchSizeExceededError) {
-            fetched.push({ url: t.url, role: t.role, tier: 1, blocked: true, markdown: '' })
-            continue
-          }
-          // Onbekende fout per URL: skip
-          fetched.push({ url: t.url, role: t.role, tier: 2, blocked: true, markdown: '' })
+          return { url: t.url, role: t.role, tier: 2, blocked: true, markdown: '' }
         }
-      }
+      })
 
       const usable = fetched.filter((f) => !f.blocked && f.markdown.length > 200)
       if (usable.length === 0) {
@@ -397,4 +392,29 @@ function safePathname(url: string): string {
   } catch {
     return '/'
   }
+}
+
+/**
+ * Concurrency-limited map die de input-volgorde van `items` behoudt in de output.
+ * Houdt altijd `limit` workers in flight (rolling concurrency, niet batched per
+ * groep van N) — zodra een fetch klaar is start de volgende. `fn` mag zelf
+ * gooien; we vangen niet hier, dat is callers verantwoordelijkheid.
+ */
+async function mapConcurrent<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return []
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = cursor++
+      if (i >= items.length) return
+      results[i] = await fn(items[i], i)
+    }
+  })
+  await Promise.all(workers)
+  return results
 }
