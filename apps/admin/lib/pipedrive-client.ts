@@ -490,7 +490,7 @@ export class PipedriveClient {
     name: string
     owner_id?: number
     visible_to?: number
-    address?: string
+    address?: Array<{ value: string; label?: string }>
     custom_fields?: Record<string, unknown>
   }): Promise<{ id: number; [k: string]: unknown }> {
     const data = await this.requestV2('POST', '/organizations', org)

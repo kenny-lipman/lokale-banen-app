@@ -32,7 +32,7 @@ export function buildOrgPayload(
   name: string
   owner_id: number
   visible_to: number
-  address?: string
+  address?: Array<{ value: string }>
   custom_fields: Record<string, unknown>
 } {
   if (!master.company_name) {
@@ -40,8 +40,15 @@ export function buildOrgPayload(
   }
   const customFields: Record<string, unknown> = {}
 
-  if (master.kvk_number) customFields[ORG_FIELD_KEYS.KVK_NUMMER] = master.kvk_number
-  if (master.phone) customFields[ORG_FIELD_KEYS.TELEFOON] = master.phone
+  // KvK custom field is type 'double' in PD V2 — cast naar number, skip
+  // wanneer niet-numeriek (zou een 400 geven). 8-cijferige KvK is altijd
+  // safe via Number(...).
+  if (master.kvk_number) {
+    const num = Number(String(master.kvk_number).replace(/\D/g, ''))
+    if (Number.isFinite(num)) customFields[ORG_FIELD_KEYS.KVK_NUMMER] = num
+  }
+  // TELEFOON custom field is type 'phone' in PD V2 — wrap in array van objects.
+  if (master.phone) customFields[ORG_FIELD_KEYS.TELEFOON] = [{ value: master.phone, primary: true }]
   if (master.email) customFields[ORG_FIELD_KEYS.EMAIL] = master.email
   if (master.website) customFields[ORG_FIELD_KEYS.WEBSITE] = master.website
 
@@ -72,7 +79,9 @@ export function buildOrgPayload(
     owner_id: owner.pipedrive_user_id,
     // V2 vereist visible_to als integer (V1 accepteerde string). 3 = "Entire company".
     visible_to: 3,
-    ...(master.address?.full ? { address: master.address.full } : {}),
+    // V2 organization.address is een array van address-objects ({value, label?}),
+    // geen string zoals V1.
+    ...(master.address?.full ? { address: [{ value: master.address.full }] } : {}),
     custom_fields: customFields,
   }
 }
