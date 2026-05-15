@@ -65,13 +65,13 @@ export function FilterGroup({
   }
 
   return (
-    <fieldset className="relative border-0 m-0 min-w-0 pt-4 pb-2 first:pt-0">
+    <fieldset className="relative border-0 m-0 min-w-0 pt-6 pb-0 first:pt-0">
       {/* Divider - pseudo-element omdat <legend> de fieldset border-top afdekt */}
       <span
         aria-hidden="true"
         className="absolute top-0 left-0 right-0 h-px bg-divider first:hidden"
       />
-      <legend className="block w-full p-0 ml-0 text-body font-medium text-primary tracking-tight leading-none mb-1">
+      <legend className="block w-full p-0 ml-0 text-body font-medium text-primary tracking-tight leading-none mb-0">
         {label}
       </legend>
       <div className="flex flex-col">
