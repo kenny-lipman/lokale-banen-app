@@ -122,11 +122,17 @@ export function computePrimaryMaster(
     sourceOverrides.vacancies = 'website'
   }
 
-  // pages_crawled is een website-only array die de UI in een aparte
-  // sitemap-card toont (LeadSitemapPages leest van master.pages_crawled).
+  // pages_crawled + pages_discovered zijn website-only arrays die de UI in
+  // de sitemap-card toont (LeadSitemapPages leest van master). Discovery
+  // toont alle URLs uit de sitemap; pages_crawled een subset waar we
+  // markdown van hebben opgehaald.
   if (sourceParsed.website?.pages_crawled?.length) {
     result.pages_crawled = sourceParsed.website.pages_crawled
     sourceOverrides.pages_crawled = 'website'
+  }
+  if (sourceParsed.website?.pages_discovered?.length) {
+    result.pages_discovered = sourceParsed.website.pages_discovered
+    sourceOverrides.pages_discovered = 'website'
   }
 
   return {

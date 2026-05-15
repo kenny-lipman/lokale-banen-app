@@ -17,7 +17,22 @@ export type DiscoveredUrl = {
 
 const MAX_DISCOVERY_URLS = 500
 const MAX_RECURSION_DEPTH = 2
-const TOP_N = 12
+
+/**
+ * Per-role hard cap voor de eerste-pass selection. Voorkomt dat 4× `/over-ons*`
+ * variants alle slots opslokken. `other` heeft geen cap — die vult de rest van
+ * `maxTotal` aan. Caller (WebsiteService) bepaalt `maxTotal`.
+ */
+export type RoleCap = Partial<Record<DiscoveredUrlRole, number>>
+
+const DEFAULT_ROLE_CAPS: RoleCap = {
+  home: 1,
+  contact: 2,
+  about: 2,
+  team: 2,
+  careers: 5,
+  company: 2,
+}
 
 // Eerste-match-wint, geordend op specificiteit (specifieke patterns voor algemene).
 // Voor 'careers' is een ruime regex preferent: Mistral kan non-relevante content
@@ -166,7 +181,8 @@ function resolveSitemapUrl(raw: string, baseUrl: string): string | null {
 }
 
 /**
- * Hoofdroute: vind sitemap-URLs voor input domain en return top-N gescoorde URLs.
+ * Hoofdroute: vind sitemap-URLs voor input domain en return alle gescoorde URLs,
+ * gesorteerd op priority ascending.
  *
  * Volgorde:
  * 1. /robots.txt → Sitemap: regels (relative paths worden geresolved tegen
@@ -174,7 +190,9 @@ function resolveSitemapUrl(raw: string, baseUrl: string): string | null {
  * 2. /sitemap.xml + /sitemap_index.xml als fallback wanneer robots geen geldige
  *    sitemap-entries gaf
  * 3. Recursief sitemap-index parsen (max diepte 2)
- * 4. Score + dedupe + return top-12
+ * 4. Score + dedupe + return volledige lijst (gecapped op MAX_DISCOVERY_URLS)
+ *
+ * Caller doet selectie via `selectTargetsByRole` zodat caps per rol toepasbaar zijn.
  */
 export async function discoverUrls(inputUrl: string): Promise<DiscoveredUrl[]> {
   let origin: string
@@ -213,10 +231,64 @@ export async function discoverUrls(inputUrl: string): Promise<DiscoveredUrl[]> {
   // Soft-cap zodat parsing niet ontspoort op 50k-URL sitemaps
   const allUrls = Array.from(collectedUrls).slice(0, MAX_DISCOVERY_URLS)
 
-  // Score + sort + top-N
+  // Score + sort. Geen top-N slice meer — caller bepaalt de selectie via
+  // `selectTargetsByRole` zodat `pages_discovered` de volledige sitemap kent
+  // (UI-transparency) en de role-caps kunnen worden toegepast.
   const scored: DiscoveredUrl[] = allUrls.map((u) => ({ url: u, ...scoreUrl(u) }))
   scored.sort((a, b) => a.priority - b.priority)
-  return scored.slice(0, TOP_N)
+  return scored
+}
+
+/**
+ * Selecteer welke URLs we daadwerkelijk gaan fetchen. Vult eerst de hoge-prio
+ * roles tot aan hun cap (priority ascending, eerste-N per rol), daarna vult
+ * `other` URLs op tot `maxTotal`.
+ *
+ * Caps zijn een floor-garantie, geen ceiling: als er <cap URLs zijn voor een
+ * rol blijven die slots over voor `other`. Dat is bewust — bv. een site
+ * zonder team-pagina mag de slot niet verspillen.
+ */
+export function selectTargetsByRole(
+  scored: DiscoveredUrl[],
+  maxTotal: number,
+  caps: RoleCap = DEFAULT_ROLE_CAPS,
+): DiscoveredUrl[] {
+  if (maxTotal <= 0 || scored.length === 0) return []
+
+  const byRole = new Map<DiscoveredUrlRole, DiscoveredUrl[]>()
+  for (const u of scored) {
+    const arr = byRole.get(u.role) ?? []
+    arr.push(u)
+    byRole.set(u.role, arr)
+  }
+
+  const selected: DiscoveredUrl[] = []
+  const taken = new Set<string>()
+
+  // Phase 1: pak per named role maximaal `caps[role]` URLs.
+  const namedRoles: DiscoveredUrlRole[] = ['home', 'contact', 'about', 'team', 'careers', 'company']
+  for (const role of namedRoles) {
+    const cap = caps[role] ?? 0
+    if (cap <= 0) continue
+    const items = byRole.get(role) ?? []
+    for (let i = 0; i < items.length && i < cap && selected.length < maxTotal; i++) {
+      selected.push(items[i])
+      taken.add(items[i].url)
+    }
+  }
+
+  // Phase 2: fill remaining slots met overige URLs (other + ongebruikte named
+  // role items die boven de cap uitkwamen), priority-sorted.
+  if (selected.length < maxTotal) {
+    for (const u of scored) {
+      if (taken.has(u.url)) continue
+      selected.push(u)
+      taken.add(u.url)
+      if (selected.length >= maxTotal) break
+    }
+  }
+
+  return selected
 }
 
 async function collectFromSitemap(

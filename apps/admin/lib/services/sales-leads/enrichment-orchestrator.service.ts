@@ -86,10 +86,13 @@ export class EnrichmentOrchestratorService {
       .eq('id', runId)
       .single()
     if (!data?.master_record) return
-    const pages =
-      (data.enrichments as RunEnrichments | null)?.website?.parsed?.pages_crawled
-    if (!pages?.length) return
-    const master = { ...(data.master_record as Record<string, unknown>), pages_crawled: pages }
+    const websiteParsed = (data.enrichments as RunEnrichments | null)?.website?.parsed
+    const pages = websiteParsed?.pages_crawled
+    const discovered = websiteParsed?.pages_discovered
+    if (!pages?.length && !discovered?.length) return
+    const master: Record<string, unknown> = { ...(data.master_record as Record<string, unknown>) }
+    if (pages?.length) master.pages_crawled = pages
+    if (discovered?.length) master.pages_discovered = discovered
     await this.supabase
       .from('sales_lead_runs')
       .update({ master_record: master as unknown as Json, updated_at: new Date().toISOString() })

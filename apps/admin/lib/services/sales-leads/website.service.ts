@@ -1,6 +1,6 @@
 import { SsrfBlockedError, FetchSizeExceededError, safeFetch } from './website/ssrf-fetch'
 import { htmlToMarkdown, truncateForLLM, wordCount } from './website/markdown'
-import { discoverUrls, type DiscoveredUrl } from './website/sitemap-discovery'
+import { discoverUrls, selectTargetsByRole, type DiscoveredUrl } from './website/sitemap-discovery'
 import { tieredFetch, type FetchTier } from './website/tiered-fetch'
 import { PlaywrightFetcher } from './website/playwright-fetcher'
 import { MistralService } from './mistral.service'
@@ -66,7 +66,7 @@ function mergeCareerCandidates(input: Array<{ url: string; method: CareerPageMet
 }
 
 const MAX_TOTAL_TOKENS = 30_000
-const MAX_PAGES = 6
+const MAX_PAGES = 50
 
 type MistralExtractResult = {
   company_name: string | null
@@ -136,7 +136,7 @@ export class WebsiteService {
       const discovered = await discoverUrls(homepageUrl)
       const targets: DiscoveredUrl[] =
         discovered.length > 0
-          ? discovered.slice(0, MAX_PAGES)
+          ? selectTargetsByRole(discovered, MAX_PAGES)
           : [{ url: homepageUrl, role: 'home', priority: 0 }]
 
       // Sequentieel om browser-context-druk laag te houden + per-URL timing
@@ -349,6 +349,17 @@ export class WebsiteService {
         word_count: wordCount(p.markdown),
         role: p.role,
       })),
+      // Volledige sitemap-discovery met fetched-flag — UI toont gecrawled
+      // vs alleen-gevonden voor transparency. Helpt bij verifiëren of
+      // belangrijke URLs zijn meegenomen of weggevallen door de role-caps.
+      pages_discovered: discovered.length
+        ? discovered.map((d) => ({
+            path: safePathname(d.url),
+            role: d.role,
+            priority: d.priority,
+            fetched: pages.some((p) => p.url === d.url),
+          }))
+        : undefined,
       blog_post_count: e.blog_post_count ?? undefined,
       blog_last_post_date: e.blog_last_post_date ?? undefined,
       career_page_url: careerPage?.url,

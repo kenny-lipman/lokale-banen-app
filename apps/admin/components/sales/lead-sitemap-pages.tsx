@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Check, Minus } from 'lucide-react'
 import type { MasterRecord } from '@/lib/services/sales-leads/types'
 
 const ROLE_COLORS: Record<string, string> = {
@@ -17,20 +17,28 @@ const ROLE_COLORS: Record<string, string> = {
   other: 'bg-slate-100 text-slate-500',
 }
 
-const COLLAPSED_LIMIT = 5
+const COLLAPSED_LIMIT = 8
 
 type Props = {
   master: MasterRecord
 }
 
+type Row = {
+  path: string
+  role?: string
+  fetched: boolean
+  wordCount?: number
+}
+
 export function LeadSitemapPages({ master }: Props) {
-  const pages = master.pages_crawled ?? []
-  const [expanded, setExpanded] = useState(pages.length <= COLLAPSED_LIMIT)
+  const rows = buildRows(master)
+  const [expanded, setExpanded] = useState(rows.length <= COLLAPSED_LIMIT)
 
-  if (pages.length === 0) return null
+  if (rows.length === 0) return null
 
-  const visible = expanded ? pages : pages.slice(0, COLLAPSED_LIMIT)
-  const hidden = pages.length - visible.length
+  const fetchedCount = rows.filter((r) => r.fetched).length
+  const visible = expanded ? rows : rows.slice(0, COLLAPSED_LIMIT)
+  const hidden = rows.length - visible.length
 
   return (
     <Card>
@@ -38,11 +46,17 @@ export function LeadSitemapPages({ master }: Props) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             Geparsede sitemap
-            <Badge variant="secondary" className="text-xs">{pages.length} URLs</Badge>
+            <Badge variant="secondary" className="text-xs">
+              {fetchedCount}/{rows.length} gecrawled
+            </Badge>
           </CardTitle>
-          {pages.length > COLLAPSED_LIMIT && (
+          {rows.length > COLLAPSED_LIMIT && (
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpanded((v) => !v)}>
-              {expanded ? <><ChevronUp className="w-3 h-3 mr-1" />Inklappen</> : <><ChevronDown className="w-3 h-3 mr-1" />Toon alle {pages.length}</>}
+              {expanded ? (
+                <><ChevronUp className="w-3 h-3 mr-1" />Inklappen</>
+              ) : (
+                <><ChevronDown className="w-3 h-3 mr-1" />Toon alle {rows.length}</>
+              )}
             </Button>
           )}
         </div>
@@ -51,29 +65,85 @@ export function LeadSitemapPages({ master }: Props) {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-y">
             <tr>
-              <th className="text-left px-4 py-2 font-medium">URL</th>
+              <th className="text-center px-3 py-2 font-medium w-12">Gecrawled</th>
+              <th className="text-left px-3 py-2 font-medium">URL</th>
               <th className="text-left py-2 font-medium">Rol</th>
               <th className="text-right px-4 py-2 font-medium">Woorden</th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((p, i) => (
-              <tr key={i} className={`border-b last:border-b-0 hover:bg-slate-50 ${p.role === 'careers' ? 'bg-amber-50/40' : ''}`}>
-                <td className="px-4 py-2 font-mono text-xs text-slate-700 truncate max-w-md">{p.path}</td>
-                <td className="py-2">
-                  {p.role && <Badge className={`text-xs ${ROLE_COLORS[p.role] ?? ROLE_COLORS.other}`}>{p.role}</Badge>}
+            {visible.map((r, i) => (
+              <tr
+                key={`${r.path}-${i}`}
+                className={`border-b last:border-b-0 hover:bg-slate-50 ${
+                  r.role === 'careers' ? 'bg-amber-50/40' : ''
+                } ${!r.fetched ? 'text-slate-400' : ''}`}
+              >
+                <td className="px-3 py-2 text-center">
+                  {r.fetched ? (
+                    <Check className="w-3.5 h-3.5 text-green-600 inline-block" />
+                  ) : (
+                    <Minus className="w-3.5 h-3.5 text-slate-300 inline-block" />
+                  )}
                 </td>
-                <td className="px-4 py-2 text-right text-xs text-slate-500">
-                  {p.word_count > 0 ? p.word_count.toLocaleString('nl-NL') : '—'}
+                <td className="px-3 py-2 font-mono text-xs truncate max-w-md">{r.path}</td>
+                <td className="py-2">
+                  {r.role && (
+                    <Badge className={`text-xs ${ROLE_COLORS[r.role] ?? ROLE_COLORS.other}`}>
+                      {r.role}
+                    </Badge>
+                  )}
+                </td>
+                <td className="px-4 py-2 text-right text-xs">
+                  {r.wordCount && r.wordCount > 0 ? r.wordCount.toLocaleString('nl-NL') : '—'}
                 </td>
               </tr>
             ))}
             {hidden > 0 && (
-              <tr><td colSpan={3} className="px-4 py-2 text-xs text-slate-400 italic">+ {hidden} verborgen URLs</td></tr>
+              <tr>
+                <td colSpan={4} className="px-4 py-2 text-xs text-slate-400 italic">
+                  + {hidden} verborgen URLs
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </CardContent>
     </Card>
   )
+}
+
+/**
+ * Merge `pages_discovered` (volledige sitemap met fetched-flag) + `pages_crawled`
+ * (subset met word_count). Backwards-compat: oude runs zonder pages_discovered
+ * tonen alleen pages_crawled. Crawled rows komen eerst, dan niet-gecrawled,
+ * binnen elke groep gesorteerd op priority.
+ */
+function buildRows(master: MasterRecord): Row[] {
+  const crawled = master.pages_crawled ?? []
+  const discovered = master.pages_discovered ?? []
+  const wcByPath = new Map<string, number>(crawled.map((p) => [p.path, p.word_count]))
+
+  if (discovered.length === 0) {
+    return crawled.map((p) => ({
+      path: p.path,
+      role: p.role,
+      fetched: true,
+      wordCount: p.word_count,
+    }))
+  }
+
+  const rows: Row[] = discovered.map((d) => ({
+    path: d.path,
+    role: d.role,
+    fetched: d.fetched,
+    wordCount: wcByPath.get(d.path),
+  }))
+
+  // Crawled bovenaan, daarna priority-volgorde.
+  rows.sort((a, b) => {
+    if (a.fetched !== b.fetched) return a.fetched ? -1 : 1
+    return 0
+  })
+  return rows
 }

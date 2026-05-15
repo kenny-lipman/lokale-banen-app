@@ -207,6 +207,9 @@ export type NormalizedFields = {
 
   // Website-specifiek
   pages_crawled?: Array<{ path: string; title: string; word_count: number; role?: DiscoveredRole }>
+  // Volledige sitemap-discovery — `fetched` markeert of de URL ook is gecrawled
+  // (false = boven role-caps / boven MAX_PAGES uitgevallen). Voor UI-transparency.
+  pages_discovered?: Array<{ path: string; role?: DiscoveredRole; priority: number; fetched: boolean }>
   blog_post_count?: number
   blog_last_post_date?: string
 

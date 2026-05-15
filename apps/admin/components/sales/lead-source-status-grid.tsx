@@ -70,8 +70,12 @@ function summarize(
           : `${contacts} contacten`
       return `${p.technologies?.length ?? 0} tech · ${p.keywords?.length ?? 0} keywords · ${peopleLabel}`
     }
-    case 'website':
-      return `${p.pages_crawled?.length ?? 0} pagina's · ${p.contacts?.length ?? 0} contacten · ${p.vacancies?.length ?? 0} vacatures`
+    case 'website': {
+      const crawled = p.pages_crawled?.length ?? 0
+      const discovered = p.pages_discovered?.length ?? crawled
+      const pagesLabel = discovered > crawled ? `${crawled}/${discovered} pagina's` : `${crawled} pagina's`
+      return `${pagesLabel} · ${p.contacts?.length ?? 0} contacten · ${p.vacancies?.length ?? 0} vacatures`
+    }
   }
 }
 
