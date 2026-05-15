@@ -13,7 +13,8 @@
     { "path": "/api/cron/refresh-company-platforms", "schedule": "0 10 * * *" },
     { "path": "/api/cron/auto-archive-old", "schedule": "30 3 * * *" },
     { "path": "/api/cron/fix-job-postings-geocoding", "schedule": "*/30 * * * *" },
-    { "path": "/api/cron/cleanup-reset-tokens", "schedule": "0 4 * * *" }
+    { "path": "/api/cron/cleanup-reset-tokens", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/werkenindekempen-finalize", "schedule": "*/5 * * * *" }
   ],
   "functions": {
     "app/api/cron/campaign-assignment/route.ts": { "maxDuration": 300 },
@@ -24,8 +25,10 @@
     "app/api/cron/refresh-campaign-eligible/route.ts": { "maxDuration": 300 },
     "app/api/cron/refresh-contact-stats/route.ts": { "maxDuration": 300 },
     "app/api/scrapers/debanensite/backfill/route.ts": { "maxDuration": 300 },
-    "app/api/scrapers/werkenindekempen/route.ts": { "maxDuration": 300 },
+    "app/api/scrapers/werkenindekempen/route.ts": { "maxDuration": 60 },
     "app/api/scrapers/werkenindekempen/backfill/route.ts": { "maxDuration": 300 },
+    "app/api/scrapers/werkenindekempen/worker/route.ts": { "maxDuration": 120 },
+    "app/api/cron/werkenindekempen-finalize/route.ts": { "maxDuration": 120 },
     "app/api/cron/campaign-assignment-parallel/route.ts": { "maxDuration": 300 },
     "app/api/cron/refresh-company-platforms/route.ts": { "maxDuration": 300 },
     "app/api/cron/auto-archive-old/route.ts": { "maxDuration": 300 },

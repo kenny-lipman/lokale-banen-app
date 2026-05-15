@@ -51,13 +51,13 @@ async function detailHandler(
         : 0,
     } : null
 
-    // Run history (laatste 50)
+    // Run history (laatste 100)
     const { data: runs } = await supabase
       .from('automation_runs')
       .select('*')
       .eq('automation_id', id)
       .order('started_at', { ascending: false })
-      .limit(50)
+      .limit(100)
 
     return NextResponse.json({
       success: true,

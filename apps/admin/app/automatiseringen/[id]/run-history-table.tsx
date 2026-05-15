@@ -36,14 +36,24 @@ function summarize(stats: Run['business_stats'], displayStats: DisplayStat[]): s
     .join(' · ') || '—'
 }
 
-export function RunHistoryTable({ runs, displayStats }: { runs: Run[]; displayStats: DisplayStat[] }) {
+export function RunHistoryTable({
+  runs,
+  displayStats,
+  oldestSince,
+}: {
+  runs: Run[]
+  displayStats: DisplayStat[]
+  oldestSince?: string | null
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (
     <div className="rounded-lg border">
       <div className="p-3 border-b flex items-center justify-between">
         <h3 className="font-medium text-sm">Run history</h3>
-        <span className="text-xs text-gray-500">laatste {runs.length}</span>
+        <span className="text-xs text-gray-500">
+          {runs.length} runs{oldestSince ? ` sinds ${oldestSince}` : ''}
+        </span>
       </div>
       <table className="w-full text-sm">
         <thead>

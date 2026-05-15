@@ -133,6 +133,10 @@ export interface ScraperStats {
   mistral_calls: number;
   delisted: number;
   validation_failures: number;
+  /** Aantal workers dat completed klaar werd (alleen gevuld door finalizer in Fase 2). */
+  workers_completed?: number;
+  /** Aantal queue-rijen nog pending+processing (Fase 2). */
+  queue_remaining?: number;
   duration_ms?: number;
 }
 
@@ -149,6 +153,8 @@ export const EMPTY_STATS: ScraperStats = {
   mistral_calls: 0,
   delisted: 0,
   validation_failures: 0,
+  workers_completed: 0,
+  queue_remaining: 0,
 };
 
 // ── Scraper config ─────────────────────────────────────────────────

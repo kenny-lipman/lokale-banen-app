@@ -17,7 +17,12 @@ export function TrendChart({ runs, primaryStatKey }: { runs: Run[]; primaryStatK
     .filter((r) => r.status !== 'running')
     .reverse()
     .map((r) => ({
-      time: new Date(r.started_at).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit' }),
+      time: new Date(r.started_at).toLocaleString('nl-NL', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
       value: typeof r.business_stats?.[primaryStatKey] === 'number'
         ? (r.business_stats[primaryStatKey] as number)
         : 0,

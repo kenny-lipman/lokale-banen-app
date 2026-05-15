@@ -7,6 +7,7 @@ import type { AutomationDefinition } from '@/lib/automations-registry'
 import { RunNowButton } from './run-now-button'
 import { TrendChart } from './trend-chart'
 import { RunHistoryTable } from './run-history-table'
+import { DaysFilter } from './days-filter'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,18 +32,35 @@ interface DetailResponse {
   error?: string
 }
 
-async function fetchDetail(id: string): Promise<DetailResponse | null> {
+async function fetchDetail(id: string, days: number): Promise<DetailResponse | null> {
   const h = await headers()
   const cookie = h.get('cookie') ?? ''
   const host = h.get('host')
   const protocol = h.get('x-forwarded-proto') ?? 'http'
-  const res = await fetch(`${protocol}://${host}/api/automations/${id}?days=30`, {
+  const res = await fetch(`${protocol}://${host}/api/automations/${id}?days=${days}`, {
     headers: { cookie },
     cache: 'no-store',
   })
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`fetch detail failed: ${res.status}`)
   return res.json()
+}
+
+const DEFAULT_DAYS = 14
+const ALLOWED_DAYS = new Set([7, 14, 30, 90])
+
+function parseDays(raw: string | undefined): number {
+  const n = Number(raw)
+  return ALLOWED_DAYS.has(n) ? n : DEFAULT_DAYS
+}
+
+function formatNlDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('nl-NL', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function formatDuration(ms: number | null): string {
@@ -65,14 +83,19 @@ function formatRelativeTime(dateStr: string): string {
 
 export default async function AutomationDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ days?: string }>
 }) {
   const { id } = await params
-  const detail = await fetchDetail(id)
+  const { days: rawDays } = await searchParams
+  const days = parseDays(rawDays)
+  const detail = await fetchDetail(id, days)
   if (!detail) notFound()
 
   const { automation, stats, runs } = detail
+  const oldestRun = runs.length > 0 ? runs[runs.length - 1] : null
   const latest = runs.find(r => r.status !== 'running') ?? null
   const isRunning = runs.some(r => r.status === 'running')
 
@@ -136,7 +159,10 @@ export default async function AutomationDetailPage({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 rounded-lg border p-4">
-          <h3 className="font-medium text-sm mb-2">Trend laatste 30 dagen</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium text-sm">Trend laatste {days} dagen</h3>
+            <DaysFilter current={days} pathname={`/automatiseringen/${automation.id}`} />
+          </div>
           <TrendChart runs={runs} primaryStatKey={automation.primaryStatKey ?? automation.displayStats[0]?.key ?? null} />
         </div>
         <div className="rounded-lg border p-4">
@@ -158,7 +184,11 @@ export default async function AutomationDetailPage({
         </div>
       </div>
 
-      <RunHistoryTable runs={runs} displayStats={automation.displayStats} />
+      <RunHistoryTable
+        runs={runs}
+        displayStats={automation.displayStats}
+        oldestSince={oldestRun ? formatNlDateTime(oldestRun.started_at) : null}
+      />
     </div>
   )
 }
