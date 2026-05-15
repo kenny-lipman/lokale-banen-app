@@ -71,7 +71,7 @@ export function FilterGroup({
         aria-hidden="true"
         className="absolute top-0 left-0 right-0 h-px bg-divider first:hidden"
       />
-      <legend className="block w-full p-0 ml-0 text-body font-bold text-primary tracking-tight mb-2">
+      <legend className="block w-full p-0 ml-0 text-body font-medium text-primary tracking-tight mb-2">
         {label}
       </legend>
       <div className="flex flex-col">

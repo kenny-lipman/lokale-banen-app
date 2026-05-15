@@ -28,7 +28,7 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'group flex items-center gap-3 py-[5px] cursor-pointer min-h-8',
+        'group flex items-center gap-3 py-[3px] cursor-pointer min-h-7',
         className
       )}
     >
@@ -45,7 +45,7 @@ export function Checkbox({
         aria-hidden="true"
         className={cn(
           'relative inline-flex w-5 h-5 shrink-0 rounded-card',
-          'border-2 border-primary bg-transparent',
+          'border border-primary bg-transparent',
           'transition-colors duration-150 ease-eyeron',
           'group-hover:border-primary-hover',
           'peer-focus-visible:ring-2 peer-focus-visible:ring-secondary peer-focus-visible:ring-offset-2',
