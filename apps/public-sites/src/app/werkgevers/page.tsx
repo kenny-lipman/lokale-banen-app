@@ -2,13 +2,13 @@ import type { Metadata } from 'next'
 import { Mail, MapPin, Users, TrendingUp } from 'lucide-react'
 import { getTenant } from '@/lib/tenant'
 import { getCitiesWithJobCounts, getJobCount } from '@/lib/queries'
+import { COMPANY_INFO } from '@/lib/company-info'
 import {
   SiteHeader,
   SiteFooter,
   Breadcrumbs,
   PageHero,
   PillButton,
-  ArrowRight,
 } from '@/components/eyeron'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -90,21 +90,14 @@ export default async function WerkgeversPage() {
 
         {/* CTA */}
         <div className="mt-12 pt-8 border-t border-divider-subtle flex flex-wrap gap-3">
-          {tenant.contact_email ? (
-            <PillButton
-              href={`mailto:${tenant.contact_email}?subject=Vacature plaatsen op ${tenant.name}`}
-              variant="primary"
-              size="lg"
-            >
-              <Mail className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-              Plaats jouw vacature
-            </PillButton>
-          ) : (
-            <PillButton href="/contact" variant="primary" size="lg">
-              Neem contact op
-              <ArrowRight />
-            </PillButton>
-          )}
+          <PillButton
+            href={`mailto:${COMPANY_INFO.centralEmail}?subject=Vacature plaatsen op ${tenant.name}`}
+            variant="primary"
+            size="lg"
+          >
+            <Mail className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Plaats jouw vacature
+          </PillButton>
           <PillButton href="/" size="lg">Bekijk de vacatures</PillButton>
         </div>
       </main>

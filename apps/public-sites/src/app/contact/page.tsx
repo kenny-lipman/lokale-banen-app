@@ -77,11 +77,9 @@ export default async function ContactPage() {
                 Direct contact
               </h3>
               <ul className="space-y-3 m-0 p-0 list-none">
-                {tenant.contact_email && (
-                  <ContactInfoRow icon={Mail} href={`mailto:${tenant.contact_email}`}>
-                    {tenant.contact_email}
-                  </ContactInfoRow>
-                )}
+                <ContactInfoRow icon={Mail} href={`mailto:${COMPANY_INFO.centralEmail}`}>
+                  {COMPANY_INFO.centralEmail}
+                </ContactInfoRow>
                 {tenant.contact_phone && (
                   <ContactInfoRow icon={Phone} href={`tel:${tenant.contact_phone}`}>
                     {tenant.contact_phone}
