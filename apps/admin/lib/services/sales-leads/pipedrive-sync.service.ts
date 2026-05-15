@@ -1,6 +1,5 @@
 import {
   getPipedriveClient,
-  type PipedriveOrganization,
   type PipedrivePerson,
 } from '@/lib/pipedrive-client'
 import { createServiceRoleClient } from '@/lib/supabase-server'
@@ -144,14 +143,13 @@ export class PipedriveSyncService {
     let dealId: number | null = run.pipedrive_deal_id ?? null
 
     try {
-      // 3. Org
+      // 3. Org. createOrganizationV2 want buildOrgPayload levert V2-format
+      // (`custom_fields` wrapper) — V1 endpoint zou de keys negeren of 400 geven.
       if (!orgId) {
         const hoofddomeinOptionId = await this.resolveHoofddomeinOptionId(owner, master.hoofddomein ?? undefined)
         const orgPayload = buildOrgPayload(master, owner, { hoofddomeinOptionId })
-        const created = await this.pd.createOrganization(
-          orgPayload as unknown as PipedriveOrganization,
-        )
-        orgId = (created as { id: number }).id
+        const created = await this.pd.createOrganizationV2(orgPayload)
+        orgId = created.id
         await this.supabase
           .from('sales_lead_runs')
           .update({ pipedrive_org_id: orgId, updated_at: new Date().toISOString() })

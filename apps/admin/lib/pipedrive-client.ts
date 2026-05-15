@@ -483,6 +483,21 @@ export class PipedriveClient {
   }
 
   /**
+   * Create a new organization via V2 API (supports `custom_fields` wrapper).
+   * Gebruikt door sales-lead sync waar buildOrgPayload V2-format levert.
+   */
+  async createOrganizationV2(org: {
+    name: string
+    owner_id?: number
+    visible_to?: string
+    address?: string
+    custom_fields?: Record<string, unknown>
+  }): Promise<{ id: number; [k: string]: unknown }> {
+    const data = await this.requestV2('POST', '/organizations', org)
+    return data as { id: number; [k: string]: unknown }
+  }
+
+  /**
    * Update an organization in Pipedrive
    */
   async updateOrganization(id: number, updates: Partial<PipedriveOrganization>): Promise<any> {
