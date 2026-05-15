@@ -45,7 +45,7 @@ const variantClasses: Record<Variant, string> = {
     'disabled:border-muted disabled:text-muted'
   ),
   primary: cn(
-    'bg-primary text-primary-ink',
+    'border border-transparent bg-primary text-primary-ink',
     'hover:bg-primary-hover active:bg-primary-active'
   ),
 }

@@ -163,7 +163,11 @@ async function fetchApprovedJobsUncached(
     if (filter.hours === 'lt36') {
       query = query.lt('working_hours_max', 36)
     } else if (filter.hours === '36-40') {
-      query = query.gte('working_hours_min', 36).lte('working_hours_max', 40)
+      // working_hours_max kan NULL zijn -- match die ook (consistent met RPC bucket-logica
+      // die NULL-max in 36-40 plaatst zolang min >= 36 en niet > 40)
+      query = query
+        .gte('working_hours_min', 36)
+        .or('working_hours_max.is.null,working_hours_max.lte.40')
     } else if (filter.hours === 'gt40') {
       query = query.gt('working_hours_min', 40)
     }

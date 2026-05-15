@@ -28,11 +28,10 @@ const config: Config = {
         'small': ['0.75rem',       { lineHeight: '1.4' }],
         'input': ['1.125rem',      { lineHeight: '1.4' }],
       },
-      lineHeight: {
-        tight:   '1.15',
-        snug:    '1.4',
-        relaxed: '1.75',
-      },
+      // NB: GEEN lineHeight extend hier - Tailwind defaults (tight=1.25, snug=1.375,
+      // relaxed=1.625) blijven gelden zodat bestaande utilities niet onbedoeld
+      // van waarde veranderen. De Eyeron --lh-* CSS-vars zijn beschikbaar via
+      // arbitrary value: `leading-[var(--lh-tight)]` waar nodig.
       colors: {
         // ── Brand: per-tenant ─────────────────────────────────────────
         primary: {
