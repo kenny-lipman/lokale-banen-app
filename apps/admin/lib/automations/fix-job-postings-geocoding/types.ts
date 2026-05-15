@@ -47,6 +47,9 @@ export interface BusinessStats {
   platform_matched_via_cities: number
   postcode_via_random_street: number
   postcode_via_cities_fallback: number
+  prematch_cities_unique: number
+  prematch_skipped_ambiguous: number
+  locationiq_dedup_hits: number
   queue_remaining: number
   api_calls_used: number
   stopped_early: boolean

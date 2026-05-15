@@ -5,7 +5,8 @@ import { searchCity, reverseGeocode } from './locationiq-client'
 import { extractPostcodePrefix, findPlatformIdByPostcode, findCityByName } from './platform-lookup'
 import { fetchQueueBatch, countQueueRemaining, type QueueRow } from './queue'
 import { getApiCallsToday, isBudgetExhausted, DAILY_CAP } from './budget-check'
-import type { BusinessStats } from './types'
+import { loadCityResolver } from './cities-batch-match'
+import type { BusinessStats, SearchOutcome } from './types'
 
 const AUTOMATION_ID = 'fix-job-postings-geocoding'
 const PER_RUN_LIMIT = 110              // was 130 — 3-call worst case (search+reverse+offset) past binnen 240s
@@ -51,21 +52,50 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
   }
 
   const startTime = Date.now()
-  const stats: BusinessStats = {
-    processed: 0, enriched: 0,
-    geocoding_failed_no_match: 0, geocoding_failed_no_postcode: 0,
-    geocoding_failed_invalid_coords: 0,
-    platform_matched: 0,
-    platform_matched_via_cities: 0,
-    postcode_via_random_street: 0,
-    postcode_via_cities_fallback: 0,
-    queue_remaining: 0,
-    api_calls_used: 0, stopped_early: false,
-  }
+  const stats: BusinessStats = emptyStats({})
 
   const queue = await fetchQueueBatch(supabase, PER_RUN_LIMIT)
+  const resolver = await loadCityResolver(supabase)
 
+  // ── Prematch-pass: rows met unique cities-match → direct UPDATE, skip LocationIQ ──
+  const remaining: QueueRow[] = []
   for (const row of queue) {
+    const city = deriveCity(row)
+    if (!city) {
+      remaining.push(row)
+      continue
+    }
+    const match = resolver.resolve(city)
+    if (!match) {
+      remaining.push(row)
+      continue
+    }
+    if (match.kind === 'ambiguous') {
+      stats.prematch_skipped_ambiguous++
+      remaining.push(row)
+      continue
+    }
+    // Unique match: vul platform_id; zipcode/lat/lon laten we leeg (volgens afspraak)
+    const { error: upErr } = await supabase
+      .from('job_postings')
+      .update({
+        platform_id: match.platform_id,
+        geocoded_via: 'cities_prematch',
+      })
+      .eq('id', row.id)
+    if (upErr) {
+      console.error(`[geocoding] prematch update ${row.id} failed:`, upErr.message)
+      remaining.push(row)  // fallback naar LocationIQ-pad
+      continue
+    }
+    stats.prematch_cities_unique++
+    stats.platform_matched_via_cities++
+  }
+
+  // ── LocationIQ-pass: in-memory dedup binnen run ──
+  const searchCache = new Map<string, SearchOutcome>()
+
+  for (const row of remaining) {
     if (Date.now() - startTime > MAX_RUN_MS) {
       stats.stopped_early = true
       break
@@ -80,13 +110,28 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       continue
     }
 
-    let outcome = await searchCity(city, { apiKey })
-    stats.api_calls_used++
-
-    if (!outcome.ok && outcome.reason === 'rate_limit') {
-      await sleep(RETRY_DELAY_MS)
+    const cityKey = city.toLowerCase()
+    const cached = searchCache.get(cityKey)
+    let outcome: SearchOutcome
+    let usedCachedSearch = false
+    if (cached) {
+      outcome = cached
+      usedCachedSearch = true
+      stats.locationiq_dedup_hits++
+    } else {
       outcome = await searchCity(city, { apiKey })
       stats.api_calls_used++
+
+      if (!outcome.ok && outcome.reason === 'rate_limit') {
+        await sleep(RETRY_DELAY_MS)
+        outcome = await searchCity(city, { apiKey })
+        stats.api_calls_used++
+      }
+
+      // Cache alleen successen — errors/no_match opnieuw proberen volgende keer
+      if (outcome.ok) {
+        searchCache.set(cityKey, outcome)
+      }
     }
 
     if (!outcome.ok && outcome.reason === 'auth_failed') {
@@ -215,6 +260,7 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
         country: addr.country_code ?? null,
         state: addr.state ?? null,
         platform_id: platformId,
+        geocoded_via: 'locationiq',
       })
       .eq('id', row.id)
 
@@ -234,7 +280,10 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
       }
     }
 
-    await sleep(ITEM_DELAY_MS)
+    // Geen delay als deze city uit de cache kwam (geen API-call gedaan in deze iteratie)
+    if (!usedCachedSearch) {
+      await sleep(ITEM_DELAY_MS)
+    }
   }
 
   stats.queue_remaining = await countQueueRemaining(supabase)
@@ -263,6 +312,9 @@ function emptyStats(over: Partial<BusinessStats>): BusinessStats {
     platform_matched_via_cities: 0,
     postcode_via_random_street: 0,
     postcode_via_cities_fallback: 0,
+    prematch_cities_unique: 0,
+    prematch_skipped_ambiguous: 0,
+    locationiq_dedup_hits: 0,
     queue_remaining: 0,
     api_calls_used: 0, stopped_early: false,
     ...over,

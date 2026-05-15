@@ -21,6 +21,7 @@ export async function fetchQueueBatch(supabase: SupabaseClient, limit: number): 
     .neq('location', '')
     .neq('location', 'The Randstad, Netherlands')
     .is('geocoding_failed', null)
+    .is('geocoded_via', null)
     .or('zipcode.is.null,zipcode.eq.,latitude.is.null,longitude.is.null')
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -36,6 +37,7 @@ export async function countQueueRemaining(supabase: SupabaseClient): Promise<num
     .neq('location', '')
     .neq('location', 'The Randstad, Netherlands')
     .is('geocoding_failed', null)
+    .is('geocoded_via', null)
     .or('zipcode.is.null,zipcode.eq.,latitude.is.null,longitude.is.null')
   if (error) {
     console.error('[queue] count failed:', error.message)

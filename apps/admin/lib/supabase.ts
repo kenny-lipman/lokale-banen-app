@@ -1818,6 +1818,7 @@ export type Database = {
           employment: string | null
           end_date: string | null
           external_vacancy_id: string | null
+          geocoded_via: string | null
           geocoding_failed: boolean | null
           geocoding_failed_reason: string | null
           geog: unknown
@@ -1873,6 +1874,7 @@ export type Database = {
           employment?: string | null
           end_date?: string | null
           external_vacancy_id?: string | null
+          geocoded_via?: string | null
           geocoding_failed?: boolean | null
           geocoding_failed_reason?: string | null
           geog?: unknown
@@ -1928,6 +1930,7 @@ export type Database = {
           employment?: string | null
           end_date?: string | null
           external_vacancy_id?: string | null
+          geocoded_via?: string | null
           geocoding_failed?: boolean | null
           geocoding_failed_reason?: string | null
           geog?: unknown
