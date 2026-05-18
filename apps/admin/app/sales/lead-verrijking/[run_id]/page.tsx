@@ -23,6 +23,7 @@ import type { MasterRecord, NormalizedContact, NormalizedVacancy } from '@/lib/s
 type PageProps = { params: Promise<{ run_id: string }> }
 type OwnerConfig = {
   id: string
+  label?: string
   hoofddomein_strategy: 'fixed' | 'auto_match_by_address'
   hoofddomein_fixed_value: string | null
 }
@@ -217,12 +218,20 @@ export default function RunDetailPage({ params }: PageProps) {
   if (!run) return <div className="p-8 text-sm text-gray-500">Run niet gevonden.</div>
 
   const ownerConfig = owners?.find((o) => o.id === run.owner_config_id) ?? null
-  // Toon review-grid ook bij status='failed' MITS master_record bestaat —
-  // failed kan ook van een failed Pipedrive-sync komen (na succesvolle
-  // enrichment), dan moet user de bron-data + contacten/vacatures niet
-  // verliezen om een retry-sync te kunnen doen.
+  // Toon review-grid op alle terminale states zolang master_record bestaat:
+  //  - review            → user moet kunnen editen vóór sync
+  //  - syncing/completed → na sync wil user de gesyncte data kunnen inzien
+  //  - failed            → na sync-faal moet user kunnen retryen zonder verlies
+  //  - duplicate         → na dedupe-stop wil user zien wat we wilden syncen
+  // Bij failed/completed/syncing/duplicate zonder master_record (zeldzaam:
+  // enrichment crashte vóór finalize) → fallback naar alleen source-cards.
   const showReview =
-    run.status === 'review' || (run.status === 'failed' && !!run.master_record)
+    !!run.master_record &&
+    (run.status === 'review' ||
+      run.status === 'syncing' ||
+      run.status === 'completed' ||
+      run.status === 'duplicate' ||
+      run.status === 'failed')
   const showEnriching = run.status === 'enriching'
   const showSyncCard =
     run.status === 'review' ||
@@ -349,6 +358,7 @@ export default function RunDetailPage({ params }: PageProps) {
         <div className="mt-6">
           <LeadSyncStatus
             run={run}
+            ownerLabel={ownerConfig?.label ?? null}
             onSynced={async () => {
               hydratedRef.current = false
               await refetch()

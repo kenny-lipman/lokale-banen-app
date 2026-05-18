@@ -11,6 +11,7 @@ import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
 type Run = RunDetailResponse['run']
 type Props = {
   run: Run
+  ownerLabel?: string | null
   onSynced: () => Promise<void>
 }
 
@@ -18,7 +19,7 @@ const PIPEDRIVE_BASE = 'https://lokalebanen.pipedrive.com'
 
 type DupeInfo = { existing_org_id: number; existing_org_name: string | null; deal_count_6m: number }
 
-export function LeadSyncStatus({ run, onSynced }: Props) {
+export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
   const { toast } = useToast()
   const [syncing, setSyncing] = useState(false)
   const [confirmingForce, setConfirmingForce] = useState(false)
@@ -154,6 +155,10 @@ export function LeadSyncStatus({ run, onSynced }: Props) {
 
   // ── State 4: completed ──
   if (run.status === 'completed') {
+    const personCount = run.pipedrive_person_ids?.length ?? 0
+    const dealTitle = run.master_record?.company_name
+      ? `${run.master_record.company_name} — ${formatDealDate(run.updated_at)}`
+      : null
     return (
       <Card className="border-green-300 bg-green-50">
         <CardHeader>
@@ -161,34 +166,74 @@ export function LeadSyncStatus({ run, onSynced }: Props) {
             <CheckCircle2 className="w-5 h-5 text-green-600" />
             <CardTitle>Sync voltooid</CardTitle>
           </div>
-          <CardDescription>Pipedrive deal aangemaakt + interne data gekoppeld.</CardDescription>
+          <CardDescription>
+            {dealTitle ? <>Deal "{dealTitle}" aangemaakt + interne data gekoppeld.</> : <>Pipedrive deal aangemaakt + interne data gekoppeld.</>}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {run.pipedrive_org_id && (
-            <Button asChild variant="outline" size="sm">
-              <a
-                href={`${PIPEDRIVE_BASE}/organization/${run.pipedrive_org_id}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Org <ExternalLink className="w-3 h-3 ml-1" />
-              </a>
-            </Button>
-          )}
-          {run.pipedrive_deal_id && (
-            <Button asChild variant="outline" size="sm">
-              <a
-                href={`${PIPEDRIVE_BASE}/deal/${run.pipedrive_deal_id}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Deal <ExternalLink className="w-3 h-3 ml-1" />
-              </a>
-            </Button>
-          )}
-          <Badge variant="outline" className="ml-auto self-center">
-            {run.pipedrive_person_ids?.length ?? 0} persoon(en)
-          </Badge>
+        <CardContent className="space-y-3">
+          <dl className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5 text-xs">
+            <div>
+              <dt className="text-gray-500">Gesyncet</dt>
+              <dd className="font-medium text-gray-900">{formatTimestamp(run.updated_at)}</dd>
+            </div>
+            {ownerLabel && (
+              <div>
+                <dt className="text-gray-500">Owner</dt>
+                <dd className="font-medium text-gray-900 truncate">{ownerLabel}</dd>
+              </div>
+            )}
+            {run.pipedrive_org_id && (
+              <div>
+                <dt className="text-gray-500">Org-ID</dt>
+                <dd className="font-mono text-gray-900">{run.pipedrive_org_id}</dd>
+              </div>
+            )}
+            {run.pipedrive_deal_id && (
+              <div>
+                <dt className="text-gray-500">Deal-ID</dt>
+                <dd className="font-mono text-gray-900">{run.pipedrive_deal_id}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="flex flex-wrap gap-2 items-center">
+            {run.pipedrive_org_id && (
+              <Button asChild variant="outline" size="sm">
+                <a
+                  href={`${PIPEDRIVE_BASE}/organization/${run.pipedrive_org_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Org <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              </Button>
+            )}
+            {run.pipedrive_deal_id && (
+              <Button asChild variant="outline" size="sm">
+                <a
+                  href={`${PIPEDRIVE_BASE}/deal/${run.pipedrive_deal_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Deal <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              </Button>
+            )}
+            {personCount > 0 &&
+              (run.pipedrive_person_ids ?? []).map((pid, i) => (
+                <Button asChild key={pid} variant="outline" size="sm">
+                  <a
+                    href={`${PIPEDRIVE_BASE}/person/${pid}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Persoon {i + 1} <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                </Button>
+              ))}
+            <Badge variant="outline" className="ml-auto self-center">
+              {personCount} persoon(en)
+            </Badge>
+          </div>
         </CardContent>
       </Card>
     )
@@ -240,4 +285,28 @@ export function LeadSyncStatus({ run, onSynced }: Props) {
 
   // Fallback (kan niet gebeuren binnen de spec'd states)
   return null
+}
+
+/**
+ * "18 mei 2026, 17:05" — leesbare NL-tijd. Voor sync-card weergave.
+ */
+function formatTimestamp(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('nl-NL', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * "2026-05-18" — ISO-date voor in de deal-titel (matcht buildDealPayload).
+ */
+function formatDealDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  return new Date(iso).toISOString().split('T')[0]
 }
