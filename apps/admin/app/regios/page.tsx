@@ -73,7 +73,7 @@ export default function RegionsPage() {
   const [source, setSource] = useState<SourceFilter>("all")
   const [platformFilter, setPlatformFilter] = useState<string>("all")
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(25)
+  const [pageSize, setPageSize] = useState(25)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editTarget, setEditTarget] = useState<CityEditTarget | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -465,10 +465,13 @@ export default function RegionsPage() {
       <TablePagination
         currentPage={page}
         totalPages={totalPages}
-        totalItems={total}
+        totalCount={total}
         itemsPerPage={pageSize}
         onPageChange={setPage}
-        itemName="plaatsen"
+        onItemsPerPageChange={(n) => {
+          setPageSize(n)
+          setPage(1)
+        }}
       />
 
       <CityEditModal
