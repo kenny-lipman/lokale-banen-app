@@ -3,6 +3,7 @@ import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import { getPipedriveClient } from '@/lib/pipedrive-client'
 import { ORG_FIELD_KEYS } from '@/lib/services/sales-leads/pipedrive-fields'
+import { invalidateBrancheOptionsCache } from '@/lib/services/sales-leads/branche-options.service'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -88,6 +89,8 @@ async function handler(_req: NextRequest, _auth: AuthResult) {
     }
     deactivated++
   }
+
+  invalidateBrancheOptionsCache()
 
   return NextResponse.json({
     success: true,
