@@ -17,6 +17,6 @@ export function hashResetToken(plaintext: string): string {
 
 /** Bouw de reset-link die in de email gaat. */
 export function buildResetLink(plaintextToken: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://lokale-banen-app.vercel.app'
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://otis-app.vercel.app'
   return `${base.replace(/\/$/, '')}/reset-password?token=${plaintextToken}`
 }

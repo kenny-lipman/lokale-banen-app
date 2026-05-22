@@ -96,7 +96,7 @@ export async function safeFetch(
       res = await fetch(url.toString(), {
         method: opts.method ?? 'GET',
         headers: {
-          'User-Agent': 'LokaleBanenSalesLeadBot/1.0 (+https://lokale-banen-app.vercel.app)',
+          'User-Agent': 'OtisSalesLeadBot/1.0 (+https://otis-app.vercel.app)',
           accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           ...(opts.headers ?? {}),
         },

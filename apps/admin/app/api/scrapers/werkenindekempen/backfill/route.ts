@@ -5,7 +5,7 @@
  * Geen jitter, geen monitoring-wrapper (zou cron_job_logs vervuilen).
  *
  * Gebruik:
- *   curl -X POST https://lokale-banen-app.vercel.app/api/scrapers/werkenindekempen/backfill \
+ *   curl -X POST https://otis-app.vercel.app/api/scrapers/werkenindekempen/backfill \
  *     -H 'Authorization: Bearer $CRON_SECRET' \
  *     -d '{"maxUrlsPerRun": 200}'
  */

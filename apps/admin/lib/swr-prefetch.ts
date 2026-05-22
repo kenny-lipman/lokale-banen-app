@@ -17,7 +17,7 @@ async function fetchPlatformStats() {
 }
 
 const prefetchers: Record<string, () => void> = {
-  "/otis": () => {
+  "/": () => {
     preload(swrKeys.dashboardStats, () => supabaseService.getDashboardStats())
     preload(swrKeys.dashboardContactStats, () => supabaseService.getContactStats())
     preload(swrKeys.dashboardApifyRuns, () => supabaseService.getApifyRuns())

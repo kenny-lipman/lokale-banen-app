@@ -155,6 +155,7 @@ export async function validateDashboardRequest(
 
   // Allow if referer matches our domain
   if (referer && (
+    referer.includes('otis-app.vercel.app') ||
     referer.includes('lokale-banen-app.vercel.app') ||
     referer.includes('localhost:3000')
   )) {

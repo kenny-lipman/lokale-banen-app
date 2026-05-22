@@ -11,7 +11,7 @@ export default async function BrancheMappingPage() {
   if (!user) redirect('/login?redirect=/admin/instellingen/branche-mapping')
 
   const role = (user.app_metadata as Record<string, unknown> | undefined)?.role
-  if (role !== 'admin') redirect('/otis')
+  if (role !== 'admin') redirect('/')
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
