@@ -308,9 +308,8 @@ export default function RunDetailPage({ params }: PageProps) {
           />
           <LeadDiscrepancyWarnings enrichments={run!.enrichments ?? {}} master={currentMaster} />
           <LeadDealNoteTextarea
-            master={currentMaster}
-            enrichments={run!.enrichments ?? {}}
-            selectedVacancies={selectedVacancies}
+            runId={run!.id}
+            note={currentMaster.deal_note_text ?? ''}
             onChange={(note) => setMaster({ ...currentMaster, deal_note_text: note })}
           />
         </div>

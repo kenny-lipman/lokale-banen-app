@@ -1,127 +1,149 @@
-import type { MasterRecord, RunEnrichments, NormalizedFields, NormalizedVacancy } from './types'
-import { detectDiscrepancies } from './master-record'
+import type { MasterRecord, NormalizedContact, NormalizedVacancy } from './types'
+import { getBrancheLabel, findEnumIdForSbi } from './branche-options.service'
+import { composeAddressString } from './pipedrive-payloads'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-function fmtAddress(a: NormalizedFields['address']): string {
-  if (!a) return '—'
-  const parts = [
-    [a.street, a.number].filter(Boolean).join(' '),
-    [a.postcode, a.city].filter(Boolean).join(' '),
-    a.country,
-  ]
-  return parts.filter(Boolean).join(', ')
-}
-
-function fmtList(items: string[] | undefined, max = 5): string {
-  if (!items?.length) return '—'
-  const slice = items.slice(0, max)
-  return slice.join(', ') + (items.length > max ? ` … (+${items.length - max})` : '')
-}
-
-function fmtSocial(m: MasterRecord): string[] {
-  const out: string[] = []
-  if (m.linkedin_url) out.push(`- LinkedIn: ${m.linkedin_url}`)
-  if (m.twitter_url) out.push(`- Twitter/X: ${m.twitter_url}`)
-  if (m.facebook_url) out.push(`- Facebook: ${m.facebook_url}`)
-  if (m.instagram_url) out.push(`- Instagram: ${m.instagram_url}`)
-  if (m.tiktok_url) out.push(`- TikTok: ${m.tiktok_url}`)
-  return out
-}
-
-function fmtVacancies(vs: NormalizedVacancy[] | undefined): string {
-  if (!vs?.length) return '_Geen vacatures geselecteerd._'
-  return vs
-    .map((v) => `- ${v.title}${v.url ? ` — ${v.url}` : ''}${v.location ? ` _(${v.location})_` : ''}`)
-    .join('\n')
+/**
+ * HTML-escape voor user-supplied text. Pipedrive notes worden in HTML gerendered
+ * (TinyMCE-clone) — XSS-protection is verplicht omdat content uit Apollo/website
+ * scrape komt en niet inherent vertrouwd is.
+ */
+function esc(s: unknown): string {
+  if (s === undefined || s === null) return ''
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 /**
- * Genereert deal-notitie markdown (sectie 5.2.6 spec).
- * Bevat: bedrijfsprofiel · activiteit · departement-distributie · technologie ·
- * online aanwezigheid · vacatures · bron-discrepanties.
- *
- * `selectedVacancies` is de subset die de user heeft aangevinkt (mag empty zijn
- * tijdens initial generation; wordt later overschreven via PATCH).
+ * Veilig URL-escape voor href. Sta alleen http/https/mailto toe; alles anders
+ * wordt platte tekst (geen <a>).
  */
-export function generateDealNote(opts: {
+function safeUrl(url: string | undefined): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (!/^(https?:\/\/|mailto:)/i.test(trimmed)) return null
+  return esc(trimmed)
+}
+
+function fmtFounded(m: MasterRecord): string | null {
+  if (m.founded_year) return String(m.founded_year)
+  if (m.founded_date) {
+    const yr = m.founded_date.match(/^\d{4}/)?.[0]
+    if (yr) return yr
+  }
+  return null
+}
+
+function fmtEmployees(m: MasterRecord): string | null {
+  if (typeof m.employee_count === 'number' && m.employee_count > 0) {
+    return `${m.employee_count} medewerkers`
+  }
+  if (m.employee_bucket) return m.employee_bucket
+  return null
+}
+
+function joinWithSep(parts: Array<string | null | undefined>, sep = ' · '): string {
+  return parts.filter((p): p is string => !!p && p.trim().length > 0).join(sep)
+}
+
+function renderCompanyBlock(m: MasterRecord, brancheLabel: string | null): string {
+  const lines: string[] = []
+  if (m.company_name) lines.push(`<strong>${esc(m.company_name)}</strong>`)
+
+  const kvkLine = joinWithSep([
+    m.kvk_number ? `KvK ${esc(m.kvk_number)}` : null,
+    fmtEmployees(m),
+    fmtFounded(m) ? `opgericht ${esc(fmtFounded(m))}` : null,
+  ])
+  if (kvkLine) lines.push(kvkLine)
+
+  const addr = composeAddressString(m.address)
+  if (addr) lines.push(esc(addr))
+
+  if (brancheLabel) lines.push(`Branche: ${esc(brancheLabel)}`)
+
+  if (lines.length === 0) return ''
+  return `<h3>Bedrijf</h3>\n<p>${lines.join('<br>\n')}</p>`
+}
+
+function renderContactBlock(c: NormalizedContact | undefined): string {
+  if (!c) return ''
+  const lines: string[] = []
+  const titlePart = c.title ? ` &mdash; ${esc(c.title)}` : ''
+  lines.push(`<strong>${esc(c.name)}</strong>${titlePart}`)
+
+  const emailUrl = safeUrl(c.email ? `mailto:${c.email}` : undefined)
+  const emailLine = emailUrl && c.email ? `<a href="${emailUrl}">${esc(c.email)}</a>` : null
+  const phone = c.phone_mobile ?? c.phone_other
+  const contactLine = joinWithSep([emailLine, phone ? esc(phone) : null])
+  if (contactLine) lines.push(contactLine)
+
+  return `<h3>Contact</h3>\n<p>${lines.join('<br>\n')}</p>`
+}
+
+function renderVacanciesBlock(vacancies: NormalizedVacancy[] | undefined): string {
+  if (!vacancies || vacancies.length === 0) {
+    return `<h3>Vacatures</h3>\n<p><em>Geen actuele vacatures gevonden.</em></p>`
+  }
+  const items = vacancies
+    .map((v) => {
+      const url = safeUrl(v.url)
+      const title = esc(v.title)
+      const loc = v.location ? ` &mdash; ${esc(v.location)}` : ''
+      return url
+        ? `  <li><a href="${url}">${title}</a>${loc}</li>`
+        : `  <li>${title}${loc}</li>`
+    })
+    .join('\n')
+  return `<h3>Vacatures</h3>\n<ul>\n${items}\n</ul>`
+}
+
+/**
+ * Genereert deal-notitie als HTML voor Pipedrive (variant C, sectie 5.2.6 spec).
+ * Pipedrive notes-editor accepteert beperkte HTML: <h3>, <p>, <strong>, <em>,
+ * <ul><li>, <a href>, <br>. Geen <style>/CSS/classes — wordt gestript.
+ *
+ * Drie secties (alleen tonen als gevuld):
+ *   1. Bedrijf - naam, KvK, medewerkers, opgericht, adres, branche
+ *   2. Contact - primary contact uit master.contacts[0]
+ *   3. Vacatures - lijst van titels met links
+ *
+ * `brancheEnumId` wordt vertaald naar label via BrancheOptionsService.
+ * Wanneer null/onbekend: branche-regel wordt overgeslagen.
+ */
+export async function generateDealNote(opts: {
   master: MasterRecord
-  enrichments: RunEnrichments
   selectedVacancies?: NormalizedVacancy[]
-}): string {
-  const { master: m, enrichments } = opts
+  brancheEnumId?: number | null
+  supabase?: SupabaseClient
+}): Promise<string> {
+  const { master: m } = opts
   const vacs = opts.selectedVacancies ?? m.vacancies ?? []
+  const primaryContact = m.contacts?.[0]
 
-  const blocks: string[] = []
-
-  // Bedrijfsprofiel
-  blocks.push(
-    [
-      `## Bedrijfsprofiel`,
-      `- Naam: ${m.company_name ?? '—'}`,
-      `- KvK: ${m.kvk_number ?? '—'}${m.rsin ? ` · RSIN ${m.rsin}` : ''}`,
-      `- Rechtsvorm: ${m.legal_form ?? '—'}`,
-      `- Adres: ${fmtAddress(m.address)}`,
-      `- Opgericht: ${m.founded_date ?? m.founded_year ?? '—'}`,
-      `- Medewerkers: ${m.employee_count ?? '—'}${m.employee_bucket ? ` _(${m.employee_bucket})_` : ''}`,
-    ].join('\n'),
-  )
-
-  // Activiteit
-  const sbiLines = (m.sbi_activities ?? [])
-    .slice(0, 5)
-    .map((s) => `  - ${s.code} · ${s.description}${s.is_main ? ' _(hoofd)_' : ''}`)
-  blocks.push(
-    [
-      `## Activiteit`,
-      `- Branche: ${m.industry ?? '—'}`,
-      ...(m.industry_codes?.length ? [`- Apollo industry-codes: ${fmtList(m.industry_codes)}`] : []),
-      ...(sbiLines.length ? [`- KvK SBI:`, ...sbiLines] : []),
-      ...(m.description_short ? [``, m.description_short] : []),
-    ].join('\n'),
-  )
-
-  // Departement-distributie
-  const dept = m.departmental_head_count
-  if (dept && Object.keys(dept).length) {
-    const lines = Object.entries(dept)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 6)
-      .map(([k, v]) => `  - ${k}: ${v}`)
-    blocks.push([`## Departement-distributie (Apollo)`, ...lines].join('\n'))
+  // Resolve branche-label: explicit override → master.branche_suggestion → SBI-fallback
+  let brancheEnumId = opts.brancheEnumId ?? null
+  if (brancheEnumId == null) {
+    const suggestion = (m as unknown as { branche_suggestion?: { enum_id?: number } })
+      .branche_suggestion?.enum_id
+    if (typeof suggestion === 'number') {
+      brancheEnumId = suggestion
+    } else {
+      const firstSbi = m.industry_codes?.[0] ?? m.sbi_activities?.[0]?.code
+      brancheEnumId = await findEnumIdForSbi(firstSbi, opts.supabase)
+    }
   }
+  const brancheLabel = await getBrancheLabel(brancheEnumId, opts.supabase)
 
-  // Tech-stack
-  if (m.technologies?.length) {
-    const top = m.technologies.slice(0, 5).map((t) => `  - ${t.name}${t.category && t.category !== 'unknown' ? ` _(${t.category})_` : ''}`)
-    blocks.push([`## Technology stack`, ...top].join('\n'))
-  }
-
-  // Online aanwezigheid
-  const social = fmtSocial(m)
-  if (social.length || m.blog_post_count) {
-    blocks.push(
-      [
-        `## Online aanwezigheid`,
-        ...social,
-        ...(m.blog_post_count
-          ? [`- Blog: ${m.blog_post_count} posts${m.blog_last_post_date ? ` _(laatste ${m.blog_last_post_date})_` : ''}`]
-          : []),
-      ].join('\n'),
-    )
-  }
-
-  // Vacatures
-  blocks.push([`## Vacatures`, fmtVacancies(vacs)].join('\n'))
-
-  // Bron-discrepanties (informatief)
-  const discr = detectDiscrepancies(enrichments)
-  if (discr.length) {
-    const lines = discr.map(
-      (d) =>
-        `  - **${String(d.field)}**: ` +
-        d.values.map((v) => `${v.source}=${JSON.stringify(v.value)}`).join(' · '),
-    )
-    blocks.push([`## Bron-discrepanties`, ...lines].join('\n'))
-  }
+  const blocks = [
+    renderCompanyBlock(m, brancheLabel),
+    renderContactBlock(primaryContact),
+    renderVacanciesBlock(vacs),
+  ].filter((b) => b.length > 0)
 
   return blocks.join('\n\n')
 }

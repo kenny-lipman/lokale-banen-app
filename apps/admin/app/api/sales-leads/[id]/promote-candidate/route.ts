@@ -94,10 +94,10 @@ async function handler(req: NextRequest, _auth: AuthResult, ctx: RouteContext) {
     merged.website = fresh.website
   }
 
-  merged.deal_note_text = generateDealNote({
+  merged.deal_note_text = await generateDealNote({
     master: merged,
-    enrichments: updatedEnrichments,
     selectedVacancies: merged.vacancies ?? [],
+    supabase,
   })
 
   const { error: updErr } = await supabase

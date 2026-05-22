@@ -114,10 +114,10 @@ export class EnrichmentOrchestratorService {
     if (!hasParsed) return
 
     const master = computePrimaryMaster(run.enrichments, run.input_url)
-    master.deal_note_text = generateDealNote({
+    master.deal_note_text = await generateDealNote({
       master,
-      enrichments: run.enrichments,
       selectedVacancies: master.vacancies,
+      supabase: this.supabase,
     })
     await this.supabase
       .from('sales_lead_runs')
@@ -475,10 +475,10 @@ export class EnrichmentOrchestratorService {
   private async finalize(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const master = computePrimaryMaster(run.enrichments, run.input_url)
-    master.deal_note_text = generateDealNote({
+    master.deal_note_text = await generateDealNote({
       master,
-      enrichments: run.enrichments,
       selectedVacancies: master.vacancies,
+      supabase: this.supabase,
     })
 
     const sources: PerSourceEnrichment[] = [

@@ -3,8 +3,20 @@ import {
   PERSON_FIELD_KEYS,
   bedrijfsgrootteToEnum,
 } from './pipedrive-fields'
-import { sbiToBrancheEnumId } from '@/lib/constants/sbi-mapping'
-import type { MasterRecord, NormalizedContact } from './types'
+import type { MasterRecord, NormalizedContact, NormalizedFields } from './types'
+
+/**
+ * Compose adres-string uit losse velden voor Pipedrive sync. Wordt gebruikt
+ * als `address.full` niet gevuld is (KvK levert vaak alleen losse velden).
+ */
+export function composeAddressString(address: NormalizedFields['address']): string | null {
+  if (!address) return null
+  if (address.full && address.full.trim().length > 0) return address.full.trim()
+  const line1 = [address.street, address.number].filter(Boolean).join(' ').trim()
+  const line2 = [address.postcode, address.city].filter(Boolean).join(' ').trim()
+  const parts = [line1, line2, address.country].filter((s) => s && s.length > 0)
+  return parts.length > 0 ? parts.join(', ') : null
+}
 
 export type OwnerConfigForSync = {
   id: string
@@ -27,7 +39,7 @@ export type OwnerConfigForSync = {
 export function buildOrgPayload(
   master: MasterRecord,
   owner: OwnerConfigForSync,
-  resolved: { hoofddomeinOptionId: number | null },
+  resolved: { hoofddomeinOptionId: number | null; brancheEnumId: number | null },
 ): {
   name: string
   owner_id: number
@@ -55,10 +67,11 @@ export function buildOrgPayload(
   const groottE = bedrijfsgrootteToEnum(master.employee_bucket)
   if (groottE) customFields[ORG_FIELD_KEYS.BEDRIJFSGROOTTE] = groottE
 
-  // Branche: probeer eerste industry_code (SBI) → enum-mapping. Skip bij geen mapping.
-  const firstSbi = master.industry_codes?.[0]
-  const branche = sbiToBrancheEnumId(firstSbi)
-  if (branche) customFields[ORG_FIELD_KEYS.BRANCHE] = branche
+  // Branche: enum_id is door PipedriveSyncService geresolved (override → suggestion → SBI-fallback
+  // via BrancheOptionsService). Skip wanneer geen mapping bestaat.
+  if (resolved.brancheEnumId != null) {
+    customFields[ORG_FIELD_KEYS.BRANCHE] = resolved.brancheEnumId
+  }
 
   // Hoofddomein is een enum in PD — option_id resolveerd door PipedriveSync
   // op basis van owner.hoofddomein_strategy ('fixed' → owner.option_id,
@@ -74,14 +87,17 @@ export function buildOrgPayload(
   }
   customFields[ORG_FIELD_KEYS.WETARGET_FLAG] = owner.wetarget_flag_value
 
+  const addressString = composeAddressString(master.address)
+
   return {
     name: master.company_name,
     owner_id: owner.pipedrive_user_id,
     // V2 vereist visible_to als integer (V1 accepteerde string). 3 = "Entire company".
     visible_to: 3,
     // V2 organization.address is een array van address-objects ({value, label?}),
-    // geen string zoals V1.
-    ...(master.address?.full ? { address: [{ value: master.address.full }] } : {}),
+    // geen string zoals V1. composeAddressString valt terug op street/postcode/city
+    // wanneer .full ontbreekt (KvK levert vaak alleen losse velden).
+    ...(addressString ? { address: [{ value: addressString }] } : {}),
     custom_fields: customFields,
   }
 }

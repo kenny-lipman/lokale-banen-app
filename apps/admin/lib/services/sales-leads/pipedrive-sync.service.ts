@@ -14,6 +14,7 @@ import {
   upsertCompanyFromRun,
   upsertJobPostingsFromRun,
 } from './internal-linking'
+import { findEnumIdForSbi } from './branche-options.service'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { MasterRecord, NormalizedContact, NormalizedVacancy } from './types'
 
@@ -147,7 +148,8 @@ export class PipedriveSyncService {
       // (`custom_fields` wrapper) — V1 endpoint zou de keys negeren of 400 geven.
       if (!orgId) {
         const hoofddomeinOptionId = await this.resolveHoofddomeinOptionId(owner, master.hoofddomein ?? undefined)
-        const orgPayload = buildOrgPayload(master, owner, { hoofddomeinOptionId })
+        const brancheEnumId = await this.resolveBrancheEnumId(run, master)
+        const orgPayload = buildOrgPayload(master, owner, { hoofddomeinOptionId, brancheEnumId })
         const created = await this.pd.createOrganizationV2(orgPayload)
         orgId = created.id
         await this.supabase
@@ -314,5 +316,27 @@ export class PipedriveSyncService {
       .maybeSingle()
     if (error || !data) return null
     return data.pipedrive_hoofddomein_option_id ?? null
+  }
+
+  /**
+   * Resolve het Pipedrive Branche-enum-ID volgens 3-tier prioriteit:
+   *   1. run.branche_override (sales overrule in OTIS review-pagina)
+   *   2. master_record.branche_suggestion.enum_id (Mistral-classificatie)
+   *   3. SBI-prefix fallback via BrancheOptionsService.findEnumIdForSbi
+   * Returnt null wanneer geen enkele bron iets oplevert; caller skipt het veld.
+   */
+  private async resolveBrancheEnumId(
+    run: Record<string, unknown>,
+    master: MasterRecord,
+  ): Promise<number | null> {
+    const override = (run.branche_override as number | null | undefined) ?? null
+    if (override != null) return override
+
+    const suggestion = (master as unknown as { branche_suggestion?: { enum_id?: number } })
+      .branche_suggestion?.enum_id
+    if (typeof suggestion === 'number') return suggestion
+
+    const firstSbi = master.industry_codes?.[0] ?? master.sbi_activities?.[0]?.code
+    return await findEnumIdForSbi(firstSbi, this.supabase)
   }
 }

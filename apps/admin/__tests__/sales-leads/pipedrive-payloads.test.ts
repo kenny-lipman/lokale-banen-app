@@ -14,10 +14,13 @@ const owner = {
   pipedrive_default_stage_id: 66,
   hoofddomein_strategy: 'fixed' as const,
   hoofddomein_fixed_value: 'WeTarget',
+  hoofddomein_fixed_option_id: null,
   wetarget_flag_value: 265,
   contactmoment_field_key: '6b624a58761cbbd7a95363c1a5c969daa172563c',
   contactmoment_offset_workdays: 1,
 }
+
+const resolvedDefaults = { hoofddomeinOptionId: null, brancheEnumId: null }
 
 const masterFull: MasterRecord = {
   company_name: 'WeTarget B.V.',
@@ -35,25 +38,44 @@ const masterFull: MasterRecord = {
 
 describe('buildOrgPayload', () => {
   it('zet name, owner_id, address en custom_fields', () => {
-    const p = buildOrgPayload(masterFull, owner)
+    const p = buildOrgPayload(masterFull, owner, resolvedDefaults)
     expect(p.name).toBe('WeTarget B.V.')
     expect(p.owner_id).toBe(22971285)
-    expect(p.address).toBe('Slotenmakerstraat 60, 2672GD Naaldwijk')
+    expect(p.address).toEqual([{ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' }])
     expect(p.custom_fields).toBeDefined()
   })
 
-  it('skipt veld als address.full leeg is', () => {
-    const p = buildOrgPayload({ ...masterFull, address: undefined }, owner)
+  it('skipt address als geen enkel adres-veld gevuld is', () => {
+    const p = buildOrgPayload({ ...masterFull, address: undefined }, owner, resolvedDefaults)
     expect(p.address).toBeUndefined()
   })
 
+  it('composet address uit losse velden als full ontbreekt', () => {
+    const p = buildOrgPayload(
+      { ...masterFull, address: { street: 'Slotenmakerstraat', number: '60', postcode: '2672GD', city: 'Naaldwijk' } },
+      owner,
+      resolvedDefaults,
+    )
+    expect(p.address).toEqual([{ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' }])
+  })
+
   it('zet wetarget-flag uit owner_config', () => {
-    const p = buildOrgPayload(masterFull, owner)
+    const p = buildOrgPayload(masterFull, owner, resolvedDefaults)
     expect(JSON.stringify(p.custom_fields)).toContain('265')
   })
 
+  it('zet branche-enum als brancheEnumId meegegeven', () => {
+    const p = buildOrgPayload(masterFull, owner, { hoofddomeinOptionId: null, brancheEnumId: 295 })
+    expect(JSON.stringify(p.custom_fields)).toContain('295')
+  })
+
+  it('skipt branche-veld als brancheEnumId null is', () => {
+    const p = buildOrgPayload(masterFull, owner, resolvedDefaults)
+    expect(p.custom_fields['5a467ae0b810dc79d37df067c568af40d8414882']).toBeUndefined()
+  })
+
   it('skipt company_name → throws', () => {
-    expect(() => buildOrgPayload({ ...masterFull, company_name: undefined }, owner)).toThrow(
+    expect(() => buildOrgPayload({ ...masterFull, company_name: undefined }, owner, resolvedDefaults)).toThrow(
       /company_name/,
     )
   })
