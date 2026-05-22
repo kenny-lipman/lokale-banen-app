@@ -27,6 +27,7 @@ import { TablePagination } from "@/components/ui/table-filters"
 import { CityEditModal, type CityEditTarget } from "@/components/cities/CityEditModal"
 import { CityBulkLinkModal, type BulkTargetRow } from "@/components/cities/CityBulkLinkModal"
 import { CityAddModal } from "@/components/cities/CityAddModal"
+import { nextSelectedRowCache } from "@/lib/cities/selected-row-cache"
 
 interface CityRow {
   id: string
@@ -117,7 +118,7 @@ export default function RegionsPage() {
     mutateStats()
   }, [mutateList, mutateStats])
 
-  const pagedRows = listData?.rows ?? []
+  const pagedRows = useMemo<CityRow[]>(() => listData?.rows ?? [], [listData])
   const total = listData?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -152,24 +153,7 @@ export default function RegionsPage() {
   const [selectedRowCache, setSelectedRowCache] = useState<Map<string, BulkTargetRow>>(new Map())
 
   useEffect(() => {
-    setSelectedRowCache((prev) => {
-      const next = new Map(prev)
-      for (const r of pagedRows) {
-        if (selectedIds.has(r.id)) {
-          next.set(r.id, {
-            id: r.id,
-            plaats: r.plaats,
-            postcode: r.postcode,
-            suggested_platform_id: r.suggested_platform_id,
-            suggested_regio_platform: r.suggested_regio_platform,
-          })
-        }
-      }
-      for (const id of Array.from(next.keys())) {
-        if (!selectedIds.has(id)) next.delete(id)
-      }
-      return next
-    })
+    setSelectedRowCache((prev) => nextSelectedRowCache(prev, pagedRows, selectedIds))
   }, [pagedRows, selectedIds])
 
   const selectedRows: BulkTargetRow[] = useMemo(
