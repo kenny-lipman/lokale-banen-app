@@ -17,10 +17,11 @@ export const ORG_FIELD_KEYS = {
   WEBSITE: '79f6688e77fed7099077425e7f956d52aaa9defb',
   // matched against name="Bedrijfsgrootte"
   BEDRIJFSGROOTTE: 'f68e60517a23efa9a0d9defa762c534bb7cbfc46',
-  // matched against name="Branche" (enum opts 53=Automotive, 54=Bouw, 55=Detailhandel, 56=Horeca…)
-  // NB: er bestaat een tweede "Branche"-veld (5a467ae0…) met andere enum-ids (286+);
-  // sbi-mapping.ts gebruikt deze (53/54/55/56-reeks) als bron.
-  BRANCHE: '75a7b46357970b58a7c5f9763ddcd23a5806e108',
+  // matched against name="Branche" (key 5a467ae0..., field-id 45 in PD).
+  // Bron-lijst: 12 opties (286-435), gesynced naar pipedrive_branche_options table
+  // en beheerd via /admin/instellingen/branche-mapping. NB: er bestaat nog een ouder
+  // "Branche"-veld (75a7b46357...) met 13 opties incl. duplicates — niet gebruiken.
+  BRANCHE: '5a467ae0b810dc79d37df067c568af40d8414882',
   // matched against name="Hoofddomein" (verified met pipedrive-client.ts:22)
   HOOFDDOMEIN: '7180a7123d1de658e8d1d642b8496802002ddc66',
   // matched against name="WeTarget" (opts 265=WeTarget, 301=Nee)

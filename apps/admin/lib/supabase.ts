@@ -82,6 +82,7 @@ export const testConnection = async () => {
     return { success: false, error: "Failed to connect to Supabase" }
   }
 }
+
 export type Json =
   | string
   | number
@@ -2261,6 +2262,42 @@ export type Database = {
         }
         Relationships: []
       }
+      pipedrive_branche_options: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          pipedrive_enum_id: number
+          sbi_prefixes: string[]
+          sort_order: number
+          synced_from_pipedrive_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          pipedrive_enum_id: number
+          sbi_prefixes?: string[]
+          sort_order?: number
+          synced_from_pipedrive_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          pipedrive_enum_id?: number
+          sbi_prefixes?: string[]
+          sort_order?: number
+          synced_from_pipedrive_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pipedrive_config: {
         Row: {
           key: string
@@ -2833,6 +2870,42 @@ export type Database = {
         }
         Relationships: []
       }
+      werkenindekempen_scrape_queue: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          enqueued_at: string
+          error_message: string | null
+          orchestration_id: string
+          picked_at: string | null
+          result_stats: Json | null
+          status: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          enqueued_at?: string
+          error_message?: string | null
+          orchestration_id: string
+          picked_at?: string | null
+          result_stats?: Json | null
+          status?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          enqueued_at?: string
+          error_message?: string | null
+          orchestration_id?: string
+          picked_at?: string | null
+          result_stats?: Json | null
+          status?: string
+          url?: string
+        }
+        Relationships: []
+      }
       wetarget_leads_staging: {
         Row: {
           city: string | null
@@ -3186,6 +3259,12 @@ export type Database = {
         Row: {
           regio_platform: string | null
         }
+        Insert: {
+          regio_platform?: string | null
+        }
+        Update: {
+          regio_platform?: string | null
+        }
         Relationships: []
       }
     }
@@ -3321,6 +3400,7 @@ export type Database = {
         Args: { p_batch_id: string; p_contact_id: string }
         Returns: undefined
       }
+      apply_pc4_suggestions: { Args: never; Returns: number }
       auto_archive_old_postings: {
         Args: { age_days?: number; batch_size?: number }
         Returns: number
@@ -3333,7 +3413,72 @@ export type Database = {
           skipped: number
         }[]
       }
+      bulk_prematch_geocoding_chunk: {
+        Args: { chunk_size?: number }
+        Returns: number
+      }
+      bulk_prematch_geocoding_run_all: {
+        Args: { chunk_size?: number; max_chunks?: number }
+        Returns: {
+          chunk_num: number
+          elapsed_sec: number
+          rows_updated: number
+        }[]
+      }
       bytea_to_text: { Args: { data: string }; Returns: string }
+      cities_pending_jobs_count: { Args: { p_ids: string[] }; Returns: number }
+      cities_stats: {
+        Args: never
+        Returns: {
+          ambiguous_plaats_count: number
+          mapped: number
+          total: number
+          unmapped: number
+          unmapped_with_suggestion: number
+          unmapped_without_suggestion: number
+        }[]
+      }
+      cities_with_suggestions: {
+        Args: never
+        Returns: {
+          created_at: string
+          current_regio_platform: string
+          id: string
+          is_active: boolean
+          job_postings_count: number
+          plaats: string
+          platform_id: string
+          postcode: string
+          source: string
+          suggested_platform_id: string
+          suggested_regio_platform: string
+        }[]
+      }
+      cities_with_suggestions_paged: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_platform_id?: string
+          p_search?: string
+          p_source?: string
+          p_status?: string
+        }
+        Returns: {
+          created_at: string
+          current_regio_platform: string
+          id: string
+          is_active: boolean
+          job_postings_count: number
+          plaats: string
+          platform_id: string
+          postcode: string
+          source: string
+          suggested_platform_id: string
+          suggested_regio_platform: string
+          total_count: number
+          updated_at: string
+        }[]
+      }
       company_status_counts: {
         Args: never
         Returns: {
@@ -3818,6 +3963,7 @@ export type Database = {
           longitude: number | null
           mailerlite_group_id: string | null
           og_image_url: string | null
+          pipedrive_hoofddomein_option_id: number | null
           preview_domain: string | null
           primary_color: string | null
           privacy_text: string | null
@@ -4603,6 +4749,13 @@ export type Database = {
               error: true
             } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
+      wik_claim_batch: {
+        Args: { p_batch_size: number; p_orchestration_id: string }
+        Returns: {
+          attempts: number
+          url: string
+        }[]
+      }
     }
     Enums: {
       processing_status_enum: "not_started" | "in_progress" | "completed"
