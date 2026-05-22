@@ -104,11 +104,17 @@ export function buildOrgPayload(
 
 /**
  * Bouw Pipedrive Person payload (V1; client converteert email→emails voor V2-create).
+ *
+ * Email-fallback: bij contact zonder email, `companyDomain` levert info@{domain}.
+ * Phone-fallback: 3-tier — contact.phone_mobile → contact.phone_other → `companyPhone`
+ * (master.phone, het bedrijfsnummer). Zo komt er altijd een telefoon mee als die
+ * voor het bedrijf bekend is, ook al heeft het contact zelf er geen.
  */
 export function buildPersonPayload(
   contact: NormalizedContact,
   orgId: number,
   owner: OwnerConfigForSync,
+  opts?: { companyDomain?: string | null; companyPhone?: string | null },
 ): {
   name: string
   org_id: number
@@ -123,8 +129,9 @@ export function buildPersonPayload(
     owner_id: owner.pipedrive_user_id,
     visible_to: 3,
   }
-  if (contact.email) out.email = [{ value: contact.email, primary: true }]
-  const phone = contact.phone_mobile ?? contact.phone_other
+  const email = contact.email ?? (opts?.companyDomain ? `info@${opts.companyDomain}` : null)
+  if (email) out.email = [{ value: email, primary: true }]
+  const phone = contact.phone_mobile ?? contact.phone_other ?? opts?.companyPhone ?? null
   if (phone) out.phone = [{ value: phone, primary: true }]
   if (contact.title) out[PERSON_FIELD_KEYS.FUNCTIE] = contact.title
   if (contact.linkedin_url) out[PERSON_FIELD_KEYS.LINKEDIN] = contact.linkedin_url

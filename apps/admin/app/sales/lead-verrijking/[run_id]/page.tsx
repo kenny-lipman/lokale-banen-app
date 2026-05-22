@@ -279,6 +279,8 @@ export default function RunDetailPage({ params }: PageProps) {
             onChange={setSelected}
             runId={run_id}
             onContactEdited={onCandidatePromoted}
+            companyDomain={run!.input_domain ?? null}
+            companyPhone={currentMaster.phone ?? null}
           />
           <LeadVacanciesColumn
             manualVacancies={manualVacancies}

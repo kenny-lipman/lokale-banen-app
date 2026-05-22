@@ -159,9 +159,15 @@ export class PipedriveSyncService {
       }
 
       // 4. Persons (idempotent: only create persons beyond what's already in personIds[])
+      // Met info@-fallback en company-phone-fallback uit master.
       const selected = (run.selected_contacts as unknown as NormalizedContact[]) ?? []
+      const companyDomain = run.input_domain ?? null
+      const companyPhone = master.phone ?? null
       for (let i = personIds.length; i < selected.length; i++) {
-        const personPayload = buildPersonPayload(selected[i], orgId, owner)
+        const personPayload = buildPersonPayload(selected[i], orgId, owner, {
+          companyDomain,
+          companyPhone,
+        })
         const newPerson = await this.pd.createPerson(
           personPayload as unknown as PipedrivePerson,
         )

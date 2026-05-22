@@ -119,6 +119,36 @@ describe('buildPersonPayload', () => {
     expect(p.email).toBeUndefined()
     expect(p.phone).toBeUndefined()
   })
+
+  it('valt terug op info@-adres als contact geen email heeft maar companyDomain wel', () => {
+    const p = buildPersonPayload(
+      { name: 'X', source_origin: ['kvk'] } as NormalizedContact,
+      1,
+      owner,
+      { companyDomain: 'wetarget.nl' },
+    )
+    expect(p.email).toEqual([{ value: 'info@wetarget.nl', primary: true }])
+  })
+
+  it('valt terug op company-phone als contact geen mobile/other heeft', () => {
+    const p = buildPersonPayload(
+      { name: 'X', source_origin: ['kvk'] } as NormalizedContact,
+      1,
+      owner,
+      { companyPhone: '+31 174 257 221' },
+    )
+    expect(p.phone).toEqual([{ value: '+31 174 257 221', primary: true }])
+  })
+
+  it('contact.phone_mobile heeft voorrang op company-phone', () => {
+    const p = buildPersonPayload(
+      { name: 'X', phone_mobile: '+31612345678', source_origin: ['apollo'] } as NormalizedContact,
+      1,
+      owner,
+      { companyPhone: '+31 174 257 221' },
+    )
+    expect(p.phone).toEqual([{ value: '+31612345678', primary: true }])
+  })
 })
 
 describe('buildDealPayload', () => {

@@ -15,6 +15,10 @@ type Props = {
   onChange: (next: NormalizedContact[]) => void
   runId?: string
   onContactEdited?: () => void | Promise<void>
+  /** Domein van de master (voor info@-fallback display). */
+  companyDomain?: string | null
+  /** Bedrijfstelefoon uit master (voor phone-fallback display). */
+  companyPhone?: string | null
 }
 
 function dedupe(contacts: NormalizedContact[]): NormalizedContact[] {
@@ -60,6 +64,8 @@ export function LeadContactsColumn({
   onChange,
   runId,
   onContactEdited,
+  companyDomain,
+  companyPhone,
 }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<NormalizedContact | null>(null)
@@ -145,6 +151,8 @@ export function LeadContactsColumn({
                 highlighted
                 onClick={() => toggleSelect(c)}
                 onEdit={runId ? () => setEditingContact(c) : undefined}
+                companyDomain={companyDomain}
+                companyPhone={companyPhone}
               />
             ))}
           </div>
@@ -160,6 +168,8 @@ export function LeadContactsColumn({
                   contact={c}
                   onClick={() => toggleSelect(c)}
                   onEdit={runId ? () => setEditingContact(c) : undefined}
+                  companyDomain={companyDomain}
+                  companyPhone={companyPhone}
                 />
               ))}
             </div>
@@ -197,12 +207,22 @@ function ContactCard({
   highlighted,
   onClick,
   onEdit,
+  companyDomain,
+  companyPhone,
 }: {
   contact: NormalizedContact
   highlighted?: boolean
   onClick: () => void
   onEdit?: () => void
+  companyDomain?: string | null
+  companyPhone?: string | null
 }) {
+  // Display-fallbacks die spiegelen wat buildPersonPayload bij sync gebruikt.
+  // Hiermee ziet sales op de review-pagina vóór sync wat er straks in
+  // Pipedrive komt te staan — geen verrassingen achteraf.
+  const fallbackEmail = !contact.email && companyDomain ? `info@${companyDomain}` : null
+  const displayPhone = contact.phone_mobile ?? contact.phone_other ?? null
+  const fallbackPhone = !displayPhone && companyPhone ? companyPhone : null
   return (
     <div
       className={`relative w-full rounded-md border hover:bg-orange-50 transition ${
@@ -227,7 +247,21 @@ function ContactCard({
             </div>
             {contact.title && <p className="text-xs text-gray-500">{contact.title}</p>}
             <p className="text-[11px] text-gray-400 mt-1">
-              {contact.email ?? 'geen e-mail'} · {contact.phone_mobile ?? '—'}
+              {contact.email ? (
+                contact.email
+              ) : fallbackEmail ? (
+                <span className="text-amber-600">{fallbackEmail} <span className="text-[10px]">(info-fallback)</span></span>
+              ) : (
+                'geen e-mail'
+              )}
+              {' · '}
+              {displayPhone ? (
+                displayPhone
+              ) : fallbackPhone ? (
+                <span className="text-amber-600">{fallbackPhone} <span className="text-[10px]">(bedrijfsnummer)</span></span>
+              ) : (
+                '—'
+              )}
             </p>
             {contact.ai_priority_reason && (
               <p className="text-[11px] text-gray-500 mt-1 italic">{contact.ai_priority_reason}</p>
