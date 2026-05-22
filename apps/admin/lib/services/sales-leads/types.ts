@@ -335,6 +335,7 @@ export type RunDetailResponse = {
     pipedrive_deal_id: number | null
     pipedrive_person_ids: number[]
     existing_pipedrive_org_id: number | null
+    branche_override: number | null
     error: string | null
     created_at: string
     updated_at: string

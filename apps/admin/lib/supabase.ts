@@ -82,7 +82,6 @@ export const testConnection = async () => {
     return { success: false, error: "Failed to connect to Supabase" }
   }
 }
-
 export type Json =
   | string
   | number
@@ -2596,6 +2595,7 @@ export type Database = {
       sales_lead_runs: {
         Row: {
           audit_log: Json
+          branche_override: number | null
           created_at: string
           created_by: string | null
           enrichments: Json
@@ -2617,6 +2617,7 @@ export type Database = {
         }
         Insert: {
           audit_log?: Json
+          branche_override?: number | null
           created_at?: string
           created_by?: string | null
           enrichments?: Json
@@ -2638,6 +2639,7 @@ export type Database = {
         }
         Update: {
           audit_log?: Json
+          branche_override?: number | null
           created_at?: string
           created_by?: string | null
           enrichments?: Json

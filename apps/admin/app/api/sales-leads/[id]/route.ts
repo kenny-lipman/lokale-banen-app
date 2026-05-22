@@ -11,7 +11,7 @@ async function getHandler(_req: NextRequest, _auth: AuthResult, ctx: RouteContex
   const { data, error } = await supabase
     .from('sales_lead_runs')
     .select(
-      'id,status,input_url,input_domain,owner_config_id,scrape_vacancies,manual_vacancies,enrichments,master_record,selected_contacts,pipedrive_org_id,pipedrive_deal_id,pipedrive_person_ids,existing_pipedrive_org_id,error,created_at,updated_at',
+      'id,status,input_url,input_domain,owner_config_id,scrape_vacancies,manual_vacancies,enrichments,master_record,selected_contacts,pipedrive_org_id,pipedrive_deal_id,pipedrive_person_ids,existing_pipedrive_org_id,branche_override,error,created_at,updated_at',
     )
     .eq('id', id)
     .maybeSingle()
