@@ -281,6 +281,18 @@ export type MasterRecord = NormalizedFields & {
   source_overrides: Partial<Record<keyof NormalizedFields, SourceKey>>
   hoofddomein: string | null
   deal_note_text: string
+  /**
+   * Mistral branche-classificatie. Gevuld in `EnrichmentOrchestrator.finalize()`.
+   * `enum_id` matcht `pipedrive_branche_options.pipedrive_enum_id`. `confidence`
+   * is 0-100 (uit Mistral). Wordt als 2e prioriteit gebruikt bij sync, na
+   * eventuele user-override op `sales_lead_runs.branche_override`.
+   */
+  branche_suggestion?: {
+    enum_id: number
+    label: string
+    confidence: number
+    reasoning: string
+  } | null
 }
 
 // ─── Contact-ranking output (sectie 7.2 spec) ──────────────────────────────

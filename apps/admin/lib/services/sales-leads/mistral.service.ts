@@ -1,5 +1,6 @@
 import type { ContactRankingResult } from './types'
 import { CONTACT_RANKING_PROMPT_V1 } from './prompts/contact-ranking.v1'
+import { BRANCHE_CLASSIFICATION_PROMPT_V1 } from './prompts/branche-classification.v1'
 
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions'
 const DEFAULT_MODEL = 'mistral-small-latest'
@@ -118,6 +119,65 @@ export class MistralService {
         latency_ms: Date.now() - t0,
         message: e instanceof Error ? e.message : String(e),
       }
+    }
+  }
+
+  /**
+   * Classificeer een bedrijf in 1 van de beschikbare Pipedrive branche-opties.
+   * Returnt null bij Mistral-fail (caller valt terug op SBI-mapping via service).
+   * Valideert enum_id tegen `availableBranches` om hallucinatie te voorkomen.
+   */
+  async classifyBranche(opts: {
+    company_name: string | null
+    industry: string | null
+    sbi_activities: Array<{ code: string; description: string }>
+    description: string | null
+    vacancy_titles: string[]
+    availableBranches: Array<{ enum_id: number; label: string }>
+  }): Promise<{ enum_id: number; label: string; confidence: number; reasoning: string } | null> {
+    if (opts.availableBranches.length === 0) return null
+
+    const branchesList = opts.availableBranches
+      .map((b) => `  - enum_id=${b.enum_id}: "${b.label}"`)
+      .join('\n')
+    const sbiList = opts.sbi_activities.length > 0
+      ? opts.sbi_activities.map((s) => `${s.code} ${s.description}`).join('; ')
+      : 'onbekend'
+    const vacanciesList = opts.vacancy_titles.length > 0
+      ? opts.vacancy_titles.slice(0, 8).join(', ')
+      : 'geen vacatures bekend'
+
+    const userPrompt = BRANCHE_CLASSIFICATION_PROMPT_V1
+      .replace('{company_name}', opts.company_name ?? 'onbekend')
+      .replace('{industry}', opts.industry ?? 'onbekend')
+      .replace('{sbi_activities}', sbiList)
+      .replace('{description}', opts.description ?? 'geen beschrijving')
+      .replace('{vacancies}', vacanciesList)
+      .replace('{available_branches}', branchesList)
+
+    try {
+      const r = await this.completeJson<{ enum_id: number; confidence: number; reasoning: string }>({
+        systemPrompt:
+          'Je bent een B2B sales-analyst. Classificeer in EXACT een van de gegeven enum_ids. Geef alleen geldig JSON terug.',
+        userPrompt,
+        maxTokens: 200,
+      })
+      const enumId = Number(r.parsed.enum_id)
+      const match = opts.availableBranches.find((b) => b.enum_id === enumId)
+      if (!match) {
+        console.warn(`[mistral] classifyBranche returned unknown enum_id=${enumId}; ignoring`)
+        return null
+      }
+      const confidence = Math.max(0, Math.min(100, Math.round(Number(r.parsed.confidence) || 0)))
+      return {
+        enum_id: enumId,
+        label: match.label,
+        confidence,
+        reasoning: String(r.parsed.reasoning ?? '').slice(0, 200),
+      }
+    } catch (e) {
+      console.warn('[mistral] classifyBranche faalde:', e)
+      return null
     }
   }
 

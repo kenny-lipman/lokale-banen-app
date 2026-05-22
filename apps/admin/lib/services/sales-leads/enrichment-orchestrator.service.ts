@@ -7,6 +7,7 @@ import { WebsiteService } from './website.service'
 import { MistralService } from './mistral.service'
 import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
+import { getBrancheOptions } from './branche-options.service'
 import { upsertCompanyFromRun, upsertCareerPageSource } from './internal-linking'
 import type {
   RunEnrichments,
@@ -475,6 +476,31 @@ export class EnrichmentOrchestratorService {
   private async finalize(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const master = computePrimaryMaster(run.enrichments, run.input_url)
+
+    // Branche-classificatie via Mistral, met actieve Pipedrive-opties als context.
+    // Slaagt het: master.branche_suggestion wordt door auto-note + sync gebruikt.
+    // Faalt het (Mistral down, geen opties): auto-note + sync vallen terug op
+    // SBI-prefix mapping via BrancheOptionsService.findEnumIdForSbi.
+    try {
+      const branches = await getBrancheOptions({ supabase: this.supabase })
+      if (branches.length > 0) {
+        const suggestion = await this.mistral.classifyBranche({
+          company_name: master.company_name ?? null,
+          industry: master.industry ?? null,
+          sbi_activities: (master.sbi_activities ?? []).map((s) => ({
+            code: s.code,
+            description: s.description,
+          })),
+          description: master.description_short ?? master.description_long ?? null,
+          vacancy_titles: (master.vacancies ?? []).map((v) => v.title),
+          availableBranches: branches.map((b) => ({ enum_id: b.pipedrive_enum_id, label: b.label })),
+        })
+        if (suggestion) master.branche_suggestion = suggestion
+      }
+    } catch (e) {
+      console.warn('[orchestrator] branche-classificatie faalde:', e)
+    }
+
     master.deal_note_text = await generateDealNote({
       master,
       selectedVacancies: master.vacancies,
