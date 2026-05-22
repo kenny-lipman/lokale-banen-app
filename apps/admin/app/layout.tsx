@@ -11,8 +11,8 @@ import { SWRProvider } from "@/lib/swr-config"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "LokaleBanen Dashboard",
-  description: "Internal dashboard for LokaleBanen AI agents",
+  title: "OTIS",
+  description: "OTIS - Lokale Banen AI agents dashboard",
   generator: 'v0.dev',
   icons: {
     icon: [

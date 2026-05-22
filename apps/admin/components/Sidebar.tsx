@@ -26,7 +26,7 @@ import { Logo } from "@/components/ui/logo"
 import { prefetchRoute } from "@/lib/swr-prefetch"
 
 const menu = [
-  { href: "/dashboard", icon: Home, label: "Dashboard" },
+  { href: "/otis", icon: Home, label: "OTIS" },
   {
     label: "Agents",
     icon: Users,

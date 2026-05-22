@@ -11,7 +11,7 @@ export default async function GebruikersPage() {
   if (!user) redirect('/login?redirect=/admin/gebruikers')
 
   const role = (user.app_metadata as Record<string, unknown> | undefined)?.role
-  if (role !== 'admin') redirect('/dashboard')
+  if (role !== 'admin') redirect('/otis')
 
   return (
     <div className="p-8 max-w-7xl mx-auto">

@@ -89,7 +89,7 @@ export default function AuthenticatedLayout({ children }: { children: ReactNode 
       router.replace("/login")
     } else if (routeInfo.shouldRedirectToDashboard) {
       console.log('Redirecting to dashboard - user authenticated on public route')
-      router.replace("/dashboard")
+      router.replace("/otis")
     }
   }, [routeInfo, router, loading, authState])
 
