@@ -39,6 +39,8 @@ type SkipReason =
   | 'public_email_domain'
   | 'recent_completed_run'
   | 'duplicate_in_batch'
+  | 'rate_limited'
+  | 'insert_failed'
 
 type SkippedItem = {
   input: string
@@ -189,8 +191,8 @@ async function handler(req: NextRequest, auth: AuthResult) {
     if (runIds.length >= batchLimit) {
       skipped.push({
         input: raw,
-        reason: 'recent_completed_run',
-        message: `Overgeslagen — rate-limit (${RATE_PER_HOUR}/uur of ${RATE_PER_DAY}/dag)`,
+        reason: 'rate_limited',
+        message: `Overgeslagen - rate-limit (${RATE_PER_HOUR}/uur of ${RATE_PER_DAY}/dag)`,
       })
       continue
     }
@@ -217,7 +219,7 @@ async function handler(req: NextRequest, auth: AuthResult) {
       }
       skipped.push({
         input: raw,
-        reason: 'invalid_url',
+        reason: 'insert_failed',
         message: `Insert faalde: ${error?.message ?? 'onbekend'}`,
       })
       continue

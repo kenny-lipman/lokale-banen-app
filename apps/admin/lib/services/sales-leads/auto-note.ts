@@ -73,7 +73,7 @@ function renderCompanyBlock(m: MasterRecord, brancheLabel: string | null): strin
 function renderContactBlock(c: NormalizedContact | undefined): string {
   if (!c) return ''
   const lines: string[] = []
-  const titlePart = c.title ? ` &mdash; ${esc(c.title)}` : ''
+  const titlePart = c.title ? ` - ${esc(c.title)}` : ''
   lines.push(`<strong>${esc(c.name)}</strong>${titlePart}`)
 
   const emailUrl = safeUrl(c.email ? `mailto:${c.email}` : undefined)
@@ -93,7 +93,7 @@ function renderVacanciesBlock(vacancies: NormalizedVacancy[] | undefined): strin
     .map((v) => {
       const url = safeUrl(v.url)
       const title = esc(v.title)
-      const loc = v.location ? ` &mdash; ${esc(v.location)}` : ''
+      const loc = v.location ? ` - ${esc(v.location)}` : ''
       return url
         ? `  <li><a href="${url}">${title}</a>${loc}</li>`
         : `  <li>${title}${loc}</li>`
@@ -125,11 +125,10 @@ export async function generateDealNote(opts: {
   const vacs = opts.selectedVacancies ?? m.vacancies ?? []
   const primaryContact = m.contacts?.[0]
 
-  // Resolve branche-label: explicit override → master.branche_suggestion → SBI-fallback
+  // Resolve branche-label: explicit override -> master.branche_suggestion -> SBI-fallback
   let brancheEnumId = opts.brancheEnumId ?? null
   if (brancheEnumId == null) {
-    const suggestion = (m as unknown as { branche_suggestion?: { enum_id?: number } })
-      .branche_suggestion?.enum_id
+    const suggestion = m.branche_suggestion?.enum_id
     if (typeof suggestion === 'number') {
       brancheEnumId = suggestion
     } else {

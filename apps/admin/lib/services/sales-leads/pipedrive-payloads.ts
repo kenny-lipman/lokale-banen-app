@@ -14,8 +14,11 @@ export function composeAddressString(address: NormalizedFields['address']): stri
   if (address.full && address.full.trim().length > 0) return address.full.trim()
   const line1 = [address.street, address.number].filter(Boolean).join(' ').trim()
   const line2 = [address.postcode, address.city].filter(Boolean).join(' ').trim()
+  // Country alleen meenemen als er minstens een street- of postcode/city-regel is.
+  // Voorkomt `[{ value: 'NL' }]` voor company records waar alleen country gevuld is.
+  if (line1.length === 0 && line2.length === 0) return null
   const parts = [line1, line2, address.country].filter((s) => s && s.length > 0)
-  return parts.length > 0 ? parts.join(', ') : null
+  return parts.join(', ')
 }
 
 export type OwnerConfigForSync = {
@@ -165,7 +168,7 @@ export function buildDealPayload(
     customFields[owner.contactmoment_field_key] = contactmomentDate
   }
   return {
-    title: `${master.company_name ?? '(naam onbekend)'} — ${today}`,
+    title: `${master.company_name ?? '(naam onbekend)'} - ${today}`,
     owner_id: owner.pipedrive_user_id,
     ...(primaryPersonId ? { person_id: primaryPersonId } : {}),
     org_id: orgId,

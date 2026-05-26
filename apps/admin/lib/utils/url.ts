@@ -29,3 +29,17 @@ export function normalizeUrl(input: string): string | null {
 
   return `${url.protocol}//${host}${path === '/' ? '' : path}`
 }
+
+/**
+ * Extracteert "registrable" apex (laatste 2 labels van hostname).
+ * `mail.example.com` -> `example.com`, `www.example.nl` -> `example.nl`.
+ * Werkt voor `.com`, `.nl`, `.de`. NIET voor multi-label TLDs zoals `.co.uk`
+ * - die zijn buiten scope voor NL B2B.
+ *
+ * Gebruikt door sales-leads voor info@-fallback en career-page-discovery.
+ */
+export function extractApex(host: string): string {
+  const parts = host.toLowerCase().replace(/^www\./, '').split('.')
+  if (parts.length <= 2) return parts.join('.')
+  return parts.slice(-2).join('.')
+}

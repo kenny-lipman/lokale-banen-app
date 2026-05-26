@@ -15,6 +15,7 @@ import {
   upsertJobPostingsFromRun,
 } from './internal-linking'
 import { findEnumIdForSbi } from './branche-options.service'
+import { extractApex } from '@/lib/utils/url'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { MasterRecord, NormalizedContact, NormalizedVacancy } from './types'
 
@@ -160,8 +161,11 @@ export class PipedriveSyncService {
 
       // 4. Persons (idempotent: only create persons beyond what's already in personIds[])
       // Met info@-fallback en company-phone-fallback uit master.
+      // companyDomain wordt gereduceerd naar apex (mail.example.com -> example.com)
+      // zodat info@-mailbox bestaat op de root MX-records, niet op een subdomein
+      // dat zelden een eigen mailserver heeft.
       const selected = (run.selected_contacts as unknown as NormalizedContact[]) ?? []
-      const companyDomain = run.input_domain ?? null
+      const companyDomain = run.input_domain ? extractApex(run.input_domain) : null
       const companyPhone = master.phone ?? null
       for (let i = personIds.length; i < selected.length; i++) {
         const personPayload = buildPersonPayload(selected[i], orgId, owner, {
@@ -356,8 +360,7 @@ export class PipedriveSyncService {
     const override = (run.branche_override as number | null | undefined) ?? null
     if (override != null) return override
 
-    const suggestion = (master as unknown as { branche_suggestion?: { enum_id?: number } })
-      .branche_suggestion?.enum_id
+    const suggestion = master.branche_suggestion?.enum_id
     if (typeof suggestion === 'number') return suggestion
 
     const firstSbi = master.industry_codes?.[0] ?? master.sbi_activities?.[0]?.code

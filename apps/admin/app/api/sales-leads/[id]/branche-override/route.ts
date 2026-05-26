@@ -45,15 +45,19 @@ async function handler(
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
   if (!run) return NextResponse.json({ error: 'Run niet gevonden' }, { status: 404 })
 
-  const { error: updErr } = await supabase
-    .from('sales_lead_runs')
-    .update({ branche_override: override, updated_at: new Date().toISOString() })
-    .eq('id', id)
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
-
-  // Regenereer note zodat het branche-label in de notitie meteen klopt.
+  // Regenereer note zodat het branche-label in de notitie meteen klopt, en schrijf
+  // beide in 1 update. Voorkomt inconsistente staat als de 2e write zou falen
+  // (branche_override gezet maar master.deal_note_text nog op oude branche-label).
   const master = run.master_record as MasterRecord | null
   let noteHtml: string | null = null
+  const update: {
+    branche_override: number | null
+    updated_at: string
+    master_record?: Json
+  } = {
+    branche_override: override,
+    updated_at: new Date().toISOString(),
+  }
   if (master) {
     noteHtml = await generateDealNote({
       master,
@@ -62,11 +66,14 @@ async function handler(
       supabase,
     })
     const updatedMaster: MasterRecord = { ...master, deal_note_text: noteHtml }
-    await supabase
-      .from('sales_lead_runs')
-      .update({ master_record: updatedMaster as unknown as Json, updated_at: new Date().toISOString() })
-      .eq('id', id)
+    update.master_record = updatedMaster as unknown as Json
   }
+
+  const { error: updErr } = await supabase
+    .from('sales_lead_runs')
+    .update(update)
+    .eq('id', id)
+  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
 
   return NextResponse.json({ branche_override: override, deal_note_text: noteHtml })
 }

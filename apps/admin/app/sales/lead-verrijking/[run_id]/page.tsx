@@ -17,6 +17,7 @@ import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
 import { LeadDealNoteTextarea } from '@/components/sales/lead-deal-note-textarea'
 import { LeadBrancheSelect } from '@/components/sales/lead-branche-select'
 import { LeadContactmomentPicker } from '@/components/sales/lead-contactmoment-picker'
+import { extractApex } from '@/lib/utils/url'
 import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-warnings'
 import { LeadCareerPageSuggestions } from '@/components/sales/lead-career-page-suggestions'
 import { LeadSitemapPages } from '@/components/sales/lead-sitemap-pages'
@@ -280,7 +281,7 @@ export default function RunDetailPage({ params }: PageProps) {
             onChange={setSelected}
             runId={run_id}
             onContactEdited={onCandidatePromoted}
-            companyDomain={run!.input_domain ?? null}
+            companyDomain={run!.input_domain ? extractApex(run!.input_domain) : null}
             companyPhone={currentMaster.phone ?? null}
           />
           <LeadVacanciesColumn
