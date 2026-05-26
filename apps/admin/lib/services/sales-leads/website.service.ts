@@ -271,11 +271,12 @@ export class WebsiteService {
       .map((c) => {
         const isPlaceholder = isPlaceholderContactName(c.name)
         const name = isPlaceholder ? 'Afdeling Personeelszaken' : c.name
-        // Mobiel-detectie via prefix: 06, +316, 0031 6, +31 6. Website-scrape levert
-        // alleen ééne `phone` per contact (geen type), daarom hier classificeren
-        // zodat sync-flow consistent met Apollo werkt (mobile-first, dan vast).
+        // Mobiel-detectie via prefix na whitespace-strip: 06, +316, 0031 6.
+        // Website-scrape levert alleen ééne `phone` per contact (geen type),
+        // daarom hier classificeren zodat sync-flow consistent met Apollo werkt
+        // (mobile-first, dan vast).
         const phone = c.phone?.trim() ?? null
-        const isMobile = phone ? /^(\+?316|00316|06|\+\s?31\s?6)/.test(phone.replace(/\s+/g, '')) : false
+        const isMobile = phone ? /^(\+?316|00316|06)/.test(phone.replace(/\s+/g, '')) : false
         return {
           name,
           first_name: isPlaceholder ? 'Afdeling Personeelszaken' : undefined,

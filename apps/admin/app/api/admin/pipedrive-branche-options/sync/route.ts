@@ -80,9 +80,12 @@ async function handler(_req: NextRequest, _auth: AuthResult) {
 
   const toDeactivate = (existing ?? []).filter((r) => r.active && !pdEnumIds.has(r.pipedrive_enum_id))
   for (const row of toDeactivate) {
+    // Bij deactivate ook sbi_prefixes leeghalen - voorkomt dat een latere
+    // PATCH/sync deze opties weer activeert met overlappende prefixes vs
+    // andere actieve branches (silent winner via findEnumIdForSbi).
     const { error } = await supabase
       .from('pipedrive_branche_options')
-      .update({ active: false, synced_from_pipedrive_at: now })
+      .update({ active: false, sbi_prefixes: [], synced_from_pipedrive_at: now })
       .eq('pipedrive_enum_id', row.pipedrive_enum_id)
     if (error) {
       return NextResponse.json({ error: `Deactivate ${row.pipedrive_enum_id} faalde: ${error.message}` }, { status: 500 })

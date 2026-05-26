@@ -126,15 +126,21 @@ export function LeadFormStap1() {
         setSubmitting(false)
         return
       }
-      toast({
-        title: `${createdCount} run${createdCount === 1 ? '' : 's'} aangemaakt`,
-        description: skippedCount > 0
-          ? `${skippedCount} van ${totalCount} overgeslagen (zie console). Verrijking draait op de achtergrond.`
-          : `Verrijking draait op de achtergrond. Refresh de lijst voor live status.`,
-      })
+      // Toast toont eerste 3 skipped URLs met reason, rest naar console.
+      // Voorkomt dat sales-team "X overgeslagen" ziet zonder te weten welke.
+      let description = 'Verrijking draait op de achtergrond. Refresh de lijst voor live status.'
       if (skippedCount > 0) {
+        const preview = (body.skipped ?? []).slice(0, 3)
+          .map((s) => `${s.input}: ${s.message}`)
+          .join('\n')
+        const more = skippedCount > 3 ? `\n+ ${skippedCount - 3} meer (zie console)` : ''
+        description = `${createdCount} van ${totalCount} aangemaakt. Overgeslagen:\n${preview}${more}`
         console.warn('[sales-leads/create] skipped:', body.skipped)
       }
+      toast({
+        title: `${createdCount} run${createdCount === 1 ? '' : 's'} aangemaakt`,
+        description,
+      })
       router.push('/sales/lead-verrijking')
     } catch (e) {
       toast({

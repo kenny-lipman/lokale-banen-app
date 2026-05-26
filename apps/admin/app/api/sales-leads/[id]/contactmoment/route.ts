@@ -5,10 +5,21 @@ import { createServiceRoleClient } from '@/lib/supabase-server'
 
 export const runtime = 'nodejs'
 
+// Vandaag in TZ Europe/Amsterdam als YYYY-MM-DD (cron werkt op UTC; sales kiest
+// werkdagen). Een datum die NU al gisteren is wordt geweigerd; vandaag zelf mag.
+function todayInAmsterdam(): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Amsterdam',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  return fmt.format(new Date()) // 'YYYY-MM-DD'
+}
+
 const patchSchema = z.object({
   contactmoment_override: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum moet YYYY-MM-DD zijn')
+    .refine((d) => d >= todayInAmsterdam(), 'Contactmoment mag niet in het verleden liggen')
     .nullable(),
 })
 

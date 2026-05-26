@@ -55,6 +55,9 @@ async function handler(req: NextRequest, auth: AuthResult) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
+  // `force_recreate` skipt de 24u recent-completed dedupe-check. Werkt zowel in
+  // single- als bulk-mode; bulk-frontend zet 'm niet (sales kan via single-mode
+  // retry doen voor een specifiek domein).
   const { input_url, input_urls, owner_config_id, manual_vacancies, scrape_vacancies, force_recreate } =
     body as {
       input_url?: string
