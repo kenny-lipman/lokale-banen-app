@@ -63,7 +63,6 @@ const menu = [
   { href: "/regios", icon: MapPin, label: "Regio's" },
   { href: "/automatiseringen", icon: Workflow, label: "Automatiseringen" },
   { href: "/admin/gebruikers", icon: Users, label: "Gebruikers", adminOnly: true },
-  { href: "/admin/instellingen/branche-mapping", icon: Settings, label: "Branche-mapping", adminOnly: true },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
 
