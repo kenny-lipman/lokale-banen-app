@@ -79,7 +79,9 @@ export function LeadContactmomentPicker({ runId, contactmomentOverride, onChange
                   today.setHours(0, 0, 0, 0)
                   return d < today
                 }}
-                initialFocus
+                locale={nl}
+                weekStartsOn={1}
+                autoFocus
               />
             </PopoverContent>
           </Popover>
