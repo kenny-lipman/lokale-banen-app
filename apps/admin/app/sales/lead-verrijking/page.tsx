@@ -5,10 +5,13 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Mail, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Mail, Plus, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { LeadRunsFilters, EMPTY_FILTERS, type FilterState } from '@/components/sales/lead-runs-filters'
 import { LeadRunsTable } from '@/components/sales/lead-runs-table'
+import { pollingOptions } from '@/lib/swr-polling'
 import type { RunListResponse } from '@/lib/services/sales-leads/types'
+
+const ACTIVE_POLL_MS = 5000
 
 type Owner = { id: string; label: string }
 
@@ -45,10 +48,17 @@ export default function LeadVerrijkingPage() {
 
   const queryString = useMemo(() => buildQueryString(filters, page, limit), [filters, page])
 
-  const { data, error, isLoading } = useSWR<RunListResponse>(
+  const { data, error, isLoading, isValidating } = useSWR<RunListResponse>(
     `/api/sales-leads?${queryString}`,
     fetcher,
-    { revalidateOnFocus: false, keepPreviousData: true },
+    pollingOptions<RunListResponse>((latest) => {
+      // Polling alleen actief als er ≥1 run in een transitie-state staat.
+      // Zodra alle runs in eindstate zijn (review/completed/failed/duplicate),
+      // stopt de polling — geen onnodige requests.
+      if (!latest) return ACTIVE_POLL_MS
+      const hasActive = latest.runs.some((r) => r.status === 'enriching' || r.status === 'syncing')
+      return hasActive ? ACTIVE_POLL_MS : 0
+    }),
   )
 
   const [owners, setOwners] = useState<Owner[]>([])
@@ -85,9 +95,15 @@ export default function LeadVerrijkingPage() {
           <div className="flex items-center gap-2">
             <Mail className="w-5 h-5 text-orange-600" />
             <CardTitle>Run-historie ({total})</CardTitle>
+            {runs.some((r) => r.status === 'enriching' || r.status === 'syncing') && (
+              <div className="flex items-center gap-1 text-xs text-blue-600 ml-2">
+                <RefreshCw className={`w-3 h-3 ${isValidating ? 'animate-spin' : ''}`} />
+                Auto-refresh (5s)
+              </div>
+            )}
           </div>
           <CardDescription>
-            Klik op het oog-icoon om een run te openen.
+            Klik op het oog-icoon om een run te openen. Actieve runs worden automatisch ververst.
           </CardDescription>
         </CardHeader>
         <CardContent>

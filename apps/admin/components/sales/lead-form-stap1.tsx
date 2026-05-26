@@ -11,8 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { X } from 'lucide-react'
-import { stap1FormSchema, type Stap1FormValues } from '@/lib/sales-leads/api-schemas'
+import { X, AlertTriangle } from 'lucide-react'
+import { stap1FormSchema, type Stap1FormValues, MAX_URLS_PER_BATCH } from '@/lib/sales-leads/api-schemas'
 import { useToast } from '@/hooks/use-toast'
 
 type OwnerOption = {
@@ -21,18 +21,25 @@ type OwnerOption = {
   is_active: boolean
 }
 
+type BulkResponse = {
+  run_ids?: string[]
+  skipped?: Array<{ input: string; reason: string; message: string; recent_run_id?: string }>
+  requested?: number
+  error?: string
+}
+
 export function LeadFormStap1() {
   const router = useRouter()
   const { toast } = useToast()
   const [owners, setOwners] = useState<OwnerOption[]>([])
   const [loadingOwners, setLoadingOwners] = useState(true)
-  const [vacancyTitle, setVacancyTitle] = useState('')
+  const [urlInput, setUrlInput] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const form = useForm<Stap1FormValues>({
     resolver: zodResolver(stap1FormSchema),
     defaultValues: {
-      input_url: '',
+      input_urls: [],
       owner_config_id: '',
       scrape_vacancies: true,
       manual_vacancies: [],
@@ -58,20 +65,33 @@ export function LeadFormStap1() {
       .finally(() => setLoadingOwners(false))
   }, [toast])
 
-  function addVacancy() {
-    const t = vacancyTitle.trim()
-    if (!t) return
-    const current = form.getValues('manual_vacancies')
-    form.setValue('manual_vacancies', [...current, { title: t }], { shouldDirty: true })
-    setVacancyTitle('')
+  function addUrls(input: string) {
+    if (!input.trim()) return
+    // Splits op newline, komma of spatie zodat plakken van een lijst werkt.
+    const parts = input
+      .split(/[\s,;\n]+/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0)
+    const current = form.getValues('input_urls')
+    const dedup = new Set([...current, ...parts])
+    const next = Array.from(dedup).slice(0, MAX_URLS_PER_BATCH)
+    form.setValue('input_urls', next, { shouldDirty: true, shouldValidate: true })
+    setUrlInput('')
+    if (Array.from(dedup).length > MAX_URLS_PER_BATCH) {
+      toast({
+        title: `Limiet bereikt`,
+        description: `Maximum ${MAX_URLS_PER_BATCH} URLs per batch. Extra URLs zijn genegeerd.`,
+        variant: 'destructive',
+      })
+    }
   }
 
-  function removeVacancy(idx: number) {
-    const current = form.getValues('manual_vacancies')
+  function removeUrl(idx: number) {
+    const current = form.getValues('input_urls')
     form.setValue(
-      'manual_vacancies',
+      'input_urls',
       current.filter((_, i) => i !== idx),
-      { shouldDirty: true },
+      { shouldDirty: true, shouldValidate: true },
     )
   }
 
@@ -81,23 +101,41 @@ export function LeadFormStap1() {
       const res = await fetch('/api/sales-leads/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          input_urls: values.input_urls,
+          owner_config_id: values.owner_config_id,
+          scrape_vacancies: values.scrape_vacancies,
+        }),
       })
-      const body = (await res.json()) as { run_id?: string; error?: string; recent_run_id?: string }
-      if (res.status === 409 && body.recent_run_id) {
-        toast({
-          title: 'Recent voltooide run gevonden',
-          description:
-            'We sturen je naar de bestaande run. Wacht 24u of overleg met admin om dit domein opnieuw te verrijken.',
-          variant: 'default',
-        })
-        router.push(`/sales/lead-verrijking/${body.recent_run_id}`)
-        return
-      }
-      if (!res.ok || !body.run_id) {
+      const body = (await res.json()) as BulkResponse
+      if (!res.ok || !body.run_ids) {
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      router.push(`/sales/lead-verrijking/${body.run_id}`)
+      const createdCount = body.run_ids.length
+      const skippedCount = body.skipped?.length ?? 0
+      const totalCount = body.requested ?? values.input_urls.length
+
+      if (createdCount === 0) {
+        toast({
+          title: 'Geen runs aangemaakt',
+          description: skippedCount > 0
+            ? `Alle ${totalCount} URLs werden overgeslagen: ${body.skipped?.[0]?.message ?? ''}`
+            : 'Onbekende fout',
+          variant: 'destructive',
+        })
+        setSubmitting(false)
+        return
+      }
+      toast({
+        title: `${createdCount} run${createdCount === 1 ? '' : 's'} aangemaakt`,
+        description: skippedCount > 0
+          ? `${skippedCount} van ${totalCount} overgeslagen (zie console). Verrijking draait op de achtergrond.`
+          : `Verrijking draait op de achtergrond. Refresh de lijst voor live status.`,
+      })
+      if (skippedCount > 0) {
+        console.warn('[sales-leads/create] skipped:', body.skipped)
+      }
+      router.push('/sales/lead-verrijking')
     } catch (e) {
       toast({
         title: 'Aanmaken mislukt',
@@ -108,14 +146,14 @@ export function LeadFormStap1() {
     }
   }
 
-  const vacancies = form.watch('manual_vacancies')
+  const urls = form.watch('input_urls')
 
   return (
     <Card className="max-w-2xl">
       <CardHeader>
-        <CardTitle>Nieuwe lead</CardTitle>
+        <CardTitle>Nieuwe leads</CardTitle>
         <CardDescription>
-          Voer een bedrijfsdomein in. We verrijken via KvK · Google Maps · Apollo · Website-scrape.
+          Voer één of meerdere bedrijfsdomeinen in (max {MAX_URLS_PER_BATCH}). We verrijken parallel via KvK · Google Maps · Apollo · Website-scrape.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -123,13 +161,56 @@ export function LeadFormStap1() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FormField
               control={form.control}
-              name="input_url"
-              render={({ field }) => (
+              name="input_urls"
+              render={() => (
                 <FormItem>
-                  <FormLabel>Website URL</FormLabel>
+                  <FormLabel>Website URLs</FormLabel>
                   <FormControl>
-                    <Input placeholder="bv. wetarget.nl of https://wetarget.nl" {...field} />
+                    <div className="flex gap-2">
+                      <Input
+                        value={urlInput}
+                        placeholder="bv. wetarget.nl (Enter, komma of plak een lijst)"
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            addUrls(urlInput)
+                          }
+                        }}
+                        onPaste={(e) => {
+                          // Bij plakken van multi-line lijst: direct splitsen.
+                          const pasted = e.clipboardData.getData('text')
+                          if (/[\s,;\n]/.test(pasted)) {
+                            e.preventDefault()
+                            addUrls(urlInput + pasted)
+                          }
+                        }}
+                      />
+                      <Button type="button" variant="outline" onClick={() => addUrls(urlInput)}>
+                        Toevoegen
+                      </Button>
+                    </div>
                   </FormControl>
+                  {urls.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-2">
+                      {urls.map((u, idx) => (
+                        <Badge key={u + idx} variant="secondary" className="gap-1">
+                          {u}
+                          <button
+                            type="button"
+                            onClick={() => removeUrl(idx)}
+                            className="ml-1 rounded hover:bg-gray-200"
+                            aria-label={`Verwijder ${u}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[11px] text-gray-500">
+                    {urls.length}/{MAX_URLS_PER_BATCH} URLs · alle gebruiken dezelfde dealeigenaar
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
@@ -167,7 +248,7 @@ export function LeadFormStap1() {
                 <FormItem className="flex items-center justify-between rounded-md border p-3">
                   <div>
                     <FormLabel className="text-sm">Auto-detect vacatures via /werkenbij</FormLabel>
-                    <p className="text-xs text-gray-500">Wanneer aan, scrapt de career-page-discovery vacatures.</p>
+                    <p className="text-xs text-gray-500">Wanneer aan, scrapt de career-page-discovery vacatures voor elke URL.</p>
                   </div>
                   <FormControl>
                     <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -176,49 +257,26 @@ export function LeadFormStap1() {
               )}
             />
 
-            <div className="space-y-2">
-              <FormLabel>Vacatures (optioneel — handmatige toevoegingen)</FormLabel>
-              <div className="flex gap-2">
-                <Input
-                  value={vacancyTitle}
-                  placeholder="bv. Senior Recruiter"
-                  onChange={(e) => setVacancyTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addVacancy()
-                    }
-                  }}
-                />
-                <Button type="button" variant="outline" onClick={addVacancy}>
-                  Toevoegen
-                </Button>
+            {urls.length > 5 && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>
+                  Grote batches kunnen Apollo/Mistral rate-limits raken; bij overflow wordt de run gemarkeerd als
+                  &lsquo;failed&rsquo; en is een replay vanuit de detailpagina mogelijk.
+                </span>
               </div>
-              {vacancies.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {vacancies.map((v, idx) => (
-                    <Badge key={idx} variant="secondary" className="gap-1">
-                      {v.title}
-                      <button
-                        type="button"
-                        onClick={() => removeVacancy(idx)}
-                        className="ml-1 rounded hover:bg-gray-200"
-                        aria-label={`Verwijder ${v.title}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => router.push('/sales/lead-verrijking')}>
                 Annuleren
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Aanmaken…' : 'Verrijken'}
+              <Button type="submit" disabled={submitting || urls.length === 0}>
+                {submitting
+                  ? 'Aanmaken…'
+                  : urls.length === 1
+                    ? 'Verrijken'
+                    : `Verrijken (${urls.length})`}
               </Button>
             </div>
           </form>
