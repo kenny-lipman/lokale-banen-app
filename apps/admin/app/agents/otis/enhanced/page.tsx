@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { useWebhookRateLimit } from '@/hooks/use-webhook-rate-limit'
 import { VirtualizedRunList } from '@/components/VirtualizedRunList'
 import { ViewModeToggle, useViewMode } from '@/components/ViewModeToggle'
@@ -330,7 +330,6 @@ const EnhancedCampaignFilter = ({
 }
 
 function FullOtisDashboard() {
-  const { toast } = useToast()
   const webhookRateLimit = useWebhookRateLimit()
   
   // State management
@@ -595,11 +594,7 @@ function FullOtisDashboard() {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error loading existing runs:', error)
       }
-      toast({
-        title: "Error",
-        description: "Failed to load existing runs",
-        variant: "destructive"
-      })
+      toast.error("Error", { description: "Failed to load existing runs" })
     } finally {
       setIsLoadingExistingRuns(false)
     }
@@ -690,17 +685,14 @@ function FullOtisDashboard() {
         
         setLoadedContacts(uniqueContacts)
 
-        toast({
-          title: "Contacts Loaded",
-          description: `Found ${result.data.total_contacts} contacts from ${result.data.total_companies} companies (${result.data.total_key_contacts} key contacts)`,
+        toast.success("Contacts Loaded", {
+          description: `Found ${result.data.total_contacts} contacts from ${result.data.total_companies} companies (${result.data.total_key_contacts} key contacts)`
         })
       }
     } catch (error) {
       console.error('Error loading contacts by company:', error)
-      toast({
-        title: "Error",
-        description: `Failed to load contacts: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive"
+      toast.error("Error", {
+        description: `Failed to load contacts: ${error instanceof Error ? error.message : String(error)}`
       })
     } finally {
       setContactsLoading(false)
@@ -729,20 +721,13 @@ function FullOtisDashboard() {
 
   const refreshCompanies = async () => {
     if (!currentRunData?.apify_run?.id) {
-      toast({
-        title: "No Run Selected",
-        description: "Please select an existing run first",
-        variant: "destructive"
-      })
+      toast.error("No Run Selected", { description: "Please select an existing run first" })
       return
     }
 
     setIsRefreshingCompanies(true)
     try {
-      toast({
-        title: "Refreshing Companies",
-        description: "Loading updated company data...",
-      })
+      toast.success("Refreshing Companies", { description: "Loading updated company data..." })
 
       // Fetch updated data from the specific Apify run
       const response = await fetch(`/api/otis/scraping-results/run/${currentRunData.apify_run.id}`, {
@@ -773,16 +758,13 @@ function FullOtisDashboard() {
       // Update the current run data
       setCurrentRunData(data)
 
-      toast({
-        title: "Companies Refreshed",
-        description: `Updated ${data.companies?.length || 0} companies`,
+      toast.success("Companies Refreshed", {
+        description: `Updated ${data.companies?.length || 0} companies`
       })
     } catch (error) {
       console.error('Error refreshing companies:', error)
-      toast({
-        title: "Error",
-        description: `Failed to refresh companies: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive"
+      toast.error("Error", {
+        description: `Failed to refresh companies: ${error instanceof Error ? error.message : String(error)}`
       })
     } finally {
       setIsRefreshingCompanies(false)
@@ -791,34 +773,22 @@ function FullOtisDashboard() {
 
   const refreshContacts = async () => {
     if (!currentRunData?.apify_run?.id) {
-      toast({
-        title: "No Run Selected",
-        description: "Please select an existing run first",
-        variant: "destructive"
-      })
+      toast.error("No Run Selected", { description: "Please select an existing run first" })
       return
     }
 
     setIsRefreshingContacts(true)
     try {
-      toast({
-        title: "Refreshing Contacts",
-        description: "Loading updated contact data...",
-      })
+      toast.success("Refreshing Contacts", { description: "Loading updated contact data..." })
 
       // Reload contacts data for this specific run with cache bypass
       await loadContactsByCompany(currentRunData.apify_run.id, contactFilters.search, true)
 
-      toast({
-        title: "Contacts Refreshed",
-        description: `Updated contact data from Apollo enrichment`,
-      })
+      toast.success("Contacts Refreshed", { description: `Updated contact data from Apollo enrichment` })
     } catch (error) {
       console.error('Error refreshing contacts:', error)
-      toast({
-        title: "Error",
-        description: `Failed to refresh contacts: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive"
+      toast.error("Error", {
+        description: `Failed to refresh contacts: ${error instanceof Error ? error.message : String(error)}`
       })
     } finally {
       setIsRefreshingContacts(false)
@@ -854,21 +824,13 @@ function FullOtisDashboard() {
   const handleStartScraping = async () => {
     if (scrapingMode === 'new') {
       if (scrapingConfig.selectedRegioPlatforms.length === 0) {
-        toast({
-          title: "Validation Error",
-          description: "Please select at least one Regio Platform",
-          variant: "destructive"
-        })
+        toast.error("Validation Error", { description: "Please select at least one Regio Platform" })
         return
       }
       await startNewScraping()
     } else {
       if (!selectedExistingRun) {
-        toast({
-          title: "Validation Error",
-          description: "Please select an existing Apify run",
-          variant: "destructive"
-        })
+        toast.error("Validation Error", { description: "Please select an existing Apify run" })
         return
       }
       await useExistingRun()
@@ -933,9 +895,8 @@ function FullOtisDashboard() {
           })
         }, 1000)
 
-        toast({
-          title: "Scraping Started",
-          description: `Started scraping ${scrapingConfig.jobTitle || 'jobs'} with ${scrapingConfig.selectedRegioPlatforms.length} platforms`,
+        toast.success("Scraping Started", {
+          description: `Started scraping ${scrapingConfig.jobTitle || 'jobs'} with ${scrapingConfig.selectedRegioPlatforms.length} platforms`
         })
 
         // Reset form
@@ -958,9 +919,8 @@ function FullOtisDashboard() {
           loadStats()
           loadRecentJobPostings()
           
-          toast({
-            title: "Scraping Completed",
-            description: `Found ${Math.floor(Math.random() * 50) + 10} job postings`,
+          toast.success("Scraping Completed", {
+            description: `Found ${Math.floor(Math.random() * 50) + 10} job postings`
           })
         }, 5000)
 
@@ -980,11 +940,7 @@ function FullOtisDashboard() {
       setIsScraping(false)
       setScrapingProgress(0)
       
-      toast({
-        title: "Scraping Failed",
-        description: "Failed to start scraping. Please try again.",
-        variant: "destructive"
-      })
+      toast.error("Scraping Failed", { description: "Failed to start scraping. Please try again." })
     }
   }
 
@@ -1006,9 +962,8 @@ function FullOtisDashboard() {
 
       setScrapingJobs(prev => [newJob, ...prev])
 
-      toast({
-        title: "Loading Existing Data",
-        description: `Loading results from ${selectedExistingRun.displayName}`,
+      toast.success("Loading Existing Data", {
+        description: `Loading results from ${selectedExistingRun.displayName}`
       })
 
       setScrapingProgress(30)
@@ -1098,9 +1053,8 @@ function FullOtisDashboard() {
 
       setScrapingProgress(100)
       
-      toast({
-        title: "Data Loaded Successfully", 
-        description: `Loaded ${actualResultsCount} job postings and ${companiesCount} companies`,
+      toast.success("Data Loaded Successfully", {
+        description: `Loaded ${actualResultsCount} job postings and ${companiesCount} companies`
       })
 
       // Clear progress after a brief moment and navigate to companies tab
@@ -1123,10 +1077,8 @@ function FullOtisDashboard() {
       setIsScraping(false)
       setScrapingProgress(0)
       
-      toast({
-        title: "Error Loading Data",
-        description: error instanceof Error ? error.message : "Failed to load existing run data",
-        variant: "destructive"
+      toast.error("Error Loading Data", {
+        description: error instanceof Error ? error.message : "Failed to load existing run data"
       })
     }
   }
@@ -1184,20 +1136,13 @@ function FullOtisDashboard() {
           )
         )
 
-        toast({
-          title: "Success",
-          description: result.data.message,
-        })
+        toast.success("Success", { description: result.data.message })
       } else {
         throw new Error(result.error)
       }
     } catch (error: any) {
       console.error('Error qualifying company:', error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update company qualification",
-        variant: "destructive"
-      })
+      toast.error("Error", { description: error.message || "Failed to update company qualification" })
     } finally {
       setIsQualifying(prev => {
         const newSet = new Set(prev)
@@ -1212,10 +1157,8 @@ function FullOtisDashboard() {
     // Check rate limit before proceeding
     if (!webhookRateLimit.canCall(companyId)) {
       const remainingTime = webhookRateLimit.getRemainingTime(companyId)
-      toast({
-        title: "Rate Limited",
-        description: `Please wait ${remainingTime} seconds before enriching this company again.`,
-        variant: "destructive"
+      toast.error("Rate Limited", {
+        description: `Please wait ${remainingTime} seconds before enriching this company again.`
       })
       return
     }
@@ -1263,10 +1206,7 @@ function FullOtisDashboard() {
         )
       )
 
-      toast({
-        title: "Enrichment Complete",
-        description: `Successfully enriched ${company.name}`,
-      })
+      toast.success("Enrichment Complete", { description: `Successfully enriched ${company.name}` })
     } catch (error: any) {
       console.error('Error enriching company:', error)
       
@@ -1279,11 +1219,7 @@ function FullOtisDashboard() {
         )
       )
 
-      toast({
-        title: "Enrichment Failed",
-        description: error.message || "Failed to enrich company data",
-        variant: "destructive"
-      })
+      toast.error("Enrichment Failed", { description: error.message || "Failed to enrich company data" })
     } finally {
       // Clean up loading states
       webhookRateLimit.markAsComplete(companyId)
@@ -1351,20 +1287,13 @@ function FullOtisDashboard() {
 
         setSelectedCompanies(new Set()) // Clear selection
 
-        toast({
-          title: "Bulk Update Successful",
-          description: result.data.message,
-        })
+        toast.success("Bulk Update Successful", { description: result.data.message })
       } else {
         throw new Error(result.error)
       }
     } catch (error: any) {
       console.error('Error bulk qualifying companies:', error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to bulk update companies",
-        variant: "destructive"
-      })
+      toast.error("Error", { description: error.message || "Failed to bulk update companies" })
     } finally {
       companyIds.forEach(id => 
         setIsQualifying(prev => {
@@ -1410,11 +1339,7 @@ function FullOtisDashboard() {
       const result = await response.json()
       
       if (result.success) {
-        toast({
-          title: "Contact Updated",
-          description: `Contact ${status} successfully`,
-          variant: "default"
-        })
+        toast.success("Contact Updated", { description: `Contact ${status} successfully` })
         
         // Reload contacts to reflect the change with cache bypass
         if (currentRunData?.apify_run?.id) {
@@ -1425,10 +1350,8 @@ function FullOtisDashboard() {
       }
     } catch (error) {
       console.error('Contact qualification error:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update contact qualification",
-        variant: "destructive"
+      toast.error("Error", {
+        description: error instanceof Error ? error.message : "Failed to update contact qualification"
       })
     }
   }
@@ -1457,11 +1380,7 @@ function FullOtisDashboard() {
       const result = await response.json()
       
       if (result.success) {
-        toast({
-          title: "Contacts Updated",
-          description: result.data.message,
-          variant: "default"
-        })
+        toast.success("Contacts Updated", { description: result.data.message })
         
         // Clear selection and reload contacts with cache bypass
         setSelectedContacts(new Set())
@@ -1471,11 +1390,7 @@ function FullOtisDashboard() {
       }
     } catch (error) {
       console.error('Error updating contacts qualification:', error)
-      toast({
-        title: "Error",
-        description: "Failed to update contacts qualification",
-        variant: "destructive"
-      })
+      toast.error("Error", { description: "Failed to update contacts qualification" })
     }
   }
 
@@ -1563,10 +1478,8 @@ function FullOtisDashboard() {
         
         // Show appropriate toast based on severity
         if (data.severity === 'success') {
-          toast({
-            title: "Success",
-            description: data.message || `${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''} added to "${campaignName}"`,
-            variant: "default"
+          toast.success("Success", {
+            description: data.message || `${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''} added to "${campaignName}"`
           })
           
           // Clear selection and reload contacts on success
@@ -1585,10 +1498,8 @@ function FullOtisDashboard() {
           }, 2000)
           
         } else if (data.severity === 'warning') {
-          toast({
-            title: "Partial Success",
-            description: data.message || "Some contacts were added successfully",
-            variant: "default"
+          toast.success("Partial Success", {
+            description: data.message || "Some contacts were added successfully"
           })
           
           // Don't close modal for warnings, let user see details
@@ -1597,11 +1508,7 @@ function FullOtisDashboard() {
         } else {
           // Error case
           setModalError(data.message || 'Failed to add contacts to campaign')
-          toast({
-            title: "Error",
-            description: data.message || "Failed to add contacts to campaign",
-            variant: "destructive"
-          })
+          toast.error("Error", { description: data.message || "Failed to add contacts to campaign" })
         }
       } else {
         // Handle legacy error response
@@ -1612,11 +1519,7 @@ function FullOtisDashboard() {
       setModalError(error instanceof Error ? error.message : 'Failed to add contacts to campaign')
       setModalSeverity('error')
       setModalRetryRecommendations(['Please check your connection and try again'])
-      toast({
-        title: "Error",
-        description: "Failed to add contacts to campaign",
-        variant: "destructive"
-      })
+      toast.error("Error", { description: "Failed to add contacts to campaign" })
     } finally {
       setModalLoading(false)
     }

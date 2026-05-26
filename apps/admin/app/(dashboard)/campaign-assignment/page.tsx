@@ -31,7 +31,7 @@ import {
   Settings,
   Square,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 
 interface CampaignSettings {
   max_total_contacts: number
@@ -67,8 +67,6 @@ export default function CampaignAssignmentPage() {
     autoRefresh: true,
     refreshInterval: 30000,
   })
-
-  const { toast } = useToast()
 
   // UI State
   const [selectedLog, setSelectedLog] = useState<CampaignAssignmentLog | null>(null)
@@ -112,15 +110,12 @@ export default function CampaignAssignmentPage() {
   const handleRunAssignment = async () => {
     const result = await runAssignment(currentSettings.max_total_contacts, currentSettings.max_per_platform)
     if (result.success) {
-      toast({
-        title: "Parallel Assignment Gestart",
+      toast.success("Parallel Assignment Gestart", {
         description: `${result.platformCount || '?'} platforms getriggerd met ${result.totalCandidates || '?'} candidates.`,
       })
     } else {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: result.error || "Er is iets misgegaan bij het starten van de assignment.",
-        variant: "destructive",
       })
     }
   }
@@ -220,15 +215,12 @@ export default function CampaignAssignmentPage() {
                 onClick={async () => {
                   const result = await cancelAssignment({ orchestrationId: activeOrchestration.orchestrationId })
                   if (result.success) {
-                    toast({
-                      title: "Orchestratie Geannuleerd",
+                    toast.success("Orchestratie Geannuleerd", {
                       description: "Alle platform workers zijn gestopt.",
                     })
                   } else {
-                    toast({
-                      title: "Error",
+                    toast.error("Error", {
                       description: result.error || "Kon orchestratie niet annuleren",
-                      variant: "destructive",
                     })
                   }
                 }}
@@ -316,15 +308,12 @@ export default function CampaignAssignmentPage() {
                 onClick={async () => {
                   const result = await cancelAssignment({ batchId: activeBatch.batch_id })
                   if (result.success) {
-                    toast({
-                      title: "Batch Geannuleerd",
+                    toast.success("Batch Geannuleerd", {
                       description: "De campaign assignment is gestopt.",
                     })
                   } else {
-                    toast({
-                      title: "Error",
+                    toast.error("Error", {
                       description: result.error || "Kon batch niet annuleren",
-                      variant: "destructive",
                     })
                   }
                 }}

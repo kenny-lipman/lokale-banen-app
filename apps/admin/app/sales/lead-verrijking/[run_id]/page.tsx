@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePollingRun } from '@/hooks/use-polling-run'
 import { useDebounce } from '@/hooks/use-debounce'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { LeadStatusBanner, type SaveState } from '@/components/sales/lead-status-banner'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
@@ -69,7 +69,6 @@ function dedupeVacancies(list: NormalizedVacancy[]): NormalizedVacancy[] {
 export default function RunDetailPage({ params }: PageProps) {
   const { run_id } = use(params)
   const router = useRouter()
-  const { toast } = useToast()
   const { run, loading, error, timedOut, refetch } = usePollingRun(run_id)
 
   const [master, setMaster] = useState<MasterRecord | null>(null)
@@ -111,13 +110,9 @@ export default function RunDetailPage({ params }: PageProps) {
       })
       .then((j) => setOwners(j.configs ?? []))
       .catch((e) => {
-        toast({
-          title: 'Kon owner-config niet laden',
-          description: (e as Error).message,
-          variant: 'destructive',
-        })
+        toast.error('Kon owner-config niet laden', { description: (e as Error).message })
       })
-  }, [toast])
+  }, [])
 
   // Debounced auto-save
   const debouncedMaster = useDebounce(master, 500)
@@ -155,13 +150,9 @@ export default function RunDetailPage({ params }: PageProps) {
       .catch((e) => {
         if (seqRef.current !== mySeq) return // newer save in flight, swallow
         setSaveState('error')
-        toast({
-          title: 'Auto-save mislukt',
-          description: (e as Error).message,
-          variant: 'destructive',
-        })
+        toast.error('Auto-save mislukt', { description: (e as Error).message })
       })
-  }, [debouncedMaster, debouncedSelected, run_id, run, toast])
+  }, [debouncedMaster, debouncedSelected, run_id, run])
 
   useEffect(() => {
     return () => {
@@ -182,14 +173,14 @@ export default function RunDetailPage({ params }: PageProps) {
     try {
       const res = await fetch(`/api/sales-leads/${run_id}/cancel`, { method: 'POST' })
       if (!res.ok) throw new Error((await res.json()).error ?? 'Cancel mislukt')
-      toast({ title: 'Run geannuleerd', variant: 'default' })
+      toast.success('Run geannuleerd')
       router.push('/sales/lead-verrijking')
     } catch (e) {
-      toast({ title: 'Cancel mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Cancel mislukt', { description: (e as Error).message })
     } finally {
       setCancelling(false)
     }
-  }, [run_id, router, toast])
+  }, [run_id, router])
 
   const onReplay = useCallback(async () => {
     setReplaying(true)
@@ -199,7 +190,7 @@ export default function RunDetailPage({ params }: PageProps) {
         const body = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      toast({ title: 'Replay gestart' })
+      toast.success('Replay gestart')
       // Reset hydration zodat master/selected uit de fresh enriching-state
       // worden ge-rehydrated zodra orchestrator klaar is.
       hydratedRef.current = false
@@ -207,15 +198,11 @@ export default function RunDetailPage({ params }: PageProps) {
       setSelected([])
       await refetch()
     } catch (e) {
-      toast({
-        title: 'Replay mislukt',
-        description: (e as Error).message,
-        variant: 'destructive',
-      })
+      toast.error('Replay mislukt', { description: (e as Error).message })
     } finally {
       setReplaying(false)
     }
-  }, [run_id, refetch, toast])
+  }, [run_id, refetch])
 
   if (loading && !run) return <div className="p-8 text-sm text-gray-500">Laden…</div>
   if (error && !run) return <div className="p-8 text-sm text-red-600">{error}</div>

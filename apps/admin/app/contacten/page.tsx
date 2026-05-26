@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ChevronLeft, ChevronRight, Search, Users, Target, Edit, CheckCircle, Clock, AlertCircle, Building2, RotateCcw, X, MapPin, Sparkles, Edit3, Eye, ArrowUpRight } from "lucide-react"
 import { useContactsPaginated } from "@/hooks/use-contacts-paginated"
 import { useDebounce } from "@/hooks/use-debounce"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { PipedriveSyncDialog } from "@/components/pipedrive-sync-dialog"
 import { useRecommendedPlatform } from "@/hooks/use-recommended-platform"
@@ -212,8 +212,6 @@ export default function ContactsPage() {
     instantlyStatus: true,
     aangemaakt: true
   })
-  
-  const { toast } = useToast()
 
   // Debounced search query for better performance
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
@@ -332,23 +330,20 @@ export default function ContactsPage() {
           
           // Show info toast if many campaigns were filtered out
           if (data.campaigns.length > activeCampaigns.length) {
-            toast({
-              title: "Campagnes geladen",
+            toast("Campagnes geladen", {
               description: `${activeCampaigns.length} actieve campagnes weergegeven van ${data.campaigns.length} totaal`,
             })
           }
         }
       } catch (error) {
         console.error('Error loading campaigns:', error)
-        toast({
-          title: "Error",
+        toast.error("Error", {
           description: "Could not load campaigns",
-          variant: "destructive"
         })
       }
     }
     loadCampaigns()
-  }, [toast])
+  }, [])
 
   // Load platforms once for the platform filter
   useEffect(() => {
@@ -445,10 +440,8 @@ export default function ContactsPage() {
 
   const handleAddToCampaign = async () => {
     if (!selectedCampaign || selectedContacts.size === 0) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Please select contacts and a campaign",
-        variant: "destructive"
       })
       return
     }
@@ -478,8 +471,7 @@ export default function ContactsPage() {
         throw new Error(result.error)
       }
 
-      toast({
-        title: "Success",
+      toast.success("Success", {
         description: result.message || `Successfully added ${selectedContacts.size} contacts to campaign`,
       })
       
@@ -492,10 +484,8 @@ export default function ContactsPage() {
       
     } catch (error) {
       console.error('Error adding contacts to campaign:', error)
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to add contacts to campaign",
-        variant: "destructive"
       })
     } finally {
       setIsLoading(false)
@@ -522,10 +512,8 @@ export default function ContactsPage() {
 
   const handleUpdateQualificationStatus = async () => {
     if (!selectedQualificationStatus || selectedContacts.size === 0) {
-      toast({
-        title: "Error", 
+      toast.error("Error", {
         description: "Please select contacts and a qualification status",
-        variant: "destructive"
       })
       return
     }
@@ -552,8 +540,7 @@ export default function ContactsPage() {
         throw new Error(result.error)
       }
 
-      toast({
-        title: "Success",
+      toast.success("Success", {
         description: `Successfully updated ${selectedContacts.size} contacts`,
       })
       
@@ -566,10 +553,8 @@ export default function ContactsPage() {
       
     } catch (error) {
       console.error('Error updating qualification status:', error)
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to update qualification status",
-        variant: "destructive"
       })
     } finally {
       setIsLoading(false)

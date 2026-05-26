@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { 
   Search, 
   Building2, 
@@ -62,7 +62,6 @@ export default function ApolloEnrichmentPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
 
   // Load companies and contacts from database
   useEffect(() => {
@@ -98,10 +97,8 @@ export default function ApolloEnrichmentPage() {
         }
       } catch (error) {
         console.error('Error loading data:', error)
-        toast({
-          title: "Fout bij laden data",
+        toast.error("Fout bij laden data", {
           description: "Er is een fout opgetreden bij het laden van de gegevens",
-          variant: "destructive",
         })
       } finally {
         setLoading(false)
@@ -109,7 +106,7 @@ export default function ApolloEnrichmentPage() {
     }
 
     loadData()
-  }, [toast])
+  }, [])
 
   const filteredCompanies = companies.filter(company => {
     const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -129,8 +126,7 @@ export default function ApolloEnrichmentPage() {
     setIsEnriching(true)
     setEnrichmentProgress(0)
     
-    toast({
-      title: "🚀 Apollo verrijking gestart",
+    toast.success("🚀 Apollo verrijking gestart", {
       description: `${selectedCompanies.length} bedrijven worden verrijkt met contactgegevens`,
     })
 
@@ -153,8 +149,7 @@ export default function ApolloEnrichmentPage() {
       setSelectedCompanies([])
       setIsEnriching(false)
       setEnrichmentProgress(0)
-      toast({
-        title: "✅ Verrijking voltooid",
+      toast.success("✅ Verrijking voltooid", {
         description: "Bedrijfsgegevens zijn succesvol verrijkt met Apollo",
       })
     }, 3000)

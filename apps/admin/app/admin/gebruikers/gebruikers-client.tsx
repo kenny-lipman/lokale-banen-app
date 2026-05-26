@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Loader2, MoreVertical, Plus, RefreshCcw, Settings, Copy, RefreshCw } from 'lucide-react'
 
 type AdminUser = {
@@ -56,7 +56,6 @@ function generatePassword(): string {
 }
 
 export function GebruikersClient({ currentUserId }: Props) {
-  const { toast } = useToast()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -77,12 +76,12 @@ export function GebruikersClient({ currentUserId }: Props) {
       const json = (await res.json()) as { users: AdminUser[] }
       setUsers(json.users)
     } catch (e) {
-      toast({ title: 'Laden mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Laden mislukt', { description: (e as Error).message })
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [toast])
+  }, [])
 
   useEffect(() => {
     void load()
@@ -290,7 +289,6 @@ function CreateUserModal({
   onOpenChange: (o: boolean) => void
   onCreated: () => void
 }) {
-  const { toast } = useToast()
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState(generatePassword())
@@ -316,11 +314,11 @@ function CreateUserModal({
       })
       const body = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`)
-      toast({ title: 'Account aangemaakt', description: `${email} is toegevoegd.` })
+      toast.success('Account aangemaakt', { description: `${email} is toegevoegd.` })
       onCreated()
       onOpenChange(false)
     } catch (e) {
-      toast({ title: 'Aanmaken mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Aanmaken mislukt', { description: (e as Error).message })
     } finally {
       setSubmitting(false)
     }
@@ -328,7 +326,7 @@ function CreateUserModal({
 
   const copyPassword = async () => {
     await navigator.clipboard.writeText(password)
-    toast({ title: 'Wachtwoord gekopieerd' })
+    toast.success('Wachtwoord gekopieerd')
   }
 
   return (
@@ -410,7 +408,6 @@ function RoleModal({
   onOpenChange: (o: boolean) => void
   onSaved: () => void
 }) {
-  const { toast } = useToast()
   const [role, setRole] = useState<'admin' | 'member'>(user.role)
   const [submitting, setSubmitting] = useState(false)
 
@@ -423,11 +420,11 @@ function RoleModal({
         body: JSON.stringify({ role }),
       })
       if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`)
-      toast({ title: 'Rol gewijzigd', description: `${user.email} is nu ${role}.` })
+      toast.success('Rol gewijzigd', { description: `${user.email} is nu ${role}.` })
       onSaved()
       onOpenChange(false)
     } catch (e) {
-      toast({ title: 'Wijzigen mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Wijzigen mislukt', { description: (e as Error).message })
     } finally {
       setSubmitting(false)
     }
@@ -485,7 +482,6 @@ function ConfirmModal({
   confirmVariant: 'default' | 'amber'
   endpoint: (id: string) => string
 }) {
-  const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async () => {
@@ -493,11 +489,11 @@ function ConfirmModal({
     try {
       const res = await fetch(endpoint(user.id), { method: 'POST' })
       if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`)
-      toast({ title: 'Gelukt', description: confirmLabel })
+      toast.success('Gelukt', { description: confirmLabel })
       onConfirmed()
       onOpenChange(false)
     } catch (e) {
-      toast({ title: 'Mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Mislukt', { description: (e as Error).message })
     } finally {
       setSubmitting(false)
     }
@@ -540,7 +536,6 @@ function DeleteModal({
   onOpenChange: (o: boolean) => void
   onDeleted: () => void
 }) {
-  const { toast } = useToast()
   const [confirmText, setConfirmText] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -552,11 +547,11 @@ function DeleteModal({
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error((await res.json()).error ?? `HTTP ${res.status}`)
-      toast({ title: 'Account verwijderd', description: user.email })
+      toast.success('Account verwijderd', { description: user.email })
       onDeleted()
       onOpenChange(false)
     } catch (e) {
-      toast({ title: 'Verwijderen mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Verwijderen mislukt', { description: (e as Error).message })
     } finally {
       setSubmitting(false)
     }

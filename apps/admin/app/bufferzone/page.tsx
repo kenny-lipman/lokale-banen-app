@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -80,8 +80,7 @@ interface Campaign {
 }
 
 export default function BufferzonePage() {
-  const { toast } = useToast()
-  
+
   // State management
   const [companies, setCompanies] = useState<Company[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -133,10 +132,8 @@ export default function BufferzonePage() {
       ])
     } catch (error) {
       console.error('Error loading data:', error)
-      toast({
-        title: "Error loading data",
+      toast.error("Error loading data", {
         description: "Failed to load bufferzone data. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -326,8 +323,7 @@ export default function BufferzonePage() {
       })
 
       if (response.ok) {
-        toast({
-          title: "Contact scraping started",
+        toast.success("Contact scraping started", {
           description: `Started scraping contacts for ${company.name}`,
         })
         
@@ -338,10 +334,8 @@ export default function BufferzonePage() {
       }
     } catch (error) {
       console.error('Error scraping contacts:', error)
-      toast({
-        title: "Error scraping contacts",
+      toast.error("Error scraping contacts", {
         description: "Failed to start contact scraping. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setCompanies(prev => prev.map(c => 
@@ -359,16 +353,13 @@ export default function BufferzonePage() {
           if (data.status === 'completed') {
             clearInterval(pollInterval)
             await loadContacts() // Reload contacts
-            toast({
-              title: "Contact scraping completed",
+            toast.success("Contact scraping completed", {
               description: `Successfully scraped contacts for ${companies.find(c => c.id === companyId)?.name}`,
             })
           } else if (data.status === 'failed') {
             clearInterval(pollInterval)
-            toast({
-              title: "Contact scraping failed",
+            toast.error("Contact scraping failed", {
               description: "Failed to scrape contacts. Please try again.",
-              variant: "destructive",
             })
           }
         }
@@ -392,10 +383,8 @@ export default function BufferzonePage() {
 
   const handleBulkAssign = () => {
     if (selectedContacts.size === 0) {
-      toast({
-        title: "No contacts selected",
+      toast.error("No contacts selected", {
         description: "Please select contacts to assign to a campaign.",
-        variant: "destructive",
       })
       return
     }
@@ -405,10 +394,8 @@ export default function BufferzonePage() {
 
   const handleAssignToCampaign = async () => {
     if (!selectedCampaign) {
-      toast({
-        title: "No campaign selected",
+      toast.error("No campaign selected", {
         description: "Please select a campaign to assign contacts to.",
-        variant: "destructive",
       })
       return
     }
@@ -435,8 +422,7 @@ export default function BufferzonePage() {
         const successCount = data.results?.filter((r: any) => r.status === "success").length || 0
         
         if (successCount > 0) {
-          toast({
-            title: "Contacts assigned successfully! ✅",
+          toast.success("Contacts assigned successfully! ✅", {
             description: `${successCount} contact${successCount !== 1 ? 's' : ''} assigned to campaign`,
           })
           
@@ -463,10 +449,8 @@ export default function BufferzonePage() {
       }
     } catch (error) {
       console.error('Error assigning contacts:', error)
-      toast({
-        title: "Error assigning contacts",
+      toast.error("Error assigning contacts", {
         description: "Failed to assign contacts to campaign. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setIsAddingToCampaign(false)
