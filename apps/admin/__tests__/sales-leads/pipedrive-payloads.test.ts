@@ -41,7 +41,7 @@ describe('buildOrgPayload', () => {
     const p = buildOrgPayload(masterFull, owner, resolvedDefaults)
     expect(p.name).toBe('WeTarget B.V.')
     expect(p.owner_id).toBe(22971285)
-    expect(p.address).toEqual([{ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' }])
+    expect(p.address).toEqual({ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' })
     expect(p.custom_fields).toBeDefined()
   })
 
@@ -56,7 +56,28 @@ describe('buildOrgPayload', () => {
       owner,
       resolvedDefaults,
     )
-    expect(p.address).toEqual([{ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' }])
+    expect(p.address).toEqual({ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' })
+  })
+
+  it('zet standaard `industry`-veld op basis van custom-brancheEnumId', () => {
+    const p = buildOrgPayload(masterFull, owner, { hoofddomeinOptionId: null, brancheEnumId: 293 })
+    // 293 Transport → 18 (Transport, logistiek, toeleveringsketen en opslag)
+    expect(p.industry).toBe(18)
+  })
+
+  it('skipt `industry` als brancheEnumId geen mapping heeft', () => {
+    const p = buildOrgPayload(masterFull, owner, resolvedDefaults)
+    expect(p.industry).toBeUndefined()
+  })
+
+  it('zet `employee_count` (int) wanneer master.employee_count gevuld is', () => {
+    const p = buildOrgPayload({ ...masterFull, employee_count: 42 }, owner, resolvedDefaults)
+    expect(p.employee_count).toBe(42)
+  })
+
+  it('skipt `employee_count` als master.employee_count ontbreekt', () => {
+    const p = buildOrgPayload(masterFull, owner, resolvedDefaults)
+    expect(p.employee_count).toBeUndefined()
   })
 
   it('zet wetarget-flag uit owner_config', () => {

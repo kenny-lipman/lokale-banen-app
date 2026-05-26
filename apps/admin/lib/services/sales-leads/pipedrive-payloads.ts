@@ -2,6 +2,7 @@ import {
   ORG_FIELD_KEYS,
   PERSON_FIELD_KEYS,
   bedrijfsgrootteToEnum,
+  customBrancheToIndustryEnum,
 } from './pipedrive-fields'
 import type { MasterRecord, NormalizedContact, NormalizedFields } from './types'
 
@@ -47,7 +48,9 @@ export function buildOrgPayload(
   name: string
   owner_id: number
   visible_to: number
-  address?: Array<{ value: string }>
+  address?: { value: string }
+  industry?: number
+  employee_count?: number
   custom_fields: Record<string, unknown>
 } {
   if (!master.company_name) {
@@ -91,16 +94,24 @@ export function buildOrgPayload(
   customFields[ORG_FIELD_KEYS.WETARGET_FLAG] = owner.wetarget_flag_value
 
   const addressString = composeAddressString(master.address)
+  const industryEnumId = customBrancheToIndustryEnum(resolved.brancheEnumId)
 
   return {
     name: master.company_name,
     owner_id: owner.pipedrive_user_id,
     // V2 vereist visible_to als integer (V1 accepteerde string). 3 = "Entire company".
     visible_to: 3,
-    // V2 organization.address is een array van address-objects ({value, label?}),
-    // geen string zoals V1. composeAddressString valt terug op street/postcode/city
-    // wanneer .full ontbreekt (KvK levert vaak alleen losse velden).
-    ...(addressString ? { address: [{ value: addressString }] } : {}),
+    // V2 organization.address is een object {value, ...}, geen array zoals persons.emails.
+    // Array-format geeft success=true terug maar wordt silent genegeerd door PD.
+    // composeAddressString valt terug op street/postcode/city wanneer .full ontbreekt.
+    ...(addressString ? { address: { value: addressString } } : {}),
+    // Standaard PD-veld 'industry' (key=industry) naast custom Branche-veld (5a46...).
+    // Mapping van 12 custom opties naar de 20 standaard PD industry-opties.
+    ...(industryEnumId != null ? { industry: industryEnumId } : {}),
+    // Standaard PD-veld 'employee_count' (int) naast custom Bedrijfsgrootte-enum (klein/middel/groot).
+    ...(typeof master.employee_count === 'number' && Number.isFinite(master.employee_count)
+      ? { employee_count: master.employee_count }
+      : {}),
     custom_fields: customFields,
   }
 }

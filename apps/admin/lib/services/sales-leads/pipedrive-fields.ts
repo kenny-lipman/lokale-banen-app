@@ -61,6 +61,43 @@ export const WETARGET_ENUM = {
   NEE: 301,
 } as const
 
+// ── Standaard PD `industry`-enum (Org field key=industry) ─────────────────
+// Mapping van onze custom Branche-enum (5a46... 12 opties) naar de standaard
+// PD industry-enum (20 opties NL). Beide velden worden gevuld bij sync zodat
+// zowel de oude PD-view (standaard 'Branche') als de nieuwe custom-view klopt.
+// Mapping vastgesteld in overleg (Kenny, 2026-05-26):
+//   - 286 Automotive            → 16 Retail (auto-handel)
+//   - 287 Bouw + gerelateerd    → 3  Bouw
+//   - 288 Detail/groot/ambacht  → 16 Retail
+//   - 289 Horeca & Toerisme     → 1  Diensten voor accommodatie
+//   - 290 Leisure               → 6  Aanbieders van entertainment
+//   - 291 Logistiek             → 18 Transport, logistiek, toeleveringsketen
+//   - 292 Sierteelt             → 7  Landbouw, veeteelt, bosbouw
+//   - 293 Transport             → 18 Transport, logistiek, toeleveringsketen
+//   - 294 Voedselbranche        → 12 Productie
+//   - 295 Zakelijke/persoonlijke dienstverlening → 14 Professionele dienstverlening
+//   - 296 Zorg + onderwijs      → 11 Ziekenhuizen en gezondheidszorg
+//   - 435 Techniek              → 17 Technologie, informatie en media
+export const CUSTOM_BRANCHE_TO_INDUSTRY_ENUM: Record<number, number> = {
+  286: 16,
+  287: 3,
+  288: 16,
+  289: 1,
+  290: 6,
+  291: 18,
+  292: 7,
+  293: 18,
+  294: 12,
+  295: 14,
+  296: 11,
+  435: 17,
+}
+
+export function customBrancheToIndustryEnum(customBrancheEnumId: number | null): number | null {
+  if (customBrancheEnumId == null) return null
+  return CUSTOM_BRANCHE_TO_INDUSTRY_ENUM[customBrancheEnumId] ?? null
+}
+
 // Hoofddomein-mapping: zie `platforms.pipedrive_hoofddomein_option_id` +
 // `sales_lead_owner_config.hoofddomein_fixed_option_id`. Geen hardcoded map
 // hier — owner-config (fixed strategy) of platforms-lookup (auto-match
