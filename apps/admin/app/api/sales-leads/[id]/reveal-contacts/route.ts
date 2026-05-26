@@ -41,9 +41,13 @@ async function handler(req: NextRequest, _auth: AuthResult, ctx: RouteContext) {
     .maybeSingle()
   if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 })
   if (!run) return NextResponse.json({ error: 'Run niet gevonden' }, { status: 404 })
-  if (run.status === 'syncing' || run.status === 'completed') {
+  if (run.status === 'syncing' || run.status === 'completed' || run.status === 'duplicate') {
     return NextResponse.json(
-      { error: `Reveal niet mogelijk in status '${run.status}'` },
+      {
+        error: run.status === 'duplicate'
+          ? 'Run is gemarkeerd als duplicaat - Apollo-reveal niet toegestaan'
+          : 'Run is al gesynced naar Pipedrive - Apollo-reveal niet meer mogelijk',
+      },
       { status: 400 },
     )
   }

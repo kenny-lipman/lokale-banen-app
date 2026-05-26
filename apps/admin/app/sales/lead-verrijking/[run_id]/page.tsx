@@ -307,6 +307,7 @@ export default function RunDetailPage({ params }: PageProps) {
           <LeadColdContactsCard
             runId={run_id}
             coldCandidates={run!.enrichments?.apollo?.parsed?.cold_candidates ?? []}
+            runStatus={run!.status}
             onRevealed={() => {
               hydratedRef.current = false
               void refetch()

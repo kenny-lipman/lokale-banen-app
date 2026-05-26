@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Sparkles } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 type BrancheOption = { enum_id: number; label: string; sort_order: number }
 type BrancheSuggestion = {
@@ -25,7 +25,6 @@ type Props = {
 const NO_OVERRIDE_VALUE = '__none__'
 
 export function LeadBrancheSelect({ runId, brancheOverride, suggestion, onChange }: Props) {
-  const { toast } = useToast()
   const [options, setOptions] = useState<BrancheOption[] | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -36,7 +35,7 @@ export function LeadBrancheSelect({ runId, brancheOverride, suggestion, onChange
       .then((j) => { if (!cancelled) setOptions(j.options) })
       .catch((e) => {
         if (!cancelled) {
-          toast({ title: 'Branches laden mislukt', description: (e as Error).message, variant: 'destructive' })
+          toast.error('Branches laden mislukt', { description: (e as Error).message })
         }
       })
     return () => { cancelled = true }
@@ -68,7 +67,7 @@ export function LeadBrancheSelect({ runId, brancheOverride, suggestion, onChange
         deal_note_text: body.deal_note_text ?? null,
       })
     } catch (e) {
-      toast({ title: 'Branche opslaan mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Branche opslaan mislukt', { description: (e as Error).message })
     } finally {
       setSaving(false)
     }

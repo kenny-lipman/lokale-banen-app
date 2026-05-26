@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Loader2, RefreshCw, Pencil, X } from 'lucide-react'
 
 type BrancheOption = {
@@ -31,7 +31,6 @@ const fmtDate = (iso: string | null) => {
 }
 
 export function BrancheMappingClient() {
-  const { toast } = useToast()
   const [options, setOptions] = useState<BrancheOption[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -44,11 +43,11 @@ export function BrancheMappingClient() {
       const json = (await res.json()) as { options: BrancheOption[] }
       setOptions(json.options)
     } catch (e) {
-      toast({ title: 'Laden mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Laden mislukt', { description: (e as Error).message })
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [])
 
   useEffect(() => { void load() }, [load])
 
@@ -64,13 +63,12 @@ export function BrancheMappingClient() {
         deactivated?: number
       }
       if (!res.ok || !json.success) throw new Error(json.error ?? `HTTP ${res.status}`)
-      toast({
-        title: 'Sync voltooid',
+      toast.success('Sync voltooid', {
         description: `${json.inserted} nieuw · ${json.updated} bijgewerkt · ${json.deactivated} inactief`,
       })
       await load()
     } catch (e) {
-      toast({ title: 'Sync mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Sync mislukt', { description: (e as Error).message })
     } finally {
       setSyncing(false)
     }
@@ -91,7 +89,7 @@ export function BrancheMappingClient() {
     try {
       await updateRow(row.id, { active: !row.active })
     } catch (e) {
-      toast({ title: 'Wijzigen mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Wijzigen mislukt', { description: (e as Error).message })
     }
   }
 
@@ -177,10 +175,10 @@ export function BrancheMappingClient() {
           if (!editTarget) return
           try {
             await updateRow(editTarget.id, { sbi_prefixes: prefixes })
-            toast({ title: 'Opgeslagen', description: `SBI-prefixes voor ${editTarget.label} bijgewerkt.` })
+            toast.success('Opgeslagen', { description: `SBI-prefixes voor ${editTarget.label} bijgewerkt.` })
             setEditTarget(null)
           } catch (e) {
-            toast({ title: 'Opslaan mislukt', description: (e as Error).message, variant: 'destructive' })
+            toast.error('Opslaan mislukt', { description: (e as Error).message })
           }
         }}
       />

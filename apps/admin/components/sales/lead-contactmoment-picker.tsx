@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarIcon, Loader2, RotateCcw } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 type Props = {
   runId: string
@@ -28,7 +28,6 @@ type Props = {
  * Verleden datums zijn disabled.
  */
 export function LeadContactmomentPicker({ runId, contactmomentOverride, offsetWorkdays, onChange }: Props) {
-  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -59,7 +58,7 @@ export function LeadContactmomentPicker({ runId, contactmomentOverride, offsetWo
       onChange(body.contactmoment_override ?? null)
       setOpen(false)
     } catch (e) {
-      toast({ title: 'Contactmoment opslaan mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Contactmoment opslaan mislukt', { description: (e as Error).message })
     } finally {
       setSaving(false)
     }

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2, RefreshCw } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 type Props = {
   runId: string
@@ -14,7 +14,6 @@ type Props = {
 }
 
 export function LeadDealNoteTextarea({ runId, note, onChange }: Props) {
-  const { toast } = useToast()
   const [regenerating, setRegenerating] = useState(false)
 
   async function regen() {
@@ -26,9 +25,9 @@ export function LeadDealNoteTextarea({ runId, note, onChange }: Props) {
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
       onChange(body.deal_note_text)
-      toast({ title: 'Notitie gegenereerd' })
+      toast.success('Notitie gegenereerd')
     } catch (e) {
-      toast({ title: 'Genereren mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Genereren mislukt', { description: (e as Error).message })
     } finally {
       setRegenerating(false)
     }

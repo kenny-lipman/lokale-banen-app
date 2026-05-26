@@ -15,13 +15,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Sparkles, Mail, Phone, Loader2 } from 'lucide-react'
-import type { ColdContact } from '@/lib/services/sales-leads/types'
+import type { ColdContact, SalesLeadRunStatus } from '@/lib/services/sales-leads/types'
 
 type Props = {
   runId: string
   coldCandidates: ColdContact[]
+  /** Status van de run. Reveal is alleen toegestaan vóór sync (review/failed). */
+  runStatus: SalesLeadRunStatus
   onRevealed: () => void
 }
 
@@ -52,11 +54,17 @@ const SENIORITY_LABEL: Record<string, string> = {
   intern: 'Intern',
 }
 
-export function LeadColdContactsCard({ runId, coldCandidates, onRevealed }: Props) {
-  const { toast } = useToast()
+export function LeadColdContactsCard({ runId, coldCandidates, runStatus, onRevealed }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [revealing, setRevealing] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+
+  // Reveal mag alleen voordat de deal naar Pipedrive is gegaan. Backend
+  // weigert reveal in syncing/completed/duplicate (Persons zijn dan al
+  // aangemaakt). UI blokt de knop proactief zodat sales niet klikt op iets
+  // dat sowieso een 400 zou geven.
+  const revealBlocked =
+    runStatus === 'syncing' || runStatus === 'completed' || runStatus === 'duplicate'
 
   const sorted = useMemo(() => {
     return [...coldCandidates].sort((a, b) => {
@@ -100,18 +108,13 @@ export function LeadColdContactsCard({ runId, coldCandidates, onRevealed }: Prop
         error?: string
       }
       if (!res.ok || !json.ok) throw new Error(json.error ?? `HTTP ${res.status}`)
-      toast({
-        title: 'Contacten verrijkt',
-        description: `${json.revealed?.length ?? 0} via Apollo verrijkt — verschijnen nu in de Contacten-kolom.`,
+      toast.success('Contacten verrijkt', {
+        description: `${json.revealed?.length ?? 0} via Apollo verrijkt - verschijnen nu in de Contacten-kolom.`,
       })
       setSelected(new Set())
       onRevealed()
     } catch (e) {
-      toast({
-        title: 'Verrijken mislukt',
-        description: (e as Error).message,
-        variant: 'destructive',
-      })
+      toast.error('Verrijken mislukt', { description: (e as Error).message })
     } finally {
       setRevealing(false)
     }
@@ -134,15 +137,16 @@ export function LeadColdContactsCard({ runId, coldCandidates, onRevealed }: Prop
             variant="ghost"
             className="text-xs h-8"
             onClick={toggleAll}
-            disabled={revealing}
+            disabled={revealing || revealBlocked}
           >
             {allSelected ? 'Niets selecteren' : 'Alles selecteren'}
           </Button>
           <Button
             size="sm"
             onClick={() => setConfirmOpen(true)}
-            disabled={revealing || selected.size === 0}
+            disabled={revealing || selected.size === 0 || revealBlocked}
             className="bg-orange-500 hover:bg-orange-600"
+            title={revealBlocked ? 'Run is al gesynced naar Pipedrive - reveal niet meer mogelijk' : undefined}
           >
             {revealing ? (
               <>
@@ -151,15 +155,21 @@ export function LeadColdContactsCard({ runId, coldCandidates, onRevealed }: Prop
               </>
             ) : (
               <>
-                Verrijken{selected.size > 0 ? ` — ${selected.size} credit${selected.size === 1 ? '' : 's'}` : ''}
+                Verrijken{selected.size > 0 ? ` - ${selected.size} credit${selected.size === 1 ? '' : 's'}` : ''}
               </>
             )}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {revealBlocked && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Reveal is uitgeschakeld omdat de run al naar Pipedrive is gesynced. De Persons staan
+            inmiddels in Pipedrive en kunnen daar handmatig worden verrijkt.
+          </div>
+        )}
         <p className="text-xs text-gray-500">
-          Cold leads uit Apollo&apos;s database — gesorteerd op seniority. Vink aan en verrijk
+          Cold leads uit Apollo&apos;s database - gesorteerd op seniority. Vink aan en verrijk
           om volledige naam, e-mail en LinkedIn op te halen (1 credit per contact). Verrijkte
           contacten verschijnen in de Contacten-kolom.
         </p>

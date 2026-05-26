@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { X, AlertTriangle } from 'lucide-react'
 import { stap1FormSchema, type Stap1FormValues, MAX_URLS_PER_BATCH } from '@/lib/sales-leads/api-schemas'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 type OwnerOption = {
   id: string
@@ -30,7 +30,6 @@ type BulkResponse = {
 
 export function LeadFormStap1() {
   const router = useRouter()
-  const { toast } = useToast()
   const [owners, setOwners] = useState<OwnerOption[]>([])
   const [loadingOwners, setLoadingOwners] = useState(true)
   const [urlInput, setUrlInput] = useState('')
@@ -56,14 +55,10 @@ export function LeadFormStap1() {
         setOwners((j.configs ?? []).filter((c) => c.is_active))
       })
       .catch((e) => {
-        toast({
-          title: 'Kon dealeigenaren niet laden',
-          description: (e as Error).message,
-          variant: 'destructive',
-        })
+        toast.error('Kon dealeigenaren niet laden', { description: (e as Error).message })
       })
       .finally(() => setLoadingOwners(false))
-  }, [toast])
+  }, [])
 
   function addUrls(input: string) {
     if (!input.trim()) return
@@ -78,10 +73,8 @@ export function LeadFormStap1() {
     form.setValue('input_urls', next, { shouldDirty: true, shouldValidate: true })
     setUrlInput('')
     if (Array.from(dedup).length > MAX_URLS_PER_BATCH) {
-      toast({
-        title: `Limiet bereikt`,
+      toast.error('Limiet bereikt', {
         description: `Maximum ${MAX_URLS_PER_BATCH} URLs per batch. Extra URLs zijn genegeerd.`,
-        variant: 'destructive',
       })
     }
   }
@@ -116,12 +109,10 @@ export function LeadFormStap1() {
       const totalCount = body.requested ?? values.input_urls.length
 
       if (createdCount === 0) {
-        toast({
-          title: 'Geen runs aangemaakt',
+        toast.error('Geen runs aangemaakt', {
           description: skippedCount > 0
             ? `Alle ${totalCount} URLs werden overgeslagen: ${body.skipped?.[0]?.message ?? ''}`
             : 'Onbekende fout',
-          variant: 'destructive',
         })
         setSubmitting(false)
         return
@@ -137,17 +128,12 @@ export function LeadFormStap1() {
         description = `${createdCount} van ${totalCount} aangemaakt. Overgeslagen:\n${preview}${more}`
         console.warn('[sales-leads/create] skipped:', body.skipped)
       }
-      toast({
-        title: `${createdCount} run${createdCount === 1 ? '' : 's'} aangemaakt`,
+      toast.success(`${createdCount} run${createdCount === 1 ? '' : 's'} aangemaakt`, {
         description,
       })
       router.push('/sales/lead-verrijking')
     } catch (e) {
-      toast({
-        title: 'Aanmaken mislukt',
-        description: (e as Error).message,
-        variant: 'destructive',
-      })
+      toast.error('Aanmaken mislukt', { description: (e as Error).message })
       setSubmitting(false)
     }
   }
