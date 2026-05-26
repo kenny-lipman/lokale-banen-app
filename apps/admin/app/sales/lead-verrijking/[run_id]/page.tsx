@@ -16,6 +16,7 @@ import { LeadColdContactsCard } from '@/components/sales/lead-cold-contacts-card
 import { LeadVacanciesColumn } from '@/components/sales/lead-vacancies-column'
 import { LeadDealNoteTextarea } from '@/components/sales/lead-deal-note-textarea'
 import { LeadBrancheSelect } from '@/components/sales/lead-branche-select'
+import { LeadContactmomentPicker } from '@/components/sales/lead-contactmoment-picker'
 import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-warnings'
 import { LeadCareerPageSuggestions } from '@/components/sales/lead-career-page-suggestions'
 import { LeadSitemapPages } from '@/components/sales/lead-sitemap-pages'
@@ -310,6 +311,14 @@ export default function RunDetailPage({ params }: PageProps) {
             }}
           />
           <LeadDiscrepancyWarnings enrichments={run!.enrichments ?? {}} master={currentMaster} />
+          <LeadContactmomentPicker
+            runId={run!.id}
+            contactmomentOverride={run!.contactmoment_override ?? null}
+            onChange={() => {
+              hydratedRef.current = false
+              void refetch()
+            }}
+          />
           <LeadBrancheSelect
             runId={run!.id}
             brancheOverride={run!.branche_override ?? null}

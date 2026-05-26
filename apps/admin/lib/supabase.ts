@@ -2596,6 +2596,7 @@ export type Database = {
         Row: {
           audit_log: Json
           branche_override: number | null
+          contactmoment_override: string | null
           created_at: string
           created_by: string | null
           enrichments: Json
@@ -2618,6 +2619,7 @@ export type Database = {
         Insert: {
           audit_log?: Json
           branche_override?: number | null
+          contactmoment_override?: string | null
           created_at?: string
           created_by?: string | null
           enrichments?: Json
@@ -2640,6 +2642,7 @@ export type Database = {
         Update: {
           audit_log?: Json
           branche_override?: number | null
+          contactmoment_override?: string | null
           created_at?: string
           created_by?: string | null
           enrichments?: Json

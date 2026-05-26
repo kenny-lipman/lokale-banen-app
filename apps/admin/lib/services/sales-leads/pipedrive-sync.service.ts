@@ -181,7 +181,7 @@ export class PipedriveSyncService {
 
       // 5. Deal
       if (!dealId) {
-        const cmDate = nextWorkday(new Date(), owner.contactmoment_offset_workdays)
+        const cmDate = this.resolveContactmoment(run, owner)
         const dealPayload = buildDealPayload(master, orgId, personIds[0], owner, cmDate)
         const deal = await this.pd.createDealV2(dealPayload)
         dealId = deal.id
@@ -322,6 +322,24 @@ export class PipedriveSyncService {
       .maybeSingle()
     if (error || !data) return null
     return data.pipedrive_hoofddomein_option_id ?? null
+  }
+
+  /**
+   * Resolve contactmoment-datum voor Pipedrive Deal:
+   *   1. run.contactmoment_override (handmatig in OTIS gezet) — als YYYY-MM-DD
+   *   2. nextWorkday(today, owner.contactmoment_offset_workdays) — default
+   * `contactmoment_override` is in DB als `date`; Postgres serialized als
+   * 'YYYY-MM-DD' string. Geen extra parsing nodig.
+   */
+  private resolveContactmoment(
+    run: Record<string, unknown>,
+    owner: OwnerConfigForSync,
+  ): string {
+    const override = run.contactmoment_override
+    if (typeof override === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(override)) {
+      return override
+    }
+    return nextWorkday(new Date(), owner.contactmoment_offset_workdays)
   }
 
   /**
