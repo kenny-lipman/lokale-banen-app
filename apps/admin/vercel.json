@@ -14,7 +14,8 @@
     { "path": "/api/cron/auto-archive-old", "schedule": "30 3 * * *" },
     { "path": "/api/cron/fix-job-postings-geocoding", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/cleanup-reset-tokens", "schedule": "0 4 * * *" },
-    { "path": "/api/cron/werkenindekempen-finalize", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/werkenindekempen-finalize", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/sales-leads-watchdog", "schedule": "*/5 * * * *" }
   ],
   "functions": {
     "app/api/cron/campaign-assignment/route.ts": { "maxDuration": 300 },

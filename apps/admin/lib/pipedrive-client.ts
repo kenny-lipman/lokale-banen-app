@@ -1526,7 +1526,13 @@ export class PipedriveClient {
 // Set this after creating the field via /api/mailerlite/setup
 const NIEUWSBRIEF_STATUS_FIELD_ID = process.env.PIPEDRIVE_NIEUWSBRIEF_STATUS_FIELD_ID || '';
 
-// Lazy singleton (avoids module-level env var validation during build)
+// Lazy singleton (avoids module-level env var validation during build).
+//
+// Concurrency-note: PipedriveClient gebruikt REACTIEVE 429-retry met exponential
+// backoff (PD-limit: 100 req/10s burst, daily quota apart). Er is GEEN proactieve
+// semaphore - bij sustained parallel-load (toekomstige auto-sync van bulk-runs)
+// kan dit een 429-storm geven die de retry-budget uitput. Bij introductie van
+// parallel sync: wrap apolloFetch-achtige semaphore (zie apollo.service.ts).
 let _pipedriveClient: PipedriveClient | null = null;
 export function getPipedriveClient(): PipedriveClient {
   if (!_pipedriveClient) {

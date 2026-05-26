@@ -11,7 +11,10 @@ export type BrancheOption = {
   active: boolean
 }
 
-const TTL_MS = 5 * 60 * 1000
+// 30s TTL beperkt staleness in een multi-Lambda omgeving: invalidate() in lambda-A
+// raakt cache van lambda-B niet, maar binnen 30s ziet B sowieso fresh data.
+// Tabel is 12 rijen, query is gratis - geen reden voor langere TTL.
+const TTL_MS = 30 * 1000
 
 let cache: { data: BrancheOption[]; expiresAt: number } | null = null
 

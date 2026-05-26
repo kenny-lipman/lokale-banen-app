@@ -1,7 +1,14 @@
 import { cachedFetch } from './cache'
+import { Semaphore } from '@/lib/utils/semaphore'
 import type { ColdContact, NormalizedFields, NormalizedContact, SourceHealth, NormalizedTechnology } from './types'
 
 const APOLLO_BASE = process.env.APOLLO_API_BASE_URL ?? 'https://api.apollo.io/api/v1'
+
+// Module-level semaphore: bij bulk-create draaien N orchestrators parallel
+// binnen 1 Lambda-instance, elk vuurt ~3 Apollo-calls (enrichOrganization +
+// searchContacts + matchPerson). Zonder cap = 25 URLs x 3 = 75 calls in
+// burst -> 429-storm. Cap op 5 concurrent calls/instance.
+const APOLLO_SEMAPHORE = new Semaphore(5)
 
 // Apollo raw shapes — alleen wat we gebruiken.
 
@@ -157,6 +164,10 @@ export class ApolloService {
   }
 
   private async apolloFetch<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+    return APOLLO_SEMAPHORE.run(() => this.apolloFetchUnlimited<T>(method, path, body))
+  }
+
+  private async apolloFetchUnlimited<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
     const url = `${APOLLO_BASE}${path}`
     const res = await fetch(url, {
       method,

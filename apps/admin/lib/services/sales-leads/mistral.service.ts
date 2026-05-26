@@ -1,9 +1,15 @@
 import type { ContactRankingResult } from './types'
+import { Semaphore } from '@/lib/utils/semaphore'
 import { CONTACT_RANKING_PROMPT_V1 } from './prompts/contact-ranking.v1'
 import { BRANCHE_CLASSIFICATION_PROMPT_V1 } from './prompts/branche-classification.v1'
 
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions'
 const DEFAULT_MODEL = 'mistral-small-latest'
+
+// Module-level cap: bij bulk-create doen N orchestrators elk 2 Mistral-calls
+// (rankContacts + classifyBranche). 25 URLs x 2 = 50 calls in burst, Mistral
+// paid-tier hanteert per-second-limits. Cap op 3 concurrent.
+const MISTRAL_SEMAPHORE = new Semaphore(3)
 
 type MistralResponse = {
   choices: Array<{ message: { content: string } }>
@@ -36,6 +42,15 @@ export class MistralService {
    * Returnt geparseerde JSON volgens generic type T.
    */
   async completeJson<T = unknown>(opts: {
+    systemPrompt: string
+    userPrompt: string
+    model?: string
+    maxTokens?: number
+  }): Promise<MistralCallResult<T>> {
+    return MISTRAL_SEMAPHORE.run(() => this.completeJsonUnlimited<T>(opts))
+  }
+
+  private async completeJsonUnlimited<T = unknown>(opts: {
     systemPrompt: string
     userPrompt: string
     model?: string
