@@ -58,7 +58,10 @@ function Calendar({
         ),
         selected:
           "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground [&>button]:focus:bg-primary [&>button]:focus:text-primary-foreground rounded-md",
-        today: "[&>button]:bg-accent [&>button]:text-accent-foreground [&>button]:font-semibold rounded-md",
+        // 'today' is alleen een visuele referentie (DayPicker markeert altijd
+        // de huidige dag). Subtiele ring zodat het niet verward wordt met
+        // 'selected' - die heeft de volle primary-achtergrond.
+        today: "[&>button]:ring-1 [&>button]:ring-inset [&>button]:ring-muted-foreground/40 [&>button]:font-medium rounded-md",
         outside: "[&>button]:text-muted-foreground [&>button]:opacity-50",
         disabled: "[&>button]:text-muted-foreground [&>button]:opacity-40 [&>button]:cursor-not-allowed",
         range_start: "rounded-l-md",
