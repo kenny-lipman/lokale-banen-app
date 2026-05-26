@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 import type {
   BackfillBatch,
   BackfillLead,
@@ -79,8 +79,6 @@ export function useBackfillPolling(
   config: Partial<BackfillPollingConfig> = {},
 ) {
   const fullConfig = { ...DEFAULT_CONFIG, ...config }
-  const { toast } = useToast()
-
   const [enabled, setEnabled] = useState(true)
   const [phase, setPhase] = useState<"active" | "manual" | "stopped">("stopped")
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -169,16 +167,14 @@ export function useBackfillPolling(
         fullConfig.onComplete?.(data.batch.batch_id, data.batch)
 
         const isSuccess = data.batch.status === "completed"
-        toast({
-          title: isSuccess ? "Backfill Complete!" : `Backfill ${data.batch.status}`,
+        toast.success(isSuccess ? "Backfill Complete!" : `Backfill ${data.batch.status}`, {
           description: isSuccess
             ? `Successfully synced ${data.batch.synced_leads} leads (${data.batch.skipped_leads} skipped, ${data.batch.failed_leads} failed)`
-            : data.batch.last_error || `Backfill ${data.batch.status}`,
-          variant: isSuccess ? "default" : "destructive",
+            : data.batch.last_error || `Backfill ${data.batch.status}`
         })
       }
     }
-  }, [data, batchId, fullConfig, toast])
+  }, [data, batchId, fullConfig])
 
   useEffect(() => {
     if (error) {

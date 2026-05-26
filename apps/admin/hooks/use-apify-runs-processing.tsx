@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useMemo } from 'react'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { ProcessingStatusType } from '@/components/ProcessingStatus'
 import { ApifyRun } from '@/components/RunListView'
 import { StatusFilter, calculateStatusCounts } from '@/components/StatusFilterPills'
@@ -100,10 +100,7 @@ export function useApifyRunsProcessing({ initialRuns }: UseApifyRunsProcessingPr
         )
       )
 
-      toast({
-        title: 'Status Updated',
-        description: `Run marked as ${status.replace('_', ' ')}`,
-      })
+      toast.success('Status Updated', { description: `Run marked as ${status.replace('_', ' ')}` })
 
     } catch (error) {
       // Revert optimistic update on error
@@ -117,11 +114,7 @@ export function useApifyRunsProcessing({ initialRuns }: UseApifyRunsProcessingPr
       }
 
       console.error('Failed to update run status:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to update run status. Please try again.',
-        variant: 'destructive'
-      })
+      toast.error('Error', { description: 'Failed to update run status. Please try again.' })
       throw error
     }
   }, [initialRuns, updateRunStatusOptimistic])
@@ -170,11 +163,7 @@ export function useApifyRunsProcessing({ initialRuns }: UseApifyRunsProcessingPr
       }
 
       console.error('Failed to update run notes:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to update notes. Please try again.',
-        variant: 'destructive'
-      })
+      toast.error('Error', { description: 'Failed to update notes. Please try again.' })
       throw error
     }
   }, [initialRuns, updateRunNotesOptimistic])
@@ -219,9 +208,8 @@ export function useApifyRunsProcessing({ initialRuns }: UseApifyRunsProcessingPr
         throw new Error(result.error || 'Failed to bulk update')
       }
 
-      toast({
-        title: 'Bulk Update Complete',
-        description: `${result.updated} runs updated to ${status.replace('_', ' ')}`,
+      toast.success('Bulk Update Complete', {
+        description: `${result.updated} runs updated to ${status.replace('_', ' ')}`
       })
 
       // Clear selection after successful bulk update
@@ -237,11 +225,7 @@ export function useApifyRunsProcessing({ initialRuns }: UseApifyRunsProcessingPr
       )
 
       console.error('Failed to bulk update runs:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to update runs. Please try again.',
-        variant: 'destructive'
-      })
+      toast.error('Error', { description: 'Failed to update runs. Please try again.' })
       throw error
     } finally {
       setIsLoading(false)

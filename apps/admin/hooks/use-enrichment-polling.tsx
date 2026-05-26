@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 import { swrKeys } from "@/lib/swr-keys"
 import { pollingOptions } from "@/lib/swr-polling"
 
@@ -78,8 +78,6 @@ export function useEnrichmentPolling(
   config: Partial<EnrichmentPollingConfig> = {},
 ) {
   const fullConfig = { ...DEFAULT_CONFIG, ...config }
-  const { toast } = useToast()
-
   const [enabled, setEnabled] = useState(true)
   const [phase, setPhase] = useState<"active" | "manual" | "stopped">("stopped")
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -176,13 +174,10 @@ export function useEnrichmentPolling(
         setPhase("stopped")
         setCanManualRefresh(false)
         fullConfig.onComplete?.(data.batch_id, data)
-        toast({
-          title: data.status === "completed" ? "Enrichment Complete!" : "Enrichment Failed",
-          description:
-            data.status === "completed"
+        toast.success(data.status === "completed" ? "Enrichment Complete!" : "Enrichment Failed", {
+          description: data.status === "completed"
               ? `Successfully enriched ${data.completed_companies} companies`
-              : `Enrichment failed: ${data.error_message || "Unknown error"}`,
-          variant: data.status === "completed" ? "default" : "destructive",
+              : `Enrichment failed: ${data.error_message || "Unknown error"}`
         })
       }
       return
@@ -196,13 +191,11 @@ export function useEnrichmentPolling(
     ) {
       setPhase("manual")
       setCanManualRefresh(true)
-      toast({
-        title: "Enrichment in Progress",
-        description: "Enrichment may take a few minutes. Use 'Check Status' to update manually.",
-        variant: "default",
+      toast.success("Enrichment in Progress", {
+        description: "Enrichment may take a few minutes. Use 'Check Status' to update manually."
       })
     }
-  }, [data, batchId, fullConfig, phase, toast])
+  }, [data, batchId, fullConfig, phase])
 
   // Error-callback
   useEffect(() => {

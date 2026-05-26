@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 
 export interface Company {
   id: string
@@ -27,8 +27,6 @@ export function useCompanySelection({
 }: UseCompanySelectionOptions) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isEnriching, setIsEnriching] = useState(false)
-  const { toast } = useToast()
-
   // Get selected companies with their data
   const selectedCompanies = useMemo(() => 
     companies.filter(company => selectedIds.includes(company.id)),
@@ -72,10 +70,8 @@ export function useCompanySelection({
       
       // Check batch size limit
       if (newSelection.length > maxBatchSize) {
-        toast({
-          title: "Selection Limit Exceeded",
-          description: `Maximum ${maxBatchSize} companies can be selected for batch enrichment.`,
-          variant: "destructive",
+        toast.error("Selection Limit Exceeded", {
+          description: `Maximum ${maxBatchSize} companies can be selected for batch enrichment.`
         })
         return prev // Don't update if exceeds limit
       }
@@ -83,7 +79,7 @@ export function useCompanySelection({
       onSelectionChange?.(newSelection)
       return newSelection
     })
-  }, [maxBatchSize, onSelectionChange, toast])
+  }, [maxBatchSize, onSelectionChange])
 
   // Select all companies (with batch limit validation)
   const selectAll = useCallback(() => {
@@ -101,17 +97,15 @@ export function useCompanySelection({
       const limitedSelection = enrichableCompanyIds.slice(0, maxBatchSize)
       
       if (enrichableCompanyIds.length > maxBatchSize) {
-        toast({
-          title: "Selection Limited",
-          description: `Selected first ${maxBatchSize} enrichable companies. Maximum batch size is ${maxBatchSize}.`,
-          variant: "default",
+        toast.success("Selection Limited", {
+          description: `Selected first ${maxBatchSize} enrichable companies. Maximum batch size is ${maxBatchSize}.`
         })
       }
       
       setSelectedIds(limitedSelection)
       onSelectionChange?.(limitedSelection)
     }
-  }, [companies, selectedIds.length, maxBatchSize, onSelectionChange, toast])
+  }, [companies, selectedIds.length, maxBatchSize, onSelectionChange])
 
   // Clear all selections
   const clearSelection = useCallback(() => {

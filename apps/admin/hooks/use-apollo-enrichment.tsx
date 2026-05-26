@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef, useEffect } from "react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 import { EnrichmentJob } from "@/components/enrichment-progress-modal"
 
 interface UseApolloEnrichmentOptions {
@@ -18,7 +18,6 @@ export function useApolloEnrichment({
   const [showProgressModal, setShowProgressModal] = useState(false)
   const [currentBatchId, setCurrentBatchId] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const { toast } = useToast()
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const companyIdsRef = useRef<string[]>([])
 
@@ -79,9 +78,8 @@ export function useApolloEnrichment({
       // Start status monitoring
       startStatusPolling(batchId)
 
-      toast({
-        title: "Apollo Enrichment Gestart",
-        description: `${companies.length} bedrijven worden verrijkt met Apollo data`,
+      toast.success("Apollo Enrichment Gestart", {
+        description: `${companies.length} bedrijven worden verrijkt met Apollo data`
       })
 
     } catch (error) {
@@ -95,13 +93,11 @@ export function useApolloEnrichment({
         result: { error: error instanceof Error ? error.message : "Onbekende fout" }
       })))
 
-      toast({
-        title: "Enrichment Mislukt",
-        description: error instanceof Error ? error.message : "Er is een fout opgetreden",
-        variant: "destructive",
+      toast.error("Enrichment Mislukt", {
+        description: error instanceof Error ? error.message : "Er is een fout opgetreden"
       })
     }
-  }, [toast])
+  }, [])
 
   // Real-time status polling from API
   const startStatusPolling = useCallback((batchId: string) => {
@@ -168,10 +164,8 @@ export function useApolloEnrichment({
   // Manual refresh function
   const refreshResults = useCallback(async () => {
     if (companyIdsRef.current.length === 0) {
-      toast({
-        title: "Geen bedrijven om te verversen",
-        description: "Er zijn geen bedrijven geselecteerd voor verrijking",
-        variant: "destructive",
+      toast.error("Geen bedrijven om te verversen", {
+        description: "Er zijn geen bedrijven geselecteerd voor verrijking"
       })
       return
     }
@@ -205,31 +199,25 @@ export function useApolloEnrichment({
 
       setEnrichmentJobs(updatedJobs)
 
-      toast({
-        title: "Resultaten Ververst",
-        description: "De verrijkingsstatus is bijgewerkt",
-      })
+      toast.success("Resultaten Ververst", { description: "De verrijkingsstatus is bijgewerkt" })
 
     } catch (error) {
       console.error('Refresh error:', error)
-      toast({
-        title: "Verversing Mislukt",
-        description: error instanceof Error ? error.message : "Er is een fout opgetreden bij het verversen",
-        variant: "destructive",
+      toast.error("Verversing Mislukt", {
+        description: error instanceof Error ? error.message : "Er is een fout opgetreden bij het verversen"
       })
     } finally {
       setIsRefreshing(false)
     }
-  }, [toast])
+  }, [])
 
   // Handle enrichment completion
   const handleEnrichmentComplete = useCallback(() => {
     const completedJobs = enrichmentJobs.filter(job => job.status === 'completed').length
     const failedJobs = enrichmentJobs.filter(job => job.status === 'failed').length
     
-    toast({
-      title: "Apollo Enrichment Voltooid",
-      description: `${completedJobs} bedrijven succesvol verrijkt${failedJobs > 0 ? `, ${failedJobs} mislukt` : ''}`,
+    toast.success("Apollo Enrichment Voltooid", {
+      description: `${completedJobs} bedrijven succesvol verrijkt${failedJobs > 0 ? `, ${failedJobs} mislukt` : ''}`
     })
 
     // Trigger data refresh
