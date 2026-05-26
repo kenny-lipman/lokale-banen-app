@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { format, parseISO } from 'date-fns'
+import { useMemo, useState } from 'react'
+import { addBusinessDays, format, parseISO } from 'date-fns'
 import { nl } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,24 +13,38 @@ import { useToast } from '@/hooks/use-toast'
 type Props = {
   runId: string
   contactmomentOverride: string | null
+  /** Werkdag-offset uit owner-config (default 1). Bepaalt de auto-datum
+   *  zolang er geen handmatige override is gezet. */
+  offsetWorkdays: number
   onChange: (next: string | null) => void
 }
 
 /**
  * Datepicker voor sales_lead_runs.contactmoment_override.
- * NULL → "Auto (volgende werkdag)" badge.
- * Wel-gezet → toont datum + reset-knop.
- * Disabled past dates (alleen vandaag of later).
+ * - Override gezet -> toont en selecteert die datum.
+ * - Override null   -> toont label 'Auto ({datum})' en selecteert de auto-datum
+ *   visueel in de calendar zonder dat het een echte override is. Pas wanneer
+ *   sales een andere datum klikt wordt het een override.
+ * Verleden datums zijn disabled.
  */
-export function LeadContactmomentPicker({ runId, contactmomentOverride, onChange }: Props) {
+export function LeadContactmomentPicker({ runId, contactmomentOverride, offsetWorkdays, onChange }: Props) {
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const selectedDate = contactmomentOverride ? parseISO(contactmomentOverride) : undefined
-  const displayLabel = selectedDate
-    ? format(selectedDate, 'EEEE d MMMM yyyy', { locale: nl })
-    : 'Auto (volgende werkdag)'
+  // Auto-datum = `offsetWorkdays` werkdagen na vandaag. addBusinessDays slaat
+  // zat/zon over - matcht nextWorkday() in pipedrive-payloads.ts:163.
+  const autoDate = useMemo(() => addBusinessDays(new Date(), offsetWorkdays), [offsetWorkdays])
+
+  const overrideDate = contactmomentOverride ? parseISO(contactmomentOverride) : null
+  // Wanneer geen override: tonen we de auto-datum in de calendar als 'selected'
+  // zodat sales meteen ziet wat de default is. Bij click op een andere dag
+  // wordt dat een echte override.
+  const calendarSelected = overrideDate ?? autoDate
+
+  const triggerLabel = overrideDate
+    ? format(overrideDate, 'EEEE d MMMM yyyy', { locale: nl })
+    : `Auto: ${format(autoDate, 'EEEE d MMMM', { locale: nl })} (volgende werkdag)`
 
   async function save(next: string | null) {
     setSaving(true)
@@ -51,6 +65,20 @@ export function LeadContactmomentPicker({ runId, contactmomentOverride, onChange
     }
   }
 
+  function handleSelect(d: Date | undefined) {
+    if (!d) return
+    const picked = format(d, 'yyyy-MM-dd')
+    const auto = format(autoDate, 'yyyy-MM-dd')
+    // Wanneer sales op de auto-datum klikt terwijl er nog geen override was,
+    // resetten we naar null i.p.v. de auto-datum als override op te slaan.
+    // Voorkomt dat we onbedoeld de owner-config-default vastpinnen.
+    if (picked === auto && contactmomentOverride === null) {
+      setOpen(false)
+      return
+    }
+    void save(picked)
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -63,17 +91,14 @@ export function LeadContactmomentPicker({ runId, contactmomentOverride, onChange
             <PopoverTrigger asChild>
               <Button variant="outline" className="flex-1 justify-start font-normal" disabled={saving}>
                 <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
-                {displayLabel}
+                {triggerLabel}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
-                selected={selectedDate}
-                onSelect={(d) => {
-                  if (!d) return
-                  void save(format(d, 'yyyy-MM-dd'))
-                }}
+                selected={calendarSelected}
+                onSelect={handleSelect}
                 disabled={(d) => {
                   const today = new Date()
                   today.setHours(0, 0, 0, 0)
@@ -98,8 +123,9 @@ export function LeadContactmomentPicker({ runId, contactmomentOverride, onChange
           ) : null}
         </div>
         <p className="text-[11px] text-gray-400">
-          Standaard gebruikt Pipedrive de volgende werkdag (op basis van de owner-config).
-          Override hier voor een specifieke datum.
+          {overrideDate
+            ? 'Specifieke datum gekozen. Klik op het reset-icoon om terug te gaan naar auto.'
+            : `Auto-datum komt uit de owner-config (${offsetWorkdays} werkdag${offsetWorkdays === 1 ? '' : 'en'}). Kies een andere dag voor een override.`}
         </p>
       </CardContent>
     </Card>

@@ -29,6 +29,7 @@ type OwnerConfig = {
   label?: string
   hoofddomein_strategy: 'fixed' | 'auto_match_by_address'
   hoofddomein_fixed_value: string | null
+  contactmoment_offset_workdays?: number
 }
 
 // Backend POST /create slaat manual_vacancies op zonder `source`-veld. Hier
@@ -315,6 +316,7 @@ export default function RunDetailPage({ params }: PageProps) {
           <LeadContactmomentPicker
             runId={run!.id}
             contactmomentOverride={run!.contactmoment_override ?? null}
+            offsetWorkdays={ownerConfig?.contactmoment_offset_workdays ?? 1}
             onChange={() => {
               hydratedRef.current = false
               void refetch()
