@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner'
 import { Shield, ShieldCheck, AlertTriangle, Loader2, Users } from 'lucide-react';
 import { useBlocklist } from '@/hooks/use-blocklist';
 import { contactFilteringService } from '@/lib/services/contact-filtering.service';
@@ -98,10 +98,8 @@ export function BulkContactActions({
         .filter((item): item is { contact: any; email: string } => item.email !== null);
 
       if (contactsWithEmails.length === 0) {
-        toast({
-          title: 'Geen emails gevonden',
-          description: 'Er zijn geen geldige email adressen gevonden in de geselecteerde contacten',
-          variant: 'destructive'
+        toast.error('Geen emails gevonden', {
+          description: 'Er zijn geen geldige email adressen gevonden in de geselecteerde contacten'
         });
         return;
       }
@@ -141,17 +139,14 @@ export function BulkContactActions({
 
       setProgress(100);
 
-      toast({
-        title: 'Controle voltooid',
+      toast.success('Controle voltooid', {
         description: `${filterResult.blocked_contacts} van de ${contactsWithEmails.length} contacten zijn geblokkeerd`
       });
 
     } catch (error) {
       console.error('Bulk check failed:', error);
-      toast({
-        title: 'Fout bij controle',
-        description: 'Er is een fout opgetreden bij het controleren van de contacten',
-        variant: 'destructive'
+      toast.error('Fout bij controle', {
+        description: 'Er is een fout opgetreden bij het controleren van de contacten'
       });
     } finally {
       setIsProcessing(false);
@@ -160,11 +155,7 @@ export function BulkContactActions({
 
   const handleBulkBlock = async () => {
     if (!reason.trim()) {
-      toast({
-        title: 'Reden vereist',
-        description: 'Geef een reden op voor het blokkeren',
-        variant: 'destructive'
-      });
+      toast.error('Reden vereist', { description: 'Geef een reden op voor het blokkeren' });
       return;
     }
 
@@ -180,10 +171,8 @@ export function BulkContactActions({
         .filter((item): item is { contact: any; email: string } => item.email !== null);
 
       if (contactsWithEmails.length === 0) {
-        toast({
-          title: 'Geen emails gevonden',
-          description: 'Er zijn geen geldige email adressen gevonden in de geselecteerde contacten',
-          variant: 'destructive'
+        toast.error('Geen emails gevonden', {
+          description: 'Er zijn geen geldige email adressen gevonden in de geselecteerde contacten'
         });
         return;
       }
@@ -301,8 +290,7 @@ export function BulkContactActions({
       });
 
       if (successful > 0) {
-        toast({
-          title: 'Blokkering voltooid',
+        toast.success('Blokkering voltooid', {
           description: `${successful} contact(en) succesvol geblokkeerd${failed > 0 ? `, ${failed} gefaald` : ''}`
         });
 
@@ -310,20 +298,12 @@ export function BulkContactActions({
           onActionComplete();
         }
       } else {
-        toast({
-          title: 'Blokkering gefaald',
-          description: 'Geen contacten konden worden geblokkeerd',
-          variant: 'destructive'
-        });
+        toast.error('Blokkering gefaald', { description: 'Geen contacten konden worden geblokkeerd' });
       }
 
     } catch (error) {
       console.error('Bulk block failed:', error);
-      toast({
-        title: 'Fout bij blokkeren',
-        description: 'Er is een onverwachte fout opgetreden',
-        variant: 'destructive'
-      });
+      toast.error('Fout bij blokkeren', { description: 'Er is een onverwachte fout opgetreden' });
     } finally {
       setIsProcessing(false);
     }

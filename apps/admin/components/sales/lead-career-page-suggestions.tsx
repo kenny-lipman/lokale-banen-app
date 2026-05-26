@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { CheckCircle2, ShieldCheck, X, ExternalLink } from 'lucide-react'
 
 type Suggestion = {
@@ -27,7 +27,6 @@ type Props = {
 }
 
 export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
-  const { toast } = useToast()
   const [items, setItems] = useState<Suggestion[]>([])
   const [autoApproved, setAutoApproved] = useState<Suggestion[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,11 +47,11 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
       setItems(all.filter((r) => r.review_status === 'pending'))
       setAutoApproved(all.filter((r) => r.review_status === 'approved'))
     } catch (e) {
-      toast({ title: 'Suggesties laden mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Suggesties laden mislukt', { description: (e as Error).message })
     } finally {
       setLoading(false)
     }
-  }, [runId, toast])
+  }, [runId])
 
   useEffect(() => {
     load()
@@ -72,13 +71,12 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
       }
       // Optimistic remove (item is geen pending meer)
       setItems((rows) => rows.filter((r) => r.id !== id))
-      toast({
-        title: kind === 'approve' ? 'Goedgekeurd' : 'Afgewezen',
-        description: kind === 'approve' ? 'Bron is actief en wordt later gescrapet.' : 'URL wordt niet meer gesuggereerd.',
+      toast.success(kind === 'approve' ? 'Goedgekeurd' : 'Afgewezen', {
+        description: kind === 'approve' ? 'Bron is actief en wordt later gescrapet.' : 'URL wordt niet meer gesuggereerd.'
       })
       onChange?.()
     } catch (e) {
-      toast({ title: 'Actie mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Actie mislukt', { description: (e as Error).message })
     } finally {
       setActing((s) => {
         const next = new Set(s)

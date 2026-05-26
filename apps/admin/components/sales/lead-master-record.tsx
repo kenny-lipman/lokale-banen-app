@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Lock, Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import {
   Select,
   SelectContent,
@@ -62,7 +62,6 @@ function getMasterValueAsString(master: MasterRecord, key: keyof NormalizedField
 }
 
 export function LeadMasterRecord({ runId, master, enrichments, ownerConfig, onChange }: Props) {
-  const { toast } = useToast()
   const [hoofddomein, setHoofddomein] = useState(master.hoofddomein ?? '')
   const [resolvingHoofddomein, setResolvingHoofddomein] = useState(false)
 
@@ -199,20 +198,12 @@ export function LeadMasterRecord({ runId, master, enrichments, ownerConfig, onCh
                     if (body.matched && body.hoofddomein) {
                       setHoofddomein(body.hoofddomein)
                       onChange({ ...master, hoofddomein: body.hoofddomein })
-                      toast({ title: 'Hoofddomein gematcht', description: body.hoofddomein })
+                      toast.success('Hoofddomein gematcht', { description: body.hoofddomein })
                     } else {
-                      toast({
-                        title: 'Geen match',
-                        description: 'Vul handmatig een hoofddomein in.',
-                        variant: 'default',
-                      })
+                      toast.success('Geen match', { description: 'Vul handmatig een hoofddomein in.' })
                     }
                   } catch (e) {
-                    toast({
-                      title: 'Auto-match mislukt',
-                      description: (e as Error).message,
-                      variant: 'destructive',
-                    })
+                    toast.error('Auto-match mislukt', { description: (e as Error).message })
                   } finally {
                     setResolvingHoofddomein(false)
                   }

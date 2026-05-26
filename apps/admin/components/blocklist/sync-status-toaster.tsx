@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { CheckCircle, XCircle, AlertCircle, Loader2, RefreshCw, Shield, Zap } from 'lucide-react';
 import { syncOrchestrator } from '@/lib/services/blocklist-sync-orchestrator.service';
 
@@ -35,8 +35,7 @@ export function SyncStatusToaster({
           // Check Instantly sync updates
           if (status.platforms.instantly.success_count > prev.instantly.synced) {
             const newSyncs = status.platforms.instantly.success_count - prev.instantly.synced;
-            toast({
-              title: 'Instantly Sync Voltooid',
+            toast.success('Instantly Sync Voltooid', {
               description: (
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
@@ -50,15 +49,13 @@ export function SyncStatusToaster({
           // Check Instantly sync errors
           if (status.platforms.instantly.error_count > prev.instantly.errors) {
             const newErrors = status.platforms.instantly.error_count - prev.instantly.errors;
-            toast({
-              title: 'Instantly Sync Fout',
+            toast.error('Instantly Sync Fout', {
               description: (
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-600" />
                   <span>{newErrors} synchronisatie{newErrors !== 1 ? 's' : ''} mislukt</span>
                 </div>
               ),
-              variant: 'destructive',
               duration: 5000
             });
           }
@@ -66,8 +63,7 @@ export function SyncStatusToaster({
           // Check Pipedrive sync updates
           if (status.platforms.pipedrive.success_count > prev.pipedrive.synced) {
             const newSyncs = status.platforms.pipedrive.success_count - prev.pipedrive.synced;
-            toast({
-              title: 'Pipedrive Sync Voltooid',
+            toast.success('Pipedrive Sync Voltooid', {
               description: (
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
@@ -81,23 +77,20 @@ export function SyncStatusToaster({
           // Check Pipedrive sync errors
           if (status.platforms.pipedrive.error_count > prev.pipedrive.errors) {
             const newErrors = status.platforms.pipedrive.error_count - prev.pipedrive.errors;
-            toast({
-              title: 'Pipedrive Sync Fout',
+            toast.error('Pipedrive Sync Fout', {
               description: (
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-600" />
                   <span>{newErrors} synchronisatie{newErrors !== 1 ? 's' : ''} mislukt</span>
                 </div>
               ),
-              variant: 'destructive',
               duration: 5000
             });
           }
 
           // Check for sync queue activity
           if (queueStatus.processing > 0 && prev.inProgress === 0) {
-            toast({
-              title: 'Synchronisatie Gestart',
+            toast('Synchronisatie Gestart', {
               description: (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -110,8 +103,7 @@ export function SyncStatusToaster({
 
           // Check for completed queue
           if (queueStatus.processing === 0 && prev.inProgress > 0) {
-            toast({
-              title: 'Synchronisatie Compleet',
+            toast.success('Synchronisatie Compleet', {
               description: (
                 <div className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-blue-600" />
@@ -144,8 +136,7 @@ export function SyncStatusToaster({
 
           // Show warning if error is recent (within last 5 minutes)
           if (timeSinceError < 5 * 60 * 1000) {
-            toast({
-              title: 'Instantly Connectie Waarschuwing',
+            toast.warning('Instantly Connectie Waarschuwing', {
               description: (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -167,8 +158,7 @@ export function SyncStatusToaster({
 
           // Show warning if error is recent (within last 5 minutes)
           if (timeSinceError < 5 * 60 * 1000) {
-            toast({
-              title: 'Pipedrive Connectie Waarschuwing',
+            toast.warning('Pipedrive Connectie Waarschuwing', {
               description: (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -210,8 +200,7 @@ export function showSyncToast(
 ) {
   switch (action) {
     case 'start':
-      toast({
-        title: `${platform === 'both' ? 'Volledige' : platform} Synchronisatie`,
+      toast(`${platform === 'both' ? 'Volledige' : platform} Synchronisatie`, {
         description: (
           <div className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -223,8 +212,7 @@ export function showSyncToast(
       break;
 
     case 'success':
-      toast({
-        title: 'Synchronisatie Succesvol',
+      toast.success('Synchronisatie Succesvol', {
         description: (
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -240,8 +228,7 @@ export function showSyncToast(
       break;
 
     case 'error':
-      toast({
-        title: 'Synchronisatie Mislukt',
+      toast.error('Synchronisatie Mislukt', {
         description: (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -253,7 +240,6 @@ export function showSyncToast(
             )}
           </div>
         ),
-        variant: 'destructive',
         duration: 6000
       });
       break;
@@ -270,8 +256,7 @@ export function showBulkOperationToast(
 
   switch (status) {
     case 'start':
-      toast({
-        title: `Bulk ${operationText}`,
+      toast(`Bulk ${operationText}`, {
         description: (
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -285,8 +270,7 @@ export function showBulkOperationToast(
     case 'progress':
       if (details?.completed && details?.total) {
         const percentage = Math.round((details.completed / details.total) * 100);
-        toast({
-          title: `${operationText} Voortgang`,
+        toast(`${operationText} Voortgang`, {
           description: (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -307,8 +291,7 @@ export function showBulkOperationToast(
       break;
 
     case 'complete':
-      toast({
-        title: `${operationText} Voltooid`,
+      toast.success(`${operationText} Voltooid`, {
         description: (
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -323,8 +306,7 @@ export function showBulkOperationToast(
       break;
 
     case 'error':
-      toast({
-        title: `${operationText} Fout`,
+      toast.error(`${operationText} Fout`, {
         description: (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -336,7 +318,6 @@ export function showBulkOperationToast(
             )}
           </div>
         ),
-        variant: 'destructive',
         duration: 6000
       });
       break;

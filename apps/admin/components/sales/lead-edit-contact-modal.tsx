@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import type { NormalizedContact } from '@/lib/services/sales-leads/types'
 
 type Props = {
@@ -31,7 +31,6 @@ type Props = {
  * vervangen door een echte naam.
  */
 export function LeadEditContactModal({ open, onOpenChange, contact, runId, onSaved }: Props) {
-  const { toast } = useToast()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [title, setTitle] = useState('')
@@ -55,7 +54,7 @@ export function LeadEditContactModal({ open, onOpenChange, contact, runId, onSav
     if (!contact) return
     const fn = firstName.trim()
     if (!fn) {
-      toast({ title: 'Voornaam is verplicht', variant: 'destructive' })
+      toast.error('Voornaam is verplicht')
       return
     }
     setSaving(true)
@@ -80,15 +79,11 @@ export function LeadEditContactModal({ open, onOpenChange, contact, runId, onSav
         const body = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      toast({ title: 'Contact bijgewerkt' })
+      toast.success('Contact bijgewerkt')
       await onSaved?.()
       onOpenChange(false)
     } catch (e) {
-      toast({
-        title: 'Bijwerken mislukt',
-        description: (e as Error).message,
-        variant: 'destructive',
-      })
+      toast.error('Bijwerken mislukt', { description: (e as Error).message })
     } finally {
       setSaving(false)
     }

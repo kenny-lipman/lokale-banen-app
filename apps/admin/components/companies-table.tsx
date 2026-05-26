@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Eye, Edit, ExternalLink, Star, Building2, Globe, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle, XCircle, User, Crown, Zap, Sparkles, AlertCircle, Target, Send } from "lucide-react"
 import { supabaseService } from "@/lib/supabase-service"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 import { Card } from "@/components/ui/card"
 import { useCompaniesCache } from "@/hooks/use-companies-cache"
 import { TablePagination, TableFilters } from "@/components/ui/table-filters"
@@ -87,7 +87,6 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
   // Company sidebar state
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const { toast } = useToast();
 
   // Bepaal backend filterwaarden
   const backendFilters: any = {
@@ -388,9 +387,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       }
 
       // 3. SUCCESS: Show feedback (UI already updated!)
-      toast({
-        title: "Company qualification updated",
-        description: `Company ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`,
+      toast.success("Company qualification updated", {
+        description: `Company ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`
       })
 
       // Background sync to ensure consistency
@@ -398,10 +396,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
 
     } catch (error) {
       console.error('Error qualifying company:', error)
-      toast({
-        title: "Error updating qualification",
-        description: error instanceof Error ? error.message : "Failed to update company qualification",
-        variant: "destructive",
+      toast.error("Error updating qualification", {
+        description: error instanceof Error ? error.message : "Failed to update company qualification"
       })
     } finally {
       setIsQualifying(prev => {
@@ -448,9 +444,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       }
 
       // 3. SUCCESS: Show feedback (UI already updated!)
-      toast({
-        title: "Bulk qualification updated",
-        description: `${companyIds.length} companies ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`,
+      toast.success("Bulk qualification updated", {
+        description: `${companyIds.length} companies ${status === 'qualified' ? 'qualified' : status === 'disqualified' ? 'disqualified' : 'marked for review'} successfully`
       })
 
       // Clear selection after successful update
@@ -461,10 +456,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
 
     } catch (error) {
       console.error('Error bulk qualifying companies:', error)
-      toast({
-        title: "Error updating qualifications",
-        description: "Failed to update company qualifications",
-        variant: "destructive",
+      toast.error("Error updating qualifications", {
+        description: "Failed to update company qualifications"
       })
     } finally {
       // Clear all qualifying states
@@ -532,14 +525,13 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         const result = await res.json();
         
         // 3. SUCCESS: Show feedback, clear selection (scroll position preserved!)
-        toast({
-          title: "Status bijgewerkt",
+        toast.success("Status bijgewerkt", {
           description: (
             <span className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-600" />
               {`Status gewijzigd voor ${selectedCount} bedrijven naar ${bulkStatus}.`}
             </span>
-          ),
+          )
         });
         clearSelection();
         setBulkStatus("");
@@ -553,21 +545,13 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         const data = await res.json();
         revertOptimisticUpdate(); // Rollback UI changes
         
-        toast({ 
-          title: "Fout bij bijwerken", 
-          description: data.error || "Onbekende fout", 
-          variant: "destructive" 
-        });
+        toast.error("Fout bij bijwerken", { description: data.error || "Onbekende fout" });
       }
     } catch (e) {
       // 5. NETWORK ERROR: Revert and show error
       revertOptimisticUpdate(); // Rollback UI changes
       
-      toast({ 
-        title: "Netwerkfout", 
-        description: e?.toString() || "Onbekende fout", 
-        variant: "destructive" 
-      });
+      toast.error("Netwerkfout", { description: e?.toString() || "Onbekende fout" });
     }
   }
 
@@ -587,10 +571,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       clearSelection() // Clear selection after starting enrichment
     } catch (error) {
       console.error("Failed to start enrichment:", error)
-      toast({
-        title: "Fout bij starten enrichment",
-        description: error instanceof Error ? error.message : "Onbekende fout",
-        variant: "destructive",
+      toast.error("Fout bij starten enrichment", {
+        description: error instanceof Error ? error.message : "Onbekende fout"
       })
     }
   }

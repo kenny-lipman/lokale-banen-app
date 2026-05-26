@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, RotateCcw, Search } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import type {
   PerSourceEnrichment,
   NormalizedFields,
@@ -161,7 +161,6 @@ type SourceReplayButtonProps = {
 }
 
 function SourceReplayButton({ runId, source, onReplayed }: SourceReplayButtonProps) {
-  const { toast } = useToast()
   const [busy, setBusy] = useState(false)
 
   async function handleReplay(e: React.MouseEvent) {
@@ -178,16 +177,12 @@ function SourceReplayButton({ runId, source, onReplayed }: SourceReplayButtonPro
         const body = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      toast({ title: `${source} herstart` })
+      toast.success(`${source} herstart`)
       // Run.status is nu 'enriching' — SWR-polling pakt het automatisch op.
       // We refetchen 1× direct zodat UI meteen de nieuwe status laat zien.
       await onReplayed?.()
     } catch (err) {
-      toast({
-        title: 'Replay-source mislukt',
-        description: (err as Error).message,
-        variant: 'destructive',
-      })
+      toast.error('Replay-source mislukt', { description: (err as Error).message })
     } finally {
       setBusy(false)
     }
@@ -219,7 +214,6 @@ type CandidatePickerProps = {
 }
 
 function CandidatePicker({ runId, candidates, selectedIndex, onPromoted }: CandidatePickerProps) {
-  const { toast } = useToast()
   const [promoting, setPromoting] = useState<number | null>(null)
 
   async function promote(index: number) {
@@ -234,14 +228,10 @@ function CandidatePicker({ runId, candidates, selectedIndex, onPromoted }: Candi
         const body = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      toast({ title: `Candidate ${index + 1} geselecteerd` })
+      toast.success(`Candidate ${index + 1} geselecteerd`)
       await onPromoted?.()
     } catch (e) {
-      toast({
-        title: 'Promote mislukt',
-        description: (e as Error).message,
-        variant: 'destructive',
-      })
+      toast.error('Promote mislukt', { description: (e as Error).message })
     } finally {
       setPromoting(null)
     }
@@ -316,7 +306,6 @@ type KvkRecoveryPanelProps = {
 }
 
 function KvkRecoveryPanel({ runId, enrichments, inputDomain, onReplayed }: KvkRecoveryPanelProps) {
-  const { toast } = useToast()
   const [replayingKey, setReplayingKey] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
@@ -380,14 +369,10 @@ function KvkRecoveryPanel({ runId, enrichments, inputDomain, onReplayed }: KvkRe
         const body = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      toast({ title: 'KvK opnieuw gestart' })
+      toast.success('KvK opnieuw gestart')
       await onReplayed?.()
     } catch (e) {
-      toast({
-        title: 'Replay mislukt',
-        description: (e as Error).message,
-        variant: 'destructive',
-      })
+      toast.error('Replay mislukt', { description: (e as Error).message })
     } finally {
       setReplayingKey(null)
     }

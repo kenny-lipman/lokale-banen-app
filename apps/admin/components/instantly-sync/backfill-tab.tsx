@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 import { useBackfillPolling } from "@/hooks/use-backfill-polling"
 import { BackfillProgress } from "./backfill-progress"
 import { BackfillControls } from "./backfill-controls"
@@ -14,7 +14,6 @@ import { Play, History } from "lucide-react"
 import type { BackfillBatch } from "@/lib/services/instantly-backfill.service"
 
 export function BackfillTab() {
-  const { toast } = useToast()
   const [currentBatchId, setCurrentBatchId] = useState<string | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("current")
@@ -37,12 +36,10 @@ export function BackfillTab() {
   } = useBackfillPolling(currentBatchId, {
     pollingInterval: 3000,
     onComplete: (batchId, batch) => {
-      toast({
-        title: batch.status === 'completed' ? "Backfill voltooid!" : `Backfill ${batch.status}`,
+      toast.success(batch.status === 'completed' ? "Backfill voltooid!" : `Backfill ${batch.status}`, {
         description: batch.status === 'completed'
           ? `${batch.synced_leads} leads gesynchroniseerd, ${batch.skipped_leads} overgeslagen, ${batch.failed_leads} mislukt`
-          : batch.last_error || undefined,
-        variant: batch.status === 'completed' ? 'default' : 'destructive',
+          : batch.last_error || undefined
       })
     },
   })
@@ -87,18 +84,13 @@ export function BackfillTab() {
 
       if (data.success) {
         setCurrentBatchId(data.batchId)
-        toast({
-          title: "Backfill gestart",
-          description: "Leads worden verzameld uit Instantly...",
-        })
+        toast.success("Backfill gestart", { description: "Leads worden verzameld uit Instantly..." })
       } else {
         throw new Error(data.error || 'Failed to start backfill')
       }
     } catch (error) {
-      toast({
-        title: "Fout",
-        description: error instanceof Error ? error.message : 'Failed to start backfill',
-        variant: 'destructive',
+      toast.error("Fout", {
+        description: error instanceof Error ? error.message : 'Failed to start backfill'
       })
     }
   }
@@ -115,19 +107,16 @@ export function BackfillTab() {
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: "Backfill gepauzeerd",
-          description: "De backfill is gepauzeerd. Je kunt deze later hervatten.",
+        toast.success("Backfill gepauzeerd", {
+          description: "De backfill is gepauzeerd. Je kunt deze later hervatten."
         })
         stopPolling()
       } else {
         throw new Error(data.error || 'Failed to pause backfill')
       }
     } catch (error) {
-      toast({
-        title: "Fout",
-        description: error instanceof Error ? error.message : 'Failed to pause backfill',
-        variant: 'destructive',
+      toast.error("Fout", {
+        description: error instanceof Error ? error.message : 'Failed to pause backfill'
       })
     }
   }
@@ -144,19 +133,14 @@ export function BackfillTab() {
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: "Backfill hervat",
-          description: "De backfill gaat verder met verwerken.",
-        })
+        toast.success("Backfill hervat", { description: "De backfill gaat verder met verwerken." })
         startPolling()
       } else {
         throw new Error(data.error || 'Failed to resume backfill')
       }
     } catch (error) {
-      toast({
-        title: "Fout",
-        description: error instanceof Error ? error.message : 'Failed to resume backfill',
-        variant: 'destructive',
+      toast.error("Fout", {
+        description: error instanceof Error ? error.message : 'Failed to resume backfill'
       })
     }
   }
@@ -173,19 +157,14 @@ export function BackfillTab() {
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: "Backfill geannuleerd",
-          description: "De backfill is geannuleerd.",
-        })
+        toast.success("Backfill geannuleerd", { description: "De backfill is geannuleerd." })
         stopPolling()
       } else {
         throw new Error(data.error || 'Failed to cancel backfill')
       }
     } catch (error) {
-      toast({
-        title: "Fout",
-        description: error instanceof Error ? error.message : 'Failed to cancel backfill',
-        variant: 'destructive',
+      toast.error("Fout", {
+        description: error instanceof Error ? error.message : 'Failed to cancel backfill'
       })
     }
   }
@@ -202,19 +181,16 @@ export function BackfillTab() {
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: "Opnieuw proberen",
-          description: `${data.retried} mislukte leads worden opnieuw verwerkt.`,
+        toast.success("Opnieuw proberen", {
+          description: `${data.retried} mislukte leads worden opnieuw verwerkt.`
         })
         startPolling()
       } else {
         throw new Error(data.error || 'Failed to retry leads')
       }
     } catch (error) {
-      toast({
-        title: "Fout",
-        description: error instanceof Error ? error.message : 'Failed to retry leads',
-        variant: 'destructive',
+      toast.error("Fout", {
+        description: error instanceof Error ? error.message : 'Failed to retry leads'
       })
     }
   }

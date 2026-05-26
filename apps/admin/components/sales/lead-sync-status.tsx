@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Loader2, CheckCircle2, AlertTriangle, XCircle, ExternalLink, RotateCw } from 'lucide-react'
 import type { RunDetailResponse } from '@/lib/services/sales-leads/types'
 
@@ -20,7 +20,6 @@ const PIPEDRIVE_BASE = 'https://lokalebanen.pipedrive.com'
 type DupeInfo = { existing_org_id: number; existing_org_name: string | null; deal_count_6m: number }
 
 export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
-  const { toast } = useToast()
   const [syncing, setSyncing] = useState(false)
   const [confirmingForce, setConfirmingForce] = useState(false)
   const [dupeInfo, setDupeInfo] = useState<DupeInfo | null>(
@@ -52,21 +51,21 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
             existing_org_name: json.existing_org_name,
             deal_count_6m: json.deal_count_6m,
           })
-          toast({ title: 'Duplicate gedetecteerd', description: `Org ${json.existing_org_id} bestaat al.` })
+          toast.success('Duplicate gedetecteerd', { description: `Org ${json.existing_org_id} bestaat al.` })
         } else if (json.status === 'completed') {
-          toast({ title: 'Sync voltooid', description: `Deal ${json.pipedrive_deal_id} aangemaakt` })
+          toast.success('Sync voltooid', { description: `Deal ${json.pipedrive_deal_id} aangemaakt` })
         } else {
-          toast({ title: 'Sync mislukt', description: json.error, variant: 'destructive' })
+          toast.error('Sync mislukt', { description: json.error })
         }
       } catch (e) {
-        toast({ title: 'Sync mislukt', description: (e as Error).message, variant: 'destructive' })
+        toast.error('Sync mislukt', { description: (e as Error).message })
       } finally {
         setSyncing(false)
         setConfirmingForce(false)
         await onSynced()
       }
     },
-    [run.id, onSynced, toast],
+    [run.id, onSynced],
   )
 
   // ── State 1: nog niet gestart (status=review) → Start-sync knop ──

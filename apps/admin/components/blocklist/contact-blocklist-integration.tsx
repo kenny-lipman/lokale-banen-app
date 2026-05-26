@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner'
 import { Shield, ShieldCheck, ShieldAlert, AlertTriangle, Loader2 } from 'lucide-react';
 import { contactFilteringService } from '@/lib/services/contact-filtering.service';
 import { useBlocklist } from '@/hooks/use-blocklist';
@@ -75,11 +75,7 @@ export function ContactBlocklistIntegration({
   const handleQuickBlock = async () => {
     const email = extractEmailFromContact(contact);
     if (!email) {
-      toast({
-        title: 'Fout',
-        description: 'Geen email adres gevonden voor dit contact',
-        variant: 'destructive'
-      });
+      toast.error('Fout', { description: 'Geen email adres gevonden voor dit contact' });
       return;
     }
 
@@ -93,10 +89,7 @@ export function ContactBlocklistIntegration({
         is_active: true,
       });
 
-      toast({
-        title: 'Contact geblokkeerd',
-        description: `${email} is toegevoegd aan de blocklist`
-      });
+      toast.success('Contact geblokkeerd', { description: `${email} is toegevoegd aan de blocklist` });
 
       // Update local status
       setBlocklistStatus(prev => ({
@@ -122,10 +115,8 @@ export function ContactBlocklistIntegration({
       }
     } catch (error) {
       console.error('Failed to block contact:', error);
-      toast({
-        title: 'Fout bij blokkeren',
-        description: 'Er is een fout opgetreden bij het blokkeren van dit contact',
-        variant: 'destructive'
+      toast.error('Fout bij blokkeren', {
+        description: 'Er is een fout opgetreden bij het blokkeren van dit contact'
       });
     }
   };

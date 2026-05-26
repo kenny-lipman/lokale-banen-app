@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner'
 import { Shield, ShieldAlert, Mail, Globe, AlertTriangle, Loader2 } from 'lucide-react';
 import { useBlocklist } from '@/hooks/use-blocklist';
 import { syncOrchestrator } from '@/lib/services/blocklist-sync-orchestrator.service';
@@ -58,20 +58,12 @@ export function QuickBlockModal({
 
   const handleSubmit = async () => {
     if (!value.trim()) {
-      toast({
-        title: 'Waarde vereist',
-        description: 'Voer een email adres of domein in om te blokkeren',
-        variant: 'destructive'
-      });
+      toast.error('Waarde vereist', { description: 'Voer een email adres of domein in om te blokkeren' });
       return;
     }
 
     if (!reason.trim()) {
-      toast({
-        title: 'Reden vereist',
-        description: 'Geef een reden op voor het blokkeren',
-        variant: 'destructive'
-      });
+      toast.error('Reden vereist', { description: 'Geef een reden op voor het blokkeren' });
       return;
     }
 
@@ -92,8 +84,7 @@ export function QuickBlockModal({
           try {
             await syncOrchestrator.syncEntry(newEntry.id, 'create');
 
-            toast({
-              title: 'Succesvol geblokkeerd en gesynchroniseerd',
+            toast.success('Succesvol geblokkeerd en gesynchroniseerd', {
               description: (
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="h-4 w-4" />
@@ -105,15 +96,12 @@ export function QuickBlockModal({
             });
           } catch (syncError) {
             console.error('Sync failed:', syncError);
-            toast({
-              title: 'Geblokkeerd (sync gefaald)',
-              description: 'Entry toegevoegd aan blocklist maar synchronisatie mislukt',
-              variant: 'destructive'
+            toast.error('Geblokkeerd (sync gefaald)', {
+              description: 'Entry toegevoegd aan blocklist maar synchronisatie mislukt'
             });
           }
         } else {
-          toast({
-            title: 'Succesvol geblokkeerd',
+          toast.success('Succesvol geblokkeerd', {
             description: `${type === 'email' ? 'Email' : 'Domein'} ${value} is toegevoegd aan de blocklist`
           });
         }
@@ -132,11 +120,7 @@ export function QuickBlockModal({
       }
     } catch (error) {
       console.error('Failed to block:', error);
-      toast({
-        title: 'Fout bij blokkeren',
-        description: 'Er is een onverwachte fout opgetreden',
-        variant: 'destructive'
-      });
+      toast.error('Fout bij blokkeren', { description: 'Er is een onverwachte fout opgetreden' });
     } finally {
       setIsLoading(false);
     }

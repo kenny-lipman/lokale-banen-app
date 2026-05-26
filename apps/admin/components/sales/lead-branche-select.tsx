@@ -39,7 +39,7 @@ export function LeadBrancheSelect({ runId, brancheOverride, suggestion, onChange
         }
       })
     return () => { cancelled = true }
-  }, [toast])
+  }, [])
 
   const effectiveEnumId = brancheOverride ?? suggestion?.enum_id ?? null
   const effectiveLabel = useMemo(() => {

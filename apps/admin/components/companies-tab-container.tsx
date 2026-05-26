@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { useWebhookRateLimit } from '@/hooks/use-webhook-rate-limit'
 import {
   Building2,
@@ -101,7 +101,6 @@ export function CompaniesTabContainer({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
   const [isQualifying, setIsQualifying] = useState<Set<string>>(new Set())
-  const { toast } = useToast()
   const webhookRateLimit = useWebhookRateLimit()
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const prevSearchTermRef = useRef(searchTerm)
@@ -147,11 +146,7 @@ export function CompaniesTabContainer({
       setCompanies(result.data || [])
     } catch (error) {
       console.error('Error loading tab data:', error)
-      toast({
-        title: "Error loading companies",
-        description: "Failed to load company data",
-        variant: "destructive",
-      })
+      toast.error("Error loading companies", { description: "Failed to load company data" })
     } finally {
       setLoading(false)
     }
@@ -259,10 +254,8 @@ export function CompaniesTabContainer({
     // Check rate limit before proceeding
     if (!webhookRateLimit.canCall(companyId)) {
       const remainingTime = webhookRateLimit.getRemainingTime(companyId)
-      toast({
-        title: "Rate Limited",
-        description: `Please wait ${remainingTime} seconds before enriching ${company.name} again.`,
-        variant: "destructive"
+      toast.error("Rate Limited", {
+        description: `Please wait ${remainingTime} seconds before enriching ${company.name} again.`
       })
       return
     }
@@ -285,19 +278,14 @@ export function CompaniesTabContainer({
       })
 
       if (response.ok) {
-        toast({
-          title: "Enrichment triggered",
-          description: `Webhook sent for ${company.name}`,
-        })
+        toast.success("Enrichment triggered", { description: `Webhook sent for ${company.name}` })
       } else {
         throw new Error(`Failed to trigger webhook: ${response.status}`)
       }
     } catch (error) {
       console.error('Error triggering enrichment:', error)
-      toast({
-        title: "Error triggering enrichment",
-        description: error instanceof Error ? error.message : "Failed to trigger webhook",
-        variant: "destructive",
+      toast.error("Error triggering enrichment", {
+        description: error instanceof Error ? error.message : "Failed to trigger webhook"
       })
     } finally {
       // Clean up loading state
@@ -316,10 +304,8 @@ export function CompaniesTabContainer({
     const rateLimitedCount = selectedCompaniesData.length - eligibleCompanies.length
 
     if (eligibleCompanies.length === 0) {
-      toast({
-        title: "All Companies Rate Limited",
-        description: `All ${selectedCompaniesData.length} selected companies are currently rate limited. Please wait before trying again.`,
-        variant: "destructive"
+      toast.error("All Companies Rate Limited", {
+        description: `All ${selectedCompaniesData.length} selected companies are currently rate limited. Please wait before trying again.`
       })
       return
     }
@@ -363,10 +349,7 @@ export function CompaniesTabContainer({
     if (failCount > 0) description += `, ${failCount} failed`
     if (rateLimitedCount > 0) description += `, ${rateLimitedCount} skipped (rate limited)`
 
-    toast({
-      title: "Enrichment triggered",
-      description,
-    })
+    toast.success("Enrichment triggered", { description: description })
 
     setSelectedCompanies(new Set())
   }
@@ -382,11 +365,7 @@ export function CompaniesTabContainer({
       const allQualifiedCompanies = allQualifiedResult.data || []
       
       if (allQualifiedCompanies.length === 0) {
-        toast({
-          title: "No qualified companies",
-          description: "No qualified companies found to enrich",
-          variant: "destructive",
-        })
+        toast.error("No qualified companies", { description: "No qualified companies found to enrich" })
         return
       }
 
@@ -395,10 +374,8 @@ export function CompaniesTabContainer({
       const rateLimitedCount = allQualifiedCompanies.length - eligibleCompanies.length
 
       if (eligibleCompanies.length === 0) {
-        toast({
-          title: "All Qualified Companies Rate Limited",
-          description: `All ${allQualifiedCompanies.length} qualified companies are currently rate limited. Please wait before trying again.`,
-          variant: "destructive"
+        toast.error("All Qualified Companies Rate Limited", {
+          description: `All ${allQualifiedCompanies.length} qualified companies are currently rate limited. Please wait before trying again.`
         })
         return
       }
@@ -442,16 +419,11 @@ export function CompaniesTabContainer({
       if (failCount > 0) description += `, ${failCount} failed`
       if (rateLimitedCount > 0) description += `, ${rateLimitedCount} skipped (rate limited)`
 
-      toast({
-        title: "Enrichment triggered for all qualified companies",
-        description,
-      })
+      toast.success("Enrichment triggered for all qualified companies", { description: description })
     } catch (error) {
       console.error('Error enriching all qualified companies:', error)
-      toast({
-        title: "Error enriching companies",
-        description: "Failed to trigger enrichment for qualified companies",
-        variant: "destructive",
+      toast.error("Error enriching companies", {
+        description: "Failed to trigger enrichment for qualified companies"
       })
     }
   }
@@ -482,20 +454,15 @@ export function CompaniesTabContainer({
       }
 
       // 3. SUCCESS: Show feedback (UI already updated!)
-      toast({
-        title: "Company qualification updated",
-        description: `Company ${status} successfully`,
-      })
+      toast.success("Company qualification updated", { description: `Company ${status} successfully` })
 
       // Background refresh to sync counts and ensure consistency
       setTimeout(() => refreshData(), 1000);
 
     } catch (error) {
       console.error('Error qualifying company:', error)
-      toast({
-        title: "Error updating qualification",
-        description: error instanceof Error ? error.message : "Failed to update company qualification",
-        variant: "destructive",
+      toast.error("Error updating qualification", {
+        description: error instanceof Error ? error.message : "Failed to update company qualification"
       })
     } finally {
       setIsQualifying(prev => {
@@ -535,9 +502,8 @@ export function CompaniesTabContainer({
       }
 
       // 3. SUCCESS: Show feedback (UI already updated!)
-      toast({
-        title: "Bulk qualification updated",
-        description: `${selectedIds.length} companies ${status} successfully`,
+      toast.success("Bulk qualification updated", {
+        description: `${selectedIds.length} companies ${status} successfully`
       })
 
       setSelectedCompanies(new Set())
@@ -547,10 +513,8 @@ export function CompaniesTabContainer({
 
     } catch (error) {
       console.error('Error bulk qualifying companies:', error)
-      toast({
-        title: "Error updating qualifications",
-        description: "Failed to update company qualifications",
-        variant: "destructive",
+      toast.error("Error updating qualifications", {
+        description: "Failed to update company qualifications"
       })
     } finally {
       selectedIds.forEach(id => {

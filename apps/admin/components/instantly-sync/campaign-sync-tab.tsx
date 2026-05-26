@@ -35,7 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 import {
   RefreshCw,
   Search,
@@ -120,8 +120,6 @@ function formatDuration(ms: number): string {
 }
 
 export function CampaignSyncTab() {
-  const { toast } = useToast()
-
   // Data state
   const [campaigns, setCampaigns] = useState<CampaignWithStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -337,24 +335,18 @@ export function CampaignSyncTab() {
       if (cancelRef.current) {
         syncProgress.cancelled = true
         setProgress({ ...syncProgress })
-        toast({
-          title: "Sync geannuleerd",
-          description: `${syncProgress.totalSynced} leads gesynchroniseerd voor annulering.`,
+        toast.success("Sync geannuleerd", {
+          description: `${syncProgress.totalSynced} leads gesynchroniseerd voor annulering.`
         })
       } else {
         syncProgress.done = true
         setProgress({ ...syncProgress })
-        toast({
-          title: dryRun ? "Dry run voltooid" : "Sync voltooid",
-          description: `${syncProgress.totalSynced} leads gesynchroniseerd, ${syncProgress.skipped.total} overgeslagen, ${syncProgress.totalErrors} fouten (${formatDuration(Date.now() - syncProgress.startedAt)})`,
+        toast.success(dryRun ? "Dry run voltooid" : "Sync voltooid", {
+          description: `${syncProgress.totalSynced} leads gesynchroniseerd, ${syncProgress.skipped.total} overgeslagen, ${syncProgress.totalErrors} fouten (${formatDuration(Date.now() - syncProgress.startedAt)})`
         })
       }
     } catch (err) {
-      toast({
-        title: "Sync mislukt",
-        description: err instanceof Error ? err.message : "Onbekende fout",
-        variant: "destructive",
-      })
+      toast.error("Sync mislukt", { description: err instanceof Error ? err.message : "Onbekende fout" })
     } finally {
       stopTimer()
       setSyncing(false)

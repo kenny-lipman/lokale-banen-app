@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Combobox } from '@/components/ui/combobox'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { CheckCircle2, Pencil, Trash2, Plus, ExternalLink } from 'lucide-react'
 
 type Row = {
@@ -80,7 +80,6 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function CareerPagesTable() {
-  const { toast } = useToast()
   const [rows, setRows] = useState<Row[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -115,11 +114,11 @@ export function CareerPagesTable() {
       setRows(list.rows)
       setTotal(list.total)
     } catch (e) {
-      toast({ title: 'Laden mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Laden mislukt', { description: (e as Error).message })
     } finally {
       setLoading(false)
     }
-  }, [page, search, reviewStatus, frequency, onlyActive, toast])
+  }, [page, search, reviewStatus, frequency, onlyActive])
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0)
@@ -129,10 +128,10 @@ export function CareerPagesTable() {
   const onApprove = async (id: string) => {
     const res = await fetch(`/api/job-sources/career-pages/${id}/approve`, { method: 'POST' })
     if (!res.ok) {
-      toast({ title: 'Goedkeuren mislukt', variant: 'destructive' })
+      toast.error('Goedkeuren mislukt')
       return
     }
-    toast({ title: 'Goedgekeurd' })
+    toast.success('Goedgekeurd')
     load()
   }
 
@@ -143,7 +142,7 @@ export function CareerPagesTable() {
       body: JSON.stringify({ active: value }),
     })
     if (!res.ok) {
-      toast({ title: 'Wijzigen mislukt', variant: 'destructive' })
+      toast.error('Wijzigen mislukt')
       return
     }
     setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, active: value } : r)))
@@ -155,10 +154,10 @@ export function CareerPagesTable() {
     setDeleteRow(null)
     const res = await fetch(`/api/job-sources/career-pages/${id}`, { method: 'DELETE' })
     if (!res.ok) {
-      toast({ title: 'Verwijderen mislukt', variant: 'destructive' })
+      toast.error('Verwijderen mislukt')
       return
     }
-    toast({ title: 'Verwijderd' })
+    toast.success('Verwijderd')
     load()
   }
 
@@ -357,7 +356,6 @@ export function AddCareerPageDialog({
   /** Voor inbedded gebruik (CompanyDrawer): company is al gekozen */
   presetCompany?: { id: string; name: string }
 }) {
-  const { toast } = useToast()
   const [companies, setCompanies] = useState<{ value: string; label: string }[]>([])
   const [companyId, setCompanyId] = useState('')
   const [companySearch, setCompanySearch] = useState('')
@@ -395,7 +393,7 @@ export function AddCareerPageDialog({
 
   const submit = async () => {
     if (!companyId || !url) {
-      toast({ title: 'Company en URL zijn verplicht', variant: 'destructive' })
+      toast.error('Company en URL zijn verplicht')
       return
     }
     setSubmitting(true)
@@ -414,11 +412,11 @@ export function AddCareerPageDialog({
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? 'Onbekende fout')
       }
-      toast({ title: 'Toegevoegd' })
+      toast.success('Toegevoegd')
       onOpenChange(false)
       onSaved()
     } catch (e) {
-      toast({ title: 'Toevoegen mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Toevoegen mislukt', { description: (e as Error).message })
     } finally {
       setSubmitting(false)
     }
@@ -494,7 +492,6 @@ export function AddCareerPageDialog({
 // ─── Edit dialog ──────────────────────────────────────────────────
 
 function EditCareerPageDialog({ row, onClose, onSaved }: { row: Row | null; onClose: () => void; onSaved: () => void }) {
-  const { toast } = useToast()
   const [frequency, setFrequency] = useState('weekly')
   const [active, setActive] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -520,11 +517,11 @@ function EditCareerPageDialog({ row, onClose, onSaved }: { row: Row | null; onCl
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? 'Onbekende fout')
       }
-      toast({ title: 'Opgeslagen' })
+      toast.success('Opgeslagen')
       onClose()
       onSaved()
     } catch (e) {
-      toast({ title: 'Opslaan mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Opslaan mislukt', { description: (e as Error).message })
     } finally {
       setSubmitting(false)
     }

@@ -30,7 +30,7 @@ import {
   Target,
   Link
 } from "lucide-react"
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 interface CompanyJobPosting {
   id: string
@@ -138,8 +138,6 @@ export function CompanyDetailsDrawer({
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [contactsError, setContactsError] = useState<string | null>(null)
-  const { toast } = useToast()
-  
   // Enhanced toast system
   const {
     showEnrichmentStart,
@@ -190,11 +188,7 @@ export function CompanyDetailsDrawer({
       },
       onError: (error) => {
         console.error('❌ Polling error:', error)
-        toast({
-          title: "Status Check Failed",
-          description: error,
-          variant: "destructive"
-        })
+        toast.error("Status Check Failed", { description: error })
       }
     }
   )
@@ -233,11 +227,7 @@ export function CompanyDetailsDrawer({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      })
+      toast.error("Error", { description: errorMessage })
     } finally {
       setLoading(false)
     }
@@ -276,16 +266,9 @@ export function CompanyDetailsDrawer({
       await onQualify(company.id, status)
       // Refresh company data to get updated status
       await fetchCompanyDetails()
-      toast({
-        title: "Success",
-        description: `Company ${status} successfully`,
-      })
+      toast.success("Success", { description: `Company ${status} successfully` })
     } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to ${status} company`,
-        variant: "destructive"
-      })
+      toast.error("Error", { description: `Failed to ${status} company` })
     } finally {
       setIsQualifying(false)
     }

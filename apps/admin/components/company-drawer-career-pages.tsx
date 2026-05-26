@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Plus, Trash2, ExternalLink, Link as LinkIcon } from 'lucide-react'
 import { AddCareerPageDialog } from '@/components/scrape-bronnen/career-pages-table'
 
@@ -37,7 +37,6 @@ type Props = {
 }
 
 export function CompanyDrawerCareerPages({ companyId, companyName }: Props) {
-  const { toast } = useToast()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
@@ -56,11 +55,11 @@ export function CompanyDrawerCareerPages({ companyId, companyName }: Props) {
       if (!res.ok) throw new Error(data.error ?? 'Onbekende fout')
       setRows(data.rows ?? [])
     } catch (e) {
-      toast({ title: 'Laden mislukt', description: (e as Error).message, variant: 'destructive' })
+      toast.error('Laden mislukt', { description: (e as Error).message })
     } finally {
       setLoading(false)
     }
-  }, [companyId, toast])
+  }, [companyId])
 
   useEffect(() => {
     load()
@@ -76,14 +75,14 @@ export function CompanyDrawerCareerPages({ companyId, companyName }: Props) {
     if (!res.ok) {
       // revert
       setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, active: !value } : r)))
-      toast({ title: 'Wijzigen mislukt', variant: 'destructive' })
+      toast.error('Wijzigen mislukt')
     }
   }
 
   const onApprove = async (id: string) => {
     const res = await fetch(`/api/job-sources/career-pages/${id}/approve`, { method: 'POST' })
-    if (!res.ok) return toast({ title: 'Goedkeuren mislukt', variant: 'destructive' })
-    toast({ title: 'Goedgekeurd' })
+    if (!res.ok) return toast.error('Goedkeuren mislukt')
+    toast.success('Goedgekeurd')
     load()
   }
 
@@ -92,8 +91,8 @@ export function CompanyDrawerCareerPages({ companyId, companyName }: Props) {
     const id = deleteRow.id
     setDeleteRow(null)
     const res = await fetch(`/api/job-sources/career-pages/${id}`, { method: 'DELETE' })
-    if (!res.ok) return toast({ title: 'Verwijderen mislukt', variant: 'destructive' })
-    toast({ title: 'Verwijderd' })
+    if (!res.ok) return toast.error('Verwijderen mislukt')
+    toast.success('Verwijderd')
     load()
   }
 

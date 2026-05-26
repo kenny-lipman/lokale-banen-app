@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from 'sonner'
 import { Loader2, Save, X } from "lucide-react"
 import { ContactUpdateRequest } from "@/types/contact"
 
@@ -69,8 +69,6 @@ export function EditContactModal({
   onSuccess
 }: EditContactModalProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
-
   const form = useForm<ContactEditFormData>({
     resolver: zodResolver(contactEditSchema),
     defaultValues: {
@@ -120,11 +118,7 @@ export function EditContactModal({
 
       // Only make API call if there are changes
       if (Object.keys(updateData).length === 0) {
-        toast({
-          title: "Geen wijzigingen",
-          description: "Er zijn geen wijzigingen om op te slaan",
-          variant: "default"
-        })
+        toast.success("Geen wijzigingen", { description: "Er zijn geen wijzigingen om op te slaan" })
         setIsLoading(false)
         return
       }
@@ -143,19 +137,14 @@ export function EditContactModal({
         throw new Error(result.error || 'Failed to update contact')
       }
 
-      toast({
-        title: "Succes",
-        description: "Contact is succesvol bijgewerkt",
-      })
+      toast.success("Succes", { description: "Contact is succesvol bijgewerkt" })
 
       onSuccess(result.data)
       onClose()
     } catch (error) {
       console.error('Error updating contact:', error)
-      toast({
-        title: "Fout",
-        description: error instanceof Error ? error.message : "Er is een fout opgetreden bij het bijwerken",
-        variant: "destructive",
+      toast.error("Fout", {
+        description: error instanceof Error ? error.message : "Er is een fout opgetreden bij het bijwerken"
       })
     } finally {
       setIsLoading(false)
