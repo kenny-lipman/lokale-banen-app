@@ -1,5 +1,3 @@
-import { chromium } from 'playwright-core'
-import chromiumBin from '@sparticuz/chromium'
 import type { Browser } from 'playwright-core'
 
 const UA_POOL = [
@@ -17,9 +15,15 @@ export type PlaywrightFetchResult = {
 }
 
 /**
- * Browser-pooler voor één enrichment-run. Roep `init()` éénmaal aan vóór de
- * eerste `fetchPage`, en `dispose()` in finally. Hergebruikt 1 Chromium-instance
- * voor alle URLs binnen één crawlAndParse-call.
+ * Browser-pooler voor één enrichment-run. `init()` is idempotent en concurrency-safe:
+ * de eerste call start Chromium, parallelle calls wachten op dezelfde init-promise.
+ *
+ * `init()` wordt door tiered-fetch alleen aangeroepen wanneer Tier-1 onvoldoende
+ * blijkt — bij Shopify/WordPress/normale SSR-sites blijft Chromium dus volledig uit.
+ *
+ * Dynamic imports van `@sparticuz/chromium` en `playwright-core`: deze worden pas
+ * geladen wanneer init() draait, niet bij module-load. Scheelt cold-start CPU voor
+ * routes die WebsiteService importeren maar nooit Tier-2 raken.
  *
  * Geen stealth-plugin in V1: puppeteer-extra-plugin-stealth doet dynamic require
  * op 17 sub-evasion modules wat niet werkt onder Vercel + Webpack/serverExternal.
@@ -30,18 +34,56 @@ export type PlaywrightFetchResult = {
  */
 export class PlaywrightFetcher {
   private browser: Browser | null = null
+  private initPromise: Promise<void> | null = null
 
   async init(): Promise<void> {
     if (this.browser) return
-    this.browser = await chromium.launch({
-      args: chromiumBin.args,
-      executablePath: await chromiumBin.executablePath(),
-      headless: true,
-    })
+    if (!this.initPromise) {
+      this.initPromise = this.doInit().catch((e) => {
+        this.initPromise = null
+        throw e
+      })
+    }
+    return this.initPromise
+  }
+
+  /**
+   * Werkelijke browser-launch. Retry-loop rond `chromium.launch()` vangt
+   * `spawn ETXTBSY` op: Linux weigert het Chromium-binary uit /tmp uit te
+   * voeren wanneer een ander proces op dezelfde warm function-instance net
+   * bezig is met het uitpakken (race in `@sparticuz/chromium`). Backoff
+   * 250ms → 1s → 3s lost dit in praktijk altijd op binnen 1-2 attempts.
+   */
+  private async doInit(): Promise<void> {
+    const [{ chromium }, chromiumBin] = await Promise.all([
+      import('playwright-core'),
+      import('@sparticuz/chromium').then((m) => m.default),
+    ])
+
+    const executablePath = await chromiumBin.executablePath()
+    const backoffsMs = [0, 250, 1000, 3000]
+    let lastError: unknown
+
+    for (const delay of backoffsMs) {
+      if (delay > 0) await sleep(delay)
+      try {
+        this.browser = await chromium.launch({
+          args: chromiumBin.args,
+          executablePath,
+          headless: true,
+        })
+        return
+      } catch (e) {
+        lastError = e
+        if (!isEtxtbsy(e)) throw e
+      }
+    }
+    throw lastError ?? new Error('chromium.launch faalde na retries')
   }
 
   async fetchPage(url: string): Promise<PlaywrightFetchResult> {
-    if (!this.browser) throw new Error('PlaywrightFetcher.init() niet aangeroepen')
+    await this.init()
+    if (!this.browser) throw new Error('PlaywrightFetcher: browser niet beschikbaar na init')
     const ctx = await this.browser.newContext({
       userAgent: UA_POOL[Math.floor(Math.random() * UA_POOL.length)],
       viewport: { width: 1280, height: 800 },
@@ -73,6 +115,18 @@ export class PlaywrightFetcher {
       await this.browser?.close()
     } finally {
       this.browser = null
+      this.initPromise = null
     }
   }
+}
+
+function isEtxtbsy(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false
+  const msg = 'message' in e && typeof e.message === 'string' ? e.message : ''
+  const code = 'code' in e && typeof (e as { code: unknown }).code === 'string' ? (e as { code: string }).code : ''
+  return code === 'ETXTBSY' || /ETXTBSY/i.test(msg)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

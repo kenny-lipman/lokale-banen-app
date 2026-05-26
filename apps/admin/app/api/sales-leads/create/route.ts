@@ -3,25 +3,16 @@ import { waitUntil } from '@vercel/functions'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { Json } from '@/lib/supabase'
+import { dispatchEnrichmentWorkers } from '@/lib/services/sales-leads/dispatch-worker'
 
 // Deze route maakt alleen sales_lead_runs aan en dispatcht workers. De zware
 // orchestrator-logic draait in `/api/sales-leads/[id]/enrich-worker`, elk in
 // een eigen Vercel function-instance (eigen /tmp, geen Chromium-race).
 // 120s safety-margin: bij MAX_URLS_PER_BATCH=50 en worst-case 10s per dispatch
-// (DISPATCH_TIMEOUT_MS) in golven van 8 = ~70s. waitUntil moet binnen
-// maxDuration vallen, anders killt Vercel de function midden in de fan-out.
+// in golven van 8 = ~70s. waitUntil moet binnen maxDuration vallen, anders
+// killt Vercel de function midden in de fan-out.
 export const maxDuration = 120
 export const runtime = 'nodejs'
-
-// Hoeveel workers tegelijk dispatchen. Lager = minder gelijktijdige cold starts
-// op Vercel, hoger = sneller terug naar de client. 8 is balans voor batches
-// tot 25-50 URLs.
-const DISPATCH_WAVE_SIZE = 8
-
-// Per-dispatch timeout: alleen om het request te VERSTUREN. De worker zelf
-// blijft draaien (eigen function-instance met maxDuration=300). 10s is ruim
-// voor cold-start + initial response.
-const DISPATCH_TIMEOUT_MS = 10_000
 
 const PUBLIC_EMAIL_DOMAINS = new Set([
   'gmail.com', 'hotmail.com', 'outlook.com', 'live.com', 'yahoo.com',
@@ -273,67 +264,3 @@ async function handler(req: NextRequest, auth: AuthResult) {
 }
 
 export const POST = withAuth(handler)
-
-/**
- * Verstuur per run een POST naar `/api/sales-leads/[id]/enrich-worker`. De
- * worker draait in z'n eigen function-instance en kan ~5 minuten doen over
- * een enrichment. Wij wachten alleen tot het request is gedispatcht (cold-
- * start latency, geen orchestrator-resultaat) en gaan dan door.
- *
- * `AbortSignal.timeout` triggert een `TimeoutError` die we negeren — het
- * request is dan al binnen bij Vercel, de worker draait door.
- */
-async function dispatchEnrichmentWorkers(req: NextRequest, runIds: string[]): Promise<void> {
-  const baseUrl = resolveBaseUrl(req)
-  const cronSecret = process.env.CRON_SECRET || process.env.CRON_SECRET_KEY
-  if (!cronSecret) {
-    console.error('[sales-leads/create] CRON_SECRET ontbreekt; workers kunnen niet dispatchen')
-    return
-  }
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${cronSecret}`,
-  }
-
-  for (let i = 0; i < runIds.length; i += DISPATCH_WAVE_SIZE) {
-    const wave = runIds.slice(i, i + DISPATCH_WAVE_SIZE)
-    await Promise.all(
-      wave.map(async (runId) => {
-        const url = `${baseUrl}/api/sales-leads/${runId}/enrich-worker`
-        try {
-          await fetch(url, {
-            method: 'POST',
-            headers,
-            body: '{}',
-            signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
-          })
-        } catch (e) {
-          const isTimeout = e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')
-          if (isTimeout) return // request was sent, worker draait door
-          console.error('[sales-leads/create] dispatch faalde', runId, e instanceof Error ? e.message : e)
-        }
-      }),
-    )
-  }
-}
-
-/**
- * Base-URL voor server-to-server fetch. Voorkeur:
- *   1. `NEXT_PUBLIC_APP_URL` (productie-stabiel, geen deployment-protection)
- *   2. `VERCEL_PROJECT_PRODUCTION_URL` (preview/prod fallback)
- *   3. Request `host` header (lokaal/dev)
- *   4. `VERCEL_URL` (deployment-specifiek, kan beschermd zijn)
- */
-function resolveBaseUrl(req: NextRequest): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  }
-  const host = req.headers.get('host')
-  if (host) {
-    const proto = req.headers.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
-    return `${proto}://${host}`
-  }
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3000'
-}

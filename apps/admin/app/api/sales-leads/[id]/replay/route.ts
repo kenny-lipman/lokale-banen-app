@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
-import { EnrichmentOrchestratorService } from '@/lib/services/sales-leads/enrichment-orchestrator.service'
+import { dispatchEnrichmentWorkers } from '@/lib/services/sales-leads/dispatch-worker'
 import type { Json } from '@/lib/supabase'
 import type { AuditLogEntry } from '@/lib/services/sales-leads/types'
 
-export const maxDuration = 300
+// Route doet alleen DB-reset + dispatch naar worker. 60s is ruim.
+export const maxDuration = 60
 export const runtime = 'nodejs'
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -61,18 +62,16 @@ async function handler(_req: NextRequest, auth: AuthResult, ctx: RouteContext) {
       pipedrive_org_id: null,
       pipedrive_deal_id: null,
       audit_log: newAuditLog as unknown as Json,
+      worker_claimed_at: null, // reset zodat de nieuwe worker kan claimen
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
   if (resetErr) return NextResponse.json({ error: resetErr.message }, { status: 500 })
 
-  // Trigger orchestrator via waitUntil — zelfde pattern als /create.
-  const svc = new EnrichmentOrchestratorService()
-  waitUntil(
-    svc.runEnrichment(id).catch((e) => {
-      console.error('[orchestrator/replay] unhandled', id, e)
-    }),
-  )
+  // Fan-out naar worker — zelfde pattern als bulk-create. Eigen function-instance
+  // voorkomt Chromium-race; idempotency-claim in worker zorgt dat een dubbel-
+  // dispatch (network-retry) geen schade doet.
+  waitUntil(dispatchEnrichmentWorkers(_req, [id]))
 
   return NextResponse.json({ ok: true, run_id: id, replayed_by: auth.user.email })
 }

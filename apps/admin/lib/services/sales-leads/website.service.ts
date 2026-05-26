@@ -131,10 +131,11 @@ export class WebsiteService {
    */
   async crawlAndParse(inputUrl: string, _scrapeVacancies: boolean): Promise<NormalizedFields> {
     const homepageUrl = this.normalizeUrl(inputUrl)
+    // Lazy init: PlaywrightFetcher start Chromium pas wanneer fetchPage wordt
+    // aangeroepen (Tier-2 escalatie). Bij Shopify/WordPress/SSR-sites blijft
+    // de browser uit, wat ETXTBSY-race voorkomt én cold-start CPU bespaart.
     const playwright = new PlaywrightFetcher()
     try {
-      await playwright.init()
-
       const discovered = await discoverUrls(homepageUrl)
       const targets: DiscoveredUrl[] =
         discovered.length > 0
