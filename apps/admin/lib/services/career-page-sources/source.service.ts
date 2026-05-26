@@ -84,7 +84,7 @@ export type ListResult = {
 
 // ─── Service ────────────────────────────────────────────────────────
 
-const COMPANY_SELECT = 'company:companies(id,name,website)'
+const COMPANY_SELECT = 'company:companies!job_sources_company_id_fkey(id,name,website)'
 
 const ROW_SELECT = `
   id, name, kind, company_id, url, discovery_method, is_external_ats, ats_type,
