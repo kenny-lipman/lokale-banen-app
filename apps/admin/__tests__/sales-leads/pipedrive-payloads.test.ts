@@ -197,10 +197,22 @@ describe('buildPersonPayload', () => {
     expect(p.phone).toEqual([{ value: '+31612345678', primary: true }])
   })
 
-  it('filtert Cloudflare email-placeholder en valt terug op info@-fallback', () => {
-    // Non-breaking space U+00A0 tussen "email" en "protected" - precies wat
-    // Mistral leest van Cloudflare Email Protection (zie Vriesde-run bug).
-    const cloudflareEmail = '[email protected]'
+  it('filtert Cloudflare email-placeholder (regular space) en valt terug op info@-fallback', () => {
+    const cloudflareEmail = '[email protected]'
+    const p = buildPersonPayload(
+      { name: 'Dhr. Vriesde', email: cloudflareEmail, source_origin: ['website'] } as NormalizedContact,
+      1,
+      owner,
+      { companyDomain: 'automobielbedrijf-vriesde.nl' },
+    )
+    expect(p.email).toEqual([{ value: 'info@automobielbedrijf-vriesde.nl', primary: true }])
+  })
+
+  it('filtert Cloudflare email-placeholder met non-breaking space U+00A0 (productie-case Vriesde)', () => {
+    // De Vriesde-run had letterlijk dit byte-patroon: 'email' U+00A0 'protected'.
+    // EMAIL_RE valt al om over de square brackets, maar deze test pint expliciet
+    // de Cloudflare-variant met U+00A0 vast zodat we de regex-coverage borgen.
+    const cloudflareEmail = '[email\u00a0protected]'
     const p = buildPersonPayload(
       { name: 'Dhr. Vriesde', email: cloudflareEmail, source_origin: ['website'] } as NormalizedContact,
       1,

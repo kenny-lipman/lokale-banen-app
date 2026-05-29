@@ -55,10 +55,10 @@ type CareerCandidate = { url: string; method: CareerPageMethod; role: 'careers' 
  */
 // Cloudflare Email Protection rendert "[email protected]" als placeholder in HTML
 // (decode-via-JS). Mistral leest de placeholder als platte tekst en zet hem
-// als email. Non-breaking space U+00A0 of normale spatie zit tussen "email" en
-// "protected"; regex matched beide. Filtert silent zodat de info@-fallback in
-// pipedrive-payloads alsnog gebruikt wordt.
-const CLOUDFLARE_EMAIL_PLACEHOLDER_RE = /^\[email[\s ]*protected\]$/i
+// als email. `\s` matcht zowel reguliere spatie als non-breaking space U+00A0
+// die Cloudflare in de praktijk gebruikt. Filtert silent zodat de info@-fallback
+// in pipedrive-payloads alsnog gebruikt wordt.
+const CLOUDFLARE_EMAIL_PLACEHOLDER_RE = /^\[email\s*protected\]$/i
 
 function sanitizeEmail(raw: string | null | undefined): string | null {
   if (!raw) return null
