@@ -490,7 +490,18 @@ export class PipedriveClient {
     name: string
     owner_id?: number
     visible_to?: number
-    address?: { value: string }
+    // Address is een geocodable structured field. De subvelden (route,
+    // street_number, postal_code, locality, country) maken dat Pipedrive
+    // het adres herkent als Maps-place en deals het adres erven van de org.
+    // Bij alleen `value` blijft het text-only en propageert niet naar deals.
+    address?: {
+      value: string
+      route?: string
+      street_number?: string
+      postal_code?: string
+      locality?: string
+      country?: string
+    }
     industry?: number
     employee_count?: number
     custom_fields?: Record<string, unknown>
