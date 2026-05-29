@@ -3,6 +3,7 @@ import {
   buildOrgPayload,
   buildPersonPayload,
   buildDealPayload,
+  buildAddressPayload,
   nextWorkday,
 } from '@/lib/services/sales-leads/pipedrive-payloads'
 import type { MasterRecord, NormalizedContact } from '@/lib/services/sales-leads/types'
@@ -41,7 +42,14 @@ describe('buildOrgPayload', () => {
     const p = buildOrgPayload(masterFull, owner, resolvedDefaults)
     expect(p.name).toBe('WeTarget B.V.')
     expect(p.owner_id).toBe(22971285)
-    expect(p.address).toEqual({ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' })
+    // masterFull.address heeft full + postcode + city -> structured payload met
+    // value + postal_code + locality. Geen route/street_number/country want
+    // street + number + country zitten niet in dit address-object.
+    expect(p.address).toEqual({
+      value: 'Slotenmakerstraat 60, 2672GD Naaldwijk',
+      postal_code: '2672GD',
+      locality: 'Naaldwijk',
+    })
     expect(p.custom_fields).toBeDefined()
   })
 
@@ -52,11 +60,29 @@ describe('buildOrgPayload', () => {
 
   it('composet address uit losse velden als full ontbreekt', () => {
     const p = buildOrgPayload(
-      { ...masterFull, address: { street: 'Slotenmakerstraat', number: '60', postcode: '2672GD', city: 'Naaldwijk' } },
+      {
+        ...masterFull,
+        address: {
+          street: 'Slotenmakerstraat',
+          number: '60',
+          postcode: '2672GD',
+          city: 'Naaldwijk',
+          country: 'Nederland',
+        },
+      },
       owner,
       resolvedDefaults,
     )
-    expect(p.address).toEqual({ value: 'Slotenmakerstraat 60, 2672GD Naaldwijk' })
+    // Subvelden 1-op-1 doorgeduwd voor geocoding in Pipedrive; value is de
+    // samengestelde fallback-string voor display.
+    expect(p.address).toEqual({
+      value: 'Slotenmakerstraat 60, 2672GD Naaldwijk, Nederland',
+      route: 'Slotenmakerstraat',
+      street_number: '60',
+      postal_code: '2672GD',
+      locality: 'Naaldwijk',
+      country: 'Nederland',
+    })
   })
 
   it('zet standaard `industry`-veld op basis van custom-brancheEnumId', () => {
@@ -169,6 +195,96 @@ describe('buildPersonPayload', () => {
       { companyPhone: '+31 174 257 221' },
     )
     expect(p.phone).toEqual([{ value: '+31612345678', primary: true }])
+  })
+
+  it('filtert Cloudflare email-placeholder en valt terug op info@-fallback', () => {
+    // Non-breaking space U+00A0 tussen "email" en "protected" - precies wat
+    // Mistral leest van Cloudflare Email Protection (zie Vriesde-run bug).
+    const cloudflareEmail = '[email protected]'
+    const p = buildPersonPayload(
+      { name: 'Dhr. Vriesde', email: cloudflareEmail, source_origin: ['website'] } as NormalizedContact,
+      1,
+      owner,
+      { companyDomain: 'automobielbedrijf-vriesde.nl' },
+    )
+    expect(p.email).toEqual([{ value: 'info@automobielbedrijf-vriesde.nl', primary: true }])
+  })
+
+  it('filtert email zonder @ en valt terug op info@-fallback', () => {
+    const p = buildPersonPayload(
+      { name: 'X', email: 'kapot.email.nl', source_origin: ['website'] } as NormalizedContact,
+      1,
+      owner,
+      { companyDomain: 'wetarget.nl' },
+    )
+    expect(p.email).toEqual([{ value: 'info@wetarget.nl', primary: true }])
+  })
+
+  it('laat email-veld weg als zowel contact-email als fallback invalid zijn', () => {
+    const p = buildPersonPayload(
+      { name: 'X', email: '[email protected]', source_origin: ['website'] } as NormalizedContact,
+      1,
+      owner,
+    )
+    expect(p.email).toBeUndefined()
+  })
+})
+
+describe('buildAddressPayload', () => {
+  it('returnt null voor undefined address', () => {
+    expect(buildAddressPayload(undefined)).toBeNull()
+  })
+
+  it('returnt null als alle subvelden leeg zijn', () => {
+    expect(buildAddressPayload({})).toBeNull()
+    expect(buildAddressPayload({ full: '   ' })).toBeNull()
+  })
+
+  it('value-only payload als alleen .full aanwezig is', () => {
+    expect(buildAddressPayload({ full: 'Zuideinde 140, 2991 LK Barendrecht' })).toEqual({
+      value: 'Zuideinde 140, 2991 LK Barendrecht',
+    })
+  })
+
+  it('alle subvelden + composed value voor volledig structured address', () => {
+    expect(
+      buildAddressPayload({
+        street: 'Zuideinde',
+        number: '140',
+        postcode: '2991 LK',
+        city: 'Barendrecht',
+        country: 'Nederland',
+      }),
+    ).toEqual({
+      value: 'Zuideinde 140, 2991 LK Barendrecht, Nederland',
+      route: 'Zuideinde',
+      street_number: '140',
+      postal_code: '2991 LK',
+      locality: 'Barendrecht',
+      country: 'Nederland',
+    })
+  })
+
+  it('partial subvelden: alleen aanwezige fields in payload', () => {
+    expect(buildAddressPayload({ street: 'Hoofdstraat', city: 'Amsterdam' })).toEqual({
+      value: 'Hoofdstraat, Amsterdam',
+      route: 'Hoofdstraat',
+      locality: 'Amsterdam',
+    })
+  })
+
+  it('lege string-subvelden worden niet meegenomen', () => {
+    expect(
+      buildAddressPayload({
+        full: 'Hoofdstraat 1, Amsterdam',
+        street: '',
+        number: '   ',
+        city: 'Amsterdam',
+      }),
+    ).toEqual({
+      value: 'Hoofdstraat 1, Amsterdam',
+      locality: 'Amsterdam',
+    })
   })
 })
 

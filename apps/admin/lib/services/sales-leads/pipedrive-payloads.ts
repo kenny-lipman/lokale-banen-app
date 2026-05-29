@@ -6,20 +6,58 @@ import {
 } from './pipedrive-fields'
 import type { MasterRecord, NormalizedContact, NormalizedFields } from './types'
 
+// Basis RFC-vorm check. Bewust ruim; PD V2 weigert harder dan dit, maar dit
+// vangt de evident-invalid gevallen (Cloudflare-placeholder, missende @,
+// lege string) voordat we 400's krijgen.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function isValidEmail(e: string | null | undefined): boolean {
+  return !!e && EMAIL_RE.test(e.trim())
+}
+
+function composeFallbackString(address: NonNullable<NormalizedFields['address']>): string {
+  const line1 = [address.street, address.number].filter(Boolean).join(' ').trim()
+  const line2 = [address.postcode, address.city].filter(Boolean).join(' ').trim()
+  if (line1.length === 0 && line2.length === 0) return ''
+  return [line1, line2, address.country].filter((s) => s && s.length > 0).join(', ')
+}
+
 /**
  * Compose adres-string uit losse velden voor Pipedrive sync. Wordt gebruikt
  * als `address.full` niet gevuld is (KvK levert vaak alleen losse velden).
+ * Behouden voor backward-compat met tests; sync-flow gebruikt buildAddressPayload.
  */
 export function composeAddressString(address: NormalizedFields['address']): string | null {
   if (!address) return null
   if (address.full && address.full.trim().length > 0) return address.full.trim()
-  const line1 = [address.street, address.number].filter(Boolean).join(' ').trim()
-  const line2 = [address.postcode, address.city].filter(Boolean).join(' ').trim()
-  // Country alleen meenemen als er minstens een street- of postcode/city-regel is.
-  // Voorkomt `[{ value: 'NL' }]` voor company records waar alleen country gevuld is.
-  if (line1.length === 0 && line2.length === 0) return null
-  const parts = [line1, line2, address.country].filter((s) => s && s.length > 0)
-  return parts.join(', ')
+  const composed = composeFallbackString(address)
+  return composed.length > 0 ? composed : null
+}
+
+/**
+ * Bouw structured Pipedrive V2 address-payload. Subvelden worden 1-op-1
+ * doorgeduwd zodat Pipedrive het adres herkent als geocodable place en
+ * deals het adres erven van de org. Bij alleen `.full`: value-only payload
+ * (huidige gedrag pre-fix). Bij ontbrekende of lege address: null.
+ */
+export function buildAddressPayload(address: NormalizedFields['address']): {
+  value: string
+  route?: string
+  street_number?: string
+  postal_code?: string
+  locality?: string
+  country?: string
+} | null {
+  if (!address) return null
+  const value = (address.full && address.full.trim()) || composeFallbackString(address)
+  if (!value) return null
+  const out: { value: string } & Record<string, string> = { value }
+  if (address.street && address.street.trim()) out.route = address.street.trim()
+  if (address.number && address.number.trim()) out.street_number = address.number.trim()
+  if (address.postcode && address.postcode.trim()) out.postal_code = address.postcode.trim()
+  if (address.city && address.city.trim()) out.locality = address.city.trim()
+  if (address.country && address.country.trim()) out.country = address.country.trim()
+  return out
 }
 
 export type OwnerConfigForSync = {
@@ -48,7 +86,14 @@ export function buildOrgPayload(
   name: string
   owner_id: number
   visible_to: number
-  address?: { value: string }
+  address?: {
+    value: string
+    route?: string
+    street_number?: string
+    postal_code?: string
+    locality?: string
+    country?: string
+  }
   industry?: number
   employee_count?: number
   custom_fields: Record<string, unknown>
@@ -93,7 +138,7 @@ export function buildOrgPayload(
   }
   customFields[ORG_FIELD_KEYS.WETARGET_FLAG] = owner.wetarget_flag_value
 
-  const addressString = composeAddressString(master.address)
+  const addressPayload = buildAddressPayload(master.address)
   const industryEnumId = customBrancheToIndustryEnum(resolved.brancheEnumId)
 
   return {
@@ -101,10 +146,11 @@ export function buildOrgPayload(
     owner_id: owner.pipedrive_user_id,
     // V2 vereist visible_to als integer (V1 accepteerde string). 3 = "Entire company".
     visible_to: 3,
-    // V2 organization.address is een object {value, ...}, geen array zoals persons.emails.
-    // Array-format geeft success=true terug maar wordt silent genegeerd door PD.
-    // composeAddressString valt terug op street/postcode/city wanneer .full ontbreekt.
-    ...(addressString ? { address: { value: addressString } } : {}),
+    // V2 organization.address is een structured object met value + subvelden
+    // (route, street_number, postal_code, locality, country). Subvelden maken
+    // het adres geocodable in Pipedrive zodat deals het address overerven van
+    // de org. Bij alleen .full string: value-only payload (graceful degrade).
+    ...(addressPayload ? { address: addressPayload } : {}),
     // Standaard PD-veld 'industry' (key=industry) naast custom Branche-veld (5a46...).
     // Mapping van 12 custom opties naar de 20 standaard PD industry-opties.
     ...(industryEnumId != null ? { industry: industryEnumId } : {}),
@@ -117,12 +163,17 @@ export function buildOrgPayload(
 }
 
 /**
- * Bouw Pipedrive Person payload (V1; client converteert email→emails voor V2-create).
+ * Bouw Pipedrive Person payload (V1; client converteert email->emails voor V2-create).
  *
- * Email-fallback: bij contact zonder email, `companyDomain` levert info@{domain}.
- * Phone-fallback: 3-tier — contact.phone_mobile → contact.phone_other → `companyPhone`
- * (master.phone, het bedrijfsnummer). Zo komt er altijd een telefoon mee als die
- * voor het bedrijf bekend is, ook al heeft het contact zelf er geen.
+ * Email-resolutie: 1) contact.email als geldig RFC-vorm; 2) info@{companyDomain}
+ * als fallback; 3) geen email-veld in payload (sync gaat door zonder email).
+ * Boundary-validatie vangt Cloudflare-placeholders en andere invalid waardes
+ * die de bron-filter onverhoopt heeft gemist.
+ *
+ * Phone-fallback: 3-tier — contact.phone_mobile -> contact.phone_other ->
+ * `companyPhone` (master.phone, het bedrijfsnummer). Zo komt er altijd een
+ * telefoon mee als die voor het bedrijf bekend is, ook al heeft het contact
+ * zelf er geen.
  */
 export function buildPersonPayload(
   contact: NormalizedContact,
@@ -143,7 +194,14 @@ export function buildPersonPayload(
     owner_id: owner.pipedrive_user_id,
     visible_to: 3,
   }
-  const email = contact.email ?? (opts?.companyDomain ? `info@${opts.companyDomain}` : null)
+  let email: string | null = isValidEmail(contact.email) ? contact.email!.trim() : null
+  if (!email && contact.email) {
+    console.warn(`[pipedrive-payloads] Invalid contact-email gefilterd: "${contact.email}"`)
+  }
+  if (!email && opts?.companyDomain) {
+    const fallback = `info@${opts.companyDomain}`
+    if (isValidEmail(fallback)) email = fallback
+  }
   if (email) out.email = [{ value: email, primary: true }]
   const phone = contact.phone_mobile ?? contact.phone_other ?? opts?.companyPhone ?? null
   if (phone) out.phone = [{ value: phone, primary: true }]
