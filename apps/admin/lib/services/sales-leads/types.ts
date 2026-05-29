@@ -119,7 +119,7 @@ export type NormalizedContact = {
   linkedin_url?: string
   ai_priority_score?: number
   ai_priority_reason?: string
-  source_origin: Array<'apollo' | 'website' | 'kvk' | 'manual'>
+  source_origin: Array<'apollo' | 'website' | 'kvk' | 'manual' | 'synthetic'>
   is_warm_lead?: boolean
 }
 
