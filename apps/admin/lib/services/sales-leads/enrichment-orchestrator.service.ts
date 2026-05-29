@@ -9,12 +9,14 @@ import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
 import { getBrancheOptions } from './branche-options.service'
 import { upsertCompanyFromRun, upsertCareerPageSource } from './internal-linking'
+import { extractApex } from '@/lib/utils/url'
 import type {
   RunEnrichments,
   PerSourceEnrichment,
   NormalizedFields,
   NormalizedContact,
   AuditLogEntry,
+  MasterRecord,
 } from './types'
 
 type SourceName = 'kvk' | 'google_maps' | 'apollo' | 'website'
@@ -473,9 +475,63 @@ export class EnrichmentOrchestratorService {
 
   // ─── Fase D — master_record + auto-note + status='review' ─────────────
 
+  /**
+   * Inject altijd een "Afdeling Personeelszaken"-contact in apollo.parsed.contacts
+   * zodat sales hem als fallback kan selecteren ook wanneer Mistral/Apollo geen
+   * HR-persoon hebben gevonden en de site geen generieke mailbox heeft.
+   *
+   * Dedupe: skipt als de website-scrape (via isPlaceholderContactName-normalisatie)
+   * al een 'Afdeling Personeelszaken'-record heeft toegevoegd; die heeft vaak een
+   * specifiekere email gehaald uit een /contact-pagina.
+   *
+   * Email-resolutie: master.email -> info@{apex}. Phone: master.phone.
+   * `ai_priority_score=10` zodat hij standaard onderaan staat tegenover echte
+   * HR-personen (die scoren typisch 60-95 via Mistral rankContacts).
+   */
+  private async injectSyntheticPersoneelszaken(
+    runId: string,
+    inputDomain: string,
+    master: MasterRecord,
+  ): Promise<void> {
+    const run = await this.loadRun(runId)
+    const apolloEntry: PerSourceEnrichment = run.enrichments.apollo ?? { status: 'completed' }
+    const apolloParsed: NormalizedFields = apolloEntry.parsed ?? { source: 'apollo' }
+    const existing = apolloParsed.contacts ?? []
+    const targetNorm = normalizeName('Afdeling Personeelszaken')
+    if (existing.some((c) => normalizeName(c.name) === targetNorm)) {
+      return
+    }
+
+    const apex = inputDomain ? extractApex(inputDomain) : null
+    const email = master.email ?? (apex ? `info@${apex}` : undefined)
+    const phone = master.phone ?? undefined
+    if (!email && !phone) return
+
+    const synthetic: NormalizedContact = {
+      name: 'Afdeling Personeelszaken',
+      first_name: 'Afdeling Personeelszaken',
+      last_name: '',
+      title: undefined,
+      email,
+      phone_mobile: phone && /^(\+?316|00316|06)/.test(phone.replace(/\s+/g, '')) ? phone : undefined,
+      phone_other: phone && !/^(\+?316|00316|06)/.test(phone.replace(/\s+/g, '')) ? phone : undefined,
+      department: 'human_resources',
+      source_origin: ['synthetic'],
+      ai_priority_score: 10,
+      ai_priority_reason: 'Synthetic fallback - bedrijfsemail en telefoon',
+    }
+    apolloParsed.contacts = [...existing, synthetic]
+    await this.setSource(runId, 'apollo', { ...apolloEntry, parsed: apolloParsed })
+  }
+
   private async finalize(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const master = computePrimaryMaster(run.enrichments, run.input_url)
+
+    // Altijd "Afdeling Personeelszaken" beschikbaar maken in de contact-lijst,
+    // ook wanneer Mistral/Apollo geen HR-persoon vonden en de site geen generieke
+    // mailbox heeft. Sales kan hem als laatste-resort-contact aanvinken.
+    await this.injectSyntheticPersoneelszaken(runId, run.input_domain, master)
 
     // Branche-classificatie via Mistral, met actieve Pipedrive-opties als context.
     // Slaagt het: master.branche_suggestion wordt door auto-note + sync gebruikt.
