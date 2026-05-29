@@ -509,11 +509,40 @@ export class PipedriveClient {
   }
 
   /**
+   * Update an organization via V2 API (supports `custom_fields` wrapper).
+   * Tegenhanger van createOrganizationV2 - gebruikt door sales-lead sync om
+   * lege velden van een bestaande org aan te vullen met dezelfde payload-vorm
+   * als buildOrgPayload levert.
+   */
+  async updateOrganizationV2(id: number, updates: {
+    name?: string
+    owner_id?: number
+    visible_to?: number
+    address?: { value: string }
+    industry?: number
+    employee_count?: number
+    custom_fields?: Record<string, unknown>
+  }): Promise<{ id: number; [k: string]: unknown }> {
+    const data = await this.requestV2('PATCH', `/organizations/${id}`, updates)
+    return data as { id: number; [k: string]: unknown }
+  }
+
+  /**
    * Get an organization by ID
    */
   async getOrganization(id: number): Promise<any> {
     const data = await this.request('GET', `/organizations/${id}`);
     return data;
+  }
+
+  /**
+   * Get an organization via V2 API - returnt custom_fields onder de
+   * `custom_fields`-wrapper (zelfde vorm als buildOrgPayload), zodat de
+   * sales-lead sync lege velden kan vergelijken zonder V1/V2-mismatch.
+   */
+  async getOrganizationV2(id: number): Promise<{ id: number; custom_fields?: Record<string, unknown>; [k: string]: unknown }> {
+    const data = await this.requestV2('GET', `/organizations/${id}`)
+    return data as { id: number; custom_fields?: Record<string, unknown>; [k: string]: unknown }
   }
 
   /**
