@@ -53,6 +53,24 @@ type CareerCandidate = { url: string; method: CareerPageMethod; role: 'careers' 
  * Dedupe career-page candidates op canonical URL. Behoudt eerste-match-method
  * (volgorde caller bepaalt prioriteit: html_link > sitemap > subdomain_probe).
  */
+// Cloudflare Email Protection rendert "[email protected]" als placeholder in HTML
+// (decode-via-JS). Mistral leest de placeholder als platte tekst en zet hem
+// als email. Non-breaking space U+00A0 of normale spatie zit tussen "email" en
+// "protected"; regex matched beide. Filtert silent zodat de info@-fallback in
+// pipedrive-payloads alsnog gebruikt wordt.
+const CLOUDFLARE_EMAIL_PLACEHOLDER_RE = /^\[email[\s ]*protected\]$/i
+
+function sanitizeEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  if (CLOUDFLARE_EMAIL_PLACEHOLDER_RE.test(trimmed)) {
+    console.warn('[website.service] Cloudflare email-placeholder gefilterd:', raw)
+    return null
+  }
+  return trimmed
+}
+
 function mergeCareerCandidates(input: Array<{ url: string; method: CareerPageMethod }>): CareerCandidate[] {
   const seen = new Set<string>()
   const out: CareerCandidate[] = []
@@ -283,7 +301,7 @@ export class WebsiteService {
           first_name: isPlaceholder ? 'Afdeling Personeelszaken' : undefined,
           last_name: isPlaceholder ? '' : undefined,
           title: c.title ?? undefined,
-          email: c.email ?? undefined,
+          email: sanitizeEmail(c.email) ?? undefined,
           phone_mobile: isMobile ? phone ?? undefined : undefined,
           phone_other: isMobile ? undefined : phone ?? undefined,
           linkedin_url: c.linkedin_url ?? undefined,
@@ -302,7 +320,9 @@ export class WebsiteService {
       }))
 
     const phones = (e.phones ?? []).filter(Boolean)
-    const emails = (e.emails ?? []).filter(Boolean)
+    const emails = (e.emails ?? [])
+      .map((raw) => sanitizeEmail(raw))
+      .filter((v): v is string => !!v)
 
     // Career-page = eerste discovered URL met role='careers' die we ook
     // daadwerkelijk hebben kunnen ophalen. Method 'sitemap' want we ontdekken
