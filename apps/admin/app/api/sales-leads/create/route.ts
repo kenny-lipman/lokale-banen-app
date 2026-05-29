@@ -60,15 +60,35 @@ async function handler(req: NextRequest, auth: AuthResult) {
   // `force_recreate` skipt de 24u recent-completed dedupe-check. Werkt zowel in
   // single- als bulk-mode; bulk-frontend zet 'm niet (sales kan via single-mode
   // retry doen voor een specifiek domein).
-  const { input_url, input_urls, owner_config_id, manual_vacancies, scrape_vacancies, force_recreate } =
-    body as {
-      input_url?: string
-      input_urls?: string[]
-      owner_config_id?: string
-      manual_vacancies?: unknown
-      scrape_vacancies?: boolean
-      force_recreate?: boolean
+  const {
+    input_url,
+    input_urls,
+    owner_config_id,
+    manual_vacancies,
+    scrape_vacancies,
+    force_recreate,
+    contactmoment_override,
+  } = body as {
+    input_url?: string
+    input_urls?: string[]
+    owner_config_id?: string
+    manual_vacancies?: unknown
+    scrape_vacancies?: boolean
+    force_recreate?: boolean
+    contactmoment_override?: string | null
+  }
+
+  // Optionele override: YYYY-MM-DD of null. Invalid format -> 400.
+  let contactmomentOverride: string | null = null
+  if (typeof contactmoment_override === 'string' && contactmoment_override.length > 0) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(contactmoment_override)) {
+      return NextResponse.json(
+        { error: 'contactmoment_override moet YYYY-MM-DD zijn' },
+        { status: 400 },
+      )
     }
+    contactmomentOverride = contactmoment_override
+  }
 
   if (!owner_config_id || typeof owner_config_id !== 'string') {
     return NextResponse.json({ error: 'owner_config_id verplicht' }, { status: 400 })
@@ -211,6 +231,7 @@ async function handler(req: NextRequest, auth: AuthResult) {
         owner_config_id,
         manual_vacancies: cleanedVacancies as unknown as Json,
         scrape_vacancies: scrape_vacancies !== false,
+        contactmoment_override: contactmomentOverride,
         status: 'enriching',
       })
       .select('id')

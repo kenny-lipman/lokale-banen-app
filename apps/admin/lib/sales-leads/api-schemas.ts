@@ -31,6 +31,14 @@ export const stap1FormSchema = z.object({
       }),
     )
     .default([]),
+  // Optionele YYYY-MM-DD override. Leeg -> backend valt terug op auto-datum
+  // (nextWorkday op owner.contactmoment_offset_workdays). Bij bulk-create geldt
+  // dezelfde datum voor alle runs in de batch.
+  contactmoment_override: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ongeldige datum')
+    .nullable()
+    .optional(),
 })
 
 export type Stap1FormValues = z.infer<typeof stap1FormSchema>

@@ -13,12 +13,14 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { X, AlertTriangle } from 'lucide-react'
 import { stap1FormSchema, type Stap1FormValues, MAX_URLS_PER_BATCH } from '@/lib/sales-leads/api-schemas'
+import { ContactmomentPickerControl } from '@/components/sales/lead-contactmoment-picker'
 import { toast } from 'sonner'
 
 type OwnerOption = {
   id: string
   label: string
   is_active: boolean
+  contactmoment_offset_workdays?: number
 }
 
 type BulkResponse = {
@@ -42,6 +44,7 @@ export function LeadFormStap1() {
       owner_config_id: '',
       scrape_vacancies: true,
       manual_vacancies: [],
+      contactmoment_override: null,
     },
   })
 
@@ -98,6 +101,7 @@ export function LeadFormStap1() {
           input_urls: values.input_urls,
           owner_config_id: values.owner_config_id,
           scrape_vacancies: values.scrape_vacancies,
+          contactmoment_override: values.contactmoment_override ?? null,
         }),
       })
       const body = (await res.json()) as BulkResponse
@@ -231,6 +235,33 @@ export function LeadFormStap1() {
                   <FormMessage />
                 </FormItem>
               )}
+            />
+
+            <FormField
+              control={form.control}
+              name="contactmoment_override"
+              render={({ field }) => {
+                const selectedOwner = owners.find((o) => o.id === form.watch('owner_config_id'))
+                const offset = selectedOwner?.contactmoment_offset_workdays ?? 1
+                return (
+                  <FormItem>
+                    <FormLabel>Contactmoment (optioneel)</FormLabel>
+                    <FormControl>
+                      <ContactmomentPickerControl
+                        value={field.value ?? null}
+                        offsetWorkdays={offset}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <p className="text-[11px] text-gray-500">
+                      Laat leeg voor de standaard werkdag van de gekozen dealeigenaar
+                      ({offset} werkdag{offset === 1 ? '' : 'en'}).
+                      {urls.length > 1 && ' Override geldt voor alle URLs in deze batch.'}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
 
             <FormField
