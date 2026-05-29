@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Debug API for testing Pipedrive Notes API directly
  */

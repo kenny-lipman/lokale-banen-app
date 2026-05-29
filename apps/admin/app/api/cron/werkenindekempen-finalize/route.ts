@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Werkenindekempen finalizer — runs every 5 min.
  *

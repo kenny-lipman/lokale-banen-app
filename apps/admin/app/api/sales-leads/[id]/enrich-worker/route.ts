@@ -1,3 +1,4 @@
+// @auth SECRET
 import { NextRequest, NextResponse } from 'next/server'
 import { withCronAuth } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'

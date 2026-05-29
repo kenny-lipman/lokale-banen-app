@@ -13,7 +13,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
 import { instantlyClient } from '@/lib/instantly-client';
-import { validateDashboardRequest } from '@/lib/api-auth';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
+
+// @auth SESSION
 
 // Allow up to 300s on Vercel Pro
 export const maxDuration = 300;
@@ -46,19 +48,11 @@ interface BackfillRequestBody {
  * Response includes `done: boolean` — if false, send another request to continue processing.
  * skipExisting (default: true) ensures already-synced leads are quickly skipped (~1ms each).
  */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   const startTime = Date.now();
 
   try {
-    // 1. Validate authorization (accepts secret or Supabase session)
-    if (!(await validateDashboardRequest(req, { secretHeader: 'x-backfill-secret' }))) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Invalid or missing secret' },
-        { status: 401 }
-      );
-    }
-
-    // 2. Parse request body
+    // Parse request body
     let options: BackfillRequestBody = {};
     try {
       options = await req.json();
@@ -89,7 +83,7 @@ export async function POST(req: NextRequest) {
       timeLimitMs: effectiveTimeLimit,
     });
 
-    // 3. Run the backfill
+    // Run the backfill
     let result;
 
     if (campaign_ids && campaign_ids.length === 1) {
@@ -163,16 +157,8 @@ export async function POST(req: NextRequest) {
  *
  * Gets information about available campaigns for backfill
  */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
-    // Validate authorization for listing
-    if (!(await validateDashboardRequest(req, { secretHeader: 'x-backfill-secret' }))) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Invalid or missing secret' },
-        { status: 401 }
-      );
-    }
-
     // Get all campaigns
     const campaigns = await instantlyClient.listCampaigns();
 
@@ -218,3 +204,6 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(postHandler);
+export const GET = withAuth(getHandler);

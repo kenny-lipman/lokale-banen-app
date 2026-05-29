@@ -1,3 +1,4 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { PipedriveSyncService } from '@/lib/services/sales-leads/pipedrive-sync.service'

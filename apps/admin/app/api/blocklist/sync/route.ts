@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Blocklist Sync API Route
  * Syncs blocked contacts from Supabase to Instantly.ai

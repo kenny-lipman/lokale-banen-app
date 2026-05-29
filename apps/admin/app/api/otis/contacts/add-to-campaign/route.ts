@@ -1,3 +1,4 @@
+// @auth SESSION
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'

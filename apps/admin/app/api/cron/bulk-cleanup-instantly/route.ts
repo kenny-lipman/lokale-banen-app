@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Bulk Cleanup: Remove completed/bounced leads directly from Instantly API
  *

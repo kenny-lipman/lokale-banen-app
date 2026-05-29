@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Cron Job: Refresh Campaign Eligible Companies
  *

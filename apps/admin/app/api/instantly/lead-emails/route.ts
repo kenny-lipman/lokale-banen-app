@@ -7,6 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyClient, InstantlyEmail } from '@/lib/instantly-client';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
+
+// @auth SESSION
 
 export interface LeadEmailResponse {
   success: boolean;
@@ -37,7 +40,7 @@ export interface LeadEmailResponse {
  * - email (required): The lead's email address
  * - campaign_id (optional): Filter by campaign
  */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
@@ -131,3 +134,5 @@ function stripHtml(html: string): string {
     .replace(/\s+/g, ' ')    // Normalize whitespace
     .trim();
 }
+
+export const GET = withAuth(getHandler);

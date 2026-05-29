@@ -1,3 +1,4 @@
+// @auth SESSION
 // apps/admin/app/api/automations/[id]/trigger/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'

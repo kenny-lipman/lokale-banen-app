@@ -1,6 +1,12 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import type { Database } from '@/lib/supabase'
+
+type PlatformRow = Database['public']['Tables']['platforms']['Row']
+type CityRow = Database['public']['Tables']['cities']['Row'] & {
+  platforms: { regio_platform: string } | { regio_platform: string }[] | null
+}
 
 interface GroupedRegionsResponse {
   platforms: {
@@ -19,47 +25,9 @@ interface GroupedRegionsResponse {
   }[];
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, auth: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    
-    // Create an authenticated client using the user's token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const supabase = auth.supabase
 
     // Fetch platforms data first - this should be our authoritative list of platforms
     // Now including automation_enabled and is_active from platforms table
@@ -75,7 +43,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Query to get cities grouped by platform — leest regio_platform via JOIN met platforms
+    // Query to get cities grouped by platform - leest regio_platform via JOIN met platforms
     const { data: regions, error } = await supabase
       .from('cities')
       .select(`
@@ -83,7 +51,7 @@ export async function GET(request: NextRequest) {
         plaats,
         postcode,
         platform_id,
-        platforms!inner ( regio_platform )
+        platforms!cities_platform_id_fkey!inner ( regio_platform )
       `)
       .not('platform_id', 'is', null)
       .order('plaats', { ascending: true })
@@ -97,14 +65,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Create lookup maps
-    const centralPlacesMap = new Map<string, { 
-      central_place: string; 
+    const centralPlacesMap = new Map<string, {
+      central_place: string;
       central_postcode?: string;
       automation_enabled: boolean;
       is_active: boolean;
     }>()
-    
-    centralPlaces?.forEach(cp => {
+
+    centralPlaces?.forEach((cp: PlatformRow) => {
       centralPlacesMap.set(cp.regio_platform, {
         central_place: cp.central_place,
         central_postcode: cp.central_postcode ?? undefined,
@@ -121,13 +89,13 @@ export async function GET(request: NextRequest) {
     }>>()
 
     // Initialize with ALL active platforms from central places
-    centralPlaces?.forEach(cp => {
+    centralPlaces?.forEach((cp: PlatformRow) => {
       platformGroups.set(cp.regio_platform, [])
     })
-    
+
     // Then add regions to their respective platforms
-    regions?.forEach(region => {
-      const platformsRel = region.platforms as { regio_platform: string } | { regio_platform: string }[] | null
+    regions?.forEach((region: CityRow) => {
+      const platformsRel = region.platforms
       const platform = Array.isArray(platformsRel)
         ? (platformsRel[0]?.regio_platform ?? 'Unknown')
         : (platformsRel?.regio_platform ?? 'Unknown')
@@ -168,7 +136,7 @@ export async function GET(request: NextRequest) {
     const enabledPlatforms = response.platforms.filter(p => p.automation_enabled).length
     console.log(`[DEBUG] Grouped platforms API: ${enabledPlatforms} of ${totalPlatforms} platforms enabled`)
     console.log(`[DEBUG] Total platforms from DB: ${centralPlaces?.length || 0}`)
-    console.log(`[DEBUG] Enabled platforms from DB: ${centralPlaces?.filter(cp => cp.automation_enabled).length || 0}`)
+    console.log(`[DEBUG] Enabled platforms from DB: ${centralPlaces?.filter((cp: PlatformRow) => cp.automation_enabled).length || 0}`)
 
     return NextResponse.json(response, {
       headers: {
@@ -183,4 +151,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
+
+export const GET = withAuth(getHandler)

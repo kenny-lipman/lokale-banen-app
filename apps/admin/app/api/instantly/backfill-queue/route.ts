@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyBackfillService, BackfillBatchStatus } from '@/lib/services/instantly-backfill.service';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
+
+// @auth SESSION
 
 /**
  * List all backfill batches
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as BackfillBatchStatus | null;
@@ -30,3 +33,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withAuth(getHandler);

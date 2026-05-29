@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Backfill endpoint for debanensite.nl scraper
  *

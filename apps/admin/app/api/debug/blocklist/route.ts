@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Debug API for blocklist entries
  * Shows current entries and their sync status

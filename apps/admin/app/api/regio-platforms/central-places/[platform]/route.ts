@@ -1,4 +1,6 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { supabaseService } from '@/lib/supabase-service'
 import type { Database } from '@/lib/supabase'
 
@@ -13,30 +15,17 @@ interface PatchPlatformRequest {
 
 type PlatformsUpdate = Database['public']['Tables']['platforms']['Update']
 
-export async function PATCH(
+type Ctx = { params: Promise<{ platform: string }> }
+
+async function patchHandler(
   request: NextRequest,
-  ctx: { params: Promise<{ platform: string }> },
+  auth: AuthResult,
+  { params }: Ctx,
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 },
-      )
-    }
+    const supabase = auth.supabase
 
-    const token = authHeader.substring(7)
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseService.client.auth.getUser(token)
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 })
-    }
-
-    const { platform } = await ctx.params
+    const { platform } = await params
     if (!platform) {
       return NextResponse.json({ error: 'Platform parameter is required' }, { status: 400 })
     }
@@ -88,3 +77,5 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export const PATCH = withAuth(patchHandler)

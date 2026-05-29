@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Cron Job: Refresh Contact Stats Materialized View
  *

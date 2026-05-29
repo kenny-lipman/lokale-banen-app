@@ -1,53 +1,15 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
 interface PlatformAutomationUpdate {
   platform: string
   automation_enabled: boolean
 }
 
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest, auth: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    
-    // Create an authenticated client using the user's token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const supabase = auth.supabase
 
     // Parse request body
     const requestBody: PlatformAutomationUpdate = await request.json()
@@ -62,7 +24,7 @@ export async function PUT(request: NextRequest) {
     // Update the platforms table
     const { data: updatedPlatform, error: updateError } = await supabase
       .from('platforms')
-      .update({ 
+      .update({
         automation_enabled: requestBody.automation_enabled,
         updated_at: new Date().toISOString()
       })
@@ -100,47 +62,9 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, auth: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    
-    // Create an authenticated client using the user's token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const supabase = auth.supabase
 
     // Fetch all platforms with their automation settings
     const { data: platforms, error } = await supabase
@@ -173,3 +97,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const PUT = withAuth(putHandler)
+export const GET = withAuth(getHandler)

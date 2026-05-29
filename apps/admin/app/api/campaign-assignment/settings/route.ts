@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 export interface CampaignAssignmentSettings {
   id: string
@@ -12,7 +15,7 @@ export interface CampaignAssignmentSettings {
 }
 
 // GET - Fetch current settings
-export async function GET() {
+async function getHandler(_request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createServiceRoleClient()
 
@@ -62,7 +65,7 @@ export async function GET() {
 }
 
 // PUT - Update settings
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const body = await request.json()
     const { max_total_contacts, max_per_platform, is_enabled, delay_between_contacts_ms } = body
@@ -168,3 +171,6 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAuth(getHandler)
+export const PUT = withAuth(putHandler)

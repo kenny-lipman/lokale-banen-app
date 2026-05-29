@@ -2,9 +2,11 @@ import { createClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 import { contactLogger } from '@/lib/error-logger'
 import { cacheService } from '@/lib/cache-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
+// @auth SESSION
 // POST /api/otis/contacts/qualification
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   let contactId: string | undefined
   
   try {
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/otis/contacts/qualification?contactId=xxx
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     const { searchParams } = new URL(request.url)
@@ -212,5 +214,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Note: Middleware wrapping removed to fix duplicate export error
-// The functions are directly exported above
+export const POST = withAuth(postHandler)
+export const GET = withAuth(getHandler)

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+// @auth SESSION
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createServiceRoleClient()
     const searchParams = request.nextUrl.searchParams
@@ -140,3 +142,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAuth(getHandler)

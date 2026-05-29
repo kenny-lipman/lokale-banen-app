@@ -1,10 +1,15 @@
 // @ts-nocheck — OTIS feature in quarantaine
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+// @auth SESSION
+type Ctx = { params: Promise<{ sessionId: string }> }
+
+async function getHandler(
   req: NextRequest,
-  ctx: { params: Promise<{ sessionId: string }> }
+  _auth: AuthResult,
+  ctx: Ctx
 ) {
   try {
     const { sessionId } = await ctx.params
@@ -22,9 +27,11 @@ export async function GET(
 
   } catch (error) {
     console.error('Error fetching scraping results:', error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(getHandler)

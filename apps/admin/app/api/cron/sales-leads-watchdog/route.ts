@@ -1,3 +1,4 @@
+// @auth SECRET
 import { NextRequest, NextResponse } from 'next/server'
 import { withCronMonitoring } from '@/lib/cron-monitor'
 import { createServiceRoleClient } from '@/lib/supabase-server'

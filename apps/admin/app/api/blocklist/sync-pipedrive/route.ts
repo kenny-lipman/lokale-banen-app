@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Pipedrive-only Blocklist Sync API Route
  * Syncs blocked contacts from Supabase to Pipedrive only

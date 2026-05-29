@@ -5,8 +5,11 @@
  * This should be called once during initial setup.
  */
 
+// @auth ADMIN
+
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyClient, InstantlyWebhookEventType } from '@/lib/instantly-client';
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware';
 
 // The base URL for our webhook endpoint
 const getWebhookUrl = (req: NextRequest): string => {
@@ -62,7 +65,7 @@ const REQUIRED_EVENT_TYPES: InstantlyWebhookEventType[] = [
  *
  * Creates webhooks in Instantly for all required event types
  */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     // Parse optional body for custom webhook URL
     let customWebhookUrl: string | undefined;
@@ -130,7 +133,7 @@ export async function POST(req: NextRequest) {
  *
  * Lists existing webhooks in Instantly
  */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const webhooks = await instantlyClient.listWebhooks();
 
@@ -166,7 +169,7 @@ export async function GET(req: NextRequest) {
  *
  * Deletes all webhooks (for cleanup/reset)
  */
-export async function DELETE(req: NextRequest) {
+async function deleteHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const webhooks = await instantlyClient.listWebhooks();
 
@@ -203,3 +206,7 @@ export async function DELETE(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminAuth(postHandler);
+export const GET = withAdminAuth(getHandler);
+export const DELETE = withAdminAuth(deleteHandler);

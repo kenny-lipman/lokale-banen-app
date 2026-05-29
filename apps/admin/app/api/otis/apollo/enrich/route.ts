@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 interface EnrichCompanyRequest {
   companyId: string
@@ -25,37 +28,37 @@ function checkRateLimit(userId: string): { allowed: boolean, retryAfter?: number
   const now = Date.now()
   const windowStart = Math.floor(now / 60000) * 60000 // 1-minute windows
   const key = `${userId}:${windowStart}`
-  
+
   const current = rateLimitStore.get(key) || { requests: 0, resetTime: windowStart + 60000 }
-  
+
   if (current.requests >= RATE_LIMIT.requests_per_minute) {
     return { allowed: false, retryAfter: Math.ceil((current.resetTime - now) / 1000) }
   }
-  
+
   rateLimitStore.set(key, { ...current, requests: current.requests + 1 })
-  
+
   // Clean up old entries
   for (const [k, v] of rateLimitStore.entries()) {
     if (v.resetTime < now - 60000) {
       rateLimitStore.delete(k)
     }
   }
-  
+
   return { allowed: true }
 }
 
 async function enrichWithApollo(company: any): Promise<any> {
   // Mock Apollo API integration for now - replace with actual Apollo API calls
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-  
+
   // Simulate API call delay
   await delay(1000 + Math.random() * 2000)
-  
+
   // Simulate random success/failure
   if (Math.random() < 0.1) { // 10% failure rate for testing
     throw new Error('Apollo API rate limit exceeded')
   }
-  
+
   // Mock enriched data
   const mockContacts = [
     {
@@ -73,7 +76,7 @@ async function enrichWithApollo(company: any): Promise<any> {
       phone: '+31-6-87654321'
     }
   ]
-  
+
   return {
     contacts: mockContacts,
     organization: {
@@ -86,13 +89,9 @@ async function enrichWithApollo(company: any): Promise<any> {
 }
 
 // Single company enrichment
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
-    
-    // Get user from session
-    // Skip authentication for now
-    // TODO: Implement proper authentication later
 
     // Skip rate limiting for now
     // TODO: Implement proper rate limiting later
@@ -125,11 +124,11 @@ export async function POST(request: NextRequest) {
     // Check if recently enriched (within last 24 hours)
     const lastEnriched = company.apollo_enriched_at ? new Date(company.apollo_enriched_at) : null
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    
+
     if (lastEnriched && lastEnriched > twentyFourHoursAgo) {
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Company was enriched recently. Please wait 24 hours before re-enriching.',
           lastEnriched: lastEnriched.toISOString()
         },
@@ -211,7 +210,7 @@ export async function POST(request: NextRequest) {
 
     } catch (enrichmentError: any) {
       console.error('Apollo enrichment failed:', enrichmentError)
-      
+
       // Mark as failed
       await supabase
         .from('companies')
@@ -223,10 +222,10 @@ export async function POST(request: NextRequest) {
         .eq('id', companyId)
 
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Enrichment failed',
-          details: enrichmentError.message 
+          details: enrichmentError.message
         },
         { status: 500 }
       )
@@ -242,11 +241,10 @@ export async function POST(request: NextRequest) {
 }
 
 // Bulk enrichment
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
-    
-    // Get user from session
+
     // Skip authentication for now
     // TODO: Implement proper authentication later
 
@@ -364,3 +362,6 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+export const POST = withAuth(postHandler)
+export const PUT = withAuth(putHandler)

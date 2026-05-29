@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * API Route for Baanindebuurt.nl scraper
  *

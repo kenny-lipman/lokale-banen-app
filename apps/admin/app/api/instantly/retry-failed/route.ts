@@ -4,27 +4,21 @@
  * Retries all failed sync operations.
  */
 
+// @auth ADMIN
+
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
-import { validateDashboardRequest } from '@/lib/api-auth';
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware';
 
 /**
  * POST /api/instantly/retry-failed
  *
  * Retries all failed sync operations
  */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   const startTime = Date.now();
 
   try {
-    // Validate authorization (accepts secret or Supabase session)
-    if (!(await validateDashboardRequest(req, { secretHeader: 'x-retry-secret' }))) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Invalid or missing secret' },
-        { status: 401 }
-      );
-    }
-
     console.log('🔄 Starting retry of failed syncs...');
 
     const result = await instantlyPipedriveSyncService.retryFailedSyncs();
@@ -60,16 +54,8 @@ export async function POST(req: NextRequest) {
  *
  * Gets a list of failed syncs that can be retried
  */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
-    // Validate authorization (accepts secret or Supabase session)
-    if (!(await validateDashboardRequest(req, { secretHeader: 'x-retry-secret' }))) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Invalid or missing secret' },
-        { status: 401 }
-      );
-    }
-
     const failedSyncs = await instantlyPipedriveSyncService.getFailedSyncs();
 
     return NextResponse.json({
@@ -95,3 +81,6 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminAuth(postHandler);
+export const GET = withAdminAuth(getHandler);

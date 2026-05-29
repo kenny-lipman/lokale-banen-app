@@ -7,13 +7,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyPipedriveSyncService } from '@/lib/services/instantly-pipedrive-sync.service';
 import { createServiceRoleClient } from '@/lib/supabase-server';
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware';
+
+// @auth ADMIN
 
 /**
  * GET /api/instantly/sync-stats
  *
  * Returns sync statistics
  */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const stats = await instantlyPipedriveSyncService.getStats();
 
@@ -32,3 +35,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withAdminAuth(getHandler);

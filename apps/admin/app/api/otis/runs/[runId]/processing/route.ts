@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
+type Ctx = { params: Promise<{ runId: string }> }
 
 type ProcessingStatus = 'not_started' | 'in_progress' | 'completed'
 
@@ -8,9 +12,10 @@ interface UpdateProcessingRequest {
   processing_notes?: string
 }
 
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const { runId } = await params
@@ -118,9 +123,10 @@ export async function PATCH(
 }
 
 // Get processing status for a specific run
-export async function GET(
+async function getHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const { runId } = await params
@@ -173,8 +179,8 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching processing status:', error)
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -182,3 +188,6 @@ export async function GET(
     )
   }
 }
+
+export const PATCH = withAuth(patchHandler)
+export const GET = withAuth(getHandler)

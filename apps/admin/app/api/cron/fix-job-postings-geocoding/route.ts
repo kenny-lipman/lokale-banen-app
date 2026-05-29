@@ -1,3 +1,4 @@
+// @auth SECRET
 // apps/admin/app/api/cron/fix-job-postings-geocoding/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
