@@ -68,10 +68,13 @@ Wrapper: SESSION=withAuth, ADMIN=withAdminAuth, SECRET=withCronAuth, SIGNATURE=w
 
 **Status:** in-route auth-laag COMPLEET. 227/233 routes expliciet geauthenticeerd; 6 bewust pending (zie KNOWN_PENDING in auth-coverage.test.ts). De 62 open gaten zijn gedicht op de autoritatieve (route-)laag.
 
+- [x] **Middleware fail-closed** (`middleware.ts` + `lib/auth-bypass.ts`): `/api/*` zonder sessie -> 401, behalve de bypass-lijst (self-verifying cron/webhook/public). Bypass afgeleid uit de echte `@auth`-markers (36 non-session routes). `isApiAuthBypassed()` testbaar geisoleerd; `NEVER_BYPASS` voor dashboard-routes die toevallig onder een bypass-prefix vallen (`/api/cron/logs`).
+- [x] Drift-bescherming: coverage-test verifieert dat bypass exact de non-session routes dekt EN geen SESSION/ADMIN-route openzet. 305 tests groen.
+
 **Next steps:**
-1. [ ] Middleware fail-closed + bypass-prefixlijst (defense-in-depth, OUTWARD-FACING). Security-gaten zijn al gedicht in-route; dit is extra hardening tegen CVE-29927-achtige middleware-bypass. Bypass-lijst = alle niet-SESSION/ADMIN paden (PUBLIC/SECRET/SIGNATURE/pending). NIET blind flippen - eerst review.
-2. [ ] 6 pending routes: 3 webhooks (instantly/mailerlite/apollo-result) vereisen HMAC-secret-afstemming met provider + uitbreiding `WebhookType`/`getWebhookSecret`; process + mailerlite/backfill+setup hebben al secret-auth, caller bevestigen voor tighten.
-3. [ ] **Door user**: Instantly API-key roteren (gelekt via git).
+1. [ ] 6 pending routes: 3 webhooks (instantly/mailerlite/apollo-result) vereisen HMAC-secret-afstemming met provider + uitbreiding `WebhookType`/`getWebhookSecret`; process + mailerlite/backfill+setup hebben al secret-auth, caller bevestigen voor tighten.
+2. [ ] **Door user**: Instantly API-key roteren (gelekt via git).
+3. [ ] Aanrader: `next build` + preview-deploy rooktest (middleware draait pas echt bij deploy).
 
 ## Next Steps
 

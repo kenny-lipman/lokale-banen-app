@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { isApiAuthBypassed } from '@/lib/auth-bypass'
 
 /**
  * Auth-seam coverage-gate.
@@ -96,5 +97,36 @@ describe('auth-coverage', () => {
 
   it('elke route gebruikt de wrapper die bij zijn klasse hoort', () => {
     expect(wrapperMismatch, `Wrapper komt niet overeen met @auth-klasse:\n${wrapperMismatch.join('\n')}`).toEqual([])
+  })
+})
+
+describe('middleware-bypass dekt exact de non-session routes', () => {
+  const SESSION_CLASSES = new Set(['SESSION', 'ADMIN'])
+  // route-pad -> URL; dynamische segmenten ([id]) -> 'x' zodat patronen matchen.
+  const toUrl = (rel: string) =>
+    '/api/' + rel.replace(/\/route\.ts$/, '').replace(/\[[^\]]+\]/g, 'x')
+
+  const shouldBypass: string[] = []
+  const shouldNotBypass: string[] = []
+
+  for (const file of routeFiles) {
+    const rel = path.relative(API_DIR, file)
+    const src = readFileSync(file, 'utf8')
+    const m = src.match(/\/\/\s*@auth\s+(\w+)/)
+    const cls = m ? m[1] : KNOWN_PENDING.has(rel) ? 'PENDING' : null
+    if (!cls) continue
+    const url = toUrl(rel)
+    if (SESSION_CLASSES.has(cls)) shouldNotBypass.push(url)
+    else shouldBypass.push(url)
+  }
+
+  it('elke niet-SESSION/ADMIN route wordt door de middleware bypassed (anders 401 voor cron/webhook)', () => {
+    const broken = shouldBypass.filter((u) => !isApiAuthBypassed(u))
+    expect(broken, `Non-session routes die NIET bypassed worden:\n${broken.join('\n')}`).toEqual([])
+  })
+
+  it('geen enkele SESSION/ADMIN route wordt bypassed (anders open zonder sessie)', () => {
+    const leaky = shouldNotBypass.filter((u) => isApiAuthBypassed(u))
+    expect(leaky, `SESSION/ADMIN routes die ten onrechte bypassed worden:\n${leaky.join('\n')}`).toEqual([])
   })
 })
