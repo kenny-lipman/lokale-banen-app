@@ -537,13 +537,6 @@ export type Database = {
             referencedRelation: "platforms"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_cities_platforms"
-            columns: ["platform_id"]
-            isOneToOne: false
-            referencedRelation: "platforms"
-            referencedColumns: ["id"]
-          },
         ]
       }
       companies: {
@@ -3019,13 +3012,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "cities_platform_id_fkey"
-            columns: ["platform_id"]
-            isOneToOne: false
-            referencedRelation: "platforms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_cities_platforms"
             columns: ["platform_id"]
             isOneToOne: false
             referencedRelation: "platforms"

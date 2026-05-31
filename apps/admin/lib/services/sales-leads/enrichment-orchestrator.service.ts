@@ -9,12 +9,14 @@ import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
 import { getBrancheOptions } from './branche-options.service'
 import { upsertCompanyFromRun, upsertCareerPageSource } from './internal-linking'
+import { buildSyntheticPersoneelszaken } from './synthetic-contact'
 import type {
   RunEnrichments,
   PerSourceEnrichment,
   NormalizedFields,
   NormalizedContact,
   AuditLogEntry,
+  MasterRecord,
 } from './types'
 
 type SourceName = 'kvk' | 'google_maps' | 'apollo' | 'website'
@@ -473,9 +475,40 @@ export class EnrichmentOrchestratorService {
 
   // ─── Fase D — master_record + auto-note + status='review' ─────────────
 
+  /**
+   * Inject altijd een "Afdeling Personeelszaken"-contact in apollo.parsed.contacts
+   * zodat sales hem als fallback kan selecteren ook wanneer Mistral/Apollo geen
+   * HR-persoon hebben gevonden en de site geen generieke mailbox heeft.
+   *
+   * De pure synthetic-build logica zit in `buildSyntheticPersoneelszaken` zodat
+   * dedupe + email/phone-resolutie geisoleerd unit-testbaar zijn. Deze method
+   * doet alleen de DB-IO (loadRun + setSource).
+   */
+  private async injectSyntheticPersoneelszaken(
+    runId: string,
+    inputDomain: string,
+    master: MasterRecord,
+  ): Promise<void> {
+    const run = await this.loadRun(runId)
+    const apolloEntry: PerSourceEnrichment = run.enrichments.apollo ?? { status: 'completed' }
+    const apolloParsed: NormalizedFields = apolloEntry.parsed ?? { source: 'apollo' }
+    const existing = apolloParsed.contacts ?? []
+
+    const synthetic = buildSyntheticPersoneelszaken(master, inputDomain, existing)
+    if (!synthetic) return
+
+    apolloParsed.contacts = [...existing, synthetic]
+    await this.setSource(runId, 'apollo', { ...apolloEntry, parsed: apolloParsed })
+  }
+
   private async finalize(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
     const master = computePrimaryMaster(run.enrichments, run.input_url)
+
+    // Altijd "Afdeling Personeelszaken" beschikbaar maken in de contact-lijst,
+    // ook wanneer Mistral/Apollo geen HR-persoon vonden en de site geen generieke
+    // mailbox heeft. Sales kan hem als laatste-resort-contact aanvinken.
+    await this.injectSyntheticPersoneelszaken(runId, run.input_domain, master)
 
     // Branche-classificatie via Mistral, met actieve Pipedrive-opties als context.
     // Slaagt het: master.branche_suggestion wordt door auto-note + sync gebruikt.

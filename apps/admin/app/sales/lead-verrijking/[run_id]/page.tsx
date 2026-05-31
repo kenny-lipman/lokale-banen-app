@@ -253,13 +253,29 @@ export default function RunDetailPage({ params }: PageProps) {
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 space-y-6">
           <LeadMasterRecord
             runId={run_id}
             master={currentMaster}
             enrichments={run!.enrichments ?? {}}
             ownerConfig={ownerConfig}
             onChange={setMaster}
+          />
+          <LeadBrancheSelect
+            runId={run!.id}
+            brancheOverride={run!.branche_override ?? null}
+            suggestion={currentMaster.branche_suggestion ?? null}
+            onChange={({ deal_note_text }) => {
+              // PATCH-endpoint regenereert de note met het nieuwe branche-label.
+              // Trigger refetch zodat run.branche_override en master_record meegaan
+              // in de polling-state; ook lokaal alvast updaten zodat de note-card
+              // direct refresh't.
+              if (deal_note_text) {
+                setMaster({ ...currentMaster, deal_note_text })
+              }
+              hydratedRef.current = false
+              void refetch()
+            }}
           />
         </div>
         <div className="lg:col-span-2 space-y-6">
@@ -301,31 +317,6 @@ export default function RunDetailPage({ params }: PageProps) {
             }}
           />
           <LeadDiscrepancyWarnings enrichments={run!.enrichments ?? {}} master={currentMaster} />
-          <LeadContactmomentPicker
-            runId={run!.id}
-            contactmomentOverride={run!.contactmoment_override ?? null}
-            offsetWorkdays={ownerConfig?.contactmoment_offset_workdays ?? 1}
-            onChange={() => {
-              hydratedRef.current = false
-              void refetch()
-            }}
-          />
-          <LeadBrancheSelect
-            runId={run!.id}
-            brancheOverride={run!.branche_override ?? null}
-            suggestion={currentMaster.branche_suggestion ?? null}
-            onChange={({ deal_note_text }) => {
-              // PATCH-endpoint regenereert de note met het nieuwe branche-label.
-              // Trigger refetch zodat run.branche_override en master_record meegaan
-              // in de polling-state; ook lokaal alvast updaten zodat de note-card
-              // direct refresh't.
-              if (deal_note_text) {
-                setMaster({ ...currentMaster, deal_note_text })
-              }
-              hydratedRef.current = false
-              void refetch()
-            }}
-          />
           <LeadDealNoteTextarea
             runId={run!.id}
             note={currentMaster.deal_note_text ?? ''}
@@ -352,8 +343,40 @@ export default function RunDetailPage({ params }: PageProps) {
         inputDomain={run.input_domain}
         onCandidatePromoted={onCandidatePromoted}
       />
+      {showSyncCard && (
+        // Contactmoment en Sync naast elkaar als afrondende actie-rij. Zonder
+        // review-context (bv. mislukte run zonder master-record) toont alleen de
+        // Sync-kaart op volle breedte.
+        <div
+          className={
+            showReview
+              ? 'mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-start'
+              : 'mt-6'
+          }
+        >
+          {showReview && (
+            <LeadContactmomentPicker
+              runId={run.id}
+              contactmomentOverride={run.contactmoment_override ?? null}
+              offsetWorkdays={ownerConfig?.contactmoment_offset_workdays ?? 1}
+              onChange={() => {
+                hydratedRef.current = false
+                void refetch()
+              }}
+            />
+          )}
+          <LeadSyncStatus
+            run={run}
+            ownerLabel={ownerConfig?.label ?? null}
+            onSynced={async () => {
+              hydratedRef.current = false
+              await refetch()
+            }}
+          />
+        </div>
+      )}
       {timedOut && showEnriching && (
-        <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
+        <div className="mt-4 flex items-start justify-between gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
           <div>
             <p className="font-medium">Polling time-out na 5 minuten.</p>
             <p className="text-xs mt-1">
@@ -367,23 +390,11 @@ export default function RunDetailPage({ params }: PageProps) {
         </div>
       )}
       {showEnriching && (
-        <div className="rounded-md border border-dashed p-6 text-sm text-gray-500">
+        <div className="mt-6 rounded-md border border-dashed p-6 text-sm text-gray-500">
           Verrijking loopt — review verschijnt zodra de orchestrator klaar is.
         </div>
       )}
-      {showReview && master && renderReviewGrid(master)}
-      {showSyncCard && (
-        <div className="mt-6">
-          <LeadSyncStatus
-            run={run}
-            ownerLabel={ownerConfig?.label ?? null}
-            onSynced={async () => {
-              hydratedRef.current = false
-              await refetch()
-            }}
-          />
-        </div>
-      )}
+      {showReview && master && <div className="mt-6">{renderReviewGrid(master)}</div>}
     </div>
   )
 }
