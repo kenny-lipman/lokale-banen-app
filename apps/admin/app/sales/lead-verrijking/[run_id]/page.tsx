@@ -120,7 +120,19 @@ export default function RunDetailPage({ params }: PageProps) {
   const lastSentRef = useRef<string>('')
   const seqRef = useRef(0)
   useEffect(() => {
-    if (!hydratedRef.current || !run || run.status !== 'review') return
+    // Auto-save ook in de re-syncbare terminale states (failed/duplicate), niet
+    // alleen 'review'. Anders kan een gebruiker een gefaalde run niet corrigeren
+    // (bv. een ontbrekende bedrijfsnaam invullen) om opnieuw te syncen. Tijdens
+    // 'syncing' en na 'completed' bewust niet opslaan zodat de gesyncte data niet
+    // overschreven wordt.
+    if (
+      !hydratedRef.current ||
+      !run ||
+      (run.status !== 'review' &&
+        run.status !== 'failed' &&
+        run.status !== 'duplicate')
+    )
+      return
     const payload = JSON.stringify({
       master_record: debouncedMaster,
       selected_contacts: debouncedSelected,
