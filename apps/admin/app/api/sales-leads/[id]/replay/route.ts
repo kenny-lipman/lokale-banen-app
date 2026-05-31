@@ -58,7 +58,9 @@ async function handler(_req: NextRequest, auth: AuthResult, ctx: RouteContext) {
       status: 'enriching',
       enrichments: {} as unknown as Json,
       master_record: null,
-      selected_contacts: null,
+      // selected_contacts is NOT NULL (default '[]'); reset naar lege array,
+      // niet null, anders faalt de update op de not-null-constraint.
+      selected_contacts: [] as unknown as Json,
       error: null,
       pipedrive_org_id: null,
       pipedrive_deal_id: null,
