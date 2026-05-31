@@ -130,13 +130,20 @@ export class PipedriveSyncService {
 
     const master = run.master_record as MasterRecord | null
     const personIdsExisting: number[] = (run.pipedrive_person_ids as number[]) ?? []
-    if (!master?.company_name) {
+    // company_name is de Pipedrive-org-naam. Val terug op legal_name als de
+    // verrijking geen handelsnaam vond (komt voor bij KvK-only matches), zodat
+    // de sync niet onnodig blokkeert. Faal alleen als beide leeg zijn.
+    const resolvedCompanyName =
+      master?.company_name?.trim() || master?.legal_name?.trim() || ''
+    if (!master || !resolvedCompanyName) {
       return this.markFailed(runId, 'master_record.company_name ontbreekt', {
         pipedrive_org_id: run.pipedrive_org_id,
         pipedrive_deal_id: run.pipedrive_deal_id,
         pipedrive_person_ids: personIdsExisting,
       })
     }
+    // Normaliseer zodat dedup, org-payload en deal-titel dezelfde naam gebruiken.
+    master.company_name = resolvedCompanyName
 
     const { data: cfg } = await this.supabase
       .from('sales_lead_owner_config')
