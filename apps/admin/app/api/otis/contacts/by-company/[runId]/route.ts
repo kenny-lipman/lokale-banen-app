@@ -2,10 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
 import { cacheService } from '@/lib/cache-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+// @auth SESSION
+type Ctx = { params: Promise<{ runId: string }> }
+
+async function getHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   const { runId } = await params
   const { searchParams } = new URL(req.url)
@@ -477,3 +482,5 @@ export async function GET(
     }, { status: 500 })
   }
 }
+
+export const GET = withAuth(getHandler)

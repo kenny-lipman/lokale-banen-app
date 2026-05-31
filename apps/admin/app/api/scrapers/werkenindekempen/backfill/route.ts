@@ -13,18 +13,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeWerkenindekempen } from "@/lib/scrapers/werkenindekempen/scraper";
 import { DEFAULT_CONFIG, type ScraperConfig } from "@/lib/scrapers/werkenindekempen/types";
+import { withCronAuth } from "@/lib/auth-middleware";
+
+// @auth SECRET
 
 export const runtime = "nodejs";
 export const preferredRegion = ["fra1", "ams1"];
 export const maxDuration = 300;
 
-export async function POST(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  const expected = `Bearer ${process.env.CRON_SECRET ?? process.env.CRON_SECRET_KEY ?? ""}`;
-  if (!auth || auth !== expected) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+async function postHandler(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const cfg: ScraperConfig = { ...DEFAULT_CONFIG, ...body, skipStartJitter: true };
   const startTime = Date.now();
@@ -48,3 +45,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withCronAuth(postHandler);

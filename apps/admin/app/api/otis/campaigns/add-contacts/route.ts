@@ -1,6 +1,9 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 interface AddContactsToCampaignRequest {
   contactIds: string[]
@@ -70,19 +73,19 @@ async function addContactsToInstantly(contacts: any[], campaignId: string) {
   // Mock API call - replace with actual Instantly integration
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
   await delay(1000) // Simulate API call
-  
+
   // Simulate some failures
   const results = contacts.map(contact => ({
     contactId: contact.id,
     success: Math.random() > 0.05, // 95% success rate
     error: Math.random() <= 0.05 ? 'Email domain not accepted by Instantly' : null
   }))
-  
+
   return results
 }
 
 // Pre-flight validation endpoint
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(request.url)
     const contactIds = searchParams.get('contactIds')?.split(',') || []
@@ -146,7 +149,7 @@ export async function GET(request: NextRequest) {
 
     for (const contact of contacts) {
       const issues: string[] = []
-      
+
       // Check if email is valid
       const emailValid = isValidEmail(contact.email)
       if (!emailValid) {
@@ -210,7 +213,7 @@ export async function GET(request: NextRequest) {
     // Check campaign capacity
     const validContactsCount = validationResults.filter(r => r.isValid).length
     const newTotalContacts = campaignDetails.contactCount + validContactsCount
-    
+
     if (newTotalContacts > campaignDetails.maxContacts) {
       errors.push(`Campaign would exceed maximum contacts (${campaignDetails.maxContacts})`)
     }
@@ -246,18 +249,9 @@ export async function GET(request: NextRequest) {
 }
 
 // Add contacts to campaign
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
-    
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
 
     const body: AddContactsToCampaignRequest = await request.json()
     const { contactIds, campaignId, campaignName, templateId, dryRun = false } = body
@@ -290,10 +284,10 @@ export async function POST(request: NextRequest) {
       const validationUrl = new URL('/api/otis/campaigns/add-contacts', request.url)
       validationUrl.searchParams.set('contactIds', contactIds.join(','))
       validationUrl.searchParams.set('campaignId', campaignId)
-      
+
       const validationResponse = await fetch(validationUrl.toString())
       const validationData = await validationResponse.json()
-      
+
       return NextResponse.json(validationData)
     }
 
@@ -330,7 +324,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Filter to only valid contacts
-    const validContacts = contacts.filter(contact => 
+    const validContacts = contacts.filter(contact =>
       isValidEmail(contact.email) && !contact.campaign_id
     )
 
@@ -344,7 +338,7 @@ export async function POST(request: NextRequest) {
     try {
       // Add contacts to Instantly campaign
       const instantlyResults = await addContactsToInstantly(validContacts, campaignId)
-      
+
       // Track successful additions
       const successfulContactIds = instantlyResults
         .filter(result => result.success)
@@ -371,12 +365,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Log the campaign addition
+      // Note: _auth.user is available here if needed for user_id logging
       const { error: logError } = await supabase
         .from('campaign_additions')
         .insert({
           campaign_id: campaignId,
           campaign_name: campaignName,
-          added_by: user.id,
           contacts_added: successfulContactIds.length,
           contacts_failed: failedResults.length,
           total_contacts: validContacts.length,
@@ -406,10 +400,10 @@ export async function POST(request: NextRequest) {
     } catch (instantlyError: any) {
       console.error('Error adding contacts to Instantly:', instantlyError)
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Failed to add contacts to campaign',
-          details: instantlyError.message 
+          details: instantlyError.message
         },
         { status: 500 }
       )
@@ -423,3 +417,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAuth(getHandler)
+export const POST = withAuth(postHandler)

@@ -8,7 +8,6 @@ import { AlertCircle, Settings, Zap, CheckCircle, Target, Save, Link, Unlink } f
 import { Switch } from '@/components/ui/switch'
 import { usePlatformAutomationPreferences } from '@/hooks/usePlatformAutomationPreferences'
 import { toast } from 'sonner'
-import { supabaseService } from '@/lib/supabase-service'
 
 interface PlatformAutomationSectionProps {
   onPreferencesChange?: (preferences: Array<{ regio_platform: string; automation_enabled: boolean }>) => void;
@@ -46,17 +45,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
         setLoading(true)
         setError(null)
 
-        const { data: { session }, error: sessionError } = await supabaseService.client.auth.getSession()
-
-        if (sessionError || !session?.access_token) {
-          throw new Error('Authentication required')
-        }
-
-        const response = await fetch('/api/platforms', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        })
+        const response = await fetch('/api/platforms')
 
         if (!response.ok) {
           throw new Error('Failed to load platforms')
@@ -74,19 +63,10 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
     loadPlatforms()
   }, [])
 
-  const getAuthToken = async () => {
-    const { data: { session } } = await supabaseService.client.auth.getSession()
-    return session?.access_token
-  }
-
   const patchPlatform = async (platformName: string, updates: Record<string, unknown>) => {
-    const token = await getAuthToken()
-    if (!token) throw new Error('Not authenticated')
-
     const response = await fetch(`/api/regio-platforms/central-places/${encodeURIComponent(platformName)}`, {
       method: 'PATCH',
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(updates)

@@ -3,8 +3,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function POST(req: NextRequest) {
+// @auth ADMIN
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     console.log(`🔍 Simple Pipedrive Notes API test`)
 
@@ -75,3 +77,5 @@ export async function POST(req: NextRequest) {
     }, { status: 500 })
   }
 }
+
+export const POST = withAdminAuth(postHandler)

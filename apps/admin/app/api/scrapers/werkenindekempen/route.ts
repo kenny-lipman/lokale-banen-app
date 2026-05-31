@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * API Route voor werkenindekempen.nl scraper — orchestrator-mode (Fase 2).
  *

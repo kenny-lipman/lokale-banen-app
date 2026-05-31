@@ -29,13 +29,13 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
   )
 
   const triggerSync = useCallback(
-    async (force: boolean) => {
+    async (orgMode: 'auto' | 'new' | 'existing') => {
       setSyncing(true)
       try {
         const res = await fetch(`/api/sales-leads/${run.id}/sync-pipedrive`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ force_duplicate: force }),
+          body: JSON.stringify({ org_mode: orgMode }),
         })
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string }
@@ -77,7 +77,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
           <CardDescription>Klik op "Sync naar Pipedrive" om de deal aan te maken.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => triggerSync(false)} disabled={syncing}>
+          <Button onClick={() => triggerSync('auto')} disabled={syncing}>
             {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Sync naar Pipedrive
           </Button>
@@ -122,31 +122,43 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
             {dupeInfo.deal_count_6m > 0 && ` · ${dupeInfo.deal_count_6m} deal(s) afgelopen 6 mnd`}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <a
-              href={`${PIPEDRIVE_BASE}/organization/${dupeInfo.existing_org_id}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open in Pipedrive <ExternalLink className="w-3 h-3 ml-1" />
-            </a>
-          </Button>
-          {confirmingForce ? (
-            <>
-              <Button variant="destructive" disabled={syncing} onClick={() => triggerSync(true)}>
-                {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Bevestig: nieuwe deal aanmaken
-              </Button>
-              <Button variant="ghost" onClick={() => setConfirmingForce(false)}>
-                Annuleer
-              </Button>
-            </>
-          ) : (
-            <Button variant="outline" onClick={() => setConfirmingForce(true)}>
-              Toch nieuwe deal aanmaken
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-700">
+            Maak de deal aan in de bestaande organisatie zodat het klantcontact bij elkaar blijft, of
+            maak alsnog een nieuwe organisatie aan.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <a
+                href={`${PIPEDRIVE_BASE}/organization/${dupeInfo.existing_org_id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open in Pipedrive <ExternalLink className="w-3 h-3 ml-1" />
+              </a>
             </Button>
-          )}
+            {confirmingForce ? (
+              <>
+                <Button variant="destructive" disabled={syncing} onClick={() => triggerSync('new')}>
+                  {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Bevestig: nieuwe organisatie
+                </Button>
+                <Button variant="ghost" onClick={() => setConfirmingForce(false)}>
+                  Annuleer
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button disabled={syncing} onClick={() => triggerSync('existing')}>
+                  {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Deal in bestaande organisatie
+                </Button>
+                <Button variant="outline" disabled={syncing} onClick={() => setConfirmingForce(true)}>
+                  Nieuwe organisatie aanmaken
+                </Button>
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
     )
@@ -267,7 +279,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
             </div>
           )}
           {canRetrySync ? (
-            <Button onClick={() => triggerSync(false)} disabled={syncing}>
+            <Button onClick={() => triggerSync('auto')} disabled={syncing}>
               {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCw className="w-4 h-4 mr-2" />}
               Hervatten
             </Button>

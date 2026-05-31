@@ -1,6 +1,9 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 // First, let's create the activity log table migration
 const CREATE_ACTIVITY_LOG_TABLE = `
@@ -34,7 +37,7 @@ COMMENT ON COLUMN contact_activity_logs.metadata IS 'Additional context about th
 `
 
 // POST /api/otis/contacts/activity - Log a contact activity
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     const {
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
       metadata = {},
       session_id
     } = await request.json()
-    
+
     // Validate required fields
     if (!contact_id || !action_type) {
       return NextResponse.json({
@@ -53,35 +56,35 @@ export async function POST(request: NextRequest) {
         error: 'Contact ID and action type are required'
       }, { status: 400 })
     }
-    
+
     // Validate action type
     const validActions = [
-      'qualification_change', 
-      'campaign_assignment', 
-      'email_verification', 
-      'priority_change', 
-      'key_contact_toggle', 
-      'created', 
-      'updated', 
+      'qualification_change',
+      'campaign_assignment',
+      'email_verification',
+      'priority_change',
+      'key_contact_toggle',
+      'created',
+      'updated',
       'deleted'
     ]
-    
+
     if (!validActions.includes(action_type)) {
       return NextResponse.json({
         success: false,
         error: `Invalid action type. Must be one of: ${validActions.join(', ')}`
       }, { status: 400 })
     }
-    
-    // Get user from auth (if available)
+
+    // Get user from auth (if available) — used for audit logging, not for auth gate
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     // Extract IP and user agent from request headers
-    const ip_address = request.headers.get('x-forwarded-for') || 
-                      request.headers.get('x-real-ip') || 
+    const ip_address = request.headers.get('x-forwarded-for') ||
+                      request.headers.get('x-real-ip') ||
                       'unknown'
     const user_agent = request.headers.get('user-agent') || 'unknown'
-    
+
     // Create activity log entry
     const { data: activityLog, error: logError } = await supabase
       .from('contact_activity_logs')
@@ -102,16 +105,16 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single()
-    
+
     if (logError) {
       console.error('Error creating activity log:', logError)
-      
+
       // If table doesn't exist, try to create it
       if (logError.message.includes('relation "contact_activity_logs" does not exist')) {
-        const { error: createError } = await supabase.rpc('exec', { 
-          sql: CREATE_ACTIVITY_LOG_TABLE 
+        const { error: createError } = await supabase.rpc('exec', {
+          sql: CREATE_ACTIVITY_LOG_TABLE
         })
-        
+
         if (createError) {
           console.error('Error creating activity log table:', createError)
           return NextResponse.json({
@@ -119,7 +122,7 @@ export async function POST(request: NextRequest) {
             error: 'Activity logging table not found and could not be created'
           }, { status: 500 })
         }
-        
+
         // Retry the insert after creating table
         const { data: retryLog, error: retryError } = await supabase
           .from('contact_activity_logs')
@@ -140,7 +143,7 @@ export async function POST(request: NextRequest) {
           })
           .select()
           .single()
-        
+
         if (retryError) {
           console.error('Retry error creating activity log:', retryError)
           return NextResponse.json({
@@ -148,26 +151,26 @@ export async function POST(request: NextRequest) {
             error: 'Failed to create activity log'
           }, { status: 500 })
         }
-        
+
         return NextResponse.json({
           success: true,
           data: { activity_log: retryLog },
           message: 'Activity logged successfully (table created)'
         })
       }
-      
+
       return NextResponse.json({
         success: false,
         error: 'Failed to create activity log'
       }, { status: 500 })
     }
-    
+
     return NextResponse.json({
       success: true,
       data: { activity_log: activityLog },
       message: 'Activity logged successfully'
     })
-    
+
   } catch (error) {
     console.error('Error in contact activity API:', error)
     return NextResponse.json({
@@ -178,17 +181,17 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/otis/contacts/activity?contactId=xxx&limit=50
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     const { searchParams } = new URL(request.url)
-    
+
     const contactId = searchParams.get('contactId')
     const actionType = searchParams.get('actionType')
     const userId = searchParams.get('userId')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
-    
+
     let query = supabase
       .from('contact_activity_logs')
       .select(`
@@ -210,22 +213,22 @@ export async function GET(request: NextRequest) {
       `)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
-    
+
     // Apply filters
     if (contactId) {
       query = query.eq('contact_id', contactId)
     }
-    
+
     if (actionType) {
       query = query.eq('action_type', actionType)
     }
-    
+
     if (userId) {
       query = query.eq('user_id', userId)
     }
-    
+
     const { data: activities, error: activitiesError } = await query
-    
+
     if (activitiesError) {
       console.error('Error fetching activity logs:', activitiesError)
       return NextResponse.json({
@@ -233,18 +236,18 @@ export async function GET(request: NextRequest) {
         error: 'Failed to fetch activity logs'
       }, { status: 500 })
     }
-    
+
     // Get total count for pagination
     let countQuery = supabase
       .from('contact_activity_logs')
       .select('id', { count: 'exact', head: true })
-    
+
     if (contactId) countQuery = countQuery.eq('contact_id', contactId)
     if (actionType) countQuery = countQuery.eq('action_type', actionType)
     if (userId) countQuery = countQuery.eq('user_id', userId)
-    
+
     const { count } = await countQuery
-    
+
     return NextResponse.json({
       success: true,
       data: {
@@ -257,7 +260,7 @@ export async function GET(request: NextRequest) {
         }
       }
     })
-    
+
   } catch (error) {
     console.error('Error fetching contact activity:', error)
     return NextResponse.json({
@@ -266,3 +269,6 @@ export async function GET(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+export const POST = withAuth(postHandler)
+export const GET = withAuth(getHandler)

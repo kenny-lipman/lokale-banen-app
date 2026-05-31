@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { automaticCampaignAssignmentService } from '@/lib/services/automatic-campaign-assignment.service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 /**
  * POST /api/campaign-assignment/run
  * Manual trigger — delegates to the parallel orchestrator endpoint
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const body = await request.json().catch(() => ({}))
 
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to preview candidates without running assignment
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const searchParams = request.nextUrl.searchParams
     const maxTotal = parseInt(searchParams.get('maxTotal') || '50')
@@ -90,3 +93,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const POST = withAuth(postHandler)
+export const GET = withAuth(getHandler)

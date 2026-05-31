@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * API Route: Cron Job Logs
  *

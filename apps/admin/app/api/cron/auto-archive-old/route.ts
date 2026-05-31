@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Cron Job: Auto-archive Old Job Postings
  *

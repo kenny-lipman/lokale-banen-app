@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+// @auth SESSION
+type Ctx = { params: Promise<{ id: string }> }
+
+async function getHandler(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const supabase = createServiceRoleClient()
@@ -122,3 +127,5 @@ export async function GET(
     }, { status: 500 })
   }
 }
+
+export const GET = withAuth(getHandler)

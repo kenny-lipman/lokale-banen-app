@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Debug API for Pipedrive connectivity
  * Tests Pipedrive API connection and methods

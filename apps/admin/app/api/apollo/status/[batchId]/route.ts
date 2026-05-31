@@ -3,10 +3,15 @@ import { apolloStatusService } from "@/lib/apollo-status-service"
 import { statusApiLimiter } from "@/middleware/rate-limiting"
 import { performanceMonitor } from "@/lib/performance-monitoring"
 import { createServiceRoleClient } from "@/lib/supabase-server"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+// @auth SESSION
+type Ctx = { params: Promise<{ batchId: string }> }
+
+async function getHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ batchId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   const startTime = performance.now()
   let responseStatus = 200
@@ -28,7 +33,7 @@ export async function GET(
     if (!rateLimitResult.allowed) {
       responseStatus = 429
       const response = NextResponse.json(
-        { 
+        {
           error: "Rate limit exceeded",
           limit: rateLimitResult.limit,
           remaining: rateLimitResult.remaining,
@@ -36,7 +41,7 @@ export async function GET(
         },
         { status: 429 }
       )
-      
+
       // Add rate limit headers
       Object.entries({
         'X-RateLimit-Limit': rateLimitResult.limit.toString(),
@@ -46,15 +51,15 @@ export async function GET(
       }).forEach(([key, value]) => {
         response.headers.set(key, value)
       })
-      
+
       return response
     }
 
     // Check if lightweight polling is requested (for frequent polls)
     const lightweight = req.nextUrl.searchParams.get('lightweight') === 'true'
-    
+
     // Use optimized service layer
-    const result = lightweight 
+    const result = lightweight
       ? await apolloStatusService.getLightweightBatchStatus(batchId)
       : await apolloStatusService.getBatchStatus(batchId)
 
@@ -72,20 +77,20 @@ export async function GET(
 
     // Add response headers for performance
     const response = NextResponse.json(result.data)
-    
+
     // Cache headers for completed batches
     if (result.data.status === 'completed' || result.data.status === 'failed') {
       response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=30')
     } else {
       response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
     }
-    
+
     // Add performance and rate limit headers
     const processingTime = performance.now() - startTime
     response.headers.set('X-Response-Time', processingTime.toFixed(2))
     response.headers.set('X-Cache', cacheHit ? 'HIT' : 'MISS')
     response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString())
-    
+
     return response
 
   } catch (error) {
@@ -112,9 +117,10 @@ export async function GET(
 }
 
 // Update enrichment status (for Apollo webhook callbacks)
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ batchId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const { batchId } = await params
@@ -155,7 +161,7 @@ export async function PATCH(
         updateData.processing_started_at = new Date().toISOString()
       } else if (body.status === 'completed' || body.status === 'failed') {
         updateData.processing_completed_at = new Date().toISOString()
-        
+
         if (body.status === 'completed') {
           updateData.contacts_found = body.contactsFound || 0
           updateData.enriched_data = body.enrichedData || {}
@@ -239,4 +245,7 @@ export async function PATCH(
       { status: 500 }
     )
   }
-} 
+}
+
+export const GET = withAuth(getHandler)
+export const PATCH = withAuth(patchHandler)

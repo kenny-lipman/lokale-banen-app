@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth SESSION
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(req.url)
     const jobId = searchParams.get('jobId')
@@ -76,9 +78,11 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Error in apify-runs API:', error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(getHandler)

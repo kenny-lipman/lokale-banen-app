@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseService } from "@/lib/supabase-service"
 import { z } from "zod"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 const checkBlocklistSchema = z.object({
   entries: z.array(z.string().trim().toLowerCase()).min(1).max(1000)
@@ -14,7 +17,7 @@ interface BlocklistCheckResult {
   blocked_by?: string
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const supabase = supabaseService.serviceClient
 
@@ -150,3 +153,5 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
+export const POST = withAuth(postHandler)

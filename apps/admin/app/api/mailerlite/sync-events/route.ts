@@ -6,6 +6,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase-server';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
+
+// @auth SESSION
 
 export interface MailerLiteSyncEvent {
   id: string;
@@ -52,7 +55,7 @@ export interface MailerLiteSyncEventsResponse {
  * - statuses (comma-separated: success,error)
  * - sync_source (filter by sync source)
  */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createServiceRoleClient();
     const { searchParams } = new URL(req.url);
@@ -170,3 +173,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withAuth(getHandler);

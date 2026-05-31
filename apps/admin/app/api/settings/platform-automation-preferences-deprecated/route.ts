@@ -1,7 +1,7 @@
-// @ts-nocheck — deprecated route referencing dropped table user_platform_automation_preferences
+// @ts-nocheck - deprecated route referencing dropped table user_platform_automation_preferences
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
 interface PlatformAutomationPreference {
   regio_platform: string
@@ -17,52 +17,14 @@ interface PlatformPreferencesResponse {
   totalCount: number
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, auth: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    
-    // Create an authenticated client using the user's token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const supabase = auth.supabase
 
     const { data: preferences, error } = await supabase
       .from('user_platform_automation_preferences')
       .select('regio_platform, automation_enabled')
-      .eq('user_id', user.id)
+      .eq('user_id', auth.user.id)
       .order('regio_platform', { ascending: true })
 
     if (error) {
@@ -93,47 +55,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest, auth: AuthResult) {
   try {
-    // Get the current user from the request
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    
-    // Create an authenticated client using the user's token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const supabase = auth.supabase
 
     // Parse request body
     const requestBody: PlatformPreferencesRequest = await request.json()
@@ -160,7 +84,7 @@ export async function PUT(request: NextRequest) {
       .from('user_platform_automation_preferences')
       .upsert(
         requestBody.preferences.map(pref => ({
-          user_id: user.id,
+          user_id: auth.user.id,
           regio_platform: pref.regio_platform,
           automation_enabled: pref.automation_enabled
         })),
@@ -190,4 +114,7 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
+
+export const GET = withAuth(getHandler)
+export const PUT = withAuth(putHandler)

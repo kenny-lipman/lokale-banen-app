@@ -1,3 +1,4 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'

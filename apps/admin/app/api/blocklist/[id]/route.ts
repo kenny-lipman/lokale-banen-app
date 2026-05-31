@@ -3,6 +3,10 @@ import { supabaseService } from "@/lib/supabase-service"
 import { z } from "zod"
 import { removeEntryFromBlocklist, deactivateBlocklistEntry } from "@/lib/blocklist-sync"
 import { instantlyClient } from "@/lib/instantly-client"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
+type Ctx = { params: Promise<{ id: string }> }
 
 const updateBlocklistEntrySchema = z.object({
   type: z.enum(["email", "domain"]).optional(),
@@ -11,13 +15,14 @@ const updateBlocklistEntrySchema = z.object({
   is_active: z.boolean().optional()
 })
 
-export async function GET(
+async function getHandler(
   req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const supabase = supabaseService.serviceClient
-    const { id } = await ctx.params
+    const { id } = await params
 
     const { data, error } = await supabase
       .from('blocklist_entries')
@@ -49,13 +54,14 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function putHandler(
   req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const supabase = supabaseService.serviceClient
-    const { id } = await ctx.params
+    const { id } = await params
 
     // Note: Authentication temporarily disabled to match other API routes
     // TODO: Implement proper server-side auth when needed
@@ -188,12 +194,13 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function deleteHandler(
   req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
-    const { id } = await ctx.params
+    const { id } = await params
 
     // Note: Authentication temporarily disabled to match other API routes
     // TODO: Implement proper server-side auth when needed
@@ -210,3 +217,7 @@ export async function DELETE(
     )
   }
 }
+
+export const GET = withAuth(getHandler)
+export const PUT = withAuth(putHandler)
+export const DELETE = withAuth(deleteHandler)

@@ -1,25 +1,21 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { getMailerLiteClient } from '@/lib/mailerlite-client'
 
 /**
  * GET /api/mailerlite/groups
- * Fetches all MailerLite groups, filtered to "Werkgevers" groups only
+ * Fetches all MailerLite groups (ongefilterd - de UI toont alle groepen).
  */
 async function handler(request: NextRequest, authResult: AuthResult) {
   try {
     const client = getMailerLiteClient();
     const allGroups = await client.listGroups();
 
-    // Filter to only "Werkgevers" groups (case-insensitive)
-    const werkgeversGroups = allGroups.filter(group =>
-      group.name.toLowerCase().includes('werkgevers')
-    );
-
     return NextResponse.json({
       success: true,
-      groups: werkgeversGroups,
-      totalCount: werkgeversGroups.length
+      groups: allGroups,
+      totalCount: allGroups.length
     });
   } catch (error: any) {
     console.error('Error fetching MailerLite groups:', error);

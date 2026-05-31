@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Re-sync Pipedrive Organization Statuses API Route
  *

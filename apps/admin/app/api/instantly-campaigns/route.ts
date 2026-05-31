@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getInstantlyConfigValidated } from "@/lib/api-config"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth SESSION
+
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     // Get secure API configuration
     const instantlyConfig = getInstantlyConfigValidated()
@@ -24,20 +27,20 @@ export async function GET(req: NextRequest) {
           "Content-Type": "application/json"
         }
       })
-      
+
       if (!res.ok) {
         const text = await res.text();
         console.error("Instantly API error:", res.status, text)
         return NextResponse.json({ error: "Fout bij ophalen Instantly campagnes", details: text }, { status: 500 })
       }
-      
+
       const data = await res.json()
       console.log(`Fetched ${data.items?.length || 0} campaigns (skip: ${skip})`)
-      
+
       // De v2 API retourneert een object met een 'items' array die de campaigns bevat
       if (data.items && Array.isArray(data.items)) {
         allCampaigns = [...allCampaigns, ...data.items]
-        
+
         // Check if there are more campaigns to fetch
         if (data.items.length < limit) {
           hasMore = false
@@ -47,23 +50,23 @@ export async function GET(req: NextRequest) {
       } else {
         hasMore = false
       }
-      
+
       // Safety check to prevent infinite loops
       if (skip >= 1000) {
         console.warn("Reached maximum campaign limit of 1000")
         hasMore = false
       }
     }
-    
+
     console.log(`Total campaigns fetched: ${allCampaigns.length}`)
-    
+
     // Map all campaigns to the desired format
     const campaigns = allCampaigns.map((campaign: any) => ({
       id: campaign.id || "",
       name: campaign.name || "",
       status: campaign.status || ""
     }))
-    
+
     console.log("Mapped campaigns count:", campaigns.length)
     return NextResponse.json({ campaigns, total: campaigns.length })
   } catch (e) {
@@ -72,4 +75,4 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// No authentication needed for this endpoint - it only fetches campaign list
+export const GET = withAuth(getHandler)

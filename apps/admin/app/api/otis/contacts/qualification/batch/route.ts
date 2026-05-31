@@ -2,9 +2,11 @@
 import { createClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 import { cacheService } from '@/lib/cache-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
+// @auth SESSION
 // POST /api/otis/contacts/qualification/batch
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     
@@ -117,7 +119,7 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('Error in batch contact qualification API:', error)
+    console.error('Error in batch contact qualification API (POST):', error)
     return NextResponse.json({
       success: false,
       error: 'Internal server error'
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/otis/contacts/qualification/batch?companyId=xxx&status=qualified
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     const { searchParams } = new URL(request.url)
@@ -210,3 +212,6 @@ export async function GET(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+export const POST = withAuth(postHandler)
+export const GET = withAuth(getHandler)

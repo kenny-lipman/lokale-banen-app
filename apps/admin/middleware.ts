@@ -1,25 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { isApiAuthBypassed } from '@/lib/auth-bypass'
 
-// Pads die zonder login bereikbaar moeten blijven.
+// Pages die zonder login bereikbaar moeten blijven.
 const PUBLIC_PATHS = [
   '/login',
   '/forgot-password',
   '/reset-password',
   '/auth/callback',
 ]
-
-const PUBLIC_API_PREFIXES = [
-  '/api/auth/reset',   // custom reset-flow endpoints (request, validate, confirm)
-  '/api/cron',         // Vercel Cron (eigen CRON_SECRET-auth)
-  '/api/scrapers',     // Vercel Cron (eigen CRON_SECRET-auth)
-]
-
-function isPublicPath(pathname: string): boolean {
-  if (PUBLIC_PATHS.includes(pathname)) return true
-  if (PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p))) return true
-  return false
-}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -55,16 +44,27 @@ export async function middleware(request: NextRequest) {
   // BELANGRIJK: getUser() verfrist tokens en synct cookies. Niet vervangen door getSession().
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Niet-public path zonder user → redirect naar /login (alleen voor html pages)
-  if (!user && !isPublicPath(pathname)) {
-    // API routes geven gewoon door zodat withAuth/withCronAuth zelf 401 kan teruggeven
+  if (!user) {
+    // API: fail-closed. Alleen self-verifying routes (cron/webhook/public) mogen
+    // zonder sessie door; die checken in-route hun eigen secret/signature. De rest
+    // krijgt direct 401 i.p.v. door te vallen naar een mogelijk ongewrapte route.
     if (pathname.startsWith('/api/')) {
-      return response
+      if (isApiAuthBypassed(pathname)) {
+        return response
+      }
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized', code: 'NO_SESSION' },
+        { status: 401 },
+      )
     }
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(url)
+
+    // Pages zonder login → redirect naar /login.
+    if (!PUBLIC_PATHS.includes(pathname)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
+    }
   }
 
   return response

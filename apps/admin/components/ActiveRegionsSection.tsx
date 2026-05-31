@@ -63,19 +63,8 @@ export const ActiveRegionsSection: React.FC<ActiveRegionsSectionProps> = ({
 
   const loadPlatforms = async () => {
     try {
-      // Get current session for authentication
-      const { data: { session }, error: sessionError } = await supabaseService.client.auth.getSession()
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Authentication required')
-      }
-      
       // Load platforms directly from platforms table for accurate statistics
-      const response = await fetch('/api/platforms', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
+      const response = await fetch('/api/platforms')
 
       if (!response.ok) {
         throw new Error('Failed to load platforms')

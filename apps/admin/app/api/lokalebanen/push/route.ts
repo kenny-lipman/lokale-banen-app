@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuthentication } from '@/lib/auth-middleware'
+import { requireAuthentication, withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 import { pushJobPostingsToLB } from '@/lib/services/lokalebanen-push.service'
+
+// @auth ADMIN
 
 /**
  * POST /api/lokalebanen/push
@@ -8,7 +10,7 @@ import { pushJobPostingsToLB } from '@/lib/services/lokalebanen-push.service'
  * Note: Uses requireAuthentication directly instead of withAuth,
  * because withAuth expects NextResponse but SSE needs raw Response.
  */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const authResult = await requireAuthentication(req)
     const { supabase } = authResult
@@ -48,3 +50,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const POST = withAdminAuth(postHandler as any)

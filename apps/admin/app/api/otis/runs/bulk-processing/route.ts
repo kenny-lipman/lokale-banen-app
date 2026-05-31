@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
+// @auth SESSION
 type ProcessingStatus = 'not_started' | 'in_progress' | 'completed'
 
 interface BulkUpdateRequest {
@@ -8,7 +10,7 @@ interface BulkUpdateRequest {
   processing_status: ProcessingStatus
 }
 
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const body: BulkUpdateRequest = await req.json()
     
@@ -100,7 +102,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 // Get processing stats for multiple runs
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const { runIds } = await req.json()
     
@@ -162,8 +164,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error fetching bulk processing stats:', error)
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -171,3 +173,6 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
+export const PATCH = withAuth(patchHandler)
+export const POST = withAuth(postHandler)

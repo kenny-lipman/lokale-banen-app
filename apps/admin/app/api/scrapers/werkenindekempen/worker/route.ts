@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Werkenindekempen worker — processed 1 batch URLs uit de queue.
  *

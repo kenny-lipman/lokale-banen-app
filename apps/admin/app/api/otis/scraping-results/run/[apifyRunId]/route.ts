@@ -1,10 +1,15 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+// @auth SESSION
+type Ctx = { params: Promise<{ apifyRunId: string }> }
+
+async function getHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ apifyRunId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   const { apifyRunId } = await params
 
@@ -192,4 +197,6 @@ export async function GET(
       details: error.message
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(getHandler)

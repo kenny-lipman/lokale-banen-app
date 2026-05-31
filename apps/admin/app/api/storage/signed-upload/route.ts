@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Signed Upload URL API
  *

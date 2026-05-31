@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react"
 import { toast } from "sonner"
 import useSWR from "swr"
-import { supabaseService } from "@/lib/supabase-service"
 import { swrKeys } from "@/lib/swr-keys"
 
 interface PlatformAutomationPreference {
@@ -19,22 +18,8 @@ interface UsePlatformAutomationPreferencesReturn {
   loading: boolean
 }
 
-async function getAuthToken(): Promise<string> {
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabaseService.client.auth.getSession()
-  if (sessionError || !session?.access_token) {
-    throw new Error("Authentication required")
-  }
-  return session.access_token
-}
-
 async function fetchPlatformAutomationPreferences(): Promise<PlatformAutomationPreference[]> {
-  const token = await getAuthToken()
-  const response = await fetch("/api/platforms/automation", {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const response = await fetch("/api/platforms/automation")
   if (!response.ok) {
     throw new Error("Failed to load platform automation settings")
   }
@@ -72,12 +57,10 @@ export function usePlatformAutomationPreferences(): UsePlatformAutomationPrefere
       setUpdateError(null)
 
       try {
-        const token = await getAuthToken()
         const response = await fetch("/api/platforms/automation", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ platform, automation_enabled: enabled }),
         })

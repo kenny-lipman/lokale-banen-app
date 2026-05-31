@@ -10,10 +10,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { syncContactBatch, type SyncEvent } from '@/lib/services/pipedrive-ui-sync.service';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
+
+// @auth SESSION
 
 const MAX_BATCH_SIZE = 500;
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const body = await request.json();
     const { contactIds } = body;
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
       },
-    });
+    }) as unknown as NextResponse;
   } catch (err) {
     console.error('Pipedrive sync-selected error:', err);
     return NextResponse.json(
@@ -82,3 +85,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(postHandler);

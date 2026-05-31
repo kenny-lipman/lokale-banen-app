@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
 const LEAD_LIST_ID = "2af5c1a6-bf57-4511-bb30-3eaa86e17104"
 
-export async function GET() {
+async function getHandler(_req: NextRequest, _auth: AuthResult) {
   try {
     const res = await fetch("https://api.instantly.ai/api/v2/leads/list", {
       method: "POST",
@@ -29,4 +32,6 @@ export async function GET() {
   } catch (e) {
     return NextResponse.json({ error: e?.toString() }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(getHandler)

@@ -8,7 +8,6 @@ import { AlertCircle, Settings, Zap, CheckCircle } from 'lucide-react'
 import { PlatformGroup } from './PlatformGroup'
 import { useAutomationPreferences } from '@/hooks/useAutomationPreferences'
 import { toast } from 'sonner'
-import { supabaseService } from '@/lib/supabase-service'
 
 interface AutomationPreferencesSectionProps {
   onPreferencesChange?: (preferences: Array<{ region_id: string; automation_enabled: boolean }>) => void;
@@ -52,18 +51,7 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
         setLoading(true)
         setError(null)
 
-        // Get current session for authentication
-        const { data: { session }, error: sessionError } = await supabaseService.client.auth.getSession()
-        
-        if (sessionError || !session?.access_token) {
-          throw new Error('Authentication required')
-        }
-        
-        const response = await fetch('/api/regions/grouped-by-platform', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        })
+        const response = await fetch('/api/regions/grouped-by-platform')
 
         if (!response.ok) {
           throw new Error('Failed to load regions')

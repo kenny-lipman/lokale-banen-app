@@ -1,7 +1,9 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
+// @auth SESSION
 // Enhanced WebSocket message types
 interface EnrichmentWebSocketMessage {
   type: 'enrichment_progress_update' | 'new_companies_found' | 'enrichment_complete' | 'scraping_update' | 'status_change' | 'connected' | 'heartbeat' | 'error'
@@ -28,7 +30,7 @@ interface EnrichmentWebSocketMessage {
 // Connection management
 const activeConnections = new Map<string, ReadableStreamDefaultController>()
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   const { searchParams } = new URL(req.url)
   const sessionId = searchParams.get('session')
   
@@ -243,7 +245,7 @@ export async function broadcastToSession(sessionId: string, message: EnrichmentW
   }
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const { sessionId, type, data } = await req.json()
     
@@ -354,4 +356,7 @@ async function getCurrentStatus(sessionId: string) {
       details: error instanceof Error ? error.message : 'Unknown error'
     }
   }
-} 
+}
+
+export const GET = withAuth(getHandler)
+export const POST = withAuth(postHandler)

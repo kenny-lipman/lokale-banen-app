@@ -1,3 +1,4 @@
+// @auth ADMIN
 import { NextRequest, NextResponse } from 'next/server'
 import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
@@ -43,8 +44,8 @@ async function handler(req: NextRequest, _auth: AuthResult) {
   const { data, error } = await svc.rpc('cities_with_suggestions_paged', {
     p_status: status,
     p_source: source,
-    p_platform_id: platformId,
-    p_search: search || null,
+    p_platform_id: platformId ?? undefined,
+    p_search: search ?? undefined,
     p_limit: limit,
     p_offset: offset,
   })

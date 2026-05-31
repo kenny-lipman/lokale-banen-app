@@ -1,3 +1,4 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'

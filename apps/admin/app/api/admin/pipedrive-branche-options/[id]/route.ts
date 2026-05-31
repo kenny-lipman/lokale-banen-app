@@ -1,3 +1,4 @@
+// @auth ADMIN
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
