@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSecretAuth } from '@/lib/api-auth';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
 import { getMailerLiteClient } from '@/lib/mailerlite-client';
+
+// @auth SESSION
 
 /**
  * POST /api/mailerlite/setup
  *
  * One-time setup: create custom fields and register webhook in MailerLite.
- * Auth: CRON_SECRET
+ * Auth: ingelogde gebruiker (withAuth).
  */
 
 // Custom fields to create in MailerLite
@@ -22,12 +24,7 @@ const CUSTOM_FIELDS = [
   { name: 'pipedrive_person_id', type: 'text' as const },
 ];
 
-export async function POST(request: NextRequest) {
-  // Auth check
-  if (!validateSecretAuth(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const client = getMailerLiteClient();
     const results: Array<{ name: string; status: string; id?: string }> = [];
@@ -94,3 +91,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(postHandler);

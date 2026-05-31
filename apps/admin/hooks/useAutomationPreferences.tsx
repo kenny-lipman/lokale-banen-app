@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import useSWR from "swr"
-import { supabaseService } from "@/lib/supabase-service"
 import { swrKeys } from "@/lib/swr-keys"
 
 interface AutomationPreference {
@@ -19,22 +18,8 @@ interface UseAutomationPreferencesReturn {
   loading: boolean
 }
 
-async function getAuthToken(): Promise<string> {
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabaseService.client.auth.getSession()
-  if (sessionError || !session?.access_token) {
-    throw new Error("Authentication required")
-  }
-  return session.access_token
-}
-
 async function fetchAutomationPreferences(): Promise<AutomationPreference[]> {
-  const token = await getAuthToken()
-  const response = await fetch("/api/settings/automation-preferences", {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const response = await fetch("/api/settings/automation-preferences")
   if (!response.ok) {
     throw new Error("Failed to load preferences")
   }
@@ -43,12 +28,10 @@ async function fetchAutomationPreferences(): Promise<AutomationPreference[]> {
 }
 
 async function saveAutomationPreferences(preferences: AutomationPreference[]) {
-  const token = await getAuthToken()
   const response = await fetch("/api/settings/automation-preferences", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ preferences }),
   })

@@ -6,7 +6,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AlertCircle, Mail, CheckCircle, Link2, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabaseService } from '@/lib/supabase-service'
 
 interface MailerLiteGroup {
   id: string
@@ -32,28 +31,16 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [savingPlatform, setSavingPlatform] = useState<string | null>(null)
 
-  const getAuthToken = async () => {
-    const { data: { session } } = await supabaseService.client.auth.getSession()
-    return session?.access_token
-  }
-
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true)
         setError(null)
 
-        const token = await getAuthToken()
-        if (!token) {
-          throw new Error('Authentication required')
-        }
-
-        const headers = { 'Authorization': `Bearer ${token}` }
-
         // Fetch groups and platforms in parallel
         const [groupsRes, platformsRes] = await Promise.all([
-          fetch('/api/mailerlite/groups', { headers }),
-          fetch('/api/platforms', { headers })
+          fetch('/api/mailerlite/groups'),
+          fetch('/api/platforms')
         ])
 
         if (!groupsRes.ok) {
@@ -81,13 +68,10 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
   const handleGroupChange = async (platform: string, groupId: string | null) => {
     try {
       setSavingPlatform(platform)
-      const token = await getAuthToken()
-      if (!token) throw new Error('Authentication required')
 
       const response = await fetch(`/api/regio-platforms/central-places/${platform}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

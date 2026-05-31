@@ -28,8 +28,6 @@ const BYPASS_EXACT = new Set([
   '/api/instantly/webhook', // SIGNATURE (buur /webhook/setup is ADMIN)
   '/api/instantly/backfill-queue/process', // SECRET: queue-worker
   '/api/mailerlite/webhook', // SIGNATURE
-  '/api/mailerlite/backfill', // SECRET (validateSecretAuth)
-  '/api/mailerlite/setup', // SECRET (validateSecretAuth)
   '/api/webhooks/apollo-result', // SIGNATURE (buur /webhooks/apollo is ADMIN)
 ])
 

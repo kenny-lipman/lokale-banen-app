@@ -42,8 +42,6 @@ const KNOWN_PENDING = new Set<string>([
   'mailerlite/webhook/route.ts',
   'webhooks/apollo-result/route.ts',
   'instantly/backfill-queue/process/route.ts',
-  'mailerlite/backfill/route.ts',
-  'mailerlite/setup/route.ts',
 ])
 
 function findRouteFiles(dir: string): string[] {
