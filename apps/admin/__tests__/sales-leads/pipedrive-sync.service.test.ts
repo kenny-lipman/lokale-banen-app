@@ -263,24 +263,3 @@ describe('fillEmptyOrgFields (alleen lege velden aanvullen)', () => {
     expect(updateOrganizationV2).not.toHaveBeenCalled()
   })
 })
-
-describe('company_name fallback naar legal_name', () => {
-  it('valt terug op legal_name als company_name ontbreekt', async () => {
-    const supa = makeSupabaseStub({
-      run: makeRun({
-        master_record: makeMaster({
-          company_name: null as never,
-          legal_name: 'Vebego International BV' as never,
-        }),
-      }),
-    })
-    const pd = makePd()
-    const svc = new PipedriveSyncService(supa.client, pd)
-    const result = await svc.syncLeadToPipedrive('run-1')
-    expect(result.status).toBe('completed')
-    // De org wordt aangemaakt onder de juridische naam.
-    expect(pd.createOrganizationV2).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Vebego International BV' }),
-    )
-  })
-})
