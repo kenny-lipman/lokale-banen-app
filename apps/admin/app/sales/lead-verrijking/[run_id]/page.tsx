@@ -344,7 +344,7 @@ export default function RunDetailPage({ params }: PageProps) {
         onCandidatePromoted={onCandidatePromoted}
       />
       {showSyncCard && (
-        // Contactmoment en Sync naast elkaar als afrondende actie-rij. Zonder
+        // Contactmoment en Sync naast elkaar, bovenaan de pagina. Zonder
         // review-context (bv. mislukte run zonder master-record) toont alleen de
         // Sync-kaart op volle breedte.
         <div
