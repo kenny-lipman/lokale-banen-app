@@ -5,17 +5,22 @@ import { getMailerLiteClient } from '@/lib/mailerlite-client'
 
 /**
  * GET /api/mailerlite/groups
- * Fetches all MailerLite groups (ongefilterd - de UI toont alle groepen).
+ * Fetches all MailerLite groups, filtered to "Werkgevers" groups only
  */
 async function handler(request: NextRequest, authResult: AuthResult) {
   try {
     const client = getMailerLiteClient();
     const allGroups = await client.listGroups();
 
+    // Filter to only "Werkgevers" groups (case-insensitive)
+    const werkgeversGroups = allGroups.filter(group =>
+      group.name.toLowerCase().includes('werkgevers')
+    );
+
     return NextResponse.json({
       success: true,
-      groups: allGroups,
-      totalCount: allGroups.length
+      groups: werkgeversGroups,
+      totalCount: werkgeversGroups.length
     });
   } catch (error: any) {
     console.error('Error fetching MailerLite groups:', error);
