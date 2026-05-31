@@ -1,11 +1,17 @@
+// @auth ADMIN
+
 import { NextRequest, NextResponse } from 'next/server'
 import { cacheService } from '@/lib/cache-service'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 
-const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
+const INSTANTLY_API_KEY = process.env.INSTANTLY_API_KEY
 
-export async function GET(
+type Ctx = { params: Promise<{ campaignId: string }> }
+
+async function getHandler(
   request: NextRequest,
-  ctx: { params: Promise<{ campaignId: string }> }
+  _auth: AuthResult,
+  ctx: Ctx
 ) {
   try {
     const { campaignId } = await ctx.params
@@ -22,7 +28,7 @@ export async function GET(
     // Check cache first (cache for 5 minutes)
     const cacheKey = `campaign_details:${campaignId}`
     const cachedData = cacheService.get(cacheKey)
-    
+
     if (cachedData) {
       return NextResponse.json({
         success: true,
@@ -112,4 +118,6 @@ export async function GET(
       code: 'INTERNAL_SERVER_ERROR'
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAdminAuth(getHandler)

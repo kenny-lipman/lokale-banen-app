@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseService } from "@/lib/supabase-service"
 import { sendToPipedriveWebhook } from "@/lib/pipedrive-webhook"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth SESSION
+
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     // Use service role for dashboard access
     const { searchParams } = new URL(req.url)
@@ -46,7 +49,7 @@ export async function GET(req: NextRequest) {
         delete filters[key as keyof typeof filters]
       }
     })
-    
+
     // Check if we need to use inner join for company filters
     const needsCompanyJoin = !!(
       filters.companyStatus ||
@@ -295,10 +298,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const body = await req.json()
-    
+
     // Handle fetching contacts by company IDs
     if (body.companyIds) {
       const { companyIds } = body
@@ -344,19 +347,19 @@ export async function POST(req: NextRequest) {
       console.log("API: Successfully fetched contacts for companies:", data?.length || 0, "contacts")
       return NextResponse.json(data || [])
     }
-    
+
     // Handle adding contacts to campaigns
     if (body.contactIds && body.campaignId) {
       const { contactIds, campaignId, campaignName } = body
-      
+
       if (!Array.isArray(contactIds) || !campaignId) {
         return NextResponse.json({ error: "contactIds[] and campaignId required" }, { status: 400 })
       }
-      
+
       // Deduplicate contactIds to prevent duplicate processing
       const uniqueContactIds = [...new Set(contactIds)]
       console.log(`Original contactIds: ${contactIds.length}, after deduplication: ${uniqueContactIds.length}`)
-      
+
       // Get all contacts from Supabase with company details
       const { data: selectedContacts, error: contactsError } = await supabaseService.serviceClient
         .from('contacts')
@@ -383,7 +386,7 @@ export async function POST(req: NextRequest) {
           )
         `)
         .in('id', uniqueContactIds)
-      
+
       if (contactsError) {
         console.error('Error fetching contacts:', contactsError)
         return NextResponse.json(
@@ -391,22 +394,22 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         )
       }
-      
+
       if (!selectedContacts || selectedContacts.length === 0) {
         return NextResponse.json(
           { error: 'No contacts found with provided IDs' },
           { status: 404 }
         )
       }
-      
+
       console.log(`Found contacts: ${selectedContacts.length} of ${uniqueContactIds.length} requested IDs`)
-      
+
       // Get regio_platform from companies table if we have company_ids
       const companyIds = selectedContacts
         .filter(c => c.company_id)
         .map(c => c.company_id)
         .filter((id, index, self) => self.indexOf(id) === index) // unique company IDs
-      
+
       let regioPlatformMap: Record<string, string | null> = {}
       if (companyIds.length > 0) {
         const { data: companiesWithRegions, error: regionsError } = await supabaseService.serviceClient
@@ -418,7 +421,7 @@ export async function POST(req: NextRequest) {
             )
           `)
           .in('id', companyIds)
-        
+
         if (regionsError) {
           console.error('Error fetching regions:', regionsError)
         } else if (companiesWithRegions) {
@@ -431,10 +434,10 @@ export async function POST(req: NextRequest) {
           console.log('Regio platform mapping:', regioPlatformMap)
         }
       }
-      
+
       const results = []
       const processedContactIds = new Set() // Track processed contacts to prevent duplicates
-      
+
       for (const contact of selectedContacts) {
         // Skip if we've already processed this contact
         if (processedContactIds.has(contact.id)) {
@@ -442,13 +445,13 @@ export async function POST(req: NextRequest) {
           continue
         }
         processedContactIds.add(contact.id)
-        
+
         // Validate email before making API call
         if (!contact.email || contact.email.trim() === '') {
-          results.push({ 
-            contactId: contact.id, 
-            error: `Contact ${contact.name || contact.id} has no valid email address`, 
-            status: "error" 
+          results.push({
+            contactId: contact.id,
+            error: `Contact ${contact.name || contact.id} has no valid email address`,
+            status: "error"
           })
           continue
         }
@@ -456,10 +459,10 @@ export async function POST(req: NextRequest) {
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(contact.email)) {
-          results.push({ 
-            contactId: contact.id, 
-            error: `Contact ${contact.name || contact.id} has invalid email: ${contact.email}`, 
-            status: "error" 
+          results.push({
+            contactId: contact.id,
+            error: `Contact ${contact.name || contact.id} has invalid email: ${contact.email}`,
+            status: "error"
           })
           continue
         }
@@ -474,10 +477,10 @@ export async function POST(req: NextRequest) {
           })
           continue
         }
-        
+
         // Get regio_platform for this contact's company
         const regioPlatform = contact.company_id ? regioPlatformMap[contact.company_id] : null
-        
+
         const company = Array.isArray(contact.companies) ? contact.companies[0] : contact.companies
         console.log(`Company data for contact ${contact.email}:`, {
           companyId: contact.company_id,
@@ -511,10 +514,10 @@ export async function POST(req: NextRequest) {
           verify_leads_for_lead_finder: false,
           verify_leads_on_import: false
         }
-        
+
         console.log(`Creating lead for contact: ${contact.email}`)
         console.log('Lead creation payload:', JSON.stringify(body, null, 2))
-        
+
         // POST to Instantly
         let instantlyId = null
         let instantlyResponse = null
@@ -522,23 +525,23 @@ export async function POST(req: NextRequest) {
           const res = await fetch("https://api.instantly.ai/api/v2/leads", {
             method: "POST",
             headers: {
-              "Authorization": "Bearer ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw==",
+              "Authorization": `Bearer ${process.env.INSTANTLY_API_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
           })
           instantlyResponse = await res.json()
-          
+
           console.log(`Instantly API response for ${contact.email}:`, {
             status: res.status,
             statusText: res.statusText,
             data: instantlyResponse
           })
-          
+
           if (res.ok && instantlyResponse.id) {
             instantlyId = instantlyResponse.id
             console.log(`Successfully created lead: ${instantlyId} for contact: ${contact.email}`)
-            
+
             // Update contact in Supabase with lead info and campaign assignment
             const { error: updateError } = await supabaseService.serviceClient
               .from('contacts')
@@ -549,7 +552,7 @@ export async function POST(req: NextRequest) {
                 last_touch: new Date().toISOString()
               })
               .eq('id', contact.id)
-            
+
             if (updateError) {
               console.error('Error updating contact in database:', updateError)
               results.push({
@@ -569,45 +572,45 @@ export async function POST(req: NextRequest) {
               } else {
                 console.log(`[Pipedrive] Failed to sync contact ${contact.email}:`, webhookResult.error)
               }
-              
-              results.push({ 
-                contactId: contact.id, 
-                instantlyId, 
-                status: "success", 
-                contactName: contact.name || contact.email 
+
+              results.push({
+                contactId: contact.id,
+                instantlyId,
+                status: "success",
+                contactName: contact.name || contact.email
               })
             }
           } else {
             console.error(`Failed to create lead for ${contact.email}:`, instantlyResponse)
-            results.push({ 
-              contactId: contact.id, 
-              error: instantlyResponse?.message || instantlyResponse?.error || "Unknown error from Instantly API", 
+            results.push({
+              contactId: contact.id,
+              error: instantlyResponse?.message || instantlyResponse?.error || "Unknown error from Instantly API",
               status: "error",
               contactName: contact.name || contact.email
             })
           }
         } catch (err) {
-          results.push({ 
-            contactId: contact.id, 
-            error: `Network error: ${err?.toString()}`, 
+          results.push({
+            contactId: contact.id,
+            error: `Network error: ${err?.toString()}`,
             status: "error",
             contactName: contact.name || contact.email
           })
         }
       }
-      
+
       // Show clear success or error message
       const successCount = results.filter(r => r.status === "success").length
       const errorCount = results.filter(r => r.status === "error").length
-      
+
       if (successCount > 0 && errorCount === 0) {
-        return NextResponse.json({ 
-          results, 
-          message: `✅ All ${successCount} contacts successfully added to campaign "${campaignName}".` 
+        return NextResponse.json({
+          results,
+          message: `✅ All ${successCount} contacts successfully added to campaign "${campaignName}".`
         })
       } else if (successCount > 0 && errorCount > 0) {
-        return NextResponse.json({ 
-          results, 
+        return NextResponse.json({
+          results,
           message: `⚠️ ${successCount} contacts added to "${campaignName}", ${errorCount} failed.`,
           warning: true
         })
@@ -615,13 +618,13 @@ export async function POST(req: NextRequest) {
         // Give more details about why all contacts failed
         const errorMessages = results.map(r => r.error).filter(Boolean)
         const uniqueErrors = [...new Set(errorMessages)]
-        return NextResponse.json({ 
-          results, 
-          error: `❌ Adding failed for all ${results.length} contacts. Main causes: ${uniqueErrors.slice(0, 2).join(', ')}.` 
+        return NextResponse.json({
+          results,
+          error: `❌ Adding failed for all ${results.length} contacts. Main causes: ${uniqueErrors.slice(0, 2).join(', ')}.`
         }, { status: 400 })
       }
     }
-    
+
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
 
   } catch (e) {
@@ -645,4 +648,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Exports are defined inline above 
+export const GET = withAuth(getHandler)
+export const POST = withAuth(postHandler)

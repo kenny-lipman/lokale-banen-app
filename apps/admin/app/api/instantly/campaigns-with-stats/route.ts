@@ -6,12 +6,15 @@
  * Used by the Campaign Sync tab on the dashboard.
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { instantlyClient, type InstantlyCampaignAnalytics } from '@/lib/instantly-client';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
+
+// @auth SESSION
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function getHandler(_request: NextRequest, _auth: AuthResult) {
   try {
     // Fetch all campaign analytics in a single API call
     const allAnalytics = await instantlyClient.getAllCampaignsAnalytics();
@@ -46,3 +49,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withAuth(getHandler);

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseService } from "@/lib/supabase-service"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth SESSION
+
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const supabase = supabaseService.serviceClient
 
@@ -84,3 +87,5 @@ export async function GET(req: NextRequest) {
     )
   }
 }
+
+export const GET = withAuth(getHandler)

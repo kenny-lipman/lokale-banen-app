@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase-server';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
 
-export async function GET(
+// @auth SESSION
+type Ctx = { params: Promise<{ batchId: string }> }
+
+async function getHandler(
   request: NextRequest,
-  { params }: { params: Promise<{ batchId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const { batchId } = await params;
@@ -55,3 +60,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withAuth(getHandler);

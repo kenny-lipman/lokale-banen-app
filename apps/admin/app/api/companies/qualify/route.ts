@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 interface QualifyCompanyRequest {
   companyId: string
@@ -18,22 +21,22 @@ function validateApolloEnrichmentEligibility(companies: any[], action: string): 
   // Check if this is an Apollo enrichment action (can be inferred from request context)
   // For now, we'll add this validation when the frontend calls with Apollo context
   const nonQualifiedCompanies = companies.filter(c => c.qualification_status !== 'qualified')
-  
+
   if (action === 'apollo_enrichment' && nonQualifiedCompanies.length > 0) {
     return {
       isValid: false,
       error: `Apollo enrichment is only allowed for qualified companies. Found ${nonQualifiedCompanies.length} non-qualified companies.`
     }
   }
-  
+
   return { isValid: true }
 }
 
 // Single company qualification
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
-    
+
     const body: QualifyCompanyRequest = await request.json()
     const { companyId, qualification_status, qualification_notes } = body
 
@@ -80,10 +83,10 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Error updating company qualification:', updateError)
-      
+
       // Check if error is due to missing columns
-      if (updateError.message.includes('qualification_status') || 
-          updateError.message.includes('qualification_timestamp') || 
+      if (updateError.message.includes('qualification_status') ||
+          updateError.message.includes('qualification_timestamp') ||
           updateError.message.includes('qualification_notes')) {
         return NextResponse.json({
           success: false,
@@ -94,7 +97,7 @@ export async function POST(request: NextRequest) {
           }
         }, { status: 500 })
       }
-      
+
       return NextResponse.json(
         { success: false, error: 'Failed to update company qualification', details: updateError.message },
         { status: 500 }
@@ -119,10 +122,10 @@ export async function POST(request: NextRequest) {
 }
 
 // Bulk company qualification
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
-    
+
     const body: BulkQualifyRequest = await request.json()
     const { companyIds, qualification_status, qualification_notes } = body
 
@@ -168,9 +171,9 @@ export async function PUT(request: NextRequest) {
 
     if (notFoundIds.length > 0) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: `Companies not found: ${notFoundIds.slice(0, 3).join(', ')}${notFoundIds.length > 3 ? '...' : ''}` 
+        {
+          success: false,
+          error: `Companies not found: ${notFoundIds.slice(0, 3).join(', ')}${notFoundIds.length > 3 ? '...' : ''}`
         },
         { status: 404 }
       )
@@ -212,3 +215,6 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+export const POST = withAuth(postHandler)
+export const PUT = withAuth(putHandler)

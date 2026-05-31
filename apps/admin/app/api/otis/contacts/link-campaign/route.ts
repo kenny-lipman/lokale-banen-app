@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function POST(request: NextRequest) {
+// @auth SESSION
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     const { contactId, campaignId, campaignName } = await request.json()
@@ -43,4 +45,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}
+
+export const POST = withAuth(postHandler)

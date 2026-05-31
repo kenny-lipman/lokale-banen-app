@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSecretAuth } from '@/lib/api-auth';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
 import { createServiceRoleClient } from '@/lib/supabase-server';
 import { mailerliteSyncService } from '@/lib/services/mailerlite-sync.service';
 import { pipedriveClient } from '@/lib/pipedrive-client';
+
+// @auth SESSION
 
 /**
  * POST /api/mailerlite/backfill
@@ -24,12 +26,7 @@ const POSITIVE_EVENTS = [
   'custom_label_any_positive',
 ];
 
-export async function POST(request: NextRequest) {
-  // Auth check
-  if (!validateSecretAuth(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createServiceRoleClient();
     const { searchParams } = new URL(request.url);
@@ -267,3 +264,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(postHandler);

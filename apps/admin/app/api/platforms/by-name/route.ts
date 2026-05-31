@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { supabaseService } from "@/lib/supabase-service"
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(request: Request) {
+// @auth SESSION
+
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(request.url)
     const name = searchParams.get('name')
-    
+
     if (!name) {
       return NextResponse.json(
         { success: false, error: "Platform name is required" },
@@ -14,7 +17,7 @@ export async function GET(request: Request) {
     }
 
     const platform = await supabaseService.getPlatformByName(name)
-    
+
     if (platform) {
       return NextResponse.json({ success: true, data: platform })
     } else {
@@ -31,3 +34,5 @@ export async function GET(request: Request) {
     )
   }
 }
+
+export const GET = withAuth(getHandler)

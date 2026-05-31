@@ -5,8 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { pipedriveClient } from '@/lib/pipedrive-client'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth ADMIN
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     // Optional: filter by field name query param
     const searchParams = req.nextUrl.searchParams
@@ -49,3 +51,5 @@ export async function GET(req: NextRequest) {
     )
   }
 }
+
+export const GET = withAdminAuth(getHandler)

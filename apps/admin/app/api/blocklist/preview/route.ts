@@ -1,3 +1,4 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { detectBlockType, BlockType } from '@/lib/blocklist-detection'

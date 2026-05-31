@@ -1,3 +1,4 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from "next/server"
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import type { Database } from '@/lib/supabase'

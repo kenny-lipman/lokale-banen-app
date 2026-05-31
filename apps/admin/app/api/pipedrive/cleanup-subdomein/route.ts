@@ -13,6 +13,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import { pipedriveClient, SUBDOMEIN_OPTIONS } from '@/lib/pipedrive-client'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth ADMIN
 
 const SUBDOMEIN_FIELD_ID = 33 // Pipedrive field ID for Subdomein
 
@@ -26,7 +29,7 @@ const OPTIONS_TO_REMOVE = [
   { id: 124, label: 'LeidseBanen', reason: 'Duplicate - keep ID 403' },
 ]
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createServiceRoleClient()
 
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const body = await request.json().catch(() => ({}))
     const { confirm, action } = body
@@ -167,3 +170,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAdminAuth(getHandler)
+export const POST = withAdminAuth(postHandler)

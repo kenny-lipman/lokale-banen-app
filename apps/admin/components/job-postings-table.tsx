@@ -194,11 +194,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
         // Fetch company sources and platforms
         const [companySources, platformsData] = await Promise.all([
           service.getCompanySources(),
-          fetch('/api/platforms', {
-            headers: {
-              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-            }
-          }).then(res => res.json())
+          fetch('/api/platforms').then(res => res.json())
         ])
         
         setJobSourceList(companySources)
@@ -293,14 +289,10 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
     setSavingJobId(jobId)
     
     try {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      
       const response = await fetch(`/api/job-postings/${jobId}/platform`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ platform_id: selectedPlatformId })
       })

@@ -1,8 +1,10 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth SESSION
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     console.log('Starting successful-runs API...')
 
@@ -184,9 +186,11 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Error in successful-runs API:', error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAuth(getHandler)

@@ -1,3 +1,4 @@
+// @auth ADMIN
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
 import { withAdminAuth } from '@/lib/auth-middleware'

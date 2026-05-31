@@ -1,6 +1,9 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 interface ContactSelectionRequest {
   contactIds: string[]
@@ -22,7 +25,7 @@ interface ContactSelectionResponse {
 }
 
 // Get contact selections for a session
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
@@ -36,15 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createClient()
-    
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const userId = _auth.user.id
 
     // Build query
     let query = supabase
@@ -66,7 +61,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('session_id', sessionId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_selected', true)
       .order('selected_at', { ascending: false })
 
@@ -86,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     // Group by company for easier frontend handling
     const selectionsByCompany = new Map()
-    
+
     selections?.forEach(selection => {
       const companyId = selection.company_id
       if (!selectionsByCompany.has(companyId)) {
@@ -96,7 +91,7 @@ export async function GET(request: NextRequest) {
           contacts: []
         })
       }
-      
+
       selectionsByCompany.get(companyId).contacts.push({
         id: selection.contact_id,
         name: selection.contacts.name,
@@ -131,26 +126,18 @@ export async function GET(request: NextRequest) {
 }
 
 // Update contact selections
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
-    
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const userId = _auth.user.id
 
     const body: ContactSelectionRequest = await request.json()
-    const { 
-      contactIds, 
-      sessionId, 
-      apifyRunId, 
-      selectionType = 'manual', 
-      isSelected 
+    const {
+      contactIds,
+      sessionId,
+      apifyRunId,
+      selectionType = 'manual',
+      isSelected
     } = body
 
     // Validate input
@@ -202,9 +189,9 @@ export async function POST(request: NextRequest) {
 
     if (notFoundIds.length > 0) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: `Contacts not found: ${notFoundIds.slice(0, 3).join(', ')}${notFoundIds.length > 3 ? '...' : ''}` 
+        {
+          success: false,
+          error: `Contacts not found: ${notFoundIds.slice(0, 3).join(', ')}${notFoundIds.length > 3 ? '...' : ''}`
         },
         { status: 404 }
       )
@@ -213,7 +200,7 @@ export async function POST(request: NextRequest) {
     // Prepare selection records
     const selectionRecords = contacts.map(contact => ({
       session_id: sessionId,
-      user_id: user.id,
+      user_id: userId,
       contact_id: contact.id,
       company_id: contact.company_id,
       apify_run_id: apifyRunId,
@@ -257,7 +244,7 @@ export async function POST(request: NextRequest) {
         .from('contact_selections')
         .update({ is_selected: false, updated_at: new Date().toISOString() })
         .eq('session_id', sessionId)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .in('contact_id', foundContactIds)
         .select('contact_id')
 
@@ -291,7 +278,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Clear all selections for a session
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
@@ -304,22 +291,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = createClient()
-    
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const userId = _auth.user.id
 
     // Delete all selections for this session and user
     const { data: deletedSelections, error: deleteError } = await supabase
       .from('contact_selections')
       .delete()
       .eq('session_id', sessionId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .select('contact_id')
 
     if (deleteError) {
@@ -347,3 +326,7 @@ export async function DELETE(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAuth(getHandler)
+export const POST = withAuth(postHandler)
+export const DELETE = withAuth(deleteHandler)

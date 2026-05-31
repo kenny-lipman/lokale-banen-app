@@ -11,6 +11,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 import { pipedriveClient, HOOFDDOMEIN_OPTIONS, SUBDOMEIN_OPTIONS } from '@/lib/pipedrive-client'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth ADMIN
 
 // Reverse mapping: from Pipedrive enum ID to platform name
 const HOOFDDOMEIN_ID_TO_NAME = Object.fromEntries(
@@ -33,7 +36,7 @@ interface OrgToFix {
   subdomeinen_to_keep: string[]
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createServiceRoleClient()
     const { searchParams } = new URL(request.url)
@@ -158,7 +161,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const body = await request.json().catch(() => ({}))
     const { confirm, orgId, all } = body
@@ -342,3 +345,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAdminAuth(getHandler)
+export const POST = withAdminAuth(postHandler)

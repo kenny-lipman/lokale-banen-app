@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Pipedrive Backfill: Sync unprocessed contacts to Pipedrive
  *

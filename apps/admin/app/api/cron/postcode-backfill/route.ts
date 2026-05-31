@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Postcode Backfill Cron Endpoint
  *

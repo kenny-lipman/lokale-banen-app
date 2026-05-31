@@ -1,7 +1,9 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
+// @auth SESSION
 // Helper function to convert JSON to CSV
 function jsonToCsv(data: any[]): string {
   if (data.length === 0) return ''
@@ -61,7 +63,7 @@ function flattenContactData(contacts: any[]): any[] {
   }))
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     const { searchParams } = new URL(request.url)
@@ -240,3 +242,5 @@ export async function GET(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+export const GET = withAuth(getHandler)

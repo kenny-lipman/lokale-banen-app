@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth ADMIN
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   // Use internal proxy instead of direct external URL
   const webhookUrl = `${req.nextUrl.origin}/api/webhooks/apollo`
   
@@ -43,4 +45,6 @@ export async function GET(req: NextRequest) {
       webhookUrl
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAdminAuth(getHandler)

@@ -1,3 +1,4 @@
+// @auth SESSION
 /**
  * Blocklist File Upload API Route
  * Handles file upload and parsing for blocklist imports

@@ -1,10 +1,15 @@
 // @ts-nocheck — OTIS feature in quarantaine (zie docs/superpowers/specs voor schema-drift root cause)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(
+// @auth SESSION
+type Ctx = { params: Promise<{ sessionId: string }> }
+
+async function getHandler(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const { sessionId } = await params
@@ -104,9 +109,10 @@ export async function GET(
   }
 }
 
-export async function POST(
+async function postHandler(
   request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
     const { sessionId } = await params
@@ -164,4 +170,7 @@ export async function POST(
       { status: 500 }
     )
   }
-} 
+}
+
+export const GET = withAuth(getHandler)
+export const POST = withAuth(postHandler)

@@ -6,7 +6,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AlertCircle, CheckCircle, Clock, RefreshCw, Timer, XCircle, AlertTriangle } from 'lucide-react'
-import { supabaseService } from '@/lib/supabase-service'
 import { EXPECTED_INTERVAL_MS, OVERDUE_MULTIPLIER } from '@/lib/cron-config'
 
 interface CronJobLog {
@@ -137,17 +136,7 @@ export function CronJobMonitor() {
       else setLoading(true)
       setError(null)
 
-      const { data: { session }, error: sessionError } = await supabaseService.client.auth.getSession()
-
-      if (sessionError || !session?.access_token) {
-        throw new Error('Authentication required')
-      }
-
-      const response = await fetch('/api/cron/logs?days=7', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
+      const response = await fetch('/api/cron/logs?days=7')
 
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.statusText}`)

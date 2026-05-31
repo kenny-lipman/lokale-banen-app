@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { instantlyBackfillService } from '@/lib/services/instantly-backfill.service';
-import { validateDashboardRequest } from '@/lib/api-auth';
+import { withAuth, AuthResult } from '@/lib/auth-middleware';
 
-export async function POST(
+// @auth SESSION
+
+type Ctx = { params: Promise<{ batchId: string }> }
+
+async function postHandler(
   request: NextRequest,
-  { params }: { params: Promise<{ batchId: string }> }
+  _auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
-    // Validate authorization
-    if (!(await validateDashboardRequest(request))) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { batchId } = await params;
 
     await instantlyBackfillService.cancelBatch(batchId);
@@ -31,3 +31,5 @@ export async function POST(
     );
   }
 }
+
+export const POST = withAuth(postHandler);

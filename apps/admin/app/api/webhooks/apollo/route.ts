@@ -1,8 +1,11 @@
+// @auth ADMIN
+
 import { NextRequest, NextResponse } from 'next/server'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 
 /**
  * Apollo Webhook Proxy
- * 
+ *
  * This proxy endpoint hides the actual Apollo webhook URL from client code
  * and provides a centralized place for webhook configuration, authentication,
  * and error handling.
@@ -10,15 +13,15 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const APOLLO_WEBHOOK_URL = process.env.APOLLO_WEBHOOK_URL
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     // Validate environment configuration
     if (!APOLLO_WEBHOOK_URL) {
       console.error('❌ APOLLO_WEBHOOK_URL environment variable not configured')
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Webhook service not configured' 
+        {
+          success: false,
+          error: 'Webhook service not configured'
         },
         { status: 500 }
       )
@@ -26,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json()
-    
+
     // Log the proxy request (for debugging)
     console.log('🔄 Proxying Apollo webhook request:', {
       timestamp: new Date().toISOString(),
@@ -50,7 +53,6 @@ export async function POST(request: NextRequest) {
     // Get response data
     const responseData = await response.text()
     let parsedData
-    
     try {
       parsedData = JSON.parse(responseData)
     } catch {
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Apollo webhook proxy error:', error)
-    
+
     return NextResponse.json(
       {
         success: false,
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Add GET method for health checks
-export async function GET() {
+async function getHandler(_request: NextRequest, _auth: AuthResult) {
   return NextResponse.json({
     service: 'Apollo Webhook Proxy',
     status: 'healthy',
@@ -97,3 +99,6 @@ export async function GET() {
     timestamp: new Date().toISOString()
   })
 }
+
+export const POST = withAdminAuth(postHandler)
+export const GET = withAdminAuth(getHandler)

@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Cron Job: Cleanup Instantly Leads
  *

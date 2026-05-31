@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase"
 import { apolloRetryService } from "@/lib/apollo-retry-service"
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth ADMIN
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
 
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
 }
 
 // Health check endpoint
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, _auth: AuthResult) {
   try {
     const body = await req.json()
     const { action } = body
@@ -104,3 +106,6 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
+export const GET = withAdminAuth(getHandler)
+export const POST = withAdminAuth(postHandler)

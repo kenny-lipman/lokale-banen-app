@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
+// @auth SESSION
 interface QualifyCompanyRequest {
   companyId: string
   qualification_status: 'qualified' | 'disqualified' | 'review'
@@ -14,7 +16,7 @@ interface BulkQualifyRequest {
 }
 
 // Single company qualification
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Bulk company qualification
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const supabase = createClient()
     
@@ -223,3 +225,6 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
+
+export const POST = withAuth(postHandler)
+export const PUT = withAuth(putHandler)

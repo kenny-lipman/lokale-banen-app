@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedClient } from '@/lib/supabase-server'
+import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function GET(req: NextRequest) {
+// @auth ADMIN
+async function getHandler(req: NextRequest, _auth: AuthResult) {
   try {
     console.log('Testing authentication setup...')
 
@@ -78,4 +80,6 @@ export async function GET(req: NextRequest) {
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
-} 
+}
+
+export const GET = withAdminAuth(getHandler)

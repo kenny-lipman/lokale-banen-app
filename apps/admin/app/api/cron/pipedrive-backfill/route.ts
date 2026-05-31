@@ -1,3 +1,4 @@
+// @auth SECRET
 /**
  * Pipedrive Backfill Cron Endpoint
  *

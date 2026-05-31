@@ -2,8 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { cacheService } from '@/lib/cache-service'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function POST(request: NextRequest) {
+// @auth SESSION
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const { 
       event_type, 
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('start_date')
@@ -182,4 +184,7 @@ export async function GET(request: NextRequest) {
       code: 'INTERNAL_SERVER_ERROR'
     }, { status: 500 })
   }
-} 
+}
+
+export const POST = withAuth(postHandler)
+export const GET = withAuth(getHandler)

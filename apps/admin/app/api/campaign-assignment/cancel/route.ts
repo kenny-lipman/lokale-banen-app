@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
+
+// @auth SESSION
 
 /**
  * POST /api/campaign-assignment/cancel
  * Cancel active campaign assignment batch(es)
  * Supports: { batchId } for single batch, { orchestrationId } for all batches in orchestration
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, _auth: AuthResult) {
   try {
     const body = await request.json().catch(() => ({}))
     const { batchId, orchestrationId } = body
@@ -117,3 +120,5 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+export const POST = withAuth(postHandler)

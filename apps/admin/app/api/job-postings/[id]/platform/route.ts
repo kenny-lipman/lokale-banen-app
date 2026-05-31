@@ -1,55 +1,19 @@
+// @auth SESSION
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/supabase'
+import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
-export async function PATCH(
+type Ctx = { params: Promise<{ id: string }> }
+
+async function patchHandler(
   request: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
+  auth: AuthResult,
+  { params }: Ctx
 ) {
   try {
-    // Get the authorization header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    
-    // Create an authenticated client using the user's token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      console.error("Auth error:", authError)
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      )
-    }
+    const supabase = auth.supabase
 
     const { platform_id } = await request.json()
-    const { id } = await ctx.params
+    const { id } = await params
 
     // Update the job posting's platform_id
     const { data, error } = await supabase
@@ -68,8 +32,8 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: {
         id: data.id,
         platform_id: data.platform_id,
@@ -84,3 +48,5 @@ export async function PATCH(
     )
   }
 }
+
+export const PATCH = withAuth(patchHandler)
