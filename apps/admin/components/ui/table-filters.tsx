@@ -27,7 +27,13 @@ function MultiSelect({
   label: string
 }) {
   const [open, setOpen] = useState(false)
-  
+  const [search, setSearch] = useState("")
+
+  const showSearch = options.length > 8
+  const filteredOptions = showSearch && search
+    ? options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()))
+    : options
+
   const selectedCount = value.length
   const displayText = selectedCount === 0 
     ? placeholder || label
@@ -38,7 +44,7 @@ function MultiSelect({
     : `${selectedCount} geselecteerd`
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setSearch("") }}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -55,8 +61,22 @@ function MultiSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2 shadow-lg border-gray-200">
+        {showSearch && (
+          <div className="relative mb-2">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Zoeken..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 h-9"
+            />
+          </div>
+        )}
         <div className="max-h-64 overflow-auto">
-          {options.map((option) => (
+          {filteredOptions.length === 0 && (
+            <p className="text-sm text-gray-500 px-2 py-3 text-center">Geen resultaten</p>
+          )}
+          {filteredOptions.map((option) => (
             <div
               key={option.value}
               className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${
