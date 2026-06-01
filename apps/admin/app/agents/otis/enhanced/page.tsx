@@ -344,6 +344,7 @@ function FullOtisDashboard() {
   const [scrapingProgress, setScrapingProgress] = useState(0)
   const [scrapingJobs, setScrapingJobs] = useState<ScrapingJob[]>([])
   const [regions, setRegions] = useState<string[]>([])
+  const [regioPlatformSearch, setRegioPlatformSearch] = useState('')
   const [jobSources, setJobSources] = useState<JobSource[]>([])
   const [existingRuns, setExistingRuns] = useState<ApifyRun[]>([])
   const [isLoadingExistingRuns, setIsLoadingExistingRuns] = useState(false)
@@ -2516,8 +2517,21 @@ function FullOtisDashboard() {
                         <Badge variant="outline" className="text-xs">Required</Badge>
                       </Label>
                       <div className="border rounded-lg p-4 bg-gray-50">
+                        <div className="relative mb-4">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Input
+                            placeholder="Search platform..."
+                            value={regioPlatformSearch}
+                            onChange={(e) => setRegioPlatformSearch(e.target.value)}
+                            className="pl-9 bg-white"
+                          />
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {regions.map((platform) => (
+                          {regions
+                            .filter((platform) =>
+                              platform.toLowerCase().includes(regioPlatformSearch.toLowerCase())
+                            )
+                            .map((platform) => (
                             <div key={platform} className="flex items-center space-x-2">
                               <Checkbox
                                 id={platform}
@@ -2537,6 +2551,13 @@ function FullOtisDashboard() {
                             </div>
                           ))}
                         </div>
+                        {regions.filter((platform) =>
+                          platform.toLowerCase().includes(regioPlatformSearch.toLowerCase())
+                        ).length === 0 && (
+                          <p className="text-sm text-gray-500 py-2">
+                            No platform found for &quot;{regioPlatformSearch}&quot;
+                          </p>
+                        )}
                         {scrapingConfig.selectedRegioPlatforms.length > 0 && (
                           <div className="mt-4 pt-3 border-t border-gray-200">
                             <div className="flex items-center justify-between">
