@@ -8,7 +8,7 @@
 
 ## Key Tables
 
-- `job_postings` - Alle gescrapete vacatures. Kolom `last_seen_in_sitemap` (timestamptz) gebruikt door werkenindekempen-scraper voor delisted-detection (3-dagen grace voor archive).
+- `job_postings` - Alle gescrapete vacatures. Kolom `last_seen_in_sitemap` (timestamptz) gebruikt door werkenindekempen-scraper voor delisted-detection (3-dagen grace voor archive). Kolommen `needs_detail_scrape` (boolean, default false) + `detail_scraped_at` (timestamptz): queue-marker voor de career-page detail-verrijking. Career-page-vacatures worden bij run-completion (`finalize()` -> `upsertJobPostingsFromRun`) aangemaakt. De detailvelden (salary/description/job_type/working_hours/education_level/career_level/categories) worden waar mogelijk al **inline** gevuld door de website-stap (`WebsiteService.crawlAndParse`, eerste ~15 vacatures, gedeelde extractor `vacancy-detail/extract.ts`). Die rijen krijgen `needs_detail_scrape=false`. De overflow (boven de inline-cap) en mislukkingen krijgen `needs_detail_scrape=true` en worden door de cron `career-page-detail-scrape` opgepakt (claimt -> vlag uit, verrijkt, zet `detail_scraped_at`). Smalle partial index `idx_job_postings_needs_detail_scrape (created_at) WHERE needs_detail_scrape` houdt de queue los van alle andere scraper-rijen.
 - `companies` - Company records met enrichment data. Kolom `werkenindekempen_id` (text, partial unique index) als primaire dedup-key voor werkenindekempen-source, fallback naar `normalized_name`/`hoofddomein`.
 - `contacts` - Contact persons gelinkt aan companies.
 - `job_sources` - Scraper sources met `kind` veld:

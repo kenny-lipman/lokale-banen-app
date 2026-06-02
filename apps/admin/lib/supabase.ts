@@ -1810,6 +1810,7 @@ export type Database = {
           country: string | null
           created_at: string | null
           description: string | null
+          detail_scraped_at: string | null
           education_level: string | null
           employment: string | null
           end_date: string | null
@@ -1828,6 +1829,7 @@ export type Database = {
           lokalebanen_id: string | null
           lokalebanen_pushed_at: string | null
           longitude: string | null
+          needs_detail_scrape: boolean
           platform_id: string | null
           published_at: string | null
           review_status: string | null
@@ -1866,6 +1868,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           description?: string | null
+          detail_scraped_at?: string | null
           education_level?: string | null
           employment?: string | null
           end_date?: string | null
@@ -1884,6 +1887,7 @@ export type Database = {
           lokalebanen_id?: string | null
           lokalebanen_pushed_at?: string | null
           longitude?: string | null
+          needs_detail_scrape?: boolean
           platform_id?: string | null
           published_at?: string | null
           review_status?: string | null
@@ -1922,6 +1926,7 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           description?: string | null
+          detail_scraped_at?: string | null
           education_level?: string | null
           employment?: string | null
           end_date?: string | null
@@ -1940,6 +1945,7 @@ export type Database = {
           lokalebanen_id?: string | null
           lokalebanen_pushed_at?: string | null
           longitude?: string | null
+          needs_detail_scrape?: boolean
           platform_id?: string | null
           published_at?: string | null
           review_status?: string | null

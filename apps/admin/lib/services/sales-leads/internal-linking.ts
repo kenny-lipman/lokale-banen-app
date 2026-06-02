@@ -2,6 +2,7 @@ import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeUrl } from '@/lib/utils/url'
 import { detectAts } from './ats-detect'
+import { detailFieldsToJobPostingUpdate } from './vacancy-detail/extract'
 import type { CareerPageMethod, MasterRecord, NormalizedVacancy } from './types'
 
 type SB = SupabaseClient
@@ -248,13 +249,24 @@ export async function upsertJobPostingsFromRun(
       skipped++
       continue
     }
+    const now = new Date().toISOString()
+    // Detail al bekend uit de inline website-stap? Dan velden meeschrijven en
+    // de cron-worker niet meer laten ophalen. Geen detail (overflow boven de
+    // inline-cap, tijd-budget op, of fetch geblokkeerd) -> needs_detail_scrape
+    // op true zodat de career-page-detail cron hem alsnog verrijkt.
+    const detailUpdate = v.detail ? detailFieldsToJobPostingUpdate(v.detail) : {}
     const { error } = await supabase.from('job_postings').insert({
       company_id: args.company_id,
       source_id: args.source_id,
       title: v.title,
       url: v.url,
       location: v.location ?? null,
-      created_at: new Date().toISOString(),
+      created_at: now,
+      // scraped_at = nu (moment van scrapen). Voorheen null, wat de UI als
+      // 1 januari 1970 rendert.
+      scraped_at: now,
+      ...detailUpdate,
+      needs_detail_scrape: !v.detail,
     })
     if (error) {
       console.error(`[internal-linking] insert vacancy failed: ${error.message}`)
@@ -264,6 +276,32 @@ export async function upsertJobPostingsFromRun(
     inserted++
   }
   return { inserted, skipped }
+}
+
+/**
+ * Zoek de career-page-bron (job_sources kind='company_career_page') van een
+ * bedrijf om vacatures aan te koppelen. Voorkeur voor een approved bron
+ * ('approved' < 'pending' alfabetisch); 'rejected' wordt uitgesloten.
+ * Returnt null als er geen bestaat.
+ */
+export async function resolveCareerPageSourceId(
+  supabase: SB,
+  companyId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('job_sources')
+    .select('id, review_status')
+    .eq('company_id', companyId)
+    .eq('kind', 'company_career_page')
+    .neq('review_status', 'rejected')
+    .order('review_status', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error('[internal-linking] resolveCareerPageSourceId:', error.message)
+    return null
+  }
+  return data?.id ?? null
 }
 
 export function getServiceClient(): SB {

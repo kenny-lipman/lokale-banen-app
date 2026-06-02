@@ -8,6 +8,7 @@ import { isPlaceholderContactName } from './contact-filters'
 import { WEBSITE_EXTRACTION_PROMPT_V1 } from './prompts/website-extraction.v1'
 import { normalizeUrl } from '@/lib/utils/url'
 import { detectAts } from './ats-detect'
+import { fetchAndExtractVacancyDetail, mergeDetailIntoVacancy } from './vacancy-detail/extract'
 import type {
   CareerPageMethod,
   NormalizedFields,
@@ -87,6 +88,16 @@ const MAX_TOTAL_TOKENS = 30_000
 const MAX_PAGES = 50
 const FETCH_CONCURRENCY = 5
 
+// Inline vacature-detail-verrijking (op het kritieke pad van de run).
+// Cap + tijd-budget houden de run binnen maxDuration=300; de overflow en
+// mislukkingen worden door de career-page-detail cron-worker afgemaakt.
+const VACANCY_DETAIL_CAP = 15
+const VACANCY_DETAIL_CONCURRENCY = 5
+const VACANCY_DETAIL_BUDGET_MS = 90_000
+// Start de detail-pass niet meer als de crawl zelf al zo lang duurde (anders
+// dreigt de 300s lambda-limiet). De cron pakt dan alles op.
+const VACANCY_DETAIL_SKIP_AFTER_MS = 180_000
+
 type MistralExtractResult = {
   company_name: string | null
   description_short: string | null
@@ -147,7 +158,8 @@ export class WebsiteService {
    * Gooit `WebsiteServiceError('homepage_blocked')` wanneer alle pagina's door
    * anti-bot worden geblokkeerd, ook na Playwright-escalatie.
    */
-  async crawlAndParse(inputUrl: string, _scrapeVacancies: boolean): Promise<NormalizedFields> {
+  async crawlAndParse(inputUrl: string, scrapeVacancies: boolean): Promise<NormalizedFields> {
+    const startedAt = Date.now()
     const homepageUrl = this.normalizeUrl(inputUrl)
     // Lazy init: PlaywrightFetcher start Chromium pas wanneer fetchPage wordt
     // aangeroepen (Tier-2 escalatie). Bij Shopify/WordPress/SSR-sites blijft
@@ -221,10 +233,54 @@ export class WebsiteService {
           normalized.career_page_candidates = probed
         }
       }
+
+      // Inline vacature-detail-verrijking: haal de eerste N vacature-detailpagina's
+      // op en merge salaris/dienstverband/uren/opleiding/niveau in de vacancy-
+      // objecten. Zo toont de review-pagina (leest enrichments.website.parsed.
+      // vacancies) de detail direct, en kan finalize() de job_postings-rijen
+      // meteen verrijkt aanmaken. Playwright staat hier nog open.
+      if (
+        scrapeVacancies &&
+        normalized.vacancies?.length &&
+        Date.now() - startedAt < VACANCY_DETAIL_SKIP_AFTER_MS
+      ) {
+        await this.enrichVacancyDetails(normalized.vacancies, playwright, Date.now() + VACANCY_DETAIL_BUDGET_MS)
+      }
+
       return normalized
     } finally {
       await playwright.dispose()
     }
+  }
+
+  /**
+   * Verrijk de eerste VACANCY_DETAIL_CAP vacatures met detailpagina-data.
+   * Muteert de vacancy-objecten in-place (zelfde refs als normalized.vacancies).
+   * Stopt met nieuwe fetches zodra het tijd-budget (deadlineMs) is bereikt;
+   * niet-verrijkte vacatures houden titel/url/locatie en worden later door de
+   * career-page-detail cron-worker opgepakt.
+   */
+  private async enrichVacancyDetails(
+    vacancies: NormalizedVacancy[],
+    playwright: PlaywrightFetcher,
+    deadlineMs: number,
+  ): Promise<void> {
+    const targets = vacancies.filter((v) => !!v.url).slice(0, VACANCY_DETAIL_CAP)
+    if (targets.length === 0) return
+
+    await mapConcurrent(targets, VACANCY_DETAIL_CONCURRENCY, async (v) => {
+      if (Date.now() > deadlineMs || !v.url) return
+      try {
+        const outcome = await fetchAndExtractVacancyDetail(playwright, v.url)
+        if (outcome.status === 'ok') {
+          Object.assign(v, mergeDetailIntoVacancy(v, outcome.fields))
+        }
+      } catch (e) {
+        // Detail-verrijking is best-effort: faalt een pagina, dan blijft de
+        // vacature met titel/url/locatie staan en pakt de cron hem later op.
+        console.warn(`[website.service] vacancy-detail faalde ${v.url}:`, e instanceof Error ? e.message : e)
+      }
+    })
   }
 
   /**

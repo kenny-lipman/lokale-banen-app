@@ -53,6 +53,25 @@ export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitl
                   <span className="ml-2 text-[10px] text-gray-400 uppercase">{v.source}</span>
                 </p>
                 {v.location && <p className="text-xs text-gray-500">{v.location}</p>}
+                {v.detail && (() => {
+                  const d = v.detail
+                  const hours =
+                    d.working_hours_min != null
+                      ? `${d.working_hours_min}${d.working_hours_max != null && d.working_hours_max !== d.working_hours_min ? `-${d.working_hours_max}` : ''} u/wk`
+                      : null
+                  const chips = [d.salary, d.employment, hours, d.education_level, d.career_level].filter(
+                    (c): c is string => !!c,
+                  )
+                  return chips.length > 0 ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {chips.map((c, i) => (
+                        <span key={i} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null
+                })()}
                 {v.url && (
                   <a href={v.url} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 underline">
                     bekijk

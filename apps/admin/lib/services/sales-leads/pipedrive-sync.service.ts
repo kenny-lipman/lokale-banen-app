@@ -13,6 +13,7 @@ import {
 import {
   upsertCompanyFromRun,
   upsertJobPostingsFromRun,
+  resolveCareerPageSourceId,
 } from './internal-linking'
 import { findEnumIdForSbi } from './branche-options.service'
 import { extractApex } from '@/lib/utils/url'
@@ -314,8 +315,7 @@ export class PipedriveSyncService {
       // 8. Interne linking — company is meestal al aangemaakt in finalize(),
       // upsertCompanyFromRun is idempotent (matcht op website/kvk) en update
       // met pipedrive_org_id. Career-page-bron-suggesties worden eveneens
-      // in finalize() aangemaakt; vacancies krijgen source_id=null tot V1B
-      // de echte scrape-koppeling levert.
+      // in finalize() aangemaakt.
       const company = await upsertCompanyFromRun(this.supabase, {
         id: runId,
         input_domain: run.input_domain,
@@ -326,9 +326,14 @@ export class PipedriveSyncService {
 
       const vacancies = (master.vacancies ?? []) as NormalizedVacancy[]
       if (vacancies.length > 0) {
+        // Koppel de vacatures aan de career-page-bron van dit bedrijf (in
+        // finalize() aangemaakt). Voorkeur voor een approved bron; valt terug
+        // op de eerste beschikbare. Geen bron gevonden -> source_id blijft null
+        // (de vacature wordt dan alleen op url gekoppeld, niet aan een bron).
+        const careerSourceId = await resolveCareerPageSourceId(this.supabase, company.id)
         await upsertJobPostingsFromRun(this.supabase, {
           company_id: company.id,
-          source_id: null,
+          source_id: careerSourceId,
           vacancies,
         })
       }

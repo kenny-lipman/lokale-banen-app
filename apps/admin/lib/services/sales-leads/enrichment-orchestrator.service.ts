@@ -8,7 +8,12 @@ import { MistralService } from './mistral.service'
 import { computePrimaryMaster } from './master-record'
 import { generateDealNote } from './auto-note'
 import { getBrancheOptions } from './branche-options.service'
-import { upsertCompanyFromRun, upsertCareerPageSource } from './internal-linking'
+import {
+  upsertCompanyFromRun,
+  upsertCareerPageSource,
+  upsertJobPostingsFromRun,
+  resolveCareerPageSourceId,
+} from './internal-linking'
 import { buildSyntheticPersoneelszaken } from './synthetic-contact'
 import type {
   RunEnrichments,
@@ -572,6 +577,21 @@ export class EnrichmentOrchestratorService {
             discovery_method: cand.method,
             is_external_ats: false,
             ats_type: null,
+          })
+        }
+
+        // Maak de vacature-rijen al bij run-completion aan (niet pas bij de
+        // Pipedrive-push), zodat ze direct na het scrapen in de vacatures-tabel
+        // staan. Detail uit de inline website-stap wordt meegeschreven; de rest
+        // krijgt needs_detail_scrape=true voor de cron. Idempotent op
+        // (company_id, url), dus de latere push-aanroep is een no-op.
+        const vacancies = master.vacancies ?? []
+        if (vacancies.length > 0) {
+          const careerSourceId = await resolveCareerPageSourceId(this.supabase, company.id)
+          await upsertJobPostingsFromRun(this.supabase, {
+            company_id: company.id,
+            source_id: careerSourceId,
+            vacancies,
           })
         }
       } catch (e) {

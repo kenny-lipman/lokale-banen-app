@@ -141,12 +141,34 @@ export type ColdContact = {
   organization_id?: string
 }
 
+/**
+ * Gestructureerde velden uit een vacature-detailpagina, geëxtraheerd door
+ * vacancy-detail/extract.ts (JSON-LD eerst, Mistral-fallback).
+ */
+export type VacancyDetailFields = {
+  salary: string | null
+  employment: string | null
+  job_type: string[] | null
+  description: string | null
+  published_at: string | null
+  end_date: string | null
+  education_level: string | null
+  career_level: string | null
+  working_hours_min: number | null
+  working_hours_max: number | null
+  categories: string | null
+}
+
 export type NormalizedVacancy = {
   title: string
   url?: string
   location?: string
   description_short?: string
   source: 'manual' | 'website_werkenbij'
+  // Gevuld door de inline vacature-detail-verrijking in de website-stap.
+  // Afwezig wanneer de vacature niet (binnen cap/tijd-budget) is verrijkt;
+  // de career-page-detail cron-worker pakt die later op via job_postings.
+  detail?: VacancyDetailFields
 }
 
 export type NormalizedFields = {

@@ -21,6 +21,7 @@ Alle cron jobs draaien via **Vercel Cron** (geconfigureerd in `vercel.json`). Au
 | Watchdog | `*/15 * * * *` | Elke 15 min | `/api/cron/watchdog` |
 | Auto-archive Old | `30 3 * * *` | 04:30 | `/api/cron/auto-archive-old` |
 | Cleanup Reset Tokens | `0 4 * * *` | 05:00 | `/api/cron/cleanup-reset-tokens` |
+| Career-page Detail Scrape | `*/10 * * * *` | Elke 10 min | `/api/cron/career-page-detail-scrape` |
 
 ## Resterende pg_cron Jobs (Supabase)
 
