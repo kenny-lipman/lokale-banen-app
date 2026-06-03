@@ -26,7 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, Trash2, Building2 } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Building2, Globe, Sparkles } from "lucide-react"
 import Link from "next/link"
 
 const PROVINCES = [
@@ -70,6 +70,13 @@ export default function BewerkBedrijfPage() {
   const [sizeMin, setSizeMin] = useState("")
   const [sizeMax, setSizeMax] = useState("")
 
+  // AI-omschrijving state
+  const [sourceLoading, setSourceLoading] = useState(false)
+  const [rewriting, setRewriting] = useState(false)
+  const [sourceText, setSourceText] = useState("")
+  const [sourceUrl, setSourceUrl] = useState("")
+  const [sourceNote, setSourceNote] = useState("")
+
   // Load company data
   useEffect(() => {
     async function fetchCompany() {
@@ -109,6 +116,64 @@ export default function BewerkBedrijfPage() {
     }
     fetchCompany()
   }, [id, router])
+
+  const composeSource = (data: {
+    websiteText: string | null
+    vacancyTitles?: string[]
+  }): string => {
+    const parts: string[] = []
+    if (data.websiteText) parts.push(data.websiteText)
+    if (data.vacancyTitles && data.vacancyTitles.length > 0) {
+      parts.push("Vacatures bij dit bedrijf:\n" + data.vacancyTitles.map((t) => `- ${t}`).join("\n"))
+    }
+    return parts.join("\n\n")
+  }
+
+  const handleFetchSource = async () => {
+    setSourceLoading(true)
+    try {
+      const res = await fetch(`/api/bedrijven/${id}/ai-source`, { method: "POST" })
+      const result = await res.json()
+      if (!result.success) {
+        toast.error(result.error || "Bron ophalen mislukt")
+        return
+      }
+      const data = result.data
+      setSourceText(composeSource(data))
+      setSourceUrl(data.websiteUrl || "")
+      setSourceNote(data.websiteText ? "" : "Website niet bereikbaar, alleen vacatures gebruikt")
+    } catch {
+      toast.error("Bron ophalen mislukt")
+    } finally {
+      setSourceLoading(false)
+    }
+  }
+
+  const handleRewrite = async () => {
+    if (!sourceText.trim()) {
+      toast.error("Haal eerst de bron op")
+      return
+    }
+    setRewriting(true)
+    try {
+      const res = await fetch(`/api/bedrijven/${id}/ai-rewrite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceText }),
+      })
+      const result = await res.json()
+      if (!result.success) {
+        toast.error(result.error || "AI herschrijving mislukt")
+        return
+      }
+      setDescription(result.data.description)
+      toast.success("Omschrijving gegenereerd, controleer en sla op")
+    } catch {
+      toast.error("AI herschrijving mislukt")
+    } finally {
+      setRewriting(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -298,6 +363,66 @@ export default function BewerkBedrijfPage() {
                 rows={5}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* AI-omschrijving */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              AI-omschrijving
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Haal de bron op (bedrijfswebsite en vacatures) en laat AI er een korte,
+              feitelijke bedrijfsomschrijving van maken. Het resultaat komt in het
+              Beschrijving-veld hierboven, je kunt het daarna nog aanpassen voor je opslaat.
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleFetchSource}
+                disabled={sourceLoading || rewriting}
+              >
+                {sourceLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Globe className="h-4 w-4 mr-2" />
+                )}
+                Bron ophalen
+              </Button>
+              <Button
+                type="button"
+                onClick={handleRewrite}
+                disabled={!sourceText.trim() || rewriting || sourceLoading}
+              >
+                {rewriting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Herschrijf met AI
+              </Button>
+            </div>
+            {(sourceText || sourceUrl || sourceNote) && (
+              <div className="space-y-2">
+                <Label htmlFor="ai-source">Bron (bewerkbaar)</Label>
+                <Textarea
+                  id="ai-source"
+                  value={sourceText}
+                  onChange={(e) => setSourceText(e.target.value)}
+                  placeholder="Bron-tekst voor de AI..."
+                  rows={8}
+                />
+                {sourceUrl && (
+                  <p className="text-xs text-muted-foreground">Bron: {sourceUrl}</p>
+                )}
+                {sourceNote && <p className="text-xs text-amber-600">{sourceNote}</p>}
+              </div>
+            )}
           </CardContent>
         </Card>
 
