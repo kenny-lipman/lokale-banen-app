@@ -43,7 +43,9 @@ async function fetchWebsiteText(
   website: string | null,
 ): Promise<{ text: string | null; url: string | null }> {
   if (!website) return { text: null, url: null }
-  const normalized = website.startsWith('http') ? website : `https://${website}`
+  const w = website.trim()
+  if (!w) return { text: null, url: null }
+  const normalized = w.startsWith('http') ? w : `https://${w}`
   try {
     const discovered = await discoverUrls(normalized)
     const target = pickSourceUrl(discovered, normalized)
@@ -54,7 +56,7 @@ async function fetchWebsiteText(
     }
     const md = htmlToMarkdown(res.body)
     const text = truncateForLLM(md, SOURCE_MAX_TOKENS).trim()
-    return { text: text.length > 0 ? text : null, url: target }
+    return { text: text.length > 0 ? text : null, url: res.url }
   } catch {
     // SSRF-block, timeout, size-limit, DNS-fail: zacht falen, val terug op vacatures
     return { text: null, url: null }
@@ -70,6 +72,7 @@ async function fetchVacancyTitles(
     .select('title')
     .eq('company_id', companyId)
     .not('title', 'is', null)
+    .order('created_at', { ascending: false })
     .limit(MAX_VACANCY_TITLES)
 
   if (!data) return []
