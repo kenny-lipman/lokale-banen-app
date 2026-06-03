@@ -29,7 +29,7 @@ Bewerken van bedrijfsgegevens bestaat al (`/bedrijven/[id]/bewerken` + `PATCH /a
 - Geen bulk-verwerking of cron over alle bedrijven. Eventuele bulk is een latere, aparte fase.
 - Geen aparte company-detailpagina; de bestaande bewerken-pagina is de plek om te editen.
 
-## Architectuur & dataflow (deel A — twee stappen)
+## Architectuur & dataflow (deel A, twee stappen)
 
 Twee aparte acties op de bedrijf-bewerken-pagina:
 
@@ -105,7 +105,7 @@ In `apps/admin/app/bedrijven/[id]/bewerken/page.tsx`, een sectie "AI-omschrijvin
 - Bestaande **"Opslaan"**-knop bewaart zoals nu (PATCH).
 - Foutafhandeling via `toast` (zoals elders in deze pagina).
 
-### Deel B — snelle navigatie van job-postings naar bedrijf-edit
+### Deel B: snelle navigatie van job-postings naar bedrijf-edit
 
 In `apps/admin/app/job-postings/page.tsx`: geef de al bestaande prop `onCompanyClick(companyId)` aan de `JobPostingDrawer` door. Implementatie opent `/bedrijven/${companyId}/bewerken` **in een nieuw tabblad** (`window.open(..., '_blank')`), zodat de job-postings-filters en de geopende drawer behouden blijven. De knop "Bekijk bedrijf" bestaat al in de drawer en wordt alleen zichtbaar/functioneel zodra de handler is aangesloten.
 
