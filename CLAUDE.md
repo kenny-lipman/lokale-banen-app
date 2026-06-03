@@ -39,6 +39,7 @@ Commands (vanuit repo-root, tenzij anders):
 | Database | `docs/reference/database.md` | Schema, key tables, dedup-logica, job_sources cascade. |
 | Auth & users | `docs/reference/auth.md` | Session-flow, role-systeem, users CRUD, password reset. |
 | Campaigns | `docs/reference/campaigns.md` | Campaign assignment orchestrator/worker, WeTarget, Instantly API. |
+| Custom domains | `docs/reference/custom-domains.md` | Echte .nl-domeinen koppelen aan public-sites via TransIP + Vercel API. |
 
 ### Aanvullende guides (root)
 
