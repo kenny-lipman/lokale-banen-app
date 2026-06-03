@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Briefcase, Clock, GraduationCap } from 'lucide-react'
 import type { JobPosting } from '@/lib/queries'
+import { unwrapDescription } from '@/lib/utils'
 import { ArrowRight } from './arrow-right'
 import { SaveJobButton } from './save-job-button'
 
@@ -153,7 +154,7 @@ function formatHours(min: number | null, max: number | null): string | null {
 
 /** Strip HTML/markdown tot een leesbare 1-regel preview. */
 function plainText(input: string): string {
-  return input
+  return (unwrapDescription(input) ?? '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/[*_#]+/g, '')
     .replace(/(^|\s)-{2,}(?=\s|$)/g, '$1') // strip "--" / "---" artefacten

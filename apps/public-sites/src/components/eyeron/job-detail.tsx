@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { Briefcase, Clock, GraduationCap, MapPin, Calendar, Globe, Linkedin } from 'lucide-react'
-import { formatRelative, stripChatGptArtifacts } from '@/lib/utils'
+import { formatRelative, stripChatGptArtifacts, unwrapDescription } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { slugifyCity } from '@lokale-banen/database'
 import { ApplyButton } from './apply-button'
@@ -27,7 +27,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
   const companyName = job.company?.name || 'Onbekend bedrijf'
   const isExpired = !!(job.end_date && new Date(job.end_date) < new Date())
   const markdownContent = stripChatGptArtifacts(
-    (job.content_md || job.description || '').trim()
+    (job.content_md || unwrapDescription(job.description) || '').trim()
   )
 
   return (
