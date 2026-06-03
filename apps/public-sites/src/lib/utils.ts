@@ -126,6 +126,33 @@ export function createSlug(title: string, id: string): string {
 }
 
 /**
+ * Sommige bronnen (o.a. Indeed via Apify) slaan de omschrijving op als ruwe
+ * JSON-string `{"text":"..."}` i.p.v. platte tekst. Pak in dat geval het
+ * `text`-veld uit zodat consumers nooit ruwe JSON tonen. Alle andere input
+ * (gewone tekst, HTML, markdown, null) wordt ongewijzigd teruggegeven.
+ */
+export function unwrapDescription(
+  input: string | null | undefined
+): string | null {
+  if (input == null) return null
+  const trimmed = input.trim()
+  if (!trimmed.startsWith('{')) return input
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof (parsed as { text?: unknown }).text === 'string'
+    ) {
+      return (parsed as { text: string }).text
+    }
+  } catch {
+    // Geen geldige JSON: behandel als gewone tekst.
+  }
+  return input
+}
+
+/**
  * Strip "--" artefacten uit content (typisch ChatGPT/Mistral-output dat de
  * site er AI-gegenereerd uit doet zien). Markdown horizontal-rules (`---` op
  * eigen regel) blijven behouden.

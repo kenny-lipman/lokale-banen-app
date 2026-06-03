@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenant } from '@/lib/tenant'
 import { getJobBySlug } from '@/lib/queries'
+import { unwrapDescription } from '@/lib/utils'
 
 /**
  * Markdown mirror route for LLM discovery.
@@ -31,12 +32,13 @@ export async function GET(
   const domain = tenant.domain || 'lokalebanen.nl'
 
   // Prefer content_md (Mistral-enriched) over raw description
+  const description = unwrapDescription(job.description)
   let body: string
   if (job.content_md) {
     body = job.content_md
-  } else if (job.description) {
+  } else if (description) {
     // Strip HTML tags from description, convert to clean markdown
-    body = job.description
+    body = description
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/p>/gi, '\n\n')
       .replace(/<\/li>/gi, '\n')

@@ -11,6 +11,7 @@ import {
   getCitiesWithJobCounts,
 } from '@/lib/queries'
 import { getCanonicalInfo } from '@/lib/canonical'
+import { unwrapDescription } from '@/lib/utils'
 import { buildJobPostingSchema, buildBreadcrumbSchema } from '@lokale-banen/shared'
 import { slugifyCity } from '@lokale-banen/database'
 import {
@@ -45,7 +46,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
       ? `${job.title} bij ${companyName} | ${tenantTitle}`
       : `${job.title} | ${tenantTitle}`)
 
-  const rawText = (job.seo_description || job.description || '')
+  const rawText = (job.seo_description || unwrapDescription(job.description) || '')
     .replace(/<[^>]+>/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -155,7 +156,7 @@ export default async function JobPage({ params }: JobPageProps) {
   const lng = job.longitude ? parseFloat(job.longitude) : (job.company?.longitude ?? null)
 
   const cleanDescription =
-    (job.content_md || job.description || '')
+    (job.content_md || unwrapDescription(job.description) || '')
       .replace(/<[^>]+>/g, '')
       .replace(/\s+/g, ' ')
       .trim() || `${job.title} bij ${companyName}`
