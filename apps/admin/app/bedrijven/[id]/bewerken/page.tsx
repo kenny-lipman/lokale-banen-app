@@ -44,6 +44,18 @@ const PROVINCES = [
   "Zeeland",
 ]
 
+const composeSource = (data: {
+  websiteText: string | null
+  vacancyTitles?: string[]
+}): string => {
+  const parts: string[] = []
+  if (data.websiteText) parts.push(data.websiteText)
+  if (data.vacancyTitles && data.vacancyTitles.length > 0) {
+    parts.push("Vacatures bij dit bedrijf:\n" + data.vacancyTitles.map((t) => `- ${t}`).join("\n"))
+  }
+  return parts.join("\n\n")
+}
+
 export default function BewerkBedrijfPage() {
   const router = useRouter()
   const params = useParams()
@@ -116,18 +128,6 @@ export default function BewerkBedrijfPage() {
     }
     fetchCompany()
   }, [id, router])
-
-  const composeSource = (data: {
-    websiteText: string | null
-    vacancyTitles?: string[]
-  }): string => {
-    const parts: string[] = []
-    if (data.websiteText) parts.push(data.websiteText)
-    if (data.vacancyTitles && data.vacancyTitles.length > 0) {
-      parts.push("Vacatures bij dit bedrijf:\n" + data.vacancyTitles.map((t) => `- ${t}`).join("\n"))
-    }
-    return parts.join("\n\n")
-  }
 
   const handleFetchSource = async () => {
     setSourceLoading(true)
