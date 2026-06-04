@@ -186,8 +186,8 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
     return (
       <Card className="w-full">
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-6 w-6" />
+          <div className="flex items-center gap-x-2">
+            <Skeleton className="size-6" />
             <Skeleton className="h-6 w-48" />
           </div>
           <Skeleton className="h-4 w-96" />
@@ -206,7 +206,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
       <Card className="w-full">
         <CardContent className="pt-6">
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               {error}. Please refresh the page to try again.
             </AlertDescription>
@@ -219,9 +219,9 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
   return (
     <Card className="w-full" role="region" aria-label="Platform automation preferences settings">
       <CardHeader>
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg" aria-hidden="true">
-            <Zap className="h-4 w-4 text-blue-600" />
+        <div className="flex items-center gap-x-2">
+          <div className="flex items-center justify-center size-8 bg-blue-100 rounded-lg" aria-hidden="true">
+            <Zap className="size-4 text-blue-600" />
           </div>
           <div>
             <CardTitle className="text-xl" id="platform-automation-title">Platform Management</CardTitle>
@@ -232,14 +232,14 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
         </div>
 
         {/* Summary Stats */}
-        <div className="flex items-center space-x-4 text-sm text-gray-600" aria-live="polite" aria-atomic="true">
-          <div className="flex items-center space-x-1">
-            <CheckCircle className="h-4 w-4 text-green-500" aria-hidden="true" />
+        <div className="flex items-center gap-x-4 text-sm text-gray-600" aria-live="polite" aria-atomic="true">
+          <div className="flex items-center gap-x-1">
+            <CheckCircle className="size-4 text-green-500" aria-hidden="true" />
             <span id="enabled-count">{getTotalEnabledCount()} of {getTotalPlatformsCount()} platforms enabled</span>
           </div>
           {(saving || savingPlatform) && (
-            <div className="flex items-center space-x-1 text-blue-600" aria-live="assertive">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" aria-hidden="true"></div>
+            <div className="flex items-center gap-x-1 text-blue-600" aria-live="assertive">
+              <div className="animate-spin rounded-full size-3 border-b-2 border-blue-600" aria-hidden="true"></div>
               <span>Opslaan...</span>
             </div>
           )}
@@ -249,7 +249,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
       <CardContent className="space-y-4">
         {preferencesError && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               {preferencesError}. Your changes may not have been saved.
             </AlertDescription>
@@ -258,7 +258,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
 
         {platforms.length === 0 ? (
           <div className="text-center py-8 text-gray-500" role="status" aria-live="polite">
-            <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" aria-hidden="true" />
+            <Settings className="size-12 mx-auto mb-4 text-gray-300" aria-hidden="true" />
             <p>No platforms found. Please contact your administrator.</p>
           </div>
         ) : (
@@ -279,7 +279,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                 >
                   {/* Top row: Platform info + toggles */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div className="flex items-center gap-x-3 flex-1 min-w-0">
                       {/* Platform Icon */}
                       <div className={`flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0 ${
                         platform.is_active ? 'bg-blue-50' : 'bg-gray-100'
@@ -291,7 +291,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
 
                       {/* Platform Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-1">
+                        <div className="flex items-center gap-x-2 mb-1">
                           <h3 className={`font-semibold truncate ${
                             platform.is_active ? 'text-gray-900' : 'text-gray-500'
                           }`}>
@@ -309,12 +309,12 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                           {/* Campaign linked badge */}
                           {platform.instantly_campaign_id ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <Link className="h-3 w-3 mr-1" />
+                              <Link className="size-3 mr-1" />
                               Campaign gekoppeld
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                              <Unlink className="h-3 w-3 mr-1" />
+                              <Unlink className="size-3 mr-1" />
                               Geen campaign
                             </span>
                           )}
@@ -327,9 +327,9 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                     </div>
 
                     {/* Toggles */}
-                    <div className="flex items-center space-x-6 ml-4">
+                    <div className="flex items-center gap-x-6 ml-4">
                       {/* is_active toggle */}
-                      <div className="flex flex-col items-center space-y-1">
+                      <div className="flex flex-col items-center gap-y-1">
                         <Switch
                           checked={platform.is_active}
                           onCheckedChange={(active) => handleIsActiveToggle(platform.regio_platform, active)}
@@ -343,7 +343,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                       </div>
 
                       {/* automation_enabled toggle */}
-                      <div className="flex flex-col items-center space-y-1">
+                      <div className="flex flex-col items-center gap-y-1">
                         <Switch
                           checked={platform.automation_enabled}
                           onCheckedChange={(enabled) => handlePlatformToggle(platform.regio_platform, enabled)}
@@ -360,10 +360,10 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
 
                   {/* Campaign ID row */}
                   <div className="mt-3 pt-3 border-t border-gray-100">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-x-2">
                       <span className="text-xs font-medium text-gray-500 whitespace-nowrap">Instantly Campaign:</span>
                       {isEditing ? (
-                        <div className="flex items-center space-x-2 flex-1">
+                        <div className="flex items-center gap-x-2 flex-1">
                           <input
                             type="text"
                             value={editingCampaign[platform.regio_platform] || ''}
@@ -380,7 +380,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                             disabled={isSaving}
                             className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
                           >
-                            <Save className="h-3 w-3 mr-1" />
+                            <Save className="size-3 mr-1" />
                             Opslaan
                           </button>
                           <button
@@ -392,7 +392,7 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2 flex-1">
+                        <div className="flex items-center gap-x-2 flex-1">
                           <code className="text-xs text-gray-600 font-mono truncate max-w-[300px]">
                             {platform.instantly_campaign_id || 'Niet gekoppeld'}
                           </code>
@@ -415,8 +415,8 @@ export const PlatformAutomationSection: React.FC<PlatformAutomationSectionProps>
 
         {/* Help Text */}
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+          <div className="flex items-start gap-x-2">
+            <AlertCircle className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-gray-600">
               <p className="font-medium mb-1">Hoe werkt het:</p>
               <ul className="space-y-1">

@@ -26,8 +26,7 @@ interface CityPageProps {
 }
 
 export async function generateMetadata({ params, searchParams }: CityPageProps): Promise<Metadata> {
-  const [{ 'city-slug': citySlug }, sp] = await Promise.all([params, searchParams])
-  const tenant = await getTenant()
+  const [{ 'city-slug': citySlug }, sp, tenant] = await Promise.all([params, searchParams, getTenant()])
   if (!tenant) return {}
 
   const { total, cityName } = await getJobsByCitySlug(tenant.id, citySlug, 1)
@@ -59,8 +58,7 @@ export async function generateMetadata({ params, searchParams }: CityPageProps):
 }
 
 export default async function CityPage({ params, searchParams }: CityPageProps) {
-  const [{ 'city-slug': citySlug }, sp] = await Promise.all([params, searchParams])
-  const tenant = await getTenant()
+  const [{ 'city-slug': citySlug }, sp, tenant] = await Promise.all([params, searchParams, getTenant()])
   if (!tenant) notFound()
 
   const pageNum = parseInt(sp.page || '1', 10)

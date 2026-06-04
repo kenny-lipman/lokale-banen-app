@@ -107,7 +107,7 @@ export function ColumnVisibilityToggle({
           size="sm"
           className="flex items-center gap-2"
         >
-          <Settings2 className="h-4 w-4" />
+          <Settings2 className="size-4" />
           Kolommen ({visibleCount}/{totalCount})
         </Button>
       </DropdownMenuTrigger>
@@ -122,7 +122,7 @@ export function ColumnVisibilityToggle({
             onClick={showAllColumns}
             className="justify-start text-xs h-7"
           >
-            <Eye className="h-3 w-3 mr-2" />
+            <Eye className="size-3 mr-2" />
             Toon alle kolommen
           </Button>
           <Button
@@ -131,7 +131,7 @@ export function ColumnVisibilityToggle({
             onClick={hideOptionalColumns}
             className="justify-start text-xs h-7"
           >
-            <EyeOff className="h-3 w-3 mr-2" />
+            <EyeOff className="size-3 mr-2" />
             Alleen essentieel
           </Button>
         </div>

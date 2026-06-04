@@ -248,7 +248,7 @@ export default function BewerkBedrijfPage() {
     return (
       <div className="container mx-auto py-6 max-w-4xl flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin mx-auto mb-4 text-muted-foreground" />
           <p className="text-muted-foreground">Bedrijf laden...</p>
         </div>
       </div>
@@ -261,13 +261,13 @@ export default function BewerkBedrijfPage() {
       <div className="flex items-center gap-4 mb-6">
         <Link href="/companies">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="size-4 mr-2" />
             Terug
           </Button>
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Building2 className="h-8 w-8" />
+            <Building2 className="size-8" />
             Bedrijf bewerken
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -536,9 +536,9 @@ export default function BewerkBedrijfPage() {
             <AlertDialogTrigger asChild>
               <Button variant="destructive" type="button" disabled={deleting}>
                 {deleting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="size-4 mr-2" />
                 )}
                 Verwijderen
               </Button>
@@ -569,7 +569,7 @@ export default function BewerkBedrijfPage() {
               </Button>
             </Link>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {saving && <Loader2 className="size-4 mr-2 animate-spin" />}
               Opslaan
             </Button>
           </div>

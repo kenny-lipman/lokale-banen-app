@@ -159,7 +159,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
         <SheetHeader className="space-y-4">
           {job.archived_at && (
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <Archive className="h-4 w-4 shrink-0" />
+              <Archive className="size-4 shrink-0" />
               <span className="font-medium">Gearchiveerd</span>
               <span className="text-amber-700">
                 op {new Date(job.archived_at).toLocaleString("nl-NL")}
@@ -205,7 +205,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
           {/* Company Info */}
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center overflow-hidden border border-gray-200">
+              <div className="size-14 bg-white rounded-lg flex items-center justify-center overflow-hidden border border-gray-200">
                 {job.company_logo ? (
                   <img
                     src={job.company_logo}
@@ -213,7 +213,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Building2 className="w-7 h-7 text-gray-400" />
+                  <Building2 className="size-7 text-gray-400" />
                 )}
               </div>
               <div className="flex-1">
@@ -221,14 +221,14 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
                   <h3 className="font-semibold text-lg">{job.company_name}</h3>
                   {job.is_customer && (
                     <Badge className="bg-green-100 text-green-800 border-green-200">
-                      <Crown className="w-3 h-3 mr-1" />
+                      <Crown className="size-3 mr-1" />
                       Klant
                     </Badge>
                   )}
                 </div>
                 {job.company_rating && job.company_rating > 0 && (
                   <div className="flex items-center gap-1 mt-1 text-sm text-gray-600">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <Star className="size-4 fill-yellow-400 text-yellow-400" />
                     <span>{job.company_rating} sterren</span>
                   </div>
                 )}
@@ -250,7 +250,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
           <div className="grid grid-cols-2 gap-4">
             {/* Location */}
             <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+              <MapPin className="size-5 text-gray-400 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-gray-700">Locatie</p>
                 <p className="text-sm text-gray-600">{getFullAddress()}</p>
@@ -263,7 +263,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             {/* Employment Type */}
             {job.employment && (
               <div className="flex items-start gap-3">
-                <Briefcase className="w-5 h-5 text-gray-400 mt-0.5" />
+                <Briefcase className="size-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Dienstverband</p>
                   <p className="text-sm text-gray-600">{job.employment}</p>
@@ -274,7 +274,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             {/* Salary */}
             {job.salary && job.salary !== " - " && (
               <div className="flex items-start gap-3">
-                <Euro className="w-5 h-5 text-gray-400 mt-0.5" />
+                <Euro className="size-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Salaris</p>
                   <p className="text-sm text-gray-600">{job.salary}</p>
@@ -285,7 +285,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             {/* Working Hours */}
             {getWorkingHours() && (
               <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                <Clock className="size-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Werkuren</p>
                   <p className="text-sm text-gray-600">{getWorkingHours()}</p>
@@ -296,7 +296,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             {/* Career Level */}
             {job.career_level && (
               <div className="flex items-start gap-3">
-                <Users className="w-5 h-5 text-gray-400 mt-0.5" />
+                <Users className="size-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Ervaringsniveau</p>
                   <p className="text-sm text-gray-600">{job.career_level}</p>
@@ -307,7 +307,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             {/* Education Level */}
             {job.education_level && (
               <div className="flex items-start gap-3">
-                <GraduationCap className="w-5 h-5 text-gray-400 mt-0.5" />
+                <GraduationCap className="size-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Opleidingsniveau</p>
                   <p className="text-sm text-gray-600">{job.education_level}</p>
@@ -318,7 +318,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             {/* End Date */}
             {job.end_date && (
               <div className="flex items-start gap-3">
-                <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                <Calendar className="size-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Sluitingsdatum</p>
                   <p className="text-sm text-gray-600">{formatDate(job.end_date)}</p>
@@ -331,7 +331,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
           {jobTypes.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                <Tag className="w-4 h-4" />
+                <Tag className="size-4" />
                 Type vacature
               </h4>
               <div className="flex flex-wrap gap-2">
@@ -348,7 +348,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
           {job.categories && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                <Tag className="w-4 h-4" />
+                <Tag className="size-4" />
                 Categorie
               </h4>
               <Badge variant="secondary" className="text-sm">
@@ -386,7 +386,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
           {job.description && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+                <FileText className="size-4" />
                 Ruwe vacaturetekst (bron)
               </h4>
               <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
@@ -431,7 +431,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
               platform={job.platform ?? null}
               trigger={
                 <Button variant="outline">
-                  <Eye className="w-4 h-4 mr-2" />
+                  <Eye className="size-4 mr-2" />
                   Live preview
                 </Button>
               }
@@ -439,7 +439,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             {job.url && (
               <Button variant="outline" asChild>
                 <a href={job.url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-2" />
+                  <ExternalLink className="size-4 mr-2" />
                   Originele bron
                 </a>
               </Button>
@@ -449,7 +449,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
                 variant="outline"
                 onClick={() => onCompanyClick(job.company_id)}
               >
-                <Building2 className="w-4 h-4 mr-2" />
+                <Building2 className="size-4 mr-2" />
                 Bekijk bedrijf
               </Button>
             )}

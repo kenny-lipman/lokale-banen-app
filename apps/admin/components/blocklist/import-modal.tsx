@@ -127,7 +127,7 @@ export function ImportModal({
           {success ? (
             <div className="flex items-center justify-center p-8">
               <div className="text-center space-y-3">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+                <CheckCircle className="size-12 text-green-500 mx-auto" />
                 <div>
                   <h3 className="text-lg font-semibold text-green-700">
                     Import Succesvol!
@@ -168,12 +168,12 @@ export function ImportModal({
                           >
                             {showPreview ? (
                               <>
-                                <EyeOff className="h-4 w-4 mr-1" />
+                                <EyeOff className="size-4 mr-1" />
                                 Verbergen
                               </>
                             ) : (
                               <>
-                                <Eye className="h-4 w-4 mr-1" />
+                                <Eye className="size-4 mr-1" />
                                 Tonen ({previewData.length})
                               </>
                             )}
@@ -206,11 +206,11 @@ export function ImportModal({
                                   {item.detected_type}
                                 </Badge>
                                 {item.confidence === 'high' ? (
-                                  <CheckCircle className="h-3 w-3 text-green-500" />
+                                  <CheckCircle className="size-3 text-green-500" />
                                 ) : item.confidence === 'medium' ? (
-                                  <Info className="h-3 w-3 text-yellow-500" />
+                                  <Info className="size-3 text-yellow-500" />
                                 ) : (
-                                  <AlertCircle className="h-3 w-3 text-red-500" />
+                                  <AlertCircle className="size-3 text-red-500" />
                                 )}
                               </div>
                             </div>
@@ -227,15 +227,15 @@ export function ImportModal({
                       <div className="mt-3 pt-3 border-t">
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <div className="size-2 bg-blue-500 rounded-full"></div>
                             E-mails: {previewData.filter(p => p.detected_type === 'email').length}
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                            <div className="size-2 bg-gray-500 rounded-full"></div>
                             Domeinen: {previewData.filter(p => p.detected_type === 'domain').length}
                           </div>
                           <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <div className="size-2 bg-green-500 rounded-full"></div>
                             Bedrijven: {previewData.filter(p => p.detected_type === 'company').length}
                           </div>
                         </div>
@@ -245,7 +245,7 @@ export function ImportModal({
                       {previewData.some(p => p.warning) && (
                         <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
                           <div className="flex items-center gap-2 text-sm text-yellow-800">
-                            <AlertCircle className="h-4 w-4" />
+                            <AlertCircle className="size-4" />
                             <span className="font-medium">Let op:</span>
                           </div>
                           <div className="text-xs text-yellow-700 mt-1">

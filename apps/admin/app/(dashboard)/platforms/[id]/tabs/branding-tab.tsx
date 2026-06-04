@@ -30,7 +30,7 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
+            <Palette className="size-5" />
             Afbeeldingen
           </CardTitle>
           <CardDescription>
@@ -77,7 +77,7 @@ export function BrandingTab({ platformId, values, onChange }: BrandingTabProps) 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
+            <Palette className="size-5" />
             Brand kleuren
           </CardTitle>
           <CardDescription>
@@ -183,7 +183,7 @@ function ColorField({
           id={id}
           value={value || placeholder}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-10 cursor-pointer rounded border"
+          className="size-10 cursor-pointer rounded border"
         />
         <Input
           value={value}
@@ -207,7 +207,7 @@ function ColorField({
               type="button"
               aria-label={`Preset ${color}`}
               onClick={() => onChange(color)}
-              className="h-7 w-7 rounded-full border-2 border-white shadow-sm ring-1 ring-black/10 transition hover:scale-110"
+              className="size-7 rounded-full border-2 border-white shadow-sm ring-1 ring-black/10 transition hover:scale-110"
               style={{ backgroundColor: color }}
             />
           ))}

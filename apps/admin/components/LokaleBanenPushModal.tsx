@@ -196,7 +196,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
       <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
+            <Upload className="size-5" />
             Push naar Lokale Banen
           </DialogTitle>
           <DialogDescription>
@@ -208,7 +208,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
           {/* Validating */}
           {state === 'validating' && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin mr-2 text-blue-500" />
+              <Loader2 className="size-6 animate-spin mr-2 text-blue-500" />
               <span className="text-gray-600">Vacatures valideren...</span>
             </div>
           )}
@@ -235,7 +235,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
                   <div className="max-h-40 overflow-y-auto space-y-1">
                     {validation.invalid.map(item => (
                       <div key={item.jobPostingId} className="flex items-start gap-2 text-sm py-1">
-                        <XCircle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                        <XCircle className="size-4 text-orange-500 flex-shrink-0 mt-0.5" />
                         <div>
                           <span className="font-medium">{item.title}</span>
                           <span className="text-gray-500 ml-1">— {item.reason}</span>
@@ -256,7 +256,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
                   disabled={validation.summary.valid === 0}
                   className="flex-1"
                 >
-                  <ArrowRight className="h-4 w-4 mr-2" />
+                  <ArrowRight className="size-4 mr-2" />
                   Push {validation.summary.valid} vacature{validation.summary.valid !== 1 ? 's' : ''}
                 </Button>
               </div>
@@ -275,7 +275,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
 
               {/* Current action */}
               <div className="flex items-center gap-2 text-sm">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                <Loader2 className="size-4 animate-spin text-blue-500" />
                 <span>{currentEvent.message}</span>
               </div>
 
@@ -295,7 +295,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
           {state === 'complete' && result && (
             <div className="space-y-4">
               <div className="flex items-center justify-center py-4">
-                <CheckCircle className="h-12 w-12 text-green-500" />
+                <CheckCircle className="size-12 text-green-500" />
               </div>
               <h3 className="text-lg font-semibold text-center">Push voltooid!</h3>
 
@@ -342,7 +342,7 @@ export function LokaleBanenPushModal({ open, onClose, jobPostingIds, onPushCompl
           {state === 'error' && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-red-600">
-                <AlertCircle className="h-5 w-5" />
+                <AlertCircle className="size-5" />
                 <span className="font-medium">Er is een fout opgetreden</span>
               </div>
               <p className="text-sm text-gray-600">{errorMessage}</p>
@@ -373,13 +373,13 @@ function getEventIcon(type: string) {
     case 'company_exists':
       return <Badge className="bg-gray-100 text-gray-600 text-[10px] px-1">OK</Badge>
     case 'vacancy_created':
-      return <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0 mt-0.5" />
+      return <CheckCircle className="size-3 text-green-500 flex-shrink-0 mt-0.5" />
     case 'skipped':
-      return <XCircle className="h-3 w-3 text-orange-500 flex-shrink-0 mt-0.5" />
+      return <XCircle className="size-3 text-orange-500 flex-shrink-0 mt-0.5" />
     case 'error':
-      return <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0 mt-0.5" />
+      return <AlertCircle className="size-3 text-red-500 flex-shrink-0 mt-0.5" />
     default:
-      return <Loader2 className="h-3 w-3 text-blue-500 flex-shrink-0 mt-0.5" />
+      return <Loader2 className="size-3 text-blue-500 flex-shrink-0 mt-0.5" />
   }
 }
 

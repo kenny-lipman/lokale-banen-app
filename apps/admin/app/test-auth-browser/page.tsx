@@ -81,7 +81,7 @@ export default function TestAuthBrowserPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="size-8 animate-spin" />
       </div>
     )
   }
@@ -124,7 +124,7 @@ export default function TestAuthBrowserPage() {
               </div>
 
               <Button onClick={runTests} disabled={testing}>
-                {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {testing && <Loader2 className="mr-2 size-4 animate-spin" />}
                 {testing ? "Running Tests..." : "Run API Tests"}
               </Button>
             </div>
@@ -140,11 +140,11 @@ export default function TestAuthBrowserPage() {
               <div className="space-y-4">
                 {Object.entries(testResults).map(([testName, result]) => (
                   <div key={testName} className="flex items-center justify-between p-3 border rounded">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-x-2">
                       {result.success ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <CheckCircle className="size-5 text-green-600" />
                       ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
+                        <XCircle className="size-5 text-red-600" />
                       )}
                       <span className="font-medium capitalize">
                         {testName.replace(/([A-Z])/g, ' $1').trim()}

@@ -38,26 +38,26 @@ interface StatusConfig {
 const statusConfigs: Record<string, StatusConfig> = {
   idle: {
     label: "Enrich",
-    icon: <Sparkles className="w-4 h-4" />,
+    icon: <Sparkles className="size-4" />,
     className: "bg-blue-600 hover:bg-blue-700 text-white",
     tooltip: "Start Apollo enrichment to find contacts and company data"
   },
   processing: {
     label: "Enriching...",
-    icon: <RefreshCw className="w-4 h-4 animate-spin" />,
+    icon: <RefreshCw className="size-4 animate-spin" />,
     className: "bg-blue-500 text-white cursor-not-allowed",
     pulseAnimation: true,
     tooltip: "Apollo is currently enriching this company. This may take 1-2 minutes."
   },
   completed: {
     label: "Enriched",
-    icon: <CheckCircle className="w-4 h-4" />,
+    icon: <CheckCircle className="size-4" />,
     className: "bg-green-600 hover:bg-green-700 text-white",
     tooltip: "Company has been enriched. Click to re-enrich with latest data."
   },
   failed: {
     label: "Retry",
-    icon: <AlertCircle className="w-4 h-4" />,
+    icon: <AlertCircle className="size-4" />,
     className: "bg-red-600 hover:bg-red-700 text-white",
     tooltip: "Enrichment failed. Click to try again."
   }
@@ -149,7 +149,7 @@ export function EnrichmentButton({
         <div className="absolute inset-0 bg-green-400 animate-ping opacity-25" />
       )}
       
-      <div className="relative flex items-center space-x-2">
+      <div className="relative flex items-center gap-x-2">
         <div className={cn(
           "transition-transform duration-200",
           showSuccess && "animate-bounce"

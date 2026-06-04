@@ -310,7 +310,7 @@ export function BlocklistForm({
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         {error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -393,7 +393,7 @@ export function BlocklistForm({
                         {field.value
                           ? companies.find((company) => company.id === field.value)?.name
                           : "Selecteer een bedrijf..."}
-                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        <Search className="ml-2 size-4 shrink-0 opacity-50" />
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
@@ -465,7 +465,7 @@ export function BlocklistForm({
                             contacts.find((contact) => contact.id === field.value)?.email ||
                             'Contact geselecteerd'
                           : loadingContacts ? "Contacten laden..." : "Selecteer een contact..."}
-                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        <Search className="ml-2 size-4 shrink-0 opacity-50" />
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
@@ -578,11 +578,11 @@ export function BlocklistForm({
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center gap-x-1">
                   <FormLabel className="text-base">Actief</FormLabel>
                   <Tooltip>
                     <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                      <HelpCircle className="size-3 text-gray-400 hover:text-gray-600" />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs">
                       <p className="text-sm">
@@ -616,7 +616,7 @@ export function BlocklistForm({
             Annuleren
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
             {isEditing ? "Opslaan" : "Toevoegen"}
           </Button>
         </div>

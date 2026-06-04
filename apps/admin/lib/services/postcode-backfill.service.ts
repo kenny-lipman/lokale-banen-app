@@ -632,7 +632,10 @@ export class PostcodeBackfillService {
       { count: withPostcode },
       { count: pipedriveWithoutPostcode },
       { count: geocodedToday },
-      { count: failedToday }
+      { count: failedToday },
+      // Campaign without postcode (separate query due to join)
+      // Note: We need to fetch data (not just count) because joins with count don't work well
+      { count: campaignCount }
     ] = await Promise.all([
       this.supabase.from('companies').select('*', { count: 'exact', head: true }),
       this.supabase.from('companies').select('*', { count: 'exact', head: true })
@@ -646,20 +649,16 @@ export class PostcodeBackfillService {
         .not('postal_code', 'is', null),
       this.supabase.from('companies').select('*', { count: 'exact', head: true })
         .gte('postcode_geocoded_at', todayISO)
-        .like('postcode_geocode_source', 'failed%')
-    ]);
-
-    // Campaign without postcode (separate query due to join)
-    // Note: We need to fetch data (not just count) because joins with count don't work well
-    const { count: campaignCount } = await this.supabase
-      .from('companies')
-      .select(`
+        .like('postcode_geocode_source', 'failed%'),
+      this.supabase.from('companies')
+        .select(`
         id,
         contacts!inner(instantly_campaign_ids)
       `, { count: 'exact', head: true })
-      .is('pipedrive_id', null)
-      .or('postal_code.is.null,postal_code.eq.')
-      .not('contacts.instantly_campaign_ids', 'is', null);
+        .is('pipedrive_id', null)
+        .or('postal_code.is.null,postal_code.eq.')
+        .not('contacts.instantly_campaign_ids', 'is', null)
+    ]);
 
     const campaignWithoutPostcode = campaignCount || 0;
 

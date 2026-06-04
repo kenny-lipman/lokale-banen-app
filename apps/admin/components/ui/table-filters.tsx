@@ -63,7 +63,7 @@ function MultiSelect({
       <PopoverContent className="w-64 p-2 shadow-lg border-gray-200">
         {showSearch && (
           <div className="relative mb-2">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <Input
               placeholder="Zoeken..."
               value={search}
@@ -151,7 +151,7 @@ export function DateRangeFilter({
             hasValue ? 'border-blue-300 bg-blue-50/30' : ''
           }`}
         >
-          <Calendar className="w-4 h-4 mr-2 text-gray-500" />
+          <Calendar className="size-4 mr-2 text-gray-500" />
           <span className={`truncate ${hasValue ? 'font-medium' : 'text-gray-600'}`}>
             {getDisplayText()}
           </span>
@@ -259,7 +259,7 @@ export function SalaryRangeFilter({
             hasValue ? 'border-blue-300 bg-blue-50/30' : ''
           }`}
         >
-          <Euro className="w-4 h-4 mr-2 text-gray-500" />
+          <Euro className="size-4 mr-2 text-gray-500" />
           <span className={`truncate ${hasValue ? 'font-medium' : 'text-gray-600'}`}>
             {getDisplayText()}
           </span>
@@ -369,7 +369,7 @@ export function HoursRangeFilter({
             hasValue ? 'border-blue-300 bg-blue-50/30' : ''
           }`}
         >
-          <Clock className="w-4 h-4 mr-2 text-gray-500" />
+          <Clock className="size-4 mr-2 text-gray-500" />
           <span className={`truncate ${hasValue ? 'font-medium' : 'text-gray-600'}`}>
             {getDisplayText()}
           </span>
@@ -497,7 +497,7 @@ export function TableFilters({
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1">
             {/* Search Input */}
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 size-4" />
               <Input
                 placeholder={searchPlaceholder}
                 value={searchValue}
@@ -540,7 +540,7 @@ export function TableFilters({
                 onClick={onResetFilters}
                 className="bg-white hover:bg-gray-50 border-gray-200 text-gray-700 hover:text-gray-900 transition-colors"
               >
-                <RotateCcw className="w-4 h-4 mr-2" />
+                <RotateCcw className="size-4 mr-2" />
                 Reset filters
               </Button>
             )}
@@ -551,7 +551,7 @@ export function TableFilters({
         {filters.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <SlidersHorizontal className="w-4 h-4 text-gray-500" />
+              <SlidersHorizontal className="size-4 text-gray-500" />
               Filters
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">

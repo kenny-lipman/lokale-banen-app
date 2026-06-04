@@ -142,13 +142,13 @@ export function CampaignAssignmentBatchesTable({
           <TableBody>
             {[...Array(5)].map((_, i) => (
               <TableRow key={i}>
-                <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                <TableCell><Skeleton className="size-4" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                <TableCell><Skeleton className="size-8" /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -217,14 +217,14 @@ export function CampaignAssignmentBatchesTable({
                   >
                     <TableCell>
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        <ChevronDown className="size-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="size-4 text-muted-foreground" />
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
-                        <Layers className="h-3.5 w-3.5 text-blue-500" />
+                        <Layers className="size-3.5 text-blue-500" />
                         <span className="font-medium text-xs">
                           {orch.batches.length} platforms
                         </span>
@@ -258,7 +258,7 @@ export function CampaignAssignmentBatchesTable({
                       <div>{timeAgo}</div>
                       {duration !== null && (
                         <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
+                          <Clock className="size-3" />
                           {duration}s
                         </div>
                       )}
@@ -315,7 +315,7 @@ export function CampaignAssignmentBatchesTable({
                         <TableCell className="text-xs text-muted-foreground">
                           {batchDuration !== null && (
                             <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
+                              <Clock className="size-3" />
                               {batchDuration}s
                             </div>
                           )}
@@ -329,7 +329,7 @@ export function CampaignAssignmentBatchesTable({
                               onSelectBatch(batch.batch_id)
                             }}
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="size-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -390,7 +390,7 @@ export function CampaignAssignmentBatchesTable({
                   <div>{timeAgo}</div>
                   {duration !== null && (
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
+                      <Clock className="size-3" />
                       {duration}s
                     </div>
                   )}
@@ -404,7 +404,7 @@ export function CampaignAssignmentBatchesTable({
                       onSelectBatch(batch.batch_id)
                     }}
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="size-4" />
                   </Button>
                 </TableCell>
               </TableRow>
@@ -421,35 +421,35 @@ function BatchStatusBadge({ status }: { status: string }) {
     case 'completed':
       return (
         <Badge variant="secondary" className="bg-green-100 text-green-700">
-          <CheckCircle2 className="h-3 w-3 mr-1" />
+          <CheckCircle2 className="size-3 mr-1" />
           Voltooid
         </Badge>
       )
     case 'processing':
       return (
         <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          <Loader2 className="size-3 mr-1 animate-spin" />
           Bezig
         </Badge>
       )
     case 'failed':
       return (
         <Badge variant="destructive">
-          <XCircle className="h-3 w-3 mr-1" />
+          <XCircle className="size-3 mr-1" />
           Gefaald
         </Badge>
       )
     case 'partial_failure':
       return (
         <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-          <XCircle className="h-3 w-3 mr-1" />
+          <XCircle className="size-3 mr-1" />
           Deels gefaald
         </Badge>
       )
     case 'cancelled':
       return (
         <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-          <XCircle className="h-3 w-3 mr-1" />
+          <XCircle className="size-3 mr-1" />
           Geannuleerd
         </Badge>
       )
@@ -457,7 +457,7 @@ function BatchStatusBadge({ status }: { status: string }) {
     default:
       return (
         <Badge variant="secondary">
-          <Clock className="h-3 w-3 mr-1" />
+          <Clock className="size-3 mr-1" />
           Wachten
         </Badge>
       )

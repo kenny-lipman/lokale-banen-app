@@ -11,8 +11,7 @@ const UPDATABLE_FIELDS = [
 ] as const
 
 async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params
-  const body = await req.json()
+  const [{ id }, body] = await Promise.all([ctx.params, req.json()])
   const updates: Partial<Record<typeof UPDATABLE_FIELDS[number], unknown>> & { updated_at: string } = {
     updated_at: new Date().toISOString(),
   }

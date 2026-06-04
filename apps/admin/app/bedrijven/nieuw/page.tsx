@@ -107,13 +107,13 @@ export default function NieuwBedrijfPage() {
       <div className="flex items-center gap-4 mb-6">
         <Link href="/companies">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="size-4 mr-2" />
             Terug
           </Button>
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Building2 className="h-8 w-8" />
+            <Building2 className="size-8" />
             Nieuw bedrijf
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -324,7 +324,7 @@ export default function NieuwBedrijfPage() {
             </Button>
           </Link>
           <Button type="submit" disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {saving && <Loader2 className="size-4 mr-2 animate-spin" />}
             Bedrijf aanmaken
           </Button>
         </div>

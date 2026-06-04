@@ -147,7 +147,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Zoekterm: "{searchTerm}"
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setSearchTerm("")}
                     />
                   </Badge>
@@ -156,7 +156,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Status: {statusFilter.length} geselecteerd
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setStatusFilter([])}
                     />
                   </Badge>
@@ -165,7 +165,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Bron: {sourceFilter.length} geselecteerd
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setSourceFilter([])}
                     />
                   </Badge>
@@ -174,7 +174,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Grootte: {categorySizeFilter.length} geselecteerd
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setCategorySizeFilter([])}
                     />
                   </Badge>
@@ -183,7 +183,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Hoofddomein: {regioPlatformFilter.length} geselecteerd
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setRegioPlatformFilter([])}
                     />
                   </Badge>
@@ -192,7 +192,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Subdomeinen: {subdomeinenFilter.length} geselecteerd
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setSubdomeinenFilter([])}
                     />
                   </Badge>
@@ -201,7 +201,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Klant: {customerFilter === "customers" ? "Ja" : "Nee"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setCustomerFilter("all")}
                     />
                   </Badge>
@@ -210,7 +210,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Website: {websiteFilter === "with" ? "Met" : "Zonder"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setWebsiteFilter("all")}
                     />
                   </Badge>
@@ -219,7 +219,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Apollo: {apolloEnrichedFilter === "enriched" ? "Verrijkt" : "Niet verrijkt"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setApolloEnrichedFilter("all")}
                     />
                   </Badge>
@@ -228,7 +228,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Contacten: {hasContactsFilter === "with_contacts" ? "Met" : "Zonder"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setHasContactsFilter("all")}
                     />
                   </Badge>
@@ -237,7 +237,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Pipedrive: {pipedriveFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setPipedriveFilter("all")}
                     />
                   </Badge>
@@ -246,7 +246,7 @@ export function CompaniesFilters({
                   <Badge variant="secondary" className="gap-1">
                     Instantly: {instantlyFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setInstantlyFilter("all")}
                     />
                   </Badge>
@@ -260,7 +260,7 @@ export function CompaniesFilters({
                         : `Tot ${new Date(dateTo!).toLocaleDateString('nl-NL')}`
                     }
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => { setDateFrom(null); setDateTo(null); }}
                     />
                   </Badge>
@@ -282,7 +282,7 @@ export function CompaniesFilters({
           {/* Search */}
           <div className="lg:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 size-4 text-gray-400" />
               <Input
                 placeholder="Zoek op bedrijf of locatie..."
                 value={searchTerm}
@@ -422,7 +422,7 @@ export function CompaniesFilters({
             onClick={handleResetFilters}
             className="w-full flex items-center justify-center gap-2"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="size-4" />
             Reset Filters
           </Button>
         </div>

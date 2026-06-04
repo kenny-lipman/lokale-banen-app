@@ -88,7 +88,7 @@ export function ErrorState({
       severityConfig.borderColor,
       className
     )}>
-      <div className="flex items-start space-x-3">
+      <div className="flex items-start gap-x-3">
         <IconComponent className={cn('w-5 h-5 mt-0.5', severityConfig.iconColor)} />
         
         <div className="flex-1 space-y-2">
@@ -123,7 +123,7 @@ export function ErrorState({
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center space-x-2 pt-2">
+          <div className="flex items-center gap-x-2 pt-2">
             {showRetry && onRetry && (
               <Button
                 size="sm"
@@ -131,7 +131,7 @@ export function ErrorState({
                 onClick={onRetry}
                 className="text-xs"
               >
-                <RefreshCw className="w-3 h-3 mr-1" />
+                <RefreshCw className="size-3 mr-1" />
                 Try Again
               </Button>
             )}
@@ -251,7 +251,7 @@ export function ErrorBoundaryFallback({
   return (
     <div className={cn('p-6 text-center', className)}>
       <div className="max-w-md mx-auto space-y-4">
-        <XCircle className="w-12 h-12 text-red-500 mx-auto" />
+        <XCircle className="size-12 text-red-500 mx-auto" />
         
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -264,7 +264,7 @@ export function ErrorBoundaryFallback({
 
         <div className="space-y-2">
           <Button onClick={resetErrorBoundary} className="w-full">
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="size-4 mr-2" />
             Refresh Page
           </Button>
           
@@ -352,7 +352,7 @@ export function ErrorRecovery({
             Maximum retry attempts reached. You can try an alternative approach:
           </p>
           <Button variant="outline" onClick={onFallback} size="sm">
-            <HelpCircle className="w-4 h-4 mr-2" />
+            <HelpCircle className="size-4 mr-2" />
             Try Alternative Method
           </Button>
         </div>

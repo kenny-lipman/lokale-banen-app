@@ -161,7 +161,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Rocket className="h-5 w-5" />
+                <Rocket className="size-5" />
                 Go-Live checklist
               </CardTitle>
               <CardDescription>
@@ -183,7 +183,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
         <CardContent className="space-y-4">
           {loading && !checks ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               Checks laden...
             </div>
           ) : checks ? (
@@ -197,18 +197,18 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
                   >
                     <div className="flex items-center gap-3">
                       {state === "pass" && (
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700">
-                          <Check className="h-4 w-4" />
+                        <span className="flex size-6 items-center justify-center rounded-full bg-green-100 text-green-700">
+                          <Check className="size-4" />
                         </span>
                       )}
                       {state === "fail" && (
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-700">
-                          <X className="h-4 w-4" />
+                        <span className="flex size-6 items-center justify-center rounded-full bg-red-100 text-red-700">
+                          <X className="size-4" />
                         </span>
                       )}
                       {state === "warn" && (
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                          <TriangleAlert className="h-4 w-4" />
+                        <span className="flex size-6 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                          <TriangleAlert className="size-4" />
                         </span>
                       )}
                       <div>
@@ -260,9 +260,9 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
               }
             >
               {publishing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="size-4 mr-2 animate-spin" />
               ) : (
-                <Rocket className="h-4 w-4 mr-2" />
+                <Rocket className="size-4 mr-2" />
               )}
               {checks?.is_public ? "Al live" : "Live zetten"}
             </Button>
@@ -283,9 +283,9 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
                     disabled={unpublishing || loading}
                   >
                     {unpublishing ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="size-4 mr-2 animate-spin" />
                     ) : (
-                      <PowerOff className="h-4 w-4 mr-2" />
+                      <PowerOff className="size-4 mr-2" />
                     )}
                     Offline halen
                   </Button>
@@ -328,7 +328,7 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
                   className={productionUrl && previewUrl ? "rounded-r-none border-r-0" : ""}
                 >
                   <a href={primaryViewUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
+                    <ExternalLink className="size-4 mr-2" />
                     Bekijk site
                   </a>
                 </Button>
@@ -342,20 +342,20 @@ export function GoLiveTab({ platform, onPublished, onRefresh }: GoLiveTabProps) 
                         className="rounded-l-none px-3"
                         aria-label="Kies domein"
                       >
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild>
                         <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
+                          <ExternalLink className="size-4 mr-2" />
                           Preview-domein
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <a href={productionUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
+                          <ExternalLink className="size-4 mr-2" />
                           Productiedomein
                         </a>
                       </DropdownMenuItem>

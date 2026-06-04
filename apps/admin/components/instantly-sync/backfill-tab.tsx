@@ -205,11 +205,11 @@ export function BackfillTab() {
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
       <TabsList className="grid w-full max-w-md grid-cols-2">
         <TabsTrigger value="current" className="flex items-center gap-2">
-          <Play className="h-4 w-4" />
+          <Play className="size-4" />
           Huidige Batch
         </TabsTrigger>
         <TabsTrigger value="history" className="flex items-center gap-2">
-          <History className="h-4 w-4" />
+          <History className="size-4" />
           Geschiedenis
         </TabsTrigger>
       </TabsList>

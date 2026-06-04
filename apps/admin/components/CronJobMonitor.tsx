@@ -96,28 +96,28 @@ function StatusBadge({ status }: { status: 'success' | 'error' | 'timeout' | 'ru
     case 'success':
       return (
         <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
-          <CheckCircle className="w-3 h-3 mr-1" />
+          <CheckCircle className="size-3 mr-1" />
           Success
         </Badge>
       )
     case 'error':
       return (
         <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">
-          <XCircle className="w-3 h-3 mr-1" />
+          <XCircle className="size-3 mr-1" />
           Error
         </Badge>
       )
     case 'timeout':
       return (
         <Badge className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100">
-          <Timer className="w-3 h-3 mr-1" />
+          <Timer className="size-3 mr-1" />
           Timeout
         </Badge>
       )
     case 'running':
       return (
         <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 animate-pulse">
-          <Clock className="w-3 h-3 mr-1" />
+          <Clock className="size-3 mr-1" />
           Running
         </Badge>
       )
@@ -208,7 +208,7 @@ export function CronJobMonitor() {
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </CardContent>
@@ -222,7 +222,7 @@ export function CronJobMonitor() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+              <Clock className="size-5" />
               Cron Job Monitor
             </CardTitle>
             <CardDescription>
@@ -264,7 +264,7 @@ export function CronJobMonitor() {
         {/* Overdue Alert */}
         {overdueJobs.length > 0 && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               <strong>{overdueJobs.length} job(s) zijn gestopt met draaien:</strong>{' '}
               {overdueJobs.map(j => {
@@ -278,7 +278,7 @@ export function CronJobMonitor() {
         {/* Timeout Warning */}
         {warningJobs.length > 0 && (
           <Alert className="border-orange-300 bg-orange-50">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertTriangle className="size-4 text-orange-600" />
             <AlertDescription className="text-orange-800">
               <strong>{warningJobs.length} job(s) naderen de timeout limiet (300s):</strong>{' '}
               {warningJobs.map(j => j.name).join(', ')}

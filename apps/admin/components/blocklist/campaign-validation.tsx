@@ -180,7 +180,7 @@ export function CampaignValidation({
   if (contacts.length === 0) {
     return (
       <Alert>
-        <Users className="h-4 w-4" />
+        <Users className="size-4" />
         <AlertDescription>
           Geen contacten gevonden om te valideren voor deze campaign.
         </AlertDescription>
@@ -195,8 +195,8 @@ export function CampaignValidation({
       {/* Validation Progress */}
       {validationResult.loading && (
         <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="flex items-center gap-x-2">
+            <Loader2 className="size-4 animate-spin" />
             <span className="text-sm text-gray-600">
               Contacten valideren tegen blocklist...
             </span>
@@ -241,12 +241,12 @@ export function CampaignValidation({
                 >
                   {showDetails ? (
                     <>
-                      <EyeOff className="h-3 w-3 mr-1" />
+                      <EyeOff className="size-3 mr-1" />
                       Verbergen
                     </>
                   ) : (
                     <>
-                      <Eye className="h-3 w-3 mr-1" />
+                      <Eye className="size-3 mr-1" />
                       Details
                     </>
                   )}
@@ -261,8 +261,8 @@ export function CampaignValidation({
       {!validationResult.loading && validationResult.totalContacts > 0 && (
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white p-3 rounded-lg border">
-            <div className="flex items-center space-x-2">
-              <Users className="h-4 w-4 text-gray-500" />
+            <div className="flex items-center gap-x-2">
+              <Users className="size-4 text-gray-500" />
               <div>
                 <p className="text-sm font-medium">Totaal</p>
                 <p className="text-xl font-bold text-gray-900">
@@ -273,8 +273,8 @@ export function CampaignValidation({
           </div>
 
           <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <div className="flex items-center gap-x-2">
+              <CheckCircle2 className="size-4 text-green-500" />
               <div>
                 <p className="text-sm font-medium text-green-700">Toegestaan</p>
                 <p className="text-xl font-bold text-green-900">
@@ -285,8 +285,8 @@ export function CampaignValidation({
           </div>
 
           <div className="bg-red-50 p-3 rounded-lg border border-red-200">
-            <div className="flex items-center space-x-2">
-              <Shield className="h-4 w-4 text-red-500" />
+            <div className="flex items-center gap-x-2">
+              <Shield className="size-4 text-red-500" />
               <div>
                 <p className="text-sm font-medium text-red-700">Geblokkeerd</p>
                 <p className="text-xl font-bold text-red-900">
@@ -304,7 +304,7 @@ export function CampaignValidation({
           <Separator />
           <div>
             <h4 className="font-medium text-sm text-gray-900 mb-3 flex items-center">
-              <Shield className="h-4 w-4 mr-2 text-red-500" />
+              <Shield className="size-4 mr-2 text-red-500" />
               Geblokkeerde Contacten ({validationResult.blockedContacts.length})
             </h4>
 
@@ -339,7 +339,7 @@ export function CampaignValidation({
           className="w-full"
           disabled={contacts.length === 0}
         >
-          <Shield className="h-4 w-4 mr-2" />
+          <Shield className="size-4 mr-2" />
           Contacten Valideren
         </Button>
       )}

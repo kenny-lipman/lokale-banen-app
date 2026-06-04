@@ -1340,28 +1340,55 @@ export class InstantlyPipedriveSyncService {
    */
   async getStats(): Promise<SyncStats> {
     const supabase = this.supabase;
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    // Total syncs
-    const { count: totalSyncs } = await supabase
-      .from('instantly_pipedrive_syncs')
-      .select('*', { count: 'exact', head: true });
-
-    // By event type
-    const { data: byEventTypeData } = await supabase
-      .from('instantly_pipedrive_syncs')
-      .select('event_type')
-      .not('event_type', 'is', null);
+    // Zes onafhankelijke aggregatie-queries: parallel in plaats van serieel.
+    const [
+      { count: totalSyncs },
+      { data: byEventTypeData },
+      { data: byStatusData },
+      { data: byCampaignData },
+      { count: errorsLast24h },
+      { data: lastSyncData },
+    ] = await Promise.all([
+      // Total syncs
+      supabase
+        .from('instantly_pipedrive_syncs')
+        .select('*', { count: 'exact', head: true }),
+      // By event type
+      supabase
+        .from('instantly_pipedrive_syncs')
+        .select('event_type')
+        .not('event_type', 'is', null),
+      // By status
+      supabase
+        .from('instantly_pipedrive_syncs')
+        .select('status_prospect_set')
+        .not('status_prospect_set', 'is', null),
+      // By campaign
+      supabase
+        .from('instantly_pipedrive_syncs')
+        .select('instantly_campaign_name')
+        .not('instantly_campaign_name', 'is', null),
+      // Errors in last 24h
+      supabase
+        .from('instantly_pipedrive_syncs')
+        .select('*', { count: 'exact', head: true })
+        .eq('sync_success', false)
+        .gte('created_at', oneDayAgo),
+      // Last sync
+      supabase
+        .from('instantly_pipedrive_syncs')
+        .select('synced_at')
+        .order('synced_at', { ascending: false })
+        .limit(1)
+        .single(),
+    ]);
 
     const byEventType: Record<string, number> = {};
     byEventTypeData?.forEach(row => {
       byEventType[row.event_type] = (byEventType[row.event_type] || 0) + 1;
     });
-
-    // By status
-    const { data: byStatusData } = await supabase
-      .from('instantly_pipedrive_syncs')
-      .select('status_prospect_set')
-      .not('status_prospect_set', 'is', null);
 
     const byStatus: Record<string, number> = {};
     byStatusData?.forEach(row => {
@@ -1370,34 +1397,12 @@ export class InstantlyPipedriveSyncService {
       }
     });
 
-    // By campaign
-    const { data: byCampaignData } = await supabase
-      .from('instantly_pipedrive_syncs')
-      .select('instantly_campaign_name')
-      .not('instantly_campaign_name', 'is', null);
-
     const byCampaign: Record<string, number> = {};
     byCampaignData?.forEach(row => {
       if (row.instantly_campaign_name) {
         byCampaign[row.instantly_campaign_name] = (byCampaign[row.instantly_campaign_name] || 0) + 1;
       }
     });
-
-    // Errors in last 24h
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: errorsLast24h } = await supabase
-      .from('instantly_pipedrive_syncs')
-      .select('*', { count: 'exact', head: true })
-      .eq('sync_success', false)
-      .gte('created_at', oneDayAgo);
-
-    // Last sync
-    const { data: lastSyncData } = await supabase
-      .from('instantly_pipedrive_syncs')
-      .select('synced_at')
-      .order('synced_at', { ascending: false })
-      .limit(1)
-      .single();
 
     return {
       totalSyncs: totalSyncs || 0,
@@ -1575,21 +1580,26 @@ export class InstantlyPipedriveSyncService {
     console.log(`  Terminal-status cutoff: ${terminalCutoffDate.toISOString()} (1 day)`);
 
     // Count eligible leads for both categories
-    const { count: completedCount, error: countError1 } = await this.supabase
-      .from('contacts')
-      .select('id', { count: 'exact', head: true })
-      .not('instantly_campaign_completed_at', 'is', null)
-      .is('instantly_removed_at', null)
-      .lt('instantly_campaign_completed_at', cutoffDate.toISOString())
-      .in('instantly_status', ['campaign_completed', 'backfill']);
-
-    const { count: terminalCount, error: countError2 } = await this.supabase
-      .from('contacts')
-      .select('id', { count: 'exact', head: true })
-      .is('instantly_removed_at', null)
-      .eq('instantly_synced', true)
-      .in('instantly_status', TERMINAL_STATUSES)
-      .lt('instantly_synced_at', terminalCutoffDate.toISOString());
+    // Twee onafhankelijke count-queries: parallel in plaats van serieel.
+    const [
+      { count: completedCount, error: countError1 },
+      { count: terminalCount, error: countError2 },
+    ] = await Promise.all([
+      this.supabase
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .not('instantly_campaign_completed_at', 'is', null)
+        .is('instantly_removed_at', null)
+        .lt('instantly_campaign_completed_at', cutoffDate.toISOString())
+        .in('instantly_status', ['campaign_completed', 'backfill']),
+      this.supabase
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .is('instantly_removed_at', null)
+        .eq('instantly_synced', true)
+        .in('instantly_status', TERMINAL_STATUSES)
+        .lt('instantly_synced_at', terminalCutoffDate.toISOString()),
+    ]);
 
     if (countError1) console.error('Error counting completed leads:', countError1);
     if (countError2) console.error('Error counting terminal leads:', countError2);

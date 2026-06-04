@@ -42,18 +42,18 @@ export function BlocklistSyncStatus({
 }: BlocklistSyncStatusProps) {
   const getSyncStatusIcon = (status: SyncStatusInfo | undefined) => {
     if (!status) {
-      return <Clock className="h-4 w-4 text-gray-400" />
+      return <Clock className="size-4 text-gray-400" />
     }
 
     if (status.error) {
-      return <AlertTriangle className="h-4 w-4 text-red-500" />
+      return <AlertTriangle className="size-4 text-red-500" />
     }
 
     if (status.synced) {
-      return <CheckCircle2 className="h-4 w-4 text-green-500" />
+      return <CheckCircle2 className="size-4 text-green-500" />
     }
 
-    return <XCircle className="h-4 w-4 text-red-500" />
+    return <XCircle className="size-4 text-red-500" />
   }
 
   const getSyncStatusText = (status: SyncStatusInfo | undefined) => {
@@ -158,9 +158,9 @@ export function BlocklistSyncStatus({
             disabled={loading}
           >
             {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="size-4 mr-2 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="size-4 mr-2" />
             )}
             Opnieuw Synchroniseren
           </Button>
@@ -187,7 +187,7 @@ export function BlocklistSyncStatus({
                 className="h-6 px-2"
                 title="Sync naar Instantly"
               >
-                <RefreshCw className="h-3 w-3" />
+                <RefreshCw className="size-3" />
               </Button>
             )}
           </div>
@@ -217,7 +217,7 @@ export function BlocklistSyncStatus({
                 className="h-6 px-2"
                 title="Sync naar Pipedrive"
               >
-                <RefreshCw className="h-3 w-3" />
+                <RefreshCw className="size-3" />
               </Button>
             )}
           </div>

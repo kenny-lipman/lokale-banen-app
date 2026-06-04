@@ -58,7 +58,7 @@ export function ApplyButton({
         className="w-full"
       >
         {buttonLabel}
-        <ExternalLink className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+        <ExternalLink className="size-4" strokeWidth={2} aria-hidden="true" />
       </PillButton>
     )
   }
@@ -87,7 +87,7 @@ export function ApplyButton({
           className="w-full"
         >
           {buttonLabel}
-          <ExternalLink className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          <ExternalLink className="size-4" strokeWidth={2} aria-hidden="true" />
         </PillButton>
       )}
     </div>

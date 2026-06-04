@@ -22,7 +22,7 @@ export function LocationSummaryCompact({ contactIds }: LocationSummaryCompactPro
     return (
       <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
         <div className="flex items-center gap-2 mb-3">
-          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+          <Loader2 className="size-4 text-blue-600 animate-spin" />
           <span className="text-sm font-medium">Locaties laden...</span>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -46,7 +46,7 @@ export function LocationSummaryCompact({ contactIds }: LocationSummaryCompactPro
     return (
       <div className="p-3 bg-red-50 rounded-lg border border-red-200">
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-red-600" />
+          <MapPin className="size-4 text-red-600" />
           <span className="text-sm text-red-700">
             Kon locatie data niet laden
           </span>
@@ -75,7 +75,7 @@ export function LocationSummaryCompact({ contactIds }: LocationSummaryCompactPro
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-blue-600" />
+          <MapPin className="size-4 text-blue-600" />
           <h4 className="font-medium text-sm text-gray-900">Locatie Overzicht</h4>
         </div>
         
@@ -140,12 +140,12 @@ export function LocationSummaryCompact({ contactIds }: LocationSummaryCompactPro
           >
             {expanded ? (
               <>
-                <ChevronUp className="w-3 h-3 mr-1" />
+                <ChevronUp className="size-3 mr-1" />
                 Toon minder
               </>
             ) : (
               <>
-                <ChevronDown className="w-3 h-3 mr-1" />
+                <ChevronDown className="size-3 mr-1" />
                 Toon alle {data.totalLocations} locaties
               </>
             )}

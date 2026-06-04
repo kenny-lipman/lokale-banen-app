@@ -56,19 +56,19 @@ export const RegionToggle: React.FC<RegionToggleProps> = memo(({
   return (
     <div className="px-4 py-3 hover:bg-gray-50 transition-colors relative" role="listitem">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3 flex-1 min-w-0">
+        <div className="flex items-center gap-x-3 flex-1 min-w-0">
           {/* Location Icon */}
-          <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full flex-shrink-0" aria-hidden="true">
+          <div className="flex items-center justify-center size-8 bg-blue-50 rounded-full flex-shrink-0" aria-hidden="true">
             {isCentralPlace ? (
-              <Target className="h-4 w-4 text-blue-600" />
+              <Target className="size-4 text-blue-600" />
             ) : (
-              <MapPin className="h-4 w-4 text-blue-600" />
+              <MapPin className="size-4 text-blue-600" />
             )}
           </div>
           
           {/* Region Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-x-2">
               <h4 className="font-medium text-gray-900 truncate" id={`region-${region.id}-name`}>
                 {region.plaats}
               </h4>
@@ -88,9 +88,9 @@ export const RegionToggle: React.FC<RegionToggleProps> = memo(({
         </div>
         
         {/* Toggle Switch */}
-        <div className="flex items-center space-x-2 ml-4">
+        <div className="flex items-center gap-x-2 ml-4">
           {isLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" aria-hidden="true" />
+            <Loader2 className="size-4 animate-spin text-blue-600" aria-hidden="true" />
           )}
           
           <Switch
@@ -103,7 +103,7 @@ export const RegionToggle: React.FC<RegionToggleProps> = memo(({
           />
           
           {/* Status indicator */}
-          <div className="flex items-center space-x-1" aria-live="polite" aria-atomic="true">
+          <div className="flex items-center gap-x-1" aria-live="polite" aria-atomic="true">
             <div 
               className={`w-2 h-2 rounded-full transition-colors ${
                 localEnabled ? 'bg-green-500' : 'bg-gray-300'
@@ -120,7 +120,7 @@ export const RegionToggle: React.FC<RegionToggleProps> = memo(({
       {/* Loading overlay for better UX */}
       {isLoading && (
         <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center rounded" aria-hidden="true">
-          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+          <Loader2 className="size-5 animate-spin text-blue-600" />
         </div>
       )}
     </div>

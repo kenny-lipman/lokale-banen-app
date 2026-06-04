@@ -127,8 +127,8 @@ export const ActiveRegionsSection: React.FC<ActiveRegionsSectionProps> = ({
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <MapPin className="w-5 h-5 text-orange-500" />
+          <div className="flex items-center gap-x-2">
+            <MapPin className="size-5 text-orange-500" />
             <div>
               <Skeleton className="h-6 w-32" />
               <Skeleton className="h-4 w-48 mt-2" />
@@ -151,8 +151,8 @@ export const ActiveRegionsSection: React.FC<ActiveRegionsSectionProps> = ({
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <MapPin className="w-5 h-5 text-orange-500" />
+          <div className="flex items-center gap-x-2">
+            <MapPin className="size-5 text-orange-500" />
             <div>
               <CardTitle>Actieve Regio's</CardTitle>
               <CardDescription>Regio's met actieve centrale plaatsen</CardDescription>
@@ -161,7 +161,7 @@ export const ActiveRegionsSection: React.FC<ActiveRegionsSectionProps> = ({
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </CardContent>
@@ -173,12 +173,12 @@ export const ActiveRegionsSection: React.FC<ActiveRegionsSectionProps> = ({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <MapPin className="w-5 h-5 text-orange-500" />
+          <div className="flex items-center gap-x-2">
+            <MapPin className="size-5 text-orange-500" />
             <div>
               <CardTitle className="flex items-center gap-2">
                 Statistieken
-                <CheckCircle className="w-4 h-4 text-green-500" />
+                <CheckCircle className="size-4 text-green-500" />
               </CardTitle>
               <CardDescription>
                 Overzicht van platform en regio statistieken
@@ -215,7 +215,7 @@ export const ActiveRegionsSection: React.FC<ActiveRegionsSectionProps> = ({
         {/* Alert for when no regions found */}
         {getTotalActivePlatforms() === 0 && (
           <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               Geen actieve platforms gevonden. Controleer platform configuratie.
             </AlertDescription>

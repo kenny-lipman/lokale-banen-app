@@ -31,9 +31,9 @@ export function SyncStatsCards({ stats, loading }: SyncStatsCardsProps) {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4" />
+              <Skeleton className="size-4" />
             </CardHeader>
             <CardContent>
               <Skeleton className="h-8 w-20 mb-1" />
@@ -53,9 +53,9 @@ export function SyncStatsCards({ stats, loading }: SyncStatsCardsProps) {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {/* Total Events */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Totaal Events</CardTitle>
-          <Activity className="h-4 w-4 text-muted-foreground" />
+          <Activity className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
@@ -67,9 +67,9 @@ export function SyncStatsCards({ stats, loading }: SyncStatsCardsProps) {
 
       {/* Success Rate */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <TrendingUp className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -85,9 +85,9 @@ export function SyncStatsCards({ stats, loading }: SyncStatsCardsProps) {
 
       {/* Errors */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Errors</CardTitle>
-          <XCircle className="h-4 w-4 text-red-500" />
+          <XCircle className="size-4 text-red-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -103,9 +103,9 @@ export function SyncStatsCards({ stats, loading }: SyncStatsCardsProps) {
 
       {/* Last Sync */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Laatste Sync</CardTitle>
-          <Clock className="h-4 w-4 text-muted-foreground" />
+          <Clock className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-blue-600">

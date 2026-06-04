@@ -4,8 +4,7 @@ import { withAdminAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
 
 async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params
-  const body = await req.json().catch(() => ({}))
+  const [{ id }, body] = await Promise.all([ctx.params, req.json().catch(() => ({}))])
   const { role } = body as { role?: string }
 
   if (role !== 'admin' && role !== 'member') {

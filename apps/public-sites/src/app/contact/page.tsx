@@ -107,10 +107,10 @@ export default async function ContactPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={`${tenant.name} op ${social.label}`}
-                        className="inline-flex items-center justify-center w-11 h-11 rounded-button border border-divider text-primary hover:bg-primary-tint hover:border-primary transition-colors"
+                        className="inline-flex items-center justify-center size-11 rounded-button border border-divider text-primary hover:bg-primary-tint hover:border-primary transition-colors"
                       >
                         <social.icon
-                          className="h-5 w-5"
+                          className="size-5"
                           strokeWidth={1.75}
                           aria-hidden="true"
                         />
@@ -165,8 +165,8 @@ function ContactInfoRow({
 }) {
   const content = (
     <span className="inline-flex items-center gap-3">
-      <span className="inline-flex items-center justify-center w-9 h-9 shrink-0 bg-primary-tint rounded-button">
-        <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden="true" />
+      <span className="inline-flex items-center justify-center size-9 shrink-0 bg-primary-tint rounded-button">
+        <Icon className="size-4 text-primary" strokeWidth={1.75} aria-hidden="true" />
       </span>
       <span className="text-meta font-regular text-primary leading-relaxed">
         {children}

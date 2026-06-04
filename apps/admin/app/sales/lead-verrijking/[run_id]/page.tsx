@@ -396,7 +396,7 @@ export default function RunDetailPage({ params }: PageProps) {
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
-            <RefreshCw className="w-3 h-3 mr-1" />
+            <RefreshCw className="size-3 mr-1" />
             Vernieuwen
           </Button>
         </div>

@@ -344,7 +344,7 @@ export default function BewerkVacaturePage() {
     return (
       <div className="container mx-auto py-6 max-w-4xl flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin mx-auto mb-4 text-muted-foreground" />
           <p className="text-muted-foreground">Vacature laden...</p>
         </div>
       </div>
@@ -357,13 +357,13 @@ export default function BewerkVacaturePage() {
       <div className="flex items-center gap-4 mb-6">
         <Link href="/job-postings">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="size-4 mr-2" />
             Terug
           </Button>
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Briefcase className="h-8 w-8" />
+            <Briefcase className="size-8" />
             Vacature bewerken
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -377,7 +377,7 @@ export default function BewerkVacaturePage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5" />
+              <ImageIcon className="size-5" />
               Header afbeelding
             </CardTitle>
           </CardHeader>
@@ -519,7 +519,7 @@ export default function BewerkVacaturePage() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <Sparkles className="size-5 text-purple-600" />
                   AI Herschrijving (publicatietekst)
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -535,9 +535,9 @@ export default function BewerkVacaturePage() {
                 className="border-purple-300 text-purple-700 hover:bg-purple-100"
               >
                 {aiRewriting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <Sparkles className="size-4 mr-2" />
                 )}
                 {aiRewriting
                   ? "Herschrijven..."
@@ -720,9 +720,9 @@ export default function BewerkVacaturePage() {
             <AlertDialogTrigger asChild>
               <Button variant="destructive" type="button" disabled={deleting}>
                 {deleting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="size-4 mr-2" />
                 )}
                 Verwijderen
               </Button>
@@ -754,7 +754,7 @@ export default function BewerkVacaturePage() {
               </Button>
             </Link>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {saving && <Loader2 className="size-4 mr-2 animate-spin" />}
               Opslaan
             </Button>
           </div>

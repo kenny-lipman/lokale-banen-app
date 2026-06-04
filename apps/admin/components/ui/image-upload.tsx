@@ -290,23 +290,23 @@ export function ImageUpload({
                 type="button"
                 variant="destructive"
                 size="icon"
-                className="absolute right-2 top-2 h-7 w-7 opacity-90"
+                className="absolute right-2 top-2 size-7 opacity-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleRemove()
                 }}
                 aria-label="Afbeelding verwijderen"
               >
-                <X className="h-4 w-4" />
+                <X className="size-4" />
               </Button>
             )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 p-6 text-muted-foreground">
             {isUploading ? (
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="size-8 animate-spin text-primary" />
             ) : (
-              <UploadCloud className="h-8 w-8" />
+              <UploadCloud className="size-8" />
             )}
             <div className="text-sm font-medium">
               {isUploading
@@ -335,7 +335,7 @@ export function ImageUpload({
 
       {error && (
         <div className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          <ImageOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <ImageOff className="mt-0.5 size-3.5 shrink-0" />
           <span>{error}</span>
         </div>
       )}

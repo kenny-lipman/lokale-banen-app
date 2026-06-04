@@ -160,7 +160,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center gap-2 py-6"><Loader2 className="w-4 h-4 animate-spin" /> Pipedrive metadata laden...</div>
+          <div className="flex items-center gap-2 py-6"><Loader2 className="size-4 animate-spin" /> Pipedrive metadata laden...</div>
         ) : (
           <div className="space-y-4">
             <div>
@@ -238,7 +238,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
                 onValueChange={(v) => setForm({ ...form, hoofddomein_strategy: v as "fixed" | "auto_match_by_address" })}
                 className="mt-2"
               >
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-x-2">
                   <RadioGroupItem id="strat-fixed" value="fixed" />
                   <Label htmlFor="strat-fixed" className="font-normal">Vast</Label>
                   {form.hoofddomein_strategy === "fixed" && (
@@ -263,7 +263,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
                     </Select>
                   )}
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-x-2">
                   <RadioGroupItem id="strat-auto" value="auto_match_by_address" />
                   <Label htmlFor="strat-auto" className="font-normal">Auto-match op adres (regio&rarr;platform)</Label>
                 </div>
@@ -300,7 +300,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
                   const c = testResult.checks[k]
                   return (
                     <div key={k} className="flex items-center gap-2">
-                      {c.ok ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+                      {c.ok ? <CheckCircle2 className="size-4 text-green-600" /> : <XCircle className="size-4 text-red-600" />}
                       <span className="font-mono text-xs text-gray-500 w-20">{k}:</span>
                       <span>{c.message ?? (c.ok ? "OK" : "Faalt")}</span>
                     </div>
@@ -317,7 +317,7 @@ export function OwnerConfigEditModal({ open, onOpenChange, config, onSaved }: Pr
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={handleTest} disabled={loading || testing}>
-            {testing ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Testen...</> : "Test config"}
+            {testing ? <><Loader2 className="size-4 mr-1 animate-spin" /> Testen...</> : "Test config"}
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
           <Button onClick={handleSave} disabled={loading}>Opslaan</Button>

@@ -41,11 +41,11 @@ interface BackfillLeadsTableProps {
 }
 
 const STATUS_CONFIG: Record<BackfillLeadStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
-  pending: { label: "Wachtend", variant: "outline", icon: <Clock className="h-3 w-3" /> },
-  processing: { label: "Bezig", variant: "secondary", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-  synced: { label: "Gesynchroniseerd", variant: "default", icon: <CheckCircle2 className="h-3 w-3" /> },
-  skipped: { label: "Overgeslagen", variant: "outline", icon: <SkipForward className="h-3 w-3" /> },
-  failed: { label: "Mislukt", variant: "destructive", icon: <XCircle className="h-3 w-3" /> },
+  pending: { label: "Wachtend", variant: "outline", icon: <Clock className="size-3" /> },
+  processing: { label: "Bezig", variant: "secondary", icon: <Loader2 className="size-3 animate-spin" /> },
+  synced: { label: "Gesynchroniseerd", variant: "default", icon: <CheckCircle2 className="size-3" /> },
+  skipped: { label: "Overgeslagen", variant: "outline", icon: <SkipForward className="size-3" /> },
+  failed: { label: "Mislukt", variant: "destructive", icon: <XCircle className="size-3" /> },
 }
 
 const AUTO_REFRESH_INTERVAL = 5000 // 5 seconds
@@ -149,7 +149,7 @@ export function BackfillLeadsTable({ batchId, batchStatus }: BackfillLeadsTableP
       {/* Filters */}
       <div className="flex gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
           <Input
             placeholder="Zoek op email of campaign..."
             value={filters.search}
@@ -191,7 +191,7 @@ export function BackfillLeadsTable({ batchId, batchStatus }: BackfillLeadsTableP
 
         {isAutoRefreshing && (
           <Badge variant="secondary" className="flex items-center gap-1">
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className="size-3 animate-spin" />
             Live
           </Badge>
         )}
@@ -259,7 +259,7 @@ export function BackfillLeadsTable({ batchId, batchStatus }: BackfillLeadsTableP
                           className="flex items-center gap-1 text-blue-600 hover:underline"
                         >
                           Org #{lead.pipedrive_org_id}
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLink className="size-3" />
                         </a>
                       ) : (
                         <span className="text-muted-foreground">-</span>

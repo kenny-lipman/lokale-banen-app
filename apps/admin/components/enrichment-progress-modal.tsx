@@ -65,28 +65,28 @@ export function EnrichmentProgressModal({
       case 'completed':
         return (
           <Badge className="bg-green-100 text-green-800 border-green-200">
-            <CheckCircle className="w-3 h-3 mr-1" />
+            <CheckCircle className="size-3 mr-1" />
             Voltooid
           </Badge>
         )
       case 'failed':
         return (
           <Badge className="bg-red-100 text-red-800 border-red-200">
-            <XCircle className="w-3 h-3 mr-1" />
+            <XCircle className="size-3 mr-1" />
             Mislukt
           </Badge>
         )
       case 'processing':
         return (
           <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-            <Clock className="w-3 h-3 mr-1" />
+            <Clock className="size-3 mr-1" />
             Bezig
           </Badge>
         )
       case 'queued':
         return (
           <Badge className="bg-gray-100 text-gray-800 border-gray-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             In wachtrij
           </Badge>
         )
@@ -111,8 +111,8 @@ export function EnrichmentProgressModal({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                <Zap className="w-5 h-5 text-white" />
+              <div className="size-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Zap className="size-5 text-white" />
               </div>
               <div>
                 <DialogTitle>Apollo Bedrijfsverrijking</DialogTitle>
@@ -145,7 +145,7 @@ export function EnrichmentProgressModal({
                 onClick={() => setIsMinimized(!isMinimized)}
                 title={isMinimized ? "Uitklappen" : "Inklappen"}
               >
-                <Minimize2 className="w-4 h-4" />
+                <Minimize2 className="size-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -154,7 +154,7 @@ export function EnrichmentProgressModal({
                 disabled={!isComplete}
                 title={isComplete ? "Sluiten" : "Wacht tot verrijking voltooid is"}
               >
-                <X className="w-4 h-4" />
+                <X className="size-4" />
               </Button>
             </div>
           </div>
@@ -254,7 +254,7 @@ export function EnrichmentProgressModal({
                   }}
                   className="bg-green-600 hover:bg-green-700"
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                  <CheckCircle className="size-4 mr-2" />
                   Bekijk Resultaten
                 </Button>
               </div>

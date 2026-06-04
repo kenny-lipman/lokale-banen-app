@@ -102,7 +102,7 @@ export function ContactForm() {
           disabled={pending}
           className="disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <Send className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          <Send className="size-4" strokeWidth={2} aria-hidden="true" />
           {pending ? 'Versturen...' : 'Verstuur bericht'}
         </PillButton>
       </div>

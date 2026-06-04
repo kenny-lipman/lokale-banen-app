@@ -87,7 +87,7 @@ export function QuickBlockModal({
             toast.success('Succesvol geblokkeerd en gesynchroniseerd', {
               description: (
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4" />
+                  <ShieldAlert className="size-4" />
                   <span>
                     {type === 'email' ? 'Email' : 'Domein'} {value} is toegevoegd aan de blocklist en wordt gesynchroniseerd
                   </span>
@@ -144,7 +144,7 @@ export function QuickBlockModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-orange-600" />
+            <Shield className="size-5 text-orange-600" />
             Snel Blokkeren
           </DialogTitle>
           <DialogDescription>
@@ -156,7 +156,7 @@ export function QuickBlockModal({
           {/* Contact Info (if provided) */}
           {contact && (
             <Alert className="bg-blue-50 border-blue-200">
-              <AlertTriangle className="h-4 w-4 text-blue-600" />
+              <AlertTriangle className="size-4 text-blue-600" />
               <AlertDescription>
                 <div className="space-y-1">
                   <p className="font-medium text-blue-900">Contact Details:</p>
@@ -184,13 +184,13 @@ export function QuickBlockModal({
               <SelectContent>
                 <SelectItem value="email">
                   <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
+                    <Mail className="size-4" />
                     <span>Specifiek email adres</span>
                   </div>
                 </SelectItem>
                 <SelectItem value="domain">
                   <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
+                    <Globe className="size-4" />
                     <span>Volledig domein</span>
                   </div>
                 </SelectItem>
@@ -218,12 +218,12 @@ export function QuickBlockModal({
                 <Badge variant="outline" className="text-xs">
                   {type === 'email' ? (
                     <>
-                      <Mail className="h-3 w-3 mr-1" />
+                      <Mail className="size-3 mr-1" />
                       Email
                     </>
                   ) : (
                     <>
-                      <Globe className="h-3 w-3 mr-1" />
+                      <Globe className="size-3 mr-1" />
                       Domein
                     </>
                   )}
@@ -248,7 +248,7 @@ export function QuickBlockModal({
           </div>
 
           {/* Sync Options */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-x-2">
             <input
               type="checkbox"
               id="syncExternal"
@@ -265,7 +265,7 @@ export function QuickBlockModal({
           {/* Warning for domain blocking */}
           {type === 'domain' && value && (
             <Alert className="bg-red-50 border-red-200">
-              <ShieldAlert className="h-4 w-4 text-red-600" />
+              <ShieldAlert className="size-4 text-red-600" />
               <AlertDescription>
                 <p className="text-sm text-red-700">
                   <strong>Let op:</strong> Alle email adressen eindigend op @{value} worden geblokkeerd.
@@ -291,12 +291,12 @@ export function QuickBlockModal({
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="size-4 mr-2 animate-spin" />
                 Blokkeren...
               </>
             ) : (
               <>
-                <Shield className="h-4 w-4 mr-2" />
+                <Shield className="size-4 mr-2" />
                 Blokkeren
               </>
             )}

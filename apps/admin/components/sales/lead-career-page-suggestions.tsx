@@ -106,7 +106,7 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
       <Card className="border-green-200 bg-green-50/50">
         <CardContent className="pt-4 pb-3">
           <div className="flex items-center gap-2 text-sm text-green-900">
-            <CheckCircle2 className="w-4 h-4 text-green-600" />
+            <CheckCircle2 className="size-4 text-green-600" />
             <span>
               <strong>{autoApproved.length}</strong> werken-bij {autoApproved.length === 1 ? 'bron' : 'bronnen'} automatisch toegevoegd
               {autoApproved.some((a) => a.is_external_ats) && ' (incl. herkende ATS-platforms)'}
@@ -123,7 +123,7 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2 text-amber-900">
-            <ShieldCheck className="w-4 h-4 text-amber-600" />
+            <ShieldCheck className="size-4 text-amber-600" />
             Potentiële werken-bij websites
             <Badge className="bg-amber-200 text-amber-800 hover:bg-amber-200">
               {loading ? '…' : items.length} suggestie{items.length === 1 ? '' : 's'} · review nodig
@@ -131,7 +131,7 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
           </CardTitle>
           {items.length > 1 && (
             <Button size="sm" variant="ghost" className="text-green-700 h-7" onClick={approveAll}>
-              <CheckCircle2 className="w-4 h-4 mr-1" />
+              <CheckCircle2 className="size-4 mr-1" />
               Alles goedkeuren
             </Button>
           )}
@@ -159,7 +159,7 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
                       className="font-mono text-sm text-blue-600 hover:underline truncate flex items-center gap-1"
                     >
                       <span className="truncate">{it.url}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0 opacity-50" />
+                      <ExternalLink className="size-3 shrink-0 opacity-50" />
                     </a>
                     <Badge variant="secondary" className="text-xs">via {it.discovery_method ?? 'onbekend'}</Badge>
                   </div>
@@ -170,11 +170,11 @@ export function LeadCareerPageSuggestions({ runId, onChange }: Props) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8" onClick={() => action(it.id, 'approve')} disabled={isActing}>
-                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    <CheckCircle2 className="size-4 mr-1" />
                     Goedkeuren
                   </Button>
                   <Button size="sm" variant="outline" className="h-8" onClick={() => action(it.id, 'reject')} disabled={isActing}>
-                    <X className="w-4 h-4 mr-1" />
+                    <X className="size-4 mr-1" />
                     Afwijzen
                   </Button>
                 </div>

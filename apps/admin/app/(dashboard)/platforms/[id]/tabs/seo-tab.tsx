@@ -40,7 +40,7 @@ export function SeoTab({ platform, values, onChange }: SeoTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
+            <Search className="size-5" />
             SEO
           </CardTitle>
           <CardDescription>
@@ -101,9 +101,9 @@ export function SeoTab({ platform, values, onChange }: SeoTabProps) {
                 title="Kopieer naar klembord"
               >
                 {copied ? (
-                  <Check className="h-4 w-4 text-green-600" />
+                  <Check className="size-4 text-green-600" />
                 ) : (
-                  <Copy className="h-4 w-4" />
+                  <Copy className="size-4" />
                 )}
               </Button>
             </div>

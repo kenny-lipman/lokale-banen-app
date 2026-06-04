@@ -58,16 +58,16 @@ export const PlatformGroup: React.FC<PlatformGroupProps> = memo(({
         aria-describedby={`${platform}-stats`}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-6 h-6">
+          <div className="flex items-center gap-x-3">
+            <div className="flex items-center justify-center size-6">
               {expanded ? (
-                <ChevronDown className="h-4 w-4 text-gray-500 transition-transform" />
+                <ChevronDown className="size-4 text-gray-500 transition-transform" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500 transition-transform" />
+                <ChevronRight className="size-4 text-gray-500 transition-transform" />
               )}
             </div>
             <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-1">
+              <div className="flex items-center gap-x-3 mb-1">
                 <h3 className="font-semibold text-gray-900">{platform}</h3>
                 {centralPlace && (
                   <CentralPlaceTooltip>
@@ -92,8 +92,8 @@ export const PlatformGroup: React.FC<PlatformGroupProps> = memo(({
           </div>
           
           {/* Progress indicator */}
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1 text-sm text-gray-500" aria-hidden="true">
+          <div className="flex items-center gap-x-2">
+            <div className="flex items-center gap-x-1 text-sm text-gray-500" aria-hidden="true">
               <span className="font-medium">{enabledCount}</span>
               <span>/</span>
               <span>{totalCount}</span>

@@ -73,8 +73,8 @@ function Calendar({
       components={{
         Chevron: ({ orientation, ...props }: ChevronProps) =>
           orientation === 'right'
-            ? <ChevronRight className="h-4 w-4" {...props} />
-            : <ChevronLeft className="h-4 w-4" {...props} />,
+            ? <ChevronRight className="size-4" {...props} />
+            : <ChevronLeft className="size-4" {...props} />,
       }}
       {...props}
     />

@@ -177,7 +177,7 @@ export function BulkActionBar({
             className={buttonColor}
             disabled={loading}
           >
-            <X className="w-4 h-4 mr-1" />
+            <X className="size-4 mr-1" />
             Deselecteer alles
           </Button>
         </div>
@@ -190,11 +190,11 @@ export function BulkActionBar({
                 disabled={isDisabled}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
-                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                {loading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <CheckCircle2 className="size-4 mr-2" />}
                 Approve ({count})
               </Button>
               <Button size="sm" variant="destructive" onClick={() => setRejectDialogOpen(true)} disabled={isDisabled}>
-                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+                {loading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <XCircle className="size-4 mr-2" />}
                 Reject ({count})
               </Button>
               <Button
@@ -203,7 +203,7 @@ export function BulkActionBar({
                 onClick={() => setArchiveDialogOpen(true)}
                 disabled={isDisabled}
               >
-                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />}
+                {loading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Archive className="size-4 mr-2" />}
                 Archiveer ({count})
               </Button>
             </>
@@ -214,7 +214,7 @@ export function BulkActionBar({
               disabled={isDisabled}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArchiveRestore className="h-4 w-4 mr-2" />}
+              {loading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <ArchiveRestore className="size-4 mr-2" />}
               Activeer ({count})
             </Button>
           )}

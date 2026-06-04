@@ -468,7 +468,7 @@ export default function BufferzonePage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-orange-600" />
+          <Loader2 className="size-8 animate-spin mx-auto mb-4 text-orange-600" />
           <p className="text-gray-600">Loading Bufferzone...</p>
         </div>
       </div>
@@ -490,11 +490,11 @@ export default function BufferzonePage() {
           
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={loadData}>
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="size-4 mr-2" />
               Refresh
             </Button>
             <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
+              <Filter className="size-4 mr-2" />
               Filter
             </Button>
             <Button 
@@ -502,7 +502,7 @@ export default function BufferzonePage() {
               onClick={handleBulkAssign}
               disabled={selectedContacts.size === 0}
             >
-              <Users className="w-4 h-4 mr-2" />
+              <Users className="size-4 mr-2" />
               Bulk Assign ({selectedContacts.size})
             </Button>
           </div>
@@ -549,7 +549,7 @@ export default function BufferzonePage() {
         <div className="bg-white rounded-b-lg">
           {filteredCompanies.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <Users className="size-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 No companies in bufferzone
               </h3>
@@ -557,7 +557,7 @@ export default function BufferzonePage() {
                 Start by scraping companies from your Otis agent
               </p>
               <Button onClick={() => window.location.href = '/agents/otis'}>
-                <Play className="w-4 h-4 mr-2" />
+                <Play className="size-4 mr-2" />
                 Go to Otis Agent
               </Button>
             </div>
@@ -591,9 +591,9 @@ export default function BufferzonePage() {
                             aria-label={isExpanded ? "Collapse" : "Expand"}
                           >
                             {isExpanded ? (
-                              <ChevronDown className="w-4 h-4 text-orange-600" />
+                              <ChevronDown className="size-4 text-orange-600" />
                             ) : (
-                              <ChevronRight className="w-4 h-4 text-orange-600" />
+                              <ChevronRight className="size-4 text-orange-600" />
                             )}
                           </button>
                         </div>
@@ -637,9 +637,9 @@ export default function BufferzonePage() {
                               disabled={company.scrapingInProgress}
                             >
                               {company.scrapingInProgress ? (
-                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                <Loader2 className="size-3 mr-1 animate-spin" />
                               ) : (
-                                <Users className="w-3 h-3 mr-1" />
+                                <Users className="size-3 mr-1" />
                               )}
                               Scrape Contacts
                             </Button>
@@ -650,20 +650,20 @@ export default function BufferzonePage() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="w-4 h-4" />
+                                <MoreHorizontal className="size-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
                               <DropdownMenuItem onClick={() => handleBulkAssign()}>
-                                <Send className="w-4 h-4 mr-2" />
+                                <Send className="size-4 mr-2" />
                                 Assign All to Campaign
                               </DropdownMenuItem>
                               <DropdownMenuItem>
-                                <Download className="w-4 h-4 mr-2" />
+                                <Download className="size-4 mr-2" />
                                 Export Contacts
                               </DropdownMenuItem>
                               <DropdownMenuItem>
-                                <Eye className="w-4 h-4 mr-2" />
+                                <Eye className="size-4 mr-2" />
                                 View Details
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -677,7 +677,7 @@ export default function BufferzonePage() {
                       <div className="bg-white">
                         {companyContacts.length === 0 ? (
                           <div className="text-center py-8">
-                            <UserPlus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                            <UserPlus className="size-8 text-gray-400 mx-auto mb-2" />
                             <p className="text-sm text-gray-600 mb-2">
                               No contacts scraped yet
                             </p>
@@ -686,7 +686,7 @@ export default function BufferzonePage() {
                               variant="outline" 
                               onClick={() => handleScrapeContacts(company)}
                             >
-                              <Users className="w-3 h-3 mr-1" />
+                              <Users className="size-3 mr-1" />
                               Scrape Contacts
                             </Button>
                           </div>
@@ -708,7 +708,7 @@ export default function BufferzonePage() {
                                   <div className="w-12"></div>
                                   
                                   <div className="flex items-center gap-3 flex-1">
-                                    <Avatar className="w-8 h-8">
+                                    <Avatar className="size-8">
                                       <AvatarFallback className="text-xs">
                                         {getInitials(contact.name)}
                                       </AvatarFallback>
@@ -747,7 +747,7 @@ export default function BufferzonePage() {
                                         variant="outline"
                                         onClick={() => handleAssignContact(contact)}
                                       >
-                                        <Edit className="w-3 h-3 mr-1" />
+                                        <Edit className="size-3 mr-1" />
                                         Change
                                       </Button>
                                     ) : (
@@ -755,7 +755,7 @@ export default function BufferzonePage() {
                                         size="sm"
                                         onClick={() => handleAssignContact(contact)}
                                       >
-                                        <Send className="w-3 h-3 mr-1" />
+                                        <Send className="size-3 mr-1" />
                                         Assign
                                       </Button>
                                     )}
@@ -765,20 +765,20 @@ export default function BufferzonePage() {
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="sm">
-                                          <MoreHorizontal className="w-4 h-4" />
+                                          <MoreHorizontal className="size-4" />
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent>
                                         <DropdownMenuItem>
-                                          <Eye className="w-4 h-4 mr-2" />
+                                          <Eye className="size-4 mr-2" />
                                           View Details
                                         </DropdownMenuItem>
                                         <DropdownMenuItem>
-                                          <Edit className="w-4 h-4 mr-2" />
+                                          <Edit className="size-4 mr-2" />
                                           Edit Contact
                                         </DropdownMenuItem>
                                         <DropdownMenuItem>
-                                          <RefreshCw className="w-4 h-4 mr-2" />
+                                          <RefreshCw className="size-4 mr-2" />
                                           Re-scrape
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
@@ -817,7 +817,7 @@ export default function BufferzonePage() {
           <div className="space-y-4">
             {assignmentType === 'individual' && contactToAssign && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded">
-                <Avatar className="w-10 h-10">
+                <Avatar className="size-10">
                   <AvatarFallback>{getInitials(contactToAssign.name)}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -851,7 +851,7 @@ export default function BufferzonePage() {
                     const contact = contacts.find(c => c.id === contactId)
                     return contact ? (
                       <div key={contact.id} className="flex items-center gap-2 py-1">
-                        <Avatar className="w-6 h-6">
+                        <Avatar className="size-6">
                           <AvatarFallback className="text-xs">
                             {getInitials(contact.name)}
                           </AvatarFallback>
@@ -876,12 +876,12 @@ export default function BufferzonePage() {
             >
               {isAddingToCampaign ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="size-4 mr-2 animate-spin" />
                   Assigning...
                 </>
               ) : (
                 <>
-                  <Send className="w-4 h-4 mr-2" />
+                  <Send className="size-4 mr-2" />
                   Assign to Campaign
                 </>
               )}

@@ -126,9 +126,9 @@ export function LeadColdContactsCard({ runId, coldCandidates, runStatus, onRevea
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-3 gap-y-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-orange-500" />
+          <Sparkles className="size-4 text-orange-500" />
           <CardTitle className="text-base">Apollo suggesties ({coldCandidates.length})</CardTitle>
         </div>
         <div className="flex items-center gap-2">
@@ -150,7 +150,7 @@ export function LeadColdContactsCard({ runId, coldCandidates, runStatus, onRevea
           >
             {revealing ? (
               <>
-                <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                <Loader2 className="size-3 mr-1.5 animate-spin" />
                 Verrijken…
               </>
             ) : (

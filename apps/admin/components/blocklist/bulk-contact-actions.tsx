@@ -336,9 +336,9 @@ export function BulkContactActions({
           className="w-full"
         >
           {isProcessing ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" />
           ) : (
-            <ShieldCheck className="h-4 w-4 mr-2" />
+            <ShieldCheck className="size-4 mr-2" />
           )}
           Contacten Controleren
         </Button>
@@ -354,9 +354,9 @@ export function BulkContactActions({
           className="w-full"
         >
           {isProcessing ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="size-4 mr-2 animate-spin" />
           ) : (
-            <Shield className="h-4 w-4 mr-2" />
+            <Shield className="size-4 mr-2" />
           )}
           Contacten Blokkeren
         </Button>
@@ -373,7 +373,7 @@ export function BulkContactActions({
             disabled={selectedContacts.length === 0}
             onClick={() => setIsOpen(true)}
           >
-            <Shield className="h-4 w-4 mr-2" />
+            <Shield className="size-4 mr-2" />
             Bulk Acties ({selectedContacts.length})
           </Button>
         )}
@@ -381,8 +381,8 @@ export function BulkContactActions({
 
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <Users className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-x-2">
+            <Users className="size-5" />
             <span>Bulk Contacten Acties</span>
             <Badge variant="secondary">{selectedContacts.length} geselecteerd</Badge>
           </DialogTitle>
@@ -442,8 +442,8 @@ export function BulkContactActions({
           {/* Processing */}
           {isProcessing && (
             <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <div className="flex items-center gap-x-2">
+                <Loader2 className="size-4 animate-spin" />
                 <span className="text-sm">
                   {action === 'check' ? 'Contacten controleren...' : 'Contacten blokkeren...'}
                 </span>
@@ -459,7 +459,7 @@ export function BulkContactActions({
           {results && (
             <div className="space-y-4">
               <Alert>
-                <AlertTriangle className="h-4 w-4" />
+                <AlertTriangle className="size-4" />
                 <AlertDescription>
                   <div className="space-y-2">
                     <p className="font-medium">

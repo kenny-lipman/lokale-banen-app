@@ -96,7 +96,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                     )}
                     {company.apollo_enriched_at && (
                       <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                        <Zap className="w-3 h-3 mr-1" />
+                        <Zap className="size-3 mr-1" />
                         Apollo Verrijkt
                       </Badge>
                     )}
@@ -108,13 +108,13 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                   </div>
                   {company.created_at && (
                     <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
-                      <Calendar className="h-3 w-3" />
+                      <Calendar className="size-3" />
                       <span>Aangemaakt: {formatDate(company.created_at)}</span>
                     </div>
                   )}
                 </div>
                 <Button variant="ghost" size="sm" onClick={onClose}>
-                  <X className="h-4 w-4" />
+                  <X className="size-4" />
                 </Button>
               </div>
             </SheetHeader>
@@ -127,7 +127,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                   className="h-auto p-3 flex flex-col items-center gap-2"
                   onClick={handleContactsClick}
                 >
-                  <Users className="h-5 w-5 text-blue-600" />
+                  <Users className="size-5 text-blue-600" />
                   <div className="text-center">
                     <div className="font-medium">{company.contact_count}</div>
                     <div className="text-xs text-gray-500">Contacten</div>
@@ -138,7 +138,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                   className="h-auto p-3 flex flex-col items-center gap-2"
                   onClick={handleJobPostingsClick}
                 >
-                  <Briefcase className="h-5 w-5 text-green-600" />
+                  <Briefcase className="size-5 text-green-600" />
                   <div className="text-center">
                     <div className="font-medium">{company.job_counts}</div>
                     <div className="text-xs text-gray-500">Vacatures</div>
@@ -151,13 +151,13 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
               {/* Contact Information */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-gray-500" />
+                  <Phone className="size-4 text-gray-500" />
                   Contact Informatie
                 </h3>
                 <div className="space-y-2">
                   {company.website && (
                     <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-gray-400" />
+                      <Globe className="size-4 text-gray-400" />
                       <a
                         href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
                         target="_blank"
@@ -166,12 +166,12 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                       >
                         {company.website}
                       </a>
-                      <ExternalLink className="h-3 w-3 text-gray-400" />
+                      <ExternalLink className="size-3 text-gray-400" />
                     </div>
                   )}
                   {company.linkedin_url && (
                     <div className="flex items-center gap-2">
-                      <Linkedin className="h-4 w-4 text-gray-400" />
+                      <Linkedin className="size-4 text-gray-400" />
                       <a 
                         href={company.linkedin_url} 
                         target="_blank" 
@@ -180,12 +180,12 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                       >
                         LinkedIn Profiel
                       </a>
-                      <ExternalLink className="h-3 w-3 text-gray-400" />
+                      <ExternalLink className="size-3 text-gray-400" />
                     </div>
                   )}
                   {company.phone && (
                     <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-400" />
+                      <Phone className="size-4 text-gray-400" />
                       <span className="text-sm">{company.phone}</span>
                     </div>
                   )}
@@ -200,7 +200,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
               {/* Address Information */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-gray-500" />
+                  <MapPin className="size-4 text-gray-500" />
                   Adres Informatie
                 </h3>
                 <div className="space-y-2">
@@ -222,7 +222,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
               {/* Business Information */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-gray-500" />
+                  <Building2 className="size-4 text-gray-500" />
                   Bedrijfs Informatie
                 </h3>
                 <div className="space-y-3">
@@ -287,7 +287,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                   <Separator />
                   <div>
                     <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-purple-600" />
+                      <Zap className="size-4 text-purple-600" />
                       Apollo Verrijking
                     </h3>
                     <div className="space-y-2">
@@ -312,13 +312,13 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                   <Separator />
                   <div>
                     <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <ExternalLink className="h-4 w-4 text-gray-500" />
+                      <ExternalLink className="size-4 text-gray-500" />
                       Externe Links
                     </h3>
                     <div className="space-y-2">
                       {company.indeed_url && (
                         <div className="flex items-center gap-2">
-                          <Briefcase className="h-4 w-4 text-blue-600" />
+                          <Briefcase className="size-4 text-blue-600" />
                           <a 
                             href={company.indeed_url} 
                             target="_blank" 
@@ -327,12 +327,12 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
                           >
                             Indeed Profiel
                           </a>
-                          <ExternalLink className="h-3 w-3 text-gray-400" />
+                          <ExternalLink className="size-3 text-gray-400" />
                         </div>
                       )}
                       {company.rating_indeed && (
                         <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 text-yellow-500" />
+                          <Star className="size-4 text-yellow-500" />
                           <span className="text-sm">
                             {company.rating_indeed} sterren
                             {company.review_count_indeed && (
@@ -351,7 +351,7 @@ export function CompanySidebar({ company, isOpen, onClose }: CompanySidebarProps
               {/* System Information */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <Calendar className="size-4 text-gray-500" />
                   Systeem Informatie
                 </h3>
                 <div className="space-y-2">

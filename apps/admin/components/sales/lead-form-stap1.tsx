@@ -198,7 +198,7 @@ export function LeadFormStap1() {
                             className="ml-1 rounded hover:bg-gray-200"
                             aria-label={`Verwijder ${u}`}
                           >
-                            <X className="h-3 w-3" />
+                            <X className="size-3" />
                           </button>
                         </Badge>
                       ))}
@@ -282,7 +282,7 @@ export function LeadFormStap1() {
 
             {urls.length > 5 && (
               <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <AlertTriangle className="size-4 mt-0.5 shrink-0" />
                 <span>
                   Grote batches kunnen Apollo/Mistral rate-limits raken; bij overflow wordt de run gemarkeerd als
                   &lsquo;failed&rsquo; en is een replay vanuit de detailpagina mogelijk.

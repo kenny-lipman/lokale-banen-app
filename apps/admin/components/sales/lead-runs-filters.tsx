@@ -61,7 +61,7 @@ export function LeadRunsFilters({ value, onChange, owners }: Props) {
       <div className="flex-1 min-w-[220px]">
         <label className="block text-xs text-gray-600 mb-1">Zoek (domein)</label>
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
           <Input
             className="pl-8"
             placeholder="bijv. wetarget.nl"
@@ -116,7 +116,7 @@ export function LeadRunsFilters({ value, onChange, owners }: Props) {
 
       {!isEmpty && (
         <Button variant="ghost" size="sm" onClick={() => onChange(EMPTY_FILTERS)}>
-          <X className="w-3 h-3 mr-1" />
+          <X className="size-3 mr-1" />
           Wis filters
         </Button>
       )}

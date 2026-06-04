@@ -46,7 +46,7 @@ function SocialRow({ icon: Icon, label, value, placeholder, onChange }: SocialRo
   return (
     <div className="space-y-2">
       <Label className="flex items-center gap-2">
-        <Icon className="h-4 w-4" />
+        <Icon className="size-4" />
         {label}
       </Label>
       <div className="flex gap-2">
@@ -60,7 +60,7 @@ function SocialRow({ icon: Icon, label, value, placeholder, onChange }: SocialRo
         {value && (
           <Button type="button" variant="outline" size="icon" asChild>
             <a href={value} target="_blank" rel="noopener noreferrer" title="Open in nieuwe tab">
-              <ExternalLink className="h-4 w-4" />
+              <ExternalLink className="size-4" />
             </a>
           </Button>
         )}
@@ -75,7 +75,7 @@ export function ContactTab({ values, onChange }: ContactTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
+            <Mail className="size-5" />
             Contact
           </CardTitle>
           <CardDescription>
@@ -86,7 +86,7 @@ export function ContactTab({ values, onChange }: ContactTabProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="contact_email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
+                <Mail className="size-4" />
                 E-mailadres
               </Label>
               <Input
@@ -99,7 +99,7 @@ export function ContactTab({ values, onChange }: ContactTabProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact_phone" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
+                <Phone className="size-4" />
                 Telefoonnummer
               </Label>
               <Input
@@ -117,7 +117,7 @@ export function ContactTab({ values, onChange }: ContactTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Share2 className="h-5 w-5" />
+            <Share2 className="size-5" />
             Social media
           </CardTitle>
           <CardDescription>

@@ -162,18 +162,18 @@ export function ContactBlocklistIntegration({
 
   const getStatusIcon = () => {
     if (blocklistStatus.loading) {
-      return <Loader2 className="h-4 w-4 animate-spin" />;
+      return <Loader2 className="size-4 animate-spin" />;
     }
 
     if (blocklistStatus.error) {
-      return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      return <AlertTriangle className="size-4 text-yellow-500" />;
     }
 
     if (blocklistStatus.is_blocked) {
-      return <ShieldAlert className="h-4 w-4 text-red-500" />;
+      return <ShieldAlert className="size-4 text-red-500" />;
     }
 
-    return <ShieldCheck className="h-4 w-4 text-green-500" />;
+    return <ShieldCheck className="size-4 text-green-500" />;
   };
 
   const getStatusText = () => {
@@ -211,8 +211,8 @@ export function ContactBlocklistIntegration({
   return (
     <div className="space-y-2">
       {/* Status Badge */}
-      <div className="flex items-center space-x-2">
-        <Badge variant={getStatusColor()} className="flex items-center space-x-1">
+      <div className="flex items-center gap-x-2">
+        <Badge variant={getStatusColor()} className="flex items-center gap-x-1">
           {getStatusIcon()}
           <span className="text-xs">{getStatusText()}</span>
         </Badge>
@@ -224,7 +224,7 @@ export function ContactBlocklistIntegration({
             onClick={handleQuickBlock}
             className="h-6 px-2 text-xs"
           >
-            <Shield className="h-3 w-3 mr-1" />
+            <Shield className="size-3 mr-1" />
             Blokkeren
           </Button>
         )}
@@ -233,7 +233,7 @@ export function ContactBlocklistIntegration({
       {/* Blocked Alert */}
       {blocklistStatus.is_blocked && (
         <Alert className="border-red-200 bg-red-50">
-          <ShieldAlert className="h-4 w-4 text-red-500" />
+          <ShieldAlert className="size-4 text-red-500" />
           <AlertDescription className="text-sm">
             <div className="space-y-1">
               <p className="font-medium text-red-700">Dit contact staat op de blocklist</p>
@@ -253,7 +253,7 @@ export function ContactBlocklistIntegration({
       {/* Error Alert */}
       {blocklistStatus.error && (
         <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          <AlertTriangle className="size-4 text-yellow-500" />
           <AlertDescription className="text-sm text-yellow-700">
             {blocklistStatus.error}
           </AlertDescription>

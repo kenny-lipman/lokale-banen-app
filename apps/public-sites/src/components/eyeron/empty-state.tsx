@@ -19,7 +19,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="bg-surface px-8 py-12 flex flex-col items-center text-center gap-3">
-      <SearchX className="w-10 h-10 text-muted" strokeWidth={1.5} aria-hidden="true" />
+      <SearchX className="size-10 text-muted" strokeWidth={1.5} aria-hidden="true" />
       <h3 className="text-h2 font-regular text-primary m-0">{title}</h3>
       <p className="text-meta font-light text-muted max-w-[50ch] m-0">{body}</p>
       {action && <div className="mt-3">{action}</div>}

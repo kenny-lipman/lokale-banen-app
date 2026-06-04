@@ -33,22 +33,22 @@ interface BackfillActivityLogProps {
 
 const LOG_TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
   info: {
-    icon: <Info className="h-3.5 w-3.5" />,
+    icon: <Info className="size-3.5" />,
     color: "text-blue-600 dark:text-blue-400",
     bg: "bg-blue-50 dark:bg-blue-950/30",
   },
   success: {
-    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+    icon: <CheckCircle2 className="size-3.5" />,
     color: "text-green-600 dark:text-green-400",
     bg: "bg-green-50 dark:bg-green-950/30",
   },
   warning: {
-    icon: <AlertTriangle className="h-3.5 w-3.5" />,
+    icon: <AlertTriangle className="size-3.5" />,
     color: "text-amber-600 dark:text-amber-400",
     bg: "bg-amber-50 dark:bg-amber-950/30",
   },
   error: {
-    icon: <XCircle className="h-3.5 w-3.5" />,
+    icon: <XCircle className="size-3.5" />,
     color: "text-red-600 dark:text-red-400",
     bg: "bg-red-50 dark:bg-red-950/30",
   },
@@ -121,12 +121,12 @@ export function BackfillActivityLog({ batchId, batchStatus }: BackfillActivityLo
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Activity className="h-5 w-5" />
+            <Activity className="size-5" />
             Activity Log
           </CardTitle>
           {isAutoRefreshing && (
             <Badge variant="secondary" className="flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 className="size-3 animate-spin" />
               Live
             </Badge>
           )}
@@ -142,7 +142,7 @@ export function BackfillActivityLog({ batchId, batchStatus }: BackfillActivityLo
             </div>
           ) : logs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <Activity className="h-8 w-8 mb-2 opacity-50" />
+              <Activity className="size-8 mb-2 opacity-50" />
               <p>Geen activiteit gevonden</p>
             </div>
           ) : (

@@ -88,42 +88,42 @@ export function EnrichmentToast({ data, onClose, className }: EnrichmentToastPro
     switch (data.type) {
       case 'start':
         return {
-          icon: <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />,
+          icon: <RefreshCw className="size-5 animate-spin text-blue-600" />,
           className: "border-blue-200 bg-blue-50",
           titleClassName: "text-blue-900",
           messageClassName: "text-blue-700"
         }
       case 'progress':
         return {
-          icon: <Clock className="w-5 h-5 text-orange-600 animate-pulse" />,
+          icon: <Clock className="size-5 text-orange-600 animate-pulse" />,
           className: "border-orange-200 bg-orange-50",
           titleClassName: "text-orange-900",
           messageClassName: "text-orange-700"
         }
       case 'success':
         return {
-          icon: <CheckCircle className="w-5 h-5 text-green-600" />,
+          icon: <CheckCircle className="size-5 text-green-600" />,
           className: "border-green-200 bg-green-50",
           titleClassName: "text-green-900",
           messageClassName: "text-green-700"
         }
       case 'error':
         return {
-          icon: <AlertCircle className="w-5 h-5 text-red-600" />,
+          icon: <AlertCircle className="size-5 text-red-600" />,
           className: "border-red-200 bg-red-50",
           titleClassName: "text-red-900",
           messageClassName: "text-red-700"
         }
       case 'partial':
         return {
-          icon: <AlertCircle className="w-5 h-5 text-yellow-600" />,
+          icon: <AlertCircle className="size-5 text-yellow-600" />,
           className: "border-yellow-200 bg-yellow-50",
           titleClassName: "text-yellow-900",
           messageClassName: "text-yellow-700"
         }
       default:
         return {
-          icon: <Clock className="w-5 h-5 text-gray-600" />,
+          icon: <Clock className="size-5 text-gray-600" />,
           className: "border-gray-200 bg-gray-50",
           titleClassName: "text-gray-900",
           messageClassName: "text-gray-700"
@@ -160,13 +160,13 @@ export function EnrichmentToast({ data, onClose, className }: EnrichmentToastPro
       <Button
         variant="ghost"
         size="sm"
-        className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-black/10"
+        className="absolute top-2 right-2 size-6 p-0 hover:bg-black/10"
         onClick={() => onClose(data.id)}
       >
-        <X className="w-4 h-4" />
+        <X className="size-4" />
       </Button>
 
-      <div className="flex items-start space-x-3 pr-8">
+      <div className="flex items-start gap-x-3 pr-8">
         {/* Icon */}
         <div className="flex-shrink-0 mt-0.5">
           {config.icon}
@@ -207,19 +207,19 @@ export function EnrichmentToast({ data, onClose, className }: EnrichmentToastPro
             <div className="flex flex-wrap gap-2 mt-2">
               {data.results.companies_enriched > 0 && (
                 <Badge variant="outline" className="text-xs">
-                  <Building2 className="w-3 h-3 mr-1" />
+                  <Building2 className="size-3 mr-1" />
                   {data.results.companies_enriched} companies
                 </Badge>
               )}
               {data.results.contacts_found > 0 && (
                 <Badge variant="outline" className="text-xs">
-                  <Users className="w-3 h-3 mr-1" />
+                  <Users className="size-3 mr-1" />
                   {data.results.contacts_found} contacts
                 </Badge>
               )}
               {data.results.failed_companies > 0 && (
                 <Badge variant="destructive" className="text-xs">
-                  <AlertCircle className="w-3 h-3 mr-1" />
+                  <AlertCircle className="size-3 mr-1" />
                   {data.results.failed_companies} failed
                 </Badge>
               )}

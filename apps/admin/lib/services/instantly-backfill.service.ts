@@ -955,30 +955,30 @@ class InstantlyBackfillService {
   private async updateBatchCounters(batchUuid: string): Promise<void> {
     // Verify counters by recounting from lead statuses
     // With atomic increments in updateLeadResult, this is mainly for verification/repair
-    const { count: synced } = await this.supabase
-      .from('instantly_backfill_leads')
-      .select('*', { count: 'exact', head: true })
-      .eq('batch_id', batchUuid)
-      .eq('status', 'synced');
-
-    const { count: skipped } = await this.supabase
-      .from('instantly_backfill_leads')
-      .select('*', { count: 'exact', head: true })
-      .eq('batch_id', batchUuid)
-      .eq('status', 'skipped');
-
-    const { count: failed } = await this.supabase
-      .from('instantly_backfill_leads')
-      .select('*', { count: 'exact', head: true })
-      .eq('batch_id', batchUuid)
-      .eq('status', 'failed');
-
-    // Get current batch counters
-    const { data: batch } = await this.supabase
-      .from('instantly_backfill_batches')
-      .select('synced_leads, skipped_leads, failed_leads, processed_leads')
-      .eq('id', batchUuid)
-      .single();
+    // Drie status-counts + huidige batch-tellers zijn onafhankelijke reads: parallel.
+    const [{ count: synced }, { count: skipped }, { count: failed }, { data: batch }] =
+      await Promise.all([
+        this.supabase
+          .from('instantly_backfill_leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('batch_id', batchUuid)
+          .eq('status', 'synced'),
+        this.supabase
+          .from('instantly_backfill_leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('batch_id', batchUuid)
+          .eq('status', 'skipped'),
+        this.supabase
+          .from('instantly_backfill_leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('batch_id', batchUuid)
+          .eq('status', 'failed'),
+        this.supabase
+          .from('instantly_backfill_batches')
+          .select('synced_leads, skipped_leads, failed_leads, processed_leads')
+          .eq('id', batchUuid)
+          .single(),
+      ]);
 
     const countedTotal = (synced || 0) + (skipped || 0) + (failed || 0);
 

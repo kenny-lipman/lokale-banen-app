@@ -74,9 +74,9 @@ export function CampaignAssignmentLogDrawer({
               <h4 className="text-sm font-medium mb-2">Status</h4>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className={`${config.color}`}>
-                  {log.status === 'added' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                  {log.status === 'error' && <XCircle className="h-3 w-3 mr-1" />}
-                  {log.status.startsWith('skipped') && <SkipForward className="h-3 w-3 mr-1" />}
+                  {log.status === 'added' && <CheckCircle2 className="size-3 mr-1" />}
+                  {log.status === 'error' && <XCircle className="size-3 mr-1" />}
+                  {log.status.startsWith('skipped') && <SkipForward className="size-3 mr-1" />}
                   {config.label}
                 </Badge>
               </div>
@@ -87,7 +87,7 @@ export function CampaignAssignmentLogDrawer({
               )}
               {log.error_message && (
                 <div className="text-sm text-red-600 bg-red-50 p-2 rounded-md mt-2 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="size-4 mt-0.5 flex-shrink-0" />
                   <span>{log.error_message}</span>
                 </div>
               )}
@@ -100,18 +100,18 @@ export function CampaignAssignmentLogDrawer({
               <h4 className="text-sm font-medium mb-3">Contact</h4>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <Mail className="size-4 text-muted-foreground" />
                   <span className="font-medium">{log.contact_email}</span>
                 </div>
                 {log.company_name && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <Building2 className="size-4 text-muted-foreground" />
                     <span>{log.company_name}</span>
                   </div>
                 )}
                 {log.platform_name && (
                   <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                    <User className="size-4 text-muted-foreground" />
                     <Badge variant="outline">{log.platform_name}</Badge>
                   </div>
                 )}
@@ -127,7 +127,7 @@ export function CampaignAssignmentLogDrawer({
                   <h4 className="text-sm font-medium mb-3">Pipedrive</h4>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <Building2 className="size-4 text-muted-foreground" />
                       <span>Org #{log.pipedrive_org_id}</span>
                       {log.pipedrive_is_klant && (
                         <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -145,7 +145,7 @@ export function CampaignAssignmentLogDrawer({
                         )
                       }}
                     >
-                      <ExternalLink className="h-3 w-3 mr-1" />
+                      <ExternalLink className="size-3 mr-1" />
                       Open
                     </Button>
                   </div>
@@ -181,7 +181,7 @@ export function CampaignAssignmentLogDrawer({
               <>
                 <div>
                   <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                    <Brain className="h-4 w-4" />
+                    <Brain className="size-4" />
                     AI Personalisatie
                     {log.ai_processing_time_ms && (
                       <span className="text-xs text-muted-foreground font-normal">
@@ -252,7 +252,7 @@ export function CampaignAssignmentLogDrawer({
             <div>
               <h4 className="text-sm font-medium mb-3">Tijdlijn</h4>
               <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Clock className="size-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Verwerkt:</span>
                 <span>{format(createdAt, "d MMM yyyy HH:mm:ss", { locale: nl })}</span>
               </div>

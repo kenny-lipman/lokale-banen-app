@@ -132,7 +132,7 @@ export function AIRewritePanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-purple-500" />
+          <Sparkles className="size-4 text-purple-500" />
           AI Herschrijving
         </h4>
         {contentEnrichedAt && !result && (
@@ -175,9 +175,9 @@ export function AIRewritePanel({
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
           >
             {showExtracted ? (
-              <ChevronUp className="w-3 h-3" />
+              <ChevronUp className="size-3" />
             ) : (
-              <ChevronDown className="w-3 h-3" />
+              <ChevronDown className="size-3" />
             )}
             Geëxtraheerde metadata
           </button>
@@ -233,9 +233,9 @@ export function AIRewritePanel({
               className="bg-green-600 hover:bg-green-700"
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <Check className="w-4 h-4" />
+                <Check className="size-4" />
               )}
               <span className="ml-1">Accepteer & Opslaan</span>
             </Button>
@@ -245,7 +245,7 @@ export function AIRewritePanel({
               onClick={handleReject}
               disabled={saving}
             >
-              <X className="w-4 h-4" />
+              <X className="size-4" />
               <span className="ml-1">Verwerp</span>
             </Button>
             <Button
@@ -254,7 +254,7 @@ export function AIRewritePanel({
               onClick={handleRewrite}
               disabled={loading || saving}
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="size-4" />
               <span className="ml-1">Opnieuw</span>
             </Button>
           </div>
@@ -271,9 +271,9 @@ export function AIRewritePanel({
           className="border-purple-200 text-purple-700 hover:bg-purple-50"
         >
           {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
           ) : (
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="size-4" />
           )}
           <span className="ml-1">
             {loading

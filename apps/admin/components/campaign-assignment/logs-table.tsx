@@ -49,7 +49,7 @@ export function CampaignAssignmentLogsTable({
                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-28" /></TableCell>
-                <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                <TableCell><Skeleton className="size-8" /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -128,7 +128,7 @@ export function CampaignAssignmentLogsTable({
                       onViewDetails(log)
                     }}
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="size-4" />
                   </Button>
                 </TableCell>
               </TableRow>

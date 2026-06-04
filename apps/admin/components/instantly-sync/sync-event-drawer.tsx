@@ -172,17 +172,17 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
               <div className="flex items-center gap-2">
                 {event.status_skipped ? (
                   <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">
-                    <SkipForward className="h-3 w-3 mr-1" />
+                    <SkipForward className="size-3 mr-1" />
                     Overgeslagen
                   </Badge>
                 ) : event.sync_success ? (
                   <Badge variant="secondary" className="bg-green-100 text-green-700">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    <CheckCircle2 className="size-3 mr-1" />
                     Succesvol
                   </Badge>
                 ) : (
                   <Badge variant="destructive">
-                    <XCircle className="h-3 w-3 mr-1" />
+                    <XCircle className="size-3 mr-1" />
                     Gefaald
                   </Badge>
                 )}
@@ -207,16 +207,16 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
               <h4 className="text-sm font-medium mb-3">Lead Informatie</h4>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <Mail className="size-4 text-muted-foreground" />
                   <span className="font-medium">{event.instantly_lead_email}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Calendar className="size-4 text-muted-foreground" />
                   <span>Campaign: {event.instantly_campaign_name || event.instantly_campaign_id}</span>
                 </div>
                 {event.has_reply && (
                   <div className="flex items-center gap-2 text-sm">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <MessageSquare className="size-4 text-muted-foreground" />
                     <span>
                       Reply: {event.reply_sentiment || "Onbekend sentiment"}
                     </span>
@@ -236,7 +236,7 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                   {event.pipedrive_org_id && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <Building2 className="size-4 text-muted-foreground" />
                         <span className="font-medium">{event.pipedrive_org_name || `Org #${event.pipedrive_org_id}`}</span>
                         {event.org_created && (
                           <Badge variant="secondary" className="text-xs">Nieuw</Badge>
@@ -252,7 +252,7 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                           )
                         }}
                       >
-                        <ExternalLink className="h-3 w-3 mr-1" />
+                        <ExternalLink className="size-3 mr-1" />
                         Open
                       </Button>
                     </div>
@@ -262,7 +262,7 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                   {event.pipedrive_person_id && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground" />
+                        <User className="size-4 text-muted-foreground" />
                         <span className="font-medium">Person #{event.pipedrive_person_id}</span>
                         {event.person_created && (
                           <Badge variant="secondary" className="text-xs">Nieuw</Badge>
@@ -278,7 +278,7 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                           )
                         }}
                       >
-                        <ExternalLink className="h-3 w-3 mr-1" />
+                        <ExternalLink className="size-3 mr-1" />
                         Open
                       </Button>
                     </div>
@@ -308,19 +308,19 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
               <div className="space-y-2 text-sm">
                 {eventAt && (
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Clock className="size-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Event:</span>
                     <span>{format(eventAt, "d MMM yyyy HH:mm:ss", { locale: nl })}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <Clock className="size-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Ontvangen:</span>
                   <span>{format(createdAt, "d MMM yyyy HH:mm:ss", { locale: nl })}</span>
                 </div>
                 {syncedAt && (
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Clock className="size-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Gesynced:</span>
                     <span>{format(syncedAt, "d MMM yyyy HH:mm:ss", { locale: nl })}</span>
                   </div>
@@ -336,7 +336,7 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                 <h4 className="text-sm font-medium">Email Conversatie</h4>
                 {emailsLoading && (
                   <div className="flex items-center text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    <Loader2 className="size-3 mr-1 animate-spin" />
                     Laden...
                   </div>
                 )}
@@ -367,11 +367,11 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                   {/* Summary */}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Badge variant="outline" className="font-normal">
-                      <Send className="h-3 w-3 mr-1" />
+                      <Send className="size-3 mr-1" />
                       {sentCount} verzonden
                     </Badge>
                     <Badge variant="outline" className="font-normal">
-                      <Reply className="h-3 w-3 mr-1" />
+                      <Reply className="size-3 mr-1" />
                       {receivedCount} ontvangen
                     </Badge>
                   </div>
@@ -398,9 +398,9 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               {email.type === 'received' ? (
-                                <Reply className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                <Reply className="size-3 text-blue-600 flex-shrink-0" />
                               ) : (
-                                <Send className="h-3 w-3 text-gray-600 flex-shrink-0" />
+                                <Send className="size-3 text-gray-600 flex-shrink-0" />
                               )}
                               <span className={cn(
                                 "text-xs font-medium",
@@ -410,7 +410,7 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                               </span>
                               {email.isAutoReply && (
                                 <Badge variant="secondary" className="text-xs py-0">
-                                  <Bot className="h-3 w-3 mr-1" />
+                                  <Bot className="size-3 mr-1" />
                                   Auto-reply
                                 </Badge>
                               )}
@@ -429,9 +429,9 @@ export function SyncEventDrawer({ event, open, onClose }: SyncEventDrawerProps) 
                           </div>
                           <div className="flex-shrink-0 pt-1">
                             {expandedEmailId === email.id ? (
-                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              <ChevronUp className="size-4 text-muted-foreground" />
                             ) : (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              <ChevronDown className="size-4 text-muted-foreground" />
                             )}
                           </div>
                         </button>

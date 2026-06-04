@@ -393,7 +393,7 @@ export function CampaignSyncTab() {
         <CardContent>
           {/* Search */}
           <div className="relative max-w-md">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
             <Input
               placeholder="Zoek op campagnenaam..."
               value={search}
@@ -460,7 +460,7 @@ export function CampaignSyncTab() {
                       onClick={() => handleSort("name")}
                     >
                       Campagne
-                      <ArrowUpDown className="h-3 w-3" />
+                      <ArrowUpDown className="size-3" />
                     </button>
                   </TableHead>
                   <TableHead>
@@ -469,7 +469,7 @@ export function CampaignSyncTab() {
                       onClick={() => handleSort("status")}
                     >
                       Status
-                      <ArrowUpDown className="h-3 w-3" />
+                      <ArrowUpDown className="size-3" />
                     </button>
                   </TableHead>
                   <TableHead className="text-right">
@@ -477,20 +477,20 @@ export function CampaignSyncTab() {
                       className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
                       onClick={() => handleSort("leadsCount")}
                     >
-                      <Users className="h-3 w-3" />
+                      <Users className="size-3" />
                       Leads
-                      <ArrowUpDown className="h-3 w-3" />
+                      <ArrowUpDown className="size-3" />
                     </button>
                   </TableHead>
                   <TableHead className="text-right">
                     <span className="flex items-center gap-1 justify-end">
-                      <Mail className="h-3 w-3" />
+                      <Mail className="size-3" />
                       Verstuurd
                     </span>
                   </TableHead>
                   <TableHead className="text-right">
                     <span className="flex items-center gap-1 justify-end">
-                      <Eye className="h-3 w-3" />
+                      <Eye className="size-3" />
                       Opens
                     </span>
                   </TableHead>
@@ -499,9 +499,9 @@ export function CampaignSyncTab() {
                       className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors"
                       onClick={() => handleSort("replyCount")}
                     >
-                      <MessageSquare className="h-3 w-3" />
+                      <MessageSquare className="size-3" />
                       Replies
-                      <ArrowUpDown className="h-3 w-3" />
+                      <ArrowUpDown className="size-3" />
                     </button>
                   </TableHead>
                   <TableHead className="text-right">
@@ -510,7 +510,7 @@ export function CampaignSyncTab() {
                       onClick={() => handleSort("completedCount")}
                     >
                       Voltooid
-                      <ArrowUpDown className="h-3 w-3" />
+                      <ArrowUpDown className="size-3" />
                     </button>
                   </TableHead>
                 </TableRow>
@@ -575,7 +575,7 @@ export function CampaignSyncTab() {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        <Info className="size-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         <p>Dit is het maximum aantal leads dat per campagne wordt opgehaald van Instantly. Leads die al eerder gesynchroniseerd zijn worden snel overgeslagen.</p>
@@ -599,7 +599,7 @@ export function CampaignSyncTab() {
               </div>
 
               {/* Dry run */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-x-2">
                 <Switch
                   id="dry-run-sync"
                   checked={dryRun}
@@ -624,14 +624,14 @@ export function CampaignSyncTab() {
                 onClick={handleCancel}
                 className="w-full sm:w-auto"
               >
-                <Square className="mr-2 h-4 w-4" />
+                <Square className="mr-2 size-4" />
                 Stop sync
               </Button>
             ) : (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button size="lg" className="w-full sm:w-auto">
-                    <Rocket className="mr-2 h-4 w-4" />
+                    <Rocket className="mr-2 size-4" />
                     {dryRun ? "Start Dry Run" : "Start Sync naar Pipedrive"}
                   </Button>
                 </AlertDialogTrigger>
@@ -679,14 +679,14 @@ export function CampaignSyncTab() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+              <Loader2 className="size-5 animate-spin text-blue-500" />
               Sync bezig...
               <Badge variant="secondary" className="ml-2">
                 Chunk {progress.chunksCompleted + 1}
               </Badge>
             </CardTitle>
             <CardDescription className="flex items-center gap-2">
-              <Clock className="h-3 w-3" />
+              <Clock className="size-3" />
               Verstreken: {formatDuration(elapsed)}
               {progress.totalLeads > 0 && (
                 <span className="ml-2">
@@ -708,7 +708,7 @@ export function CampaignSyncTab() {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <CheckCircle2 className="size-3 text-green-500" />
                   Gesynchroniseerd
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-green-600">
@@ -717,7 +717,7 @@ export function CampaignSyncTab() {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <SkipForward className="h-3 w-3 text-yellow-500" />
+                  <SkipForward className="size-3 text-yellow-500" />
                   Overgeslagen
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-yellow-600">
@@ -736,7 +736,7 @@ export function CampaignSyncTab() {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <XCircle className="h-3 w-3 text-red-500" />
+                  <XCircle className="size-3 text-red-500" />
                   Fouten
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-red-600">
@@ -759,12 +759,12 @@ export function CampaignSyncTab() {
             <CardTitle className="text-lg flex items-center gap-2">
               {progress.cancelled ? (
                 <>
-                  <Square className="h-5 w-5 text-orange-500" />
+                  <Square className="size-5 text-orange-500" />
                   Sync geannuleerd
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <CheckCircle2 className="size-5 text-green-500" />
                   {dryRun ? "Dry Run Resultaat" : "Sync Resultaat"}
                 </>
               )}
@@ -785,7 +785,7 @@ export function CampaignSyncTab() {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <CheckCircle2 className="size-3 text-green-500" />
                   Gesynchroniseerd
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-green-600">
@@ -794,7 +794,7 @@ export function CampaignSyncTab() {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <SkipForward className="h-3 w-3 text-yellow-500" />
+                  <SkipForward className="size-3 text-yellow-500" />
                   Overgeslagen
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-yellow-600">
@@ -813,7 +813,7 @@ export function CampaignSyncTab() {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <XCircle className="h-3 w-3 text-red-500" />
+                  <XCircle className="size-3 text-red-500" />
                   Fouten
                 </p>
                 <p className="text-2xl font-bold tabular-nums text-red-600">

@@ -15,8 +15,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = await params
-  const tenant = await getTenant()
+  const [{ slug }, tenant] = await Promise.all([params, getTenant()])
 
   if (!tenant) {
     return new NextResponse('Tenant not found', { status: 404 })

@@ -39,8 +39,8 @@ export function LeadDealNoteTextarea({ runId, note, onChange }: Props) {
         <CardTitle className="text-base">Deal-notitie</CardTitle>
         <Button size="sm" variant="outline" onClick={() => void regen()} disabled={regenerating}>
           {regenerating
-            ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-            : <RefreshCw className="w-3 h-3 mr-1" />
+            ? <Loader2 className="size-3 mr-1 animate-spin" />
+            : <RefreshCw className="size-3 mr-1" />
           }
           Genereer opnieuw
         </Button>

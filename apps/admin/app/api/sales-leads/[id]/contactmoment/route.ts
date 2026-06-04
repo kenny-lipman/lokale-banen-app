@@ -29,8 +29,7 @@ async function handler(
   _auth: AuthResult,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await ctx.params
-  const body = await req.json().catch(() => null)
+  const [{ id }, body] = await Promise.all([ctx.params, req.json().catch(() => null)])
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(

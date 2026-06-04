@@ -102,7 +102,7 @@ export function LivePreview({ vacature, platform, trigger }: LivePreviewProps) {
   const hasPlatform = !!platform
   const triggerNode = trigger ?? (
     <Button variant="outline" size="sm" disabled={!hasPlatform}>
-      <Eye className="mr-2 h-4 w-4" />
+      <Eye className="mr-2 size-4" />
       Live preview
     </Button>
   )
@@ -136,11 +136,11 @@ export function LivePreview({ vacature, platform, trigger }: LivePreviewProps) {
             >
               <TabsList className="h-9">
                 <TabsTrigger value="desktop" className="gap-1.5 px-2.5 text-xs">
-                  <Monitor className="h-3.5 w-3.5" />
+                  <Monitor className="size-3.5" />
                   Desktop
                 </TabsTrigger>
                 <TabsTrigger value="mobile" className="gap-1.5 px-2.5 text-xs">
-                  <Smartphone className="h-3.5 w-3.5" />
+                  <Smartphone className="size-3.5" />
                   Mobile
                 </TabsTrigger>
               </TabsList>
@@ -152,7 +152,7 @@ export function LivePreview({ vacature, platform, trigger }: LivePreviewProps) {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink className="size-3.5" />
                 Open in nieuw tabblad
               </a>
             )}
@@ -170,7 +170,7 @@ export function LivePreview({ vacature, platform, trigger }: LivePreviewProps) {
           >
             {(loadingUrl || !loaded) && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80 backdrop-blur-sm">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
                   {loadingUrl ? "Preview genereren..." : "Preview laden..."}
                 </span>

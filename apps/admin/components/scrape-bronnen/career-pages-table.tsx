@@ -171,7 +171,7 @@ export function CareerPagesTable() {
           <p className="text-sm text-slate-500">{total} bron{total === 1 ? '' : 'nen'}</p>
         </div>
         <Button onClick={() => setAddOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="size-4 mr-2" />
           Werken-bij URL toevoegen
         </Button>
       </div>
@@ -260,7 +260,7 @@ export function CareerPagesTable() {
                     {row.url ? (
                       <a href={row.url} target="_blank" rel="noreferrer" className="text-slate-700 hover:underline truncate flex items-center gap-1">
                         <span className="truncate">{row.url.replace(/^https?:\/\//, '')}</span>
-                        <ExternalLink className="w-3 h-3 shrink-0 opacity-50" />
+                        <ExternalLink className="size-3 shrink-0 opacity-50" />
                       </a>
                     ) : '—'}
                   </TableCell>
@@ -283,15 +283,15 @@ export function CareerPagesTable() {
                     <div className="flex items-center justify-end gap-1">
                       {row.review_status === 'pending' && (
                         <Button size="sm" variant="ghost" className="text-green-700 hover:text-green-800 h-8" onClick={() => onApprove(row.id)}>
-                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          <CheckCircle2 className="size-4 mr-1" />
                           Goedkeuren
                         </Button>
                       )}
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditRow(row)} title="Bewerken">
-                        <Pencil className="w-4 h-4" />
+                      <Button size="icon" variant="ghost" className="size-8" onClick={() => setEditRow(row)} title="Bewerken">
+                        <Pencil className="size-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => setDeleteRow(row)} title="Verwijderen">
-                        <Trash2 className="w-4 h-4" />
+                      <Button size="icon" variant="ghost" className="size-8 text-red-600 hover:text-red-700" onClick={() => setDeleteRow(row)} title="Verwijderen">
+                        <Trash2 className="size-4" />
                       </Button>
                     </div>
                   </TableCell>

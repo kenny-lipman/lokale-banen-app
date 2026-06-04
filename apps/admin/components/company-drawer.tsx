@@ -196,35 +196,35 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
       case "new":
         return (
           <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             Nieuw
           </Badge>
         )
       case "active":
         return (
           <Badge className="bg-green-100 text-green-800 border-green-200">
-            <CheckCircle className="w-3 h-3 mr-1" />
+            <CheckCircle className="size-3 mr-1" />
             Actief
           </Badge>
         )
       case "inactive":
         return (
           <Badge className="bg-gray-100 text-gray-800 border-gray-200">
-            <Clock className="w-3 h-3 mr-1" />
+            <Clock className="size-3 mr-1" />
             Inactief
           </Badge>
         )
       case "archived":
         return (
           <Badge className="bg-red-100 text-red-800 border-red-200">
-            <Archive className="w-3 h-3 mr-1" />
+            <Archive className="size-3 mr-1" />
             Gearchiveerd
           </Badge>
         )
       default:
         return (
           <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             {status}
           </Badge>
         )
@@ -245,8 +245,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
       <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
         <SheetHeader className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center overflow-hidden">
+            <div className="flex items-center gap-x-3">
+              <div className="size-12 bg-orange-100 rounded-lg flex items-center justify-center overflow-hidden">
                 {company.logo_url ? (
                   <img
                     src={company.logo_url || "/placeholder.svg"}
@@ -254,15 +254,15 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Building2 className="w-6 h-6 text-orange-600" />
+                  <Building2 className="size-6 text-orange-600" />
                 )}
               </div>
               <div className="flex-1">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-x-2">
                   <SheetTitle className="text-xl">{company.name}</SheetTitle>
                   {company.is_customer && (
                     <Badge className="bg-green-100 text-green-800 border-green-200">
-                      <Crown className="w-3 h-3 mr-1" />
+                      <Crown className="size-3 mr-1" />
                       Klant
                     </Badge>
                   )}
@@ -288,12 +288,12 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
           {company.source && (
             <div className="flex items-center gap-2">
               <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                <Database className="w-3 h-3 mr-1" />
+                <Database className="size-3 mr-1" />
                 {company.source_name || company.source}
               </Badge>
               {company.created_at && (
                 <span className="text-xs text-gray-400 flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
+                  <Calendar className="size-3" />
                   Toegevoegd {formatDate(company.created_at)}
                 </span>
               )}
@@ -306,8 +306,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
 
             <div className="grid grid-cols-1 gap-2">
               {company.website && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <Globe className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <div className="flex items-center gap-x-2 text-sm">
+                  <Globe className="size-4 text-gray-500 flex-shrink-0" />
                   <a
                     href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
                     target="_blank"
@@ -320,8 +320,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               )}
 
               {company.linkedin_url && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <Linkedin className="w-4 h-4 text-[#0A66C2] flex-shrink-0" />
+                <div className="flex items-center gap-x-2 text-sm">
+                  <Linkedin className="size-4 text-[#0A66C2] flex-shrink-0" />
                   <a
                     href={company.linkedin_url}
                     target="_blank"
@@ -334,8 +334,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               )}
 
               {company.indeed_url && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <ExternalLink className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                <div className="flex items-center gap-x-2 text-sm">
+                  <ExternalLink className="size-4 text-purple-600 flex-shrink-0" />
                   <a
                     href={company.indeed_url}
                     target="_blank"
@@ -348,8 +348,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               )}
 
               {company.phone && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <Phone className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <div className="flex items-center gap-x-2 text-sm">
+                  <Phone className="size-4 text-green-600 flex-shrink-0" />
                   <a
                     href={`tel:${company.phone}`}
                     className="text-gray-700 hover:text-green-600 hover:underline"
@@ -360,8 +360,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               )}
 
               {company.kvk && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <Hash className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <div className="flex items-center gap-x-2 text-sm">
+                  <Hash className="size-4 text-gray-500 flex-shrink-0" />
                   <span className="text-gray-700">KvK: {company.kvk}</span>
                 </div>
               )}
@@ -378,8 +378,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
             {/* Left column */}
             <div className="space-y-3">
               {company.location && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <MapPin className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <div className="flex items-center gap-x-2 text-sm">
+                  <MapPin className="size-4 text-gray-500 flex-shrink-0" />
                   <span className="text-gray-700">{company.location}</span>
                 </div>
               )}
@@ -388,8 +388,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               {(company.hoofddomein || (company.subdomeinen && company.subdomeinen.length > 0)) && (
                 <div className="space-y-2">
                   {company.hoofddomein && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Globe className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                    <div className="flex items-center gap-x-2 text-sm">
+                      <Globe className="size-4 text-orange-500 flex-shrink-0" />
                       <Badge className="bg-orange-100 text-orange-800 border-orange-200">
                         {company.hoofddomein}
                       </Badge>
@@ -397,8 +397,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                     </div>
                   )}
                   {company.subdomeinen && company.subdomeinen.length > 0 && (
-                    <div className="flex items-start space-x-2 text-sm">
-                      <Globe className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-x-2 text-sm">
+                      <Globe className="size-4 text-blue-500 flex-shrink-0 mt-0.5" />
                       <div className="flex flex-wrap gap-1">
                         {company.subdomeinen.map((subdomein, index) => (
                           <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
@@ -412,8 +412,8 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                 </div>
               )}
 
-              <div className="flex items-center space-x-2 text-sm">
-                <Briefcase className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              <div className="flex items-center gap-x-2 text-sm">
+                <Briefcase className="size-4 text-gray-500 flex-shrink-0" />
                 <span className="text-gray-700">{company.job_count || company.job_counts || 0} actieve vacatures</span>
               </div>
             </div>
@@ -421,14 +421,14 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
             {/* Right column */}
             <div className="space-y-3">
               {(getCompanySize() || company.category_size) && (
-                <div className="flex items-center space-x-2 text-sm">
-                  <Users className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <div className="flex items-center gap-x-2 text-sm">
+                  <Users className="size-4 text-gray-500 flex-shrink-0" />
                   <span className="text-gray-700">{getCompanySize() || company.category_size}</span>
                 </div>
               )}
 
-              <div className="flex items-center space-x-2 text-sm">
-                <Star className="w-4 h-4 text-yellow-500 fill-current flex-shrink-0" />
+              <div className="flex items-center gap-x-2 text-sm">
+                <Star className="size-4 text-yellow-500 fill-current flex-shrink-0" />
                 <span className="text-gray-700">
                   {company.rating_indeed
                     ? `${company.rating_indeed} sterren${company.review_count_indeed ? ` (${company.review_count_indeed} reviews)` : ''}`
@@ -442,7 +442,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
           {company.industries && company.industries.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-gray-900 flex items-center gap-1">
-                <Tag className="w-4 h-4" />
+                <Tag className="size-4" />
                 Industrieën
               </h4>
               <div className="flex flex-wrap gap-2">
@@ -458,7 +458,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
           {/* Sync Status Section - Enhanced */}
           <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg p-4 space-y-4 border border-gray-200">
             <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-blue-600" />
+              <RefreshCw className="size-4 text-blue-600" />
               Synchronisatie Status
             </h4>
 
@@ -474,7 +474,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                       rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                     >
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="size-3" />
                       Open
                     </a>
                   )}
@@ -482,7 +482,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                 {company.pipedrive_synced ? (
                   <div className="space-y-1">
                     <Badge className="bg-green-100 text-green-800 border-green-200 w-full justify-center">
-                      <CheckCircle className="w-3 h-3 mr-1" />
+                      <CheckCircle className="size-3 mr-1" />
                       Gesynchroniseerd
                     </Badge>
                     {company.pipedrive_synced_at && (
@@ -495,7 +495,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                   </div>
                 ) : (
                   <Badge variant="outline" className="text-gray-500 w-full justify-center">
-                    <AlertCircle className="w-3 h-3 mr-1" />
+                    <AlertCircle className="size-3 mr-1" />
                     Niet gesynchroniseerd
                   </Badge>
                 )}
@@ -509,7 +509,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                 {company.instantly_synced ? (
                   <div className="space-y-1">
                     <Badge className="bg-blue-100 text-blue-800 border-blue-200 w-full justify-center">
-                      <Mail className="w-3 h-3 mr-1" />
+                      <Mail className="size-3 mr-1" />
                       In Campagne
                     </Badge>
                     {company.instantly_synced_at && (
@@ -522,7 +522,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                   </div>
                 ) : (
                   <Badge variant="outline" className="text-gray-500 w-full justify-center">
-                    <AlertCircle className="w-3 h-3 mr-1" />
+                    <AlertCircle className="size-3 mr-1" />
                     Niet in campagne
                   </Badge>
                 )}
@@ -536,7 +536,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                 {company.apollo_enriched_at ? (
                   <div className="space-y-1">
                     <Badge className="bg-purple-100 text-purple-800 border-purple-200 w-full justify-center">
-                      <CheckCircle className="w-3 h-3 mr-1" />
+                      <CheckCircle className="size-3 mr-1" />
                       Verrijkt
                     </Badge>
                     <p className="text-xs text-gray-500 text-center">
@@ -553,14 +553,14 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                       ? 'bg-red-50 text-red-700 border-red-200'
                       : 'text-gray-600'
                   }`}>
-                    <Clock className="w-3 h-3 mr-1" />
+                    <Clock className="size-3 mr-1" />
                     {company.enrichment_status === 'pending' ? 'In wachtrij' :
                      company.enrichment_status === 'failed' ? 'Mislukt' :
                      company.enrichment_status}
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="text-gray-500 w-full justify-center">
-                    <AlertCircle className="w-3 h-3 mr-1" />
+                    <AlertCircle className="size-3 mr-1" />
                     Niet verrijkt
                   </Badge>
                 )}
@@ -571,7 +571,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
             {contacts.length > 0 && (
               <div className="bg-white rounded-lg p-3 border border-gray-100 mt-3">
                 <h5 className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
-                  <Users className="w-3 h-3" />
+                  <Users className="size-3" />
                   Contacten Sync Overzicht
                 </h5>
                 <div className="grid grid-cols-3 gap-2 text-center">
@@ -598,7 +598,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
             {/* Apollo contacts count if enriched */}
             {company.apollo_contacts_count !== null && company.apollo_contacts_count !== undefined && company.apollo_contacts_count > 0 && (
               <div className="text-xs text-purple-600 bg-purple-50 rounded px-2 py-1 inline-flex items-center gap-1">
-                <Database className="w-3 h-3" />
+                <Database className="size-3" />
                 {company.apollo_contacts_count} contacten gevonden via Apollo
               </div>
             )}
@@ -620,7 +620,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
               <h3 className="text-lg font-semibold">Vacatures ({jobPostings.length})</h3>
               {loadingJobs && (
                 <div className="flex items-center text-sm text-gray-500">
-                  <RefreshCw className="w-4 h-4 animate-spin mr-1" />
+                  <RefreshCw className="size-4 animate-spin mr-1" />
                   Laden...
                 </div>
               )}
@@ -629,7 +629,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
             {jobsError && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                 <div className="flex items-center">
-                  <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
+                  <AlertCircle className="size-4 text-red-500 mr-2" />
                   <span className="text-red-700 text-sm">{jobsError}</span>
                 </div>
               </div>
@@ -653,12 +653,12 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                       <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                         {loadingJobs ? (
                           <div className="flex items-center justify-center">
-                            <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+                            <RefreshCw className="size-5 animate-spin mr-2" />
                             Vacatures laden...
                           </div>
                         ) : (
                           <div>
-                            <Briefcase className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                            <Briefcase className="size-8 mx-auto mb-2 text-gray-300" />
                             <p>Geen vacatures gevonden</p>
                           </div>
                         )}
@@ -698,19 +698,19 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                         <TableCell>{getStatusBadge(job.status)}</TableCell>
                         <TableCell className="text-sm text-gray-600">{formatDate(job.created_at)}</TableCell>
                         <TableCell>
-                          <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-x-1" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleJobClick(job.id)}
                               title="Bekijk details"
                             >
-                              <Eye className="w-3 h-3 text-gray-500" />
+                              <Eye className="size-3 text-gray-500" />
                             </Button>
                             {job.url && (
                               <Button variant="ghost" size="sm" asChild>
                                 <a href={job.url} target="_blank" rel="noopener noreferrer" title="Open vacature">
-                                  <ExternalLink className="w-3 h-3" />
+                                  <ExternalLink className="size-3" />
                                 </a>
                               </Button>
                             )}
@@ -728,12 +728,12 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
           {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-purple-600" />
+                <h3 className="text-lg font-semibold flex items-center gap-x-2">
+                  <Users className="size-5 text-purple-600" />
                   <span>Contacten ({contacts.length})</span>
                 </h3>
                 {loadingContacts && (
-                  <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <RefreshCw className="size-4 animate-spin text-gray-400" />
                 )}
               </div>
 
@@ -754,21 +754,21 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                     {loadingContacts ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8">
-                          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
+                          <RefreshCw className="size-6 animate-spin mx-auto mb-2 text-gray-400" />
                           <p className="text-gray-500">Loading contacts...</p>
                         </TableCell>
                       </TableRow>
                     ) : contactsError ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-red-500">
-                          <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                          <AlertCircle className="size-8 mx-auto mb-2" />
                           <p>Error: {contactsError}</p>
                         </TableCell>
                       </TableRow>
                     ) : contacts.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-gray-400">
-                          <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          <Users className="size-8 mx-auto mb-2 text-gray-300" />
                           <p>No contacts found</p>
                         </TableCell>
                       </TableRow>
@@ -845,14 +845,14 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                             )}
                           </TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-center space-x-1">
+                            <div className="flex justify-center gap-x-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleContactClick(contact.id)}
                                 title="Bekijk details"
                               >
-                                <Eye className="w-3 h-3 text-gray-500" />
+                                <Eye className="size-3 text-gray-500" />
                               </Button>
                               {contact.linkedin_url && (
                                 <Button variant="ghost" size="sm" asChild>
@@ -862,7 +862,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                                     rel="noopener noreferrer"
                                     title="View LinkedIn Profile"
                                   >
-                                    <Linkedin className="w-3 h-3 text-[#0A66C2]" />
+                                    <Linkedin className="size-3 text-[#0A66C2]" />
                                   </a>
                                 </Button>
                               )}
@@ -881,11 +881,11 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
           <CompanyDrawerCareerPages companyId={company.id} companyName={company.name} />
 
           {/* Actions */}
-          <div className="flex space-x-3 pt-4 border-t">
+          <div className="flex gap-x-3 pt-4 border-t">
             {company.indeed_url && (
               <Button variant="outline" asChild>
                 <a href={company.indeed_url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-2" />
+                  <ExternalLink className="size-4 mr-2" />
                   Indeed
                 </a>
               </Button>

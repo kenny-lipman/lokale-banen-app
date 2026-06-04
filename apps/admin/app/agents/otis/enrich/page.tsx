@@ -157,9 +157,9 @@ export default function ApolloEnrichmentPage() {
 
   const getStatusBadge = (company: Company) => {
     if (company.apollo_enriched_at) {
-      return <Badge className="bg-green-100 text-green-800"><CheckCircle2 className="w-3 h-3 mr-1" />Verrijkt</Badge>
+      return <Badge className="bg-green-100 text-green-800"><CheckCircle2 className="size-3 mr-1" />Verrijkt</Badge>
     } else {
-      return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />In wachtrij</Badge>
+      return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="size-3 mr-1" />In wachtrij</Badge>
     }
   }
 
@@ -167,7 +167,7 @@ export default function ApolloEnrichmentPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full size-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Laden van gegevens...</p>
         </div>
       </div>
@@ -185,8 +185,8 @@ export default function ApolloEnrichmentPage() {
             </Link>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white" />
+            <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center">
+              <Zap className="size-6 text-white" />
             </div>
             Apollo Bedrijfsverrijking
           </h1>
@@ -194,7 +194,7 @@ export default function ApolloEnrichmentPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => window.location.reload()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="size-4 mr-2" />
             Vernieuwen
           </Button>
         </div>
@@ -209,7 +209,7 @@ export default function ApolloEnrichmentPage() {
                 <p className="text-sm font-medium text-gray-600">Totaal Bedrijven</p>
                 <p className="text-2xl font-bold">{companies.length}</p>
               </div>
-              <Building2 className="w-8 h-8 text-blue-500" />
+              <Building2 className="size-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -220,7 +220,7 @@ export default function ApolloEnrichmentPage() {
                 <p className="text-sm font-medium text-gray-600">Verrijkt</p>
                 <p className="text-2xl font-bold text-green-600">{enrichedCompanies.length}</p>
               </div>
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
+              <CheckCircle2 className="size-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
@@ -231,7 +231,7 @@ export default function ApolloEnrichmentPage() {
                 <p className="text-sm font-medium text-gray-600">Contacten Gevonden</p>
                 <p className="text-2xl font-bold text-blue-600">{totalContacts}</p>
               </div>
-              <Users className="w-8 h-8 text-blue-500" />
+              <Users className="size-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -242,7 +242,7 @@ export default function ApolloEnrichmentPage() {
                 <p className="text-sm font-medium text-gray-600">Geselecteerd</p>
                 <p className="text-2xl font-bold text-orange-600">{selectedCompanies.length}</p>
               </div>
-              <Filter className="w-8 h-8 text-orange-500" />
+              <Filter className="size-8 text-orange-500" />
             </div>
           </CardContent>
         </Card>
@@ -270,11 +270,11 @@ export default function ApolloEnrichmentPage() {
       <Tabs defaultValue="companies" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="companies" className="flex items-center gap-2">
-            <Building2 className="w-4 h-4" />
+            <Building2 className="size-4" />
             Bedrijven Verrijken
           </TabsTrigger>
           <TabsTrigger value="contacts" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
+            <Users className="size-4" />
             Scraped Contacts
           </TabsTrigger>
         </TabsList>
@@ -295,12 +295,12 @@ export default function ApolloEnrichmentPage() {
                 >
                   {isEnriching ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      <RefreshCw className="size-4 mr-2 animate-spin" />
                       Verrijken...
                     </>
                   ) : (
                     <>
-                      <Zap className="w-4 h-4 mr-2" />
+                      <Zap className="size-4 mr-2" />
                       Verrijk Geselecteerde ({selectedCompanies.length})
                     </>
                   )}
@@ -311,7 +311,7 @@ export default function ApolloEnrichmentPage() {
               {/* Filters */}
               <div className="flex gap-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 size-4" />
                   <Input
                     placeholder="Zoek bedrijven..."
                     value={searchTerm}
@@ -373,14 +373,14 @@ export default function ApolloEnrichmentPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <Building2 className="w-4 h-4 text-gray-500" />
+                            <div className="size-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <Building2 className="size-4 text-gray-500" />
                             </div>
                             <div>
                               <div className="font-medium">{company.name}</div>
                               {company.website && (
                                 <div className="text-sm text-gray-500 flex items-center gap-1">
-                                  <Globe className="w-3 h-3" />
+                                  <Globe className="size-3" />
                                   {company.website}
                                 </div>
                               )}
@@ -395,7 +395,7 @@ export default function ApolloEnrichmentPage() {
                         <TableCell>
                           {company.apollo_enriched_at ? (
                             <Badge className="bg-blue-100 text-blue-800">
-                              <Users className="w-3 h-3 mr-1" />
+                              <Users className="size-3 mr-1" />
                               {company.apollo_contacts_count || 0} contacten
                             </Badge>
                           ) : (
@@ -425,11 +425,11 @@ export default function ApolloEnrichmentPage() {
             <CardContent>
               {contacts.length === 0 ? (
                 <div className="text-center py-12">
-                  <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <Users className="size-16 mx-auto mb-4 text-gray-300" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Geen contacten gevonden</h3>
                   <p className="text-gray-500 mb-4">Verrijk eerst bedrijven in het "Bedrijven Verrijken" tabblad</p>
                   <Button variant="outline" onClick={() => document.querySelector('[value="companies"]')?.click()}>
-                    <ArrowRight className="w-4 h-4 mr-2" />
+                    <ArrowRight className="size-4 mr-2" />
                     Ga naar Bedrijven Verrijken
                   </Button>
                 </div>
@@ -455,7 +455,7 @@ export default function ApolloEnrichmentPage() {
                           <TableCell>
                             {contact.email ? (
                               <div className="flex items-center gap-1">
-                                <Mail className="w-3 h-3 text-gray-400" />
+                                <Mail className="size-3 text-gray-400" />
                                 {contact.email}
                               </div>
                             ) : (
@@ -466,7 +466,7 @@ export default function ApolloEnrichmentPage() {
                           <TableCell>
                             {contact.phone ? (
                               <div className="flex items-center gap-1">
-                                <Phone className="w-3 h-3 text-gray-400" />
+                                <Phone className="size-3 text-gray-400" />
                                 {contact.phone}
                               </div>
                             ) : (

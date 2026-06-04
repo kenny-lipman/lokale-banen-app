@@ -71,8 +71,7 @@ interface HomePageProps {
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   await connection()
-  const params = await searchParams
-  const tenant = await getTenant()
+  const [params, tenant] = await Promise.all([searchParams, getTenant()])
 
   if (!tenant) {
     return (

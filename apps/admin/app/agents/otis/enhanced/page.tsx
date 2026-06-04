@@ -154,7 +154,7 @@ const EnhancedCampaignSelector = ({
           {/* Search Input */}
           <div className="p-3 border-b">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
               <Input
                 placeholder="Search campaigns..."
                 value={searchTerm}
@@ -271,7 +271,7 @@ const EnhancedCampaignFilter = ({
           {/* Search Input */}
           <div className="p-3 border-b">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
               <Input
                 placeholder="Search campaigns..."
                 value={searchTerm}
@@ -1087,13 +1087,13 @@ function FullOtisDashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>
+        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="size-3 mr-1" />Completed</Badge>
       case 'running':
-        return <Badge className="bg-blue-100 text-blue-800"><Clock className="w-3 h-3 mr-1" />Running</Badge>
+        return <Badge className="bg-blue-100 text-blue-800"><Clock className="size-3 mr-1" />Running</Badge>
       case 'failed':
-        return <Badge className="bg-red-100 text-red-800"><AlertCircle className="w-3 h-3 mr-1" />Failed</Badge>
+        return <Badge className="bg-red-100 text-red-800"><AlertCircle className="size-3 mr-1" />Failed</Badge>
       default:
-        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />Pending</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="size-3 mr-1" />Pending</Badge>
     }
   }
 
@@ -1594,7 +1594,7 @@ function FullOtisDashboard() {
             <div className="flex items-center gap-4">
               <input 
                 type="checkbox" 
-                className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                className="size-4 text-orange-600 rounded border-gray-300"
                 checked={companies.every(c => selectedCompanies.has(c.id))}
                 onChange={() => {
                   const allSelected = companies.every(c => selectedCompanies.has(c.id))
@@ -1629,7 +1629,7 @@ function FullOtisDashboard() {
                   className="bg-green-600 hover:bg-green-700"
                   disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
                 >
-                  <Zap className="w-4 h-4 mr-2" />
+                  <Zap className="size-4 mr-2" />
                   Enrich Selected ({companies.filter(c => selectedCompanies.has(c.id)).length})
                 </Button>
               )}
@@ -1646,7 +1646,7 @@ function FullOtisDashboard() {
                       bulkQualifyCompanies('qualified')
                     }}
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <CheckCircle className="size-4 mr-2" />
                     Qualify Selected
                   </Button>
                   <Button 
@@ -1655,7 +1655,7 @@ function FullOtisDashboard() {
                     disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
                     onClick={() => bulkQualifyCompanies('review')}
                   >
-                    <AlertCircle className="w-4 h-4 mr-2" />
+                    <AlertCircle className="size-4 mr-2" />
                     Mark for Review
                   </Button>
                 </>
@@ -1668,7 +1668,7 @@ function FullOtisDashboard() {
                     disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
                     onClick={() => bulkQualifyCompanies('qualified')}
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <CheckCircle className="size-4 mr-2" />
                     Qualify Selected
                   </Button>
                   <Button 
@@ -1677,7 +1677,7 @@ function FullOtisDashboard() {
                     disabled={companies.filter(c => selectedCompanies.has(c.id)).length === 0}
                     onClick={() => bulkQualifyCompanies('disqualified')}
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw className="size-4 mr-2" />
                     Disqualify Selected
                   </Button>
                 </>
@@ -1705,7 +1705,7 @@ function FullOtisDashboard() {
               <div className="flex items-center gap-3">
                 <input 
                   type="checkbox" 
-                  className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                  className="size-4 text-orange-600 rounded border-gray-300"
                   checked={selectedCompanies.has(company.id)}
                   onChange={() => toggleCompanySelection(company.id)}
                 />
@@ -1732,7 +1732,7 @@ function FullOtisDashboard() {
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:text-blue-700"
                   >
-                    <ExternalLink className="w-4 h-4" />
+                    <ExternalLink className="size-4" />
                   </a>
                 )}
                 {/* Enhanced Qualification Status Badge */}
@@ -1761,13 +1761,13 @@ function FullOtisDashboard() {
                 {/* Enrichment Status */}
                 {company.enrichment_status === 'completed' && (
                   <Badge className="bg-blue-100 text-blue-800">
-                    <Sparkles className="w-3 h-3 mr-1" />
+                    <Sparkles className="size-3 mr-1" />
                     Enriched
                   </Badge>
                 )}
                 {company.enrichment_status === 'processing' && (
                   <Badge className="bg-blue-100 text-blue-800">
-                    <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                    <RefreshCw className="size-3 mr-1 animate-spin" />
                     Enriching
                   </Badge>
                 )}
@@ -1781,18 +1781,18 @@ function FullOtisDashboard() {
             <div className="flex items-center gap-4 text-sm text-gray-600">
               {company.location && (
                 <div className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
+                  <MapPin className="size-3" />
                   {company.location}
                 </div>
               )}
               {company.category_size && (
                 <div className="flex items-center gap-1">
-                  <BarChart3 className="w-3 h-3" />
+                  <BarChart3 className="size-3" />
                   {company.category_size}
                 </div>
               )}
               <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
+                <Clock className="size-3" />
                 {formatDate(company.created_at)}
               </div>
             </div>
@@ -1807,7 +1807,7 @@ function FullOtisDashboard() {
                 // Enriched: No qualification actions needed
                 <div className="flex items-center gap-2">
                   <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                    <Sparkles className="w-3 h-3 mr-1" />
+                    <Sparkles className="size-3 mr-1" />
                     Enriched with Apollo
                   </Badge>
                 </div>
@@ -1896,12 +1896,12 @@ function FullOtisDashboard() {
                   >
                     {(company.enrichment_status === 'processing' || isEnriching.has(company.id)) ? (
                       <>
-                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                        <RefreshCw className="size-3 mr-1 animate-spin" />
                         Enriching...
                       </>
                     ) : (
                       <>
-                        <Zap className="w-3 h-3 mr-1" />
+                        <Zap className="size-3 mr-1" />
                         Enrich with Apollo
                       </>
                     )}
@@ -2004,7 +2004,7 @@ function FullOtisDashboard() {
             <div className="flex items-center gap-4">
               <input 
                 type="checkbox" 
-                className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                className="size-4 text-orange-600 rounded border-gray-300"
                 checked={contacts.every(c => selectedContacts.has(c.id))}
                 onChange={() => {
                   const allSelected = contacts.every(c => selectedContacts.has(c.id))
@@ -2040,7 +2040,7 @@ function FullOtisDashboard() {
                   disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0 || !selectedCampaign}
                   onClick={handleAddToCampaign}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="size-4 mr-2" />
                   Add to Campaign ({contacts.filter(c => selectedContacts.has(c.id)).length})
                 </Button>
               )}
@@ -2052,7 +2052,7 @@ function FullOtisDashboard() {
                     disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
                     onClick={() => handleBulkContactQualification('qualified')}
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <CheckCircle className="size-4 mr-2" />
                     Qualify Selected
                   </Button>
                   <Button 
@@ -2061,7 +2061,7 @@ function FullOtisDashboard() {
                     disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
                     onClick={() => handleBulkContactQualification('review')}
                   >
-                    <AlertCircle className="w-4 h-4 mr-2" />
+                    <AlertCircle className="size-4 mr-2" />
                     Mark for Review
                   </Button>
                 </>
@@ -2074,7 +2074,7 @@ function FullOtisDashboard() {
                     disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
                     onClick={() => handleBulkContactQualification('qualified')}
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <CheckCircle className="size-4 mr-2" />
                     Qualify Selected
                   </Button>
                   <Button 
@@ -2083,7 +2083,7 @@ function FullOtisDashboard() {
                     disabled={contacts.filter(c => selectedContacts.has(c.id)).length === 0}
                     onClick={() => handleBulkContactQualification('disqualified')}
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw className="size-4 mr-2" />
                     Disqualify Selected
                   </Button>
                 </>
@@ -2101,7 +2101,7 @@ function FullOtisDashboard() {
                 <div className="flex items-center gap-3">
                   <input 
                     type="checkbox" 
-                    className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                    className="size-4 text-orange-600 rounded border-gray-300"
                     checked={companyGroup.contacts.every((c: any) => selectedContacts.has(c.id))}
                     ref={(el) => {
                       if (el) {
@@ -2128,7 +2128,7 @@ function FullOtisDashboard() {
                     }}
                   />
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-gray-700" />
+                    <Building2 className="size-5 text-gray-700" />
                     <div>
                       <span className="font-medium text-lg">{companyGroup.name}</span>
                       <p className="text-sm text-gray-600">
@@ -2176,7 +2176,7 @@ function FullOtisDashboard() {
                     <div className="flex items-center gap-3">
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 text-orange-600 rounded border-gray-300"
+                        className="size-4 text-orange-600 rounded border-gray-300"
                         checked={selectedContacts.has(contact.id)}
                         onChange={(e) => {
                           const newSelected = new Set(selectedContacts)
@@ -2226,7 +2226,7 @@ function FullOtisDashboard() {
                       {/* Campaign Status Badge */}
                       {contact.campaign_id && contact.campaign_name && (
                         <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                          <Target className="w-3 h-3 mr-1" />
+                          <Target className="size-3 mr-1" />
                           {contact.campaign_name}
                         </Badge>
                       )}
@@ -2266,7 +2266,7 @@ function FullOtisDashboard() {
                     )}
                     {contact.companyWebsite && (
                       <div className="flex items-center gap-1">
-                        <Globe className="w-3 h-3" />
+                        <Globe className="size-3" />
                         {contact.companyWebsite}
                       </div>
                     )}
@@ -2351,7 +2351,7 @@ function FullOtisDashboard() {
                           disabled={!selectedCampaign}
                           onClick={handleAddToCampaign}
                         >
-                          <Plus className="w-3 h-3 mr-1" />
+                          <Plus className="size-3 mr-1" />
                           Add to Campaign
                         </Button>
                       )}
@@ -2372,8 +2372,8 @@ function FullOtisDashboard() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-              <Bot className="w-6 h-6 text-white" />
+            <div className="size-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <Bot className="size-6 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900">OTIS Agent Dashboard</h1>
           </div>
@@ -2389,7 +2389,7 @@ function FullOtisDashboard() {
                   <p className="text-sm font-medium text-gray-600">Total Jobs</p>
                   <p className="text-2xl font-bold">{stats.totalJobs.toLocaleString()}</p>
                 </div>
-                <Briefcase className="w-8 h-8 text-orange-500" />
+                <Briefcase className="size-8 text-orange-500" />
               </div>
             </CardContent>
           </Card>
@@ -2400,7 +2400,7 @@ function FullOtisDashboard() {
                   <p className="text-sm font-medium text-gray-600">Companies</p>
                   <p className="text-2xl font-bold">{stats.totalCompanies.toLocaleString()}</p>
                 </div>
-                <Building2 className="w-8 h-8 text-blue-500" />
+                <Building2 className="size-8 text-blue-500" />
               </div>
             </CardContent>
           </Card>
@@ -2411,7 +2411,7 @@ function FullOtisDashboard() {
                   <p className="text-sm font-medium text-gray-600">Today's Jobs</p>
                   <p className="text-2xl font-bold">{stats.todayJobs.toLocaleString()}</p>
                 </div>
-                <BarChart3 className="w-8 h-8 text-green-500" />
+                <BarChart3 className="size-8 text-green-500" />
               </div>
             </CardContent>
           </Card>
@@ -2429,7 +2429,7 @@ function FullOtisDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5" />
+                  <Target className="size-5" />
                   Scraping Configuration
                 </CardTitle>
                 <CardDescription>
@@ -2438,7 +2438,7 @@ function FullOtisDashboard() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Mode Selection Tabs */}
-                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                <div className="flex gap-x-1 bg-gray-100 p-1 rounded-lg">
                   <button
                     onClick={() => setScrapingMode('new')}
                     className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all hover-lift ${
@@ -2447,7 +2447,7 @@ function FullOtisDashboard() {
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="size-4" />
                     Start New Scraping
                   </button>
                   <button
@@ -2458,7 +2458,7 @@ function FullOtisDashboard() {
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                   >
-                    <History className="w-4 h-4" />
+                    <History className="size-4" />
                     Use Existing Run
                   </button>
                 </div>
@@ -2518,7 +2518,7 @@ function FullOtisDashboard() {
                       </Label>
                       <div className="border rounded-lg p-4 bg-gray-50">
                         <div className="relative mb-4">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                           <Input
                             placeholder="Search platform..."
                             value={regioPlatformSearch}
@@ -2532,7 +2532,7 @@ function FullOtisDashboard() {
                               platform.toLowerCase().includes(regioPlatformSearch.toLowerCase())
                             )
                             .map((platform) => (
-                            <div key={platform} className="flex items-center space-x-2">
+                            <div key={platform} className="flex items-center gap-x-2">
                               <Checkbox
                                 id={platform}
                                 checked={scrapingConfig.selectedRegioPlatforms.includes(platform)}
@@ -2613,12 +2613,12 @@ function FullOtisDashboard() {
                       
                       {isLoadingExistingRuns ? (
                         <div className="border rounded-lg p-8 text-center">
-                          <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin text-gray-400" />
+                          <RefreshCw className="size-8 mx-auto mb-4 animate-spin text-gray-400" />
                           <p className="text-gray-600">Loading existing runs...</p>
                         </div>
                       ) : existingRuns.length === 0 ? (
                         <div className="border rounded-lg p-8 text-center bg-gray-50">
-                          <History className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                          <History className="size-12 mx-auto mb-4 text-gray-300" />
                           <h3 className="font-medium text-gray-900 mb-2">No Existing Runs Found</h3>
                           <p className="text-gray-500 mb-4">
                             Start your first scraping job to see results here
@@ -2628,7 +2628,7 @@ function FullOtisDashboard() {
                             variant="outline"
                             size="sm"
                           >
-                            <Plus className="w-4 h-4 mr-2" />
+                            <Plus className="size-4 mr-2" />
                             Start New Scraping
                           </Button>
                         </div>
@@ -2648,7 +2648,7 @@ function FullOtisDashboard() {
                           {selectedRunId && (
                             <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
                               <div className="flex items-center gap-2">
-                                <CheckCircle className="w-4 h-4 text-blue-500" />
+                                <CheckCircle className="size-4 text-blue-500" />
                                 <span>
                                   Selected run will be used for workflow: 
                                   <span className="font-medium ml-1">
@@ -2690,19 +2690,19 @@ function FullOtisDashboard() {
                 >
                   {isScraping ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      <RefreshCw className="size-4 mr-2 animate-spin" />
                       {scrapingMode === 'new' ? 'Starting Scraping...' : 'Loading Data...'}
                     </>
                   ) : (
                     <>
                       {scrapingMode === 'new' ? (
                         <>
-                          <Sparkles className="w-4 h-4 mr-2" />
+                          <Sparkles className="size-4 mr-2" />
                           Start New Scraping
                         </>
                       ) : (
                         <>
-                          <Download className="w-4 h-4 mr-2" />
+                          <Download className="size-4 mr-2" />
                           Use Selected Run
                         </>
                       )}
@@ -2722,7 +2722,7 @@ function FullOtisDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5" />
+                      <Building2 className="size-5" />
                       Companies Management
                       {currentRunData && (
                         <Badge variant="outline" className="ml-2">
@@ -2765,7 +2765,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-purple-600">Apollo data added</p>
                           </div>
-                          <Sparkles className="w-8 h-8 text-purple-500" />
+                          <Sparkles className="size-8 text-purple-500" />
                         </div>
                       </div>
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -2777,7 +2777,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-green-600">Ready for Apollo</p>
                           </div>
-                          <CheckCircle className="w-8 h-8 text-green-500" />
+                          <CheckCircle className="size-8 text-green-500" />
                         </div>
                       </div>
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -2789,7 +2789,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-yellow-600">Needs attention</p>
                           </div>
-                          <AlertCircle className="w-8 h-8 text-yellow-500" />
+                          <AlertCircle className="size-8 text-yellow-500" />
                         </div>
                       </div>
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -2801,7 +2801,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-red-600">Not suitable</p>
                           </div>
-                          <RefreshCw className="w-8 h-8 text-red-500" />
+                          <RefreshCw className="size-8 text-red-500" />
                         </div>
                       </div>
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -2813,7 +2813,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-gray-600">Needs qualification</p>
                           </div>
-                          <Clock className="w-8 h-8 text-gray-400" />
+                          <Clock className="size-8 text-gray-400" />
                         </div>
                       </div>
                     </div>
@@ -2843,8 +2843,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                                <Sparkles className="w-5 h-5 text-purple-600" />
+                              <div className="size-10 bg-purple-100 rounded-full flex items-center justify-center">
+                                <Sparkles className="size-5 text-purple-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-purple-800">💎 Enriched Companies</h3>
@@ -2863,8 +2863,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                <Sparkles className="w-5 h-5 text-green-600" />
+                              <div className="size-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <Sparkles className="size-5 text-green-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-green-800">🚀 Apollo Enrichment Zone</h3>
@@ -2879,7 +2879,7 @@ function FullOtisDashboard() {
                                 className="bg-green-600 hover:bg-green-700"
                                 disabled={loadedCompanies.filter(c => c.qualification_status === 'qualified').length === 0}
                               >
-                                <Zap className="w-4 h-4 mr-2" />
+                                <Zap className="size-4 mr-2" />
                                 Enrich All Qualified
                               </Button>
                             </div>
@@ -2893,8 +2893,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                                <AlertCircle className="w-5 h-5 text-yellow-600" />
+                              <div className="size-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <AlertCircle className="size-5 text-yellow-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-yellow-800">⭕ Review Required</h3>
@@ -2905,7 +2905,7 @@ function FullOtisDashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                               <Button variant="outline" size="sm">
-                                <CheckCircle className="w-4 h-4 mr-2" />
+                                <CheckCircle className="size-4 mr-2" />
                                 Quick Actions
                               </Button>
                             </div>
@@ -2919,8 +2919,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                <RefreshCw className="w-5 h-5 text-red-600" />
+                              <div className="size-10 bg-red-100 rounded-full flex items-center justify-center">
+                                <RefreshCw className="size-5 text-red-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-red-800">❌ Disqualified Companies</h3>
@@ -2939,8 +2939,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                                <Target className="w-5 h-5 text-gray-600" />
+                              <div className="size-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <Target className="size-5 text-gray-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-gray-800">⏳ Qualification Needed</h3>
@@ -2951,7 +2951,7 @@ function FullOtisDashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                               <Button variant="outline" size="sm">
-                                <CheckCircle className="w-4 h-4 mr-2" />
+                                <CheckCircle className="size-4 mr-2" />
                                 Bulk Qualify
                               </Button>
                             </div>
@@ -2965,7 +2965,7 @@ function FullOtisDashboard() {
                   </>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
-                    <Building2 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <Building2 className="size-12 mx-auto mb-4 text-gray-300" />
                     <p>No companies data available</p>
                     <p className="text-sm">Select an existing run to view companies data</p>
                   </div>
@@ -2981,7 +2981,7 @@ function FullOtisDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <Target className="w-5 h-5" />
+                      <Target className="size-5" />
                       Contact Management
                       {currentRunData && (
                         <Badge variant="outline" className="ml-2">
@@ -3026,7 +3026,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-blue-600">Active in campaigns</p>
                           </div>
-                          <Target className="w-8 h-8 text-blue-500" />
+                          <Target className="size-8 text-blue-500" />
                         </div>
                       </div>
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -3038,7 +3038,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-green-600">Ready for Campaign</p>
                           </div>
-                          <CheckCircle className="w-8 h-8 text-green-500" />
+                          <CheckCircle className="size-8 text-green-500" />
                         </div>
                       </div>
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -3050,7 +3050,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-yellow-600">Needs attention</p>
                           </div>
-                          <AlertCircle className="w-8 h-8 text-yellow-500" />
+                          <AlertCircle className="size-8 text-yellow-500" />
                         </div>
                       </div>
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -3062,7 +3062,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-red-600">Not suitable</p>
                           </div>
-                          <RefreshCw className="w-8 h-8 text-red-500" />
+                          <RefreshCw className="size-8 text-red-500" />
                         </div>
                       </div>
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -3074,7 +3074,7 @@ function FullOtisDashboard() {
                             </p>
                             <p className="text-xs text-gray-600">Needs qualification</p>
                           </div>
-                          <Clock className="w-8 h-8 text-gray-400" />
+                          <Clock className="size-8 text-gray-400" />
                         </div>
                       </div>
                     </div>
@@ -3124,7 +3124,7 @@ function FullOtisDashboard() {
                       <div className="flex items-center gap-4">
                         {/* Enhanced Contact Search */}
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                           <input 
                             type="text" 
                             placeholder="Search by name, company, or email..."
@@ -3197,7 +3197,7 @@ function FullOtisDashboard() {
                               className="text-gray-400 hover:text-blue-600 p-1"
                               title="Search"
                             >
-                              <Search className="w-4 h-4" />
+                              <Search className="size-4" />
                             </button>
                           </div>
                         </div>
@@ -3236,7 +3236,7 @@ function FullOtisDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         {contactsLoading && (
-                          <RefreshCw className="w-4 h-4 animate-spin text-gray-500" />
+                          <RefreshCw className="size-4 animate-spin text-gray-500" />
                         )}
                         <EnhancedCampaignSelector
                           campaigns={instantlyCampaigns}
@@ -3271,8 +3271,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                <Target className="w-5 h-5 text-blue-600" />
+                              <div className="size-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <Target className="size-5 text-blue-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-blue-800">🎯 Contacts in Campaigns</h3>
@@ -3291,8 +3291,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                <Plus className="w-5 h-5 text-green-600" />
+                              <div className="size-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <Plus className="size-5 text-green-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-green-800">🚀 Campaign Addition Zone</h3>
@@ -3308,7 +3308,7 @@ function FullOtisDashboard() {
                                 disabled={loadedContacts.filter(c => c.qualificationStatus === 'qualified').length === 0 || !selectedCampaign}
                                 onClick={handleAddToCampaign}
                               >
-                                <Plus className="w-4 h-4 mr-2" />
+                                <Plus className="size-4 mr-2" />
                                 Add All Qualified to Campaign
                               </Button>
                             </div>
@@ -3322,8 +3322,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                                <AlertCircle className="w-5 h-5 text-yellow-600" />
+                              <div className="size-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <AlertCircle className="size-5 text-yellow-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-yellow-800">⭕ Review Required</h3>
@@ -3334,7 +3334,7 @@ function FullOtisDashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                               <Button variant="outline" size="sm">
-                                <CheckCircle className="w-4 h-4 mr-2" />
+                                <CheckCircle className="size-4 mr-2" />
                                 Quick Actions
                               </Button>
                             </div>
@@ -3348,8 +3348,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                <RefreshCw className="w-5 h-5 text-red-600" />
+                              <div className="size-10 bg-red-100 rounded-full flex items-center justify-center">
+                                <RefreshCw className="size-5 text-red-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-red-800">❌ Disqualified Contacts</h3>
@@ -3368,8 +3368,8 @@ function FullOtisDashboard() {
                         <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                                <Target className="w-5 h-5 text-gray-600" />
+                              <div className="size-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <Target className="size-5 text-gray-600" />
                               </div>
                               <div>
                                 <h3 className="font-semibold text-gray-800">⏳ Qualification Needed</h3>
@@ -3380,7 +3380,7 @@ function FullOtisDashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                               <Button variant="outline" size="sm">
-                                <CheckCircle className="w-4 h-4 mr-2" />
+                                <CheckCircle className="size-4 mr-2" />
                                 Bulk Qualify
                               </Button>
                             </div>
@@ -3393,7 +3393,7 @@ function FullOtisDashboard() {
                     {/* No Results State - Show when there are no contacts due to filters */}
                     {getFilteredContacts().length === 0 && loadedContacts.length > 0 && currentRunData && (
                       <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                        <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <Search className="size-12 mx-auto mb-4 text-gray-300" />
                         <h3 className="font-medium text-gray-700 mb-2">No contacts found</h3>
                         <p className="text-sm text-gray-600 mb-4">
                           No contacts match your current search criteria and filters
@@ -3425,7 +3425,7 @@ function FullOtisDashboard() {
                             }
                           }}
                         >
-                          <RefreshCw className="w-4 h-4 mr-2" />
+                          <RefreshCw className="size-4 mr-2" />
                           Clear All Filters
                         </Button>
                       </div>
@@ -3433,7 +3433,7 @@ function FullOtisDashboard() {
                   </>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
-                    <Target className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <Target className="size-12 mx-auto mb-4 text-gray-300" />
                     <p>No contacts data available</p>
                     <p className="text-sm">
                       Select an Apify run to view contacts from Apollo-enriched companies

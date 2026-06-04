@@ -178,7 +178,7 @@ export function InstantlyLeadsTable({
     if (!status) {
       return (
         <Badge variant="outline" className="text-gray-600">
-          <AlertCircle className="w-3 h-3 mr-1" />
+          <AlertCircle className="size-3 mr-1" />
           Onbekend
         </Badge>
       )
@@ -188,7 +188,7 @@ export function InstantlyLeadsTable({
     if (normalizedStatus.includes('replied') || normalizedStatus.includes('interested') || normalizedStatus.includes('positive')) {
       return (
         <Badge className="bg-green-100 text-green-800 border-green-200">
-          <CheckCircle className="w-3 h-3 mr-1" />
+          <CheckCircle className="size-3 mr-1" />
           Positief
         </Badge>
       )
@@ -196,7 +196,7 @@ export function InstantlyLeadsTable({
     if (normalizedStatus.includes('bounced') || normalizedStatus.includes('failed') || normalizedStatus.includes('unsubscribed')) {
       return (
         <Badge className="bg-red-100 text-red-800 border-red-200">
-          <XCircle className="w-3 h-3 mr-1" />
+          <XCircle className="size-3 mr-1" />
           Mislukt
         </Badge>
       )
@@ -204,7 +204,7 @@ export function InstantlyLeadsTable({
     if (normalizedStatus.includes('sent') || normalizedStatus.includes('delivered') || normalizedStatus.includes('opened')) {
       return (
         <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-          <Send className="w-3 h-3 mr-1" />
+          <Send className="size-3 mr-1" />
           Verzonden
         </Badge>
       )
@@ -212,14 +212,14 @@ export function InstantlyLeadsTable({
     if (normalizedStatus.includes('pending') || normalizedStatus.includes('scheduled')) {
       return (
         <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-          <Clock className="w-3 h-3 mr-1" />
+          <Clock className="size-3 mr-1" />
           In wachtrij
         </Badge>
       )
     }
     return (
       <Badge variant="outline" className="text-gray-600">
-        <AlertCircle className="w-3 h-3 mr-1" />
+        <AlertCircle className="size-3 mr-1" />
         {status}
       </Badge>
     )
@@ -239,9 +239,9 @@ export function InstantlyLeadsTable({
     >
       <div className="flex items-center gap-1">
         {children}
-        {sortField !== field && <ArrowUpDown className="w-4 h-4 text-gray-400" />}
-        {sortField === field && sortDirection === 'asc' && <ChevronUp className="w-4 h-4 text-gray-600" />}
-        {sortField === field && sortDirection === 'desc' && <ChevronDown className="w-4 h-4 text-gray-600" />}
+        {sortField !== field && <ArrowUpDown className="size-4 text-gray-400" />}
+        {sortField === field && sortDirection === 'asc' && <ChevronUp className="size-4 text-gray-600" />}
+        {sortField === field && sortDirection === 'desc' && <ChevronDown className="size-4 text-gray-600" />}
       </div>
     </TableHead>
   )
@@ -307,13 +307,13 @@ export function InstantlyLeadsTable({
                 }}
                 trigger={
                   <Button size="sm" variant="outline">
-                    <Shield className="w-4 h-4 mr-2" />
+                    <Shield className="size-4 mr-2" />
                     Blocklist Acties
                   </Button>
                 }
               />
               <Button size="sm" variant="outline">
-                <Mail className="w-4 h-4 mr-2" />
+                <Mail className="size-4 mr-2" />
                 Email versturen
               </Button>
               <Button size="sm" variant="outline">
@@ -338,15 +338,15 @@ export function InstantlyLeadsTable({
                 />
               </TableHead>
               <SortableHeader field="name">
-                <User className="w-4 h-4 mr-1" />
+                <User className="size-4 mr-1" />
                 Naam
               </SortableHeader>
               <SortableHeader field="email">
-                <Mail className="w-4 h-4 mr-1" />
+                <Mail className="size-4 mr-1" />
                 Email
               </SortableHeader>
               <SortableHeader field="company_name">
-                <Building2 className="w-4 h-4 mr-1" />
+                <Building2 className="size-4 mr-1" />
                 Bedrijf
               </SortableHeader>
               <TableHead>Titel</TableHead>
@@ -373,7 +373,7 @@ export function InstantlyLeadsTable({
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-12">
                   <div className="space-y-2">
-                    <Mail className="w-12 h-12 mx-auto text-gray-300" />
+                    <Mail className="size-12 mx-auto text-gray-300" />
                     <h3 className="font-medium text-gray-900">Geen leads gevonden</h3>
                     <p className="text-gray-500">
                       {searchTerm || statusFilter !== "all" || campaignFilter !== "all" || responseFilter !== "all"
@@ -413,7 +413,7 @@ export function InstantlyLeadsTable({
                             window.open(`mailto:${lead.email}`, '_blank')
                           }}
                         >
-                          <Mail className="w-3 h-3" />
+                          <Mail className="size-3" />
                         </Button>
                       )}
                     </div>
@@ -448,7 +448,7 @@ export function InstantlyLeadsTable({
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="sm">
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="size-4" />
                       </Button>
                     </div>
                   </TableCell>

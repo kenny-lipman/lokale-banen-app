@@ -131,27 +131,27 @@ export function BlocklistTable({
 
   // Get sync status icon
   const getSyncIcon = (synced?: boolean) => {
-    if (synced === undefined) return <Clock className="h-4 w-4 text-gray-400" />
-    if (synced) return <CheckCircle2 className="h-4 w-4 text-green-500" />
-    return <XCircle className="h-4 w-4 text-red-500" />
+    if (synced === undefined) return <Clock className="size-4 text-gray-400" />
+    if (synced) return <CheckCircle2 className="size-4 text-green-500" />
+    return <XCircle className="size-4 text-red-500" />
   }
 
   // Get sort icon
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) {
-      return <ArrowUpDown className="ml-2 h-4 w-4" />
+      return <ArrowUpDown className="ml-2 size-4" />
     }
     return sortDirection === "asc" ? (
-      <ChevronUp className="ml-2 h-4 w-4" />
+      <ChevronUp className="ml-2 size-4" />
     ) : (
-      <ChevronDown className="ml-2 h-4 w-4" />
+      <ChevronDown className="ml-2 size-4" />
     )
   }
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full size-8 border-b-2 border-gray-900"></div>
       </div>
     )
   }
@@ -202,11 +202,11 @@ export function BlocklistTable({
               </Button>
             </TableHead>
             <TableHead>
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-x-1">
                 <span>Status</span>
                 <Tooltip>
                   <TooltipTrigger>
-                    <HelpCircle className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                    <HelpCircle className="size-3 text-gray-400 hover:text-gray-600" />
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-xs">
                     <p className="text-sm">
@@ -254,9 +254,9 @@ export function BlocklistTable({
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {entry.type === "email" ? (
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <Mail className="size-4 text-muted-foreground" />
                     ) : (
-                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <Globe className="size-4 text-muted-foreground" />
                     )}
                     <Badge variant={entry.type === "email" ? "default" : "secondary"}>
                       {entry.type}
@@ -295,25 +295,25 @@ export function BlocklistTable({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="size-8 p-0">
                         <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
+                        <MoreHorizontal className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => onEdit?.(entry)}>
-                        <Edit className="mr-2 h-4 w-4" />
+                        <Edit className="mr-2 size-4" />
                         Bewerken
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onToggleActive?.(entry)}>
                         {entry.is_active ? (
                           <>
-                            <PowerOff className="mr-2 h-4 w-4" />
+                            <PowerOff className="mr-2 size-4" />
                             Deactiveren
                           </>
                         ) : (
                           <>
-                            <Power className="mr-2 h-4 w-4" />
+                            <Power className="mr-2 size-4" />
                             Activeren
                           </>
                         )}
@@ -322,7 +322,7 @@ export function BlocklistTable({
                         onClick={() => onDelete?.(entry)}
                         className="text-red-600"
                       >
-                        <Trash className="mr-2 h-4 w-4" />
+                        <Trash className="mr-2 size-4" />
                         Verwijderen
                       </DropdownMenuItem>
                     </DropdownMenuContent>

@@ -71,9 +71,9 @@ export default async function ApplicationsPage() {
                     href={`/vacature/${job.slug || job.id}`}
                     className="group flex items-start gap-4 bg-surface border border-divider-subtle p-5 hover:shadow-card-hover transition-shadow"
                   >
-                    <span className="inline-flex items-center justify-center w-11 h-11 bg-primary-tint shrink-0">
+                    <span className="inline-flex items-center justify-center size-11 bg-primary-tint shrink-0">
                       <FileText
-                        className="h-5 w-5 text-primary"
+                        className="size-5 text-primary"
                         strokeWidth={1.75}
                         aria-hidden="true"
                       />
@@ -92,7 +92,7 @@ export default async function ApplicationsPage() {
                       </p>
                     </div>
                     <ExternalLink
-                      className="h-4 w-4 text-secondary shrink-0 mt-1 group-hover:text-secondary-hover"
+                      className="size-4 text-secondary shrink-0 mt-1 group-hover:text-secondary-hover"
                       strokeWidth={1.75}
                       aria-hidden="true"
                     />

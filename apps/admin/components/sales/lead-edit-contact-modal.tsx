@@ -160,7 +160,7 @@ export function LeadEditContactModal({ open, onOpenChange, contact, runId, onSav
               Annuleren
             </Button>
             <Button type="submit" disabled={saving || !firstName.trim()}>
-              {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+              {saving ? <Loader2 className="size-3.5 mr-1.5 animate-spin" /> : null}
               Opslaan
             </Button>
           </DialogFooter>

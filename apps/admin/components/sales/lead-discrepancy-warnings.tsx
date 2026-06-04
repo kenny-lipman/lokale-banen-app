@@ -18,7 +18,7 @@ export function LeadDiscrepancyWarnings({ enrichments, master }: Props) {
     <Card className="border-yellow-300 bg-yellow-50">
       <CardContent className="p-4 space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium text-yellow-900">
-          <AlertTriangle className="w-4 h-4" />
+          <AlertTriangle className="size-4" />
           {discrepancies.length} bron-discrepantie{discrepancies.length > 1 ? 's' : ''} gedetecteerd
         </div>
         {discrepancies.map((d) => {

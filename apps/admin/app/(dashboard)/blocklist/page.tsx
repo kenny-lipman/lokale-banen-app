@@ -154,7 +154,7 @@ export default function BlocklistPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Shield className="h-8 w-8" />
+            <Shield className="size-8" />
             Blocklist Management
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -167,7 +167,7 @@ export default function BlocklistPage() {
             Vernieuwen
           </Button>
           <Button onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="size-4 mr-2" />
             Entry Toevoegen
           </Button>
         </div>
@@ -189,7 +189,7 @@ export default function BlocklistPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
+                  <Filter className="size-4" />
                   <CardTitle className="text-lg">Filters</CardTitle>
                   {hasActiveFilters && (
                     <Badge variant="secondary" className="ml-2">
@@ -205,7 +205,7 @@ export default function BlocklistPage() {
                       onClick={clearFilters}
                       className="text-muted-foreground"
                     >
-                      <X className="h-4 w-4 mr-1" />
+                      <X className="size-4 mr-1" />
                       Wissen
                     </Button>
                   )}
@@ -225,7 +225,7 @@ export default function BlocklistPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Zoeken</label>
                     <div className="relative">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
                       <Input
                         placeholder="Zoek in waarde of reden..."
                         value={filters.search || ""}

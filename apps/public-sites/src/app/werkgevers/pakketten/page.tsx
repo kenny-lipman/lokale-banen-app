@@ -118,7 +118,7 @@ export default async function PakkettenPage() {
                 href={mailto}
                 className="inline-flex items-center justify-center gap-2 h-12 px-7 rounded-button bg-secondary text-secondary-ink text-meta font-bold tracking-tight transition-colors hover:bg-secondary-hover"
               >
-                <Mail className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                <Mail className="size-4" strokeWidth={2} aria-hidden="true" />
                 Plaats een vacature!
               </a>
             </div>
@@ -195,9 +195,9 @@ function UspItem({ children }: { children: React.ReactNode }) {
     <li className="flex items-start gap-3">
       <span
         aria-hidden="true"
-        className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 border-secondary shrink-0 mt-0.5"
+        className="inline-flex items-center justify-center size-6 rounded-full border-2 border-secondary shrink-0 mt-0.5"
       >
-        <Check className="h-3.5 w-3.5 text-secondary" strokeWidth={2.5} />
+        <Check className="size-3.5 text-secondary" strokeWidth={2.5} />
       </span>
       <span className="text-body font-regular text-primary leading-snug">
         {children}
@@ -250,13 +250,13 @@ function PriceCard({
         {highlighted && hasAnySocial && (
           <div className="flex items-center gap-3 mb-5" aria-hidden="true">
             {socialPresence!.instagram && (
-              <Instagram className="h-6 w-6" strokeWidth={1.75} />
+              <Instagram className="size-6" strokeWidth={1.75} />
             )}
             {socialPresence!.facebook && (
-              <Facebook className="h-6 w-6" strokeWidth={1.75} />
+              <Facebook className="size-6" strokeWidth={1.75} />
             )}
             {socialPresence!.linkedin && (
-              <Linkedin className="h-6 w-6" strokeWidth={1.75} />
+              <Linkedin className="size-6" strokeWidth={1.75} />
             )}
           </div>
         )}

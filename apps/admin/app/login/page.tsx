@@ -89,7 +89,7 @@ export default function LoginPage() {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="size-8 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">Bezig met laden...</p>
         </div>
       </div>
@@ -101,7 +101,7 @@ export default function LoginPage() {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-4" />
+          <CheckCircle className="size-8 text-green-600 mx-auto mb-4" />
           <p className="text-gray-600">U wordt doorverwezen...</p>
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function LoginPage() {
     <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center pb-6">
-          <div className="flex flex-col items-center space-y-4 mb-6">
+          <div className="flex flex-col items-center gap-y-4 mb-6">
             <Logo size="xl" className="text-gray-900" />
             <div>
               <CardTitle className="text-2xl font-bold text-gray-900">Welkom terug</CardTitle>
@@ -127,7 +127,7 @@ export default function LoginPage() {
                 E-mailadres
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                 <Input 
                   id="email" 
                   type="email" 
@@ -152,7 +152,7 @@ export default function LoginPage() {
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                 <PasswordInput 
                   id="password" 
                   value={password} 
@@ -168,15 +168,15 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+              <div className="flex items-center gap-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="size-4 text-red-600 flex-shrink-0" />
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
 
             {success && (
-              <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-md">
-                <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <div className="flex items-center gap-x-2 p-3 bg-green-50 border border-green-200 rounded-md">
+                <CheckCircle className="size-4 text-green-600 flex-shrink-0" />
                 <p className="text-green-600 text-sm">Succesvol ingelogd!</p>
               </div>
             )}
@@ -188,12 +188,12 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="size-4 animate-spin mr-2" />
                   Inloggen...
                 </>
               ) : success ? (
                 <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <CheckCircle className="size-4 mr-2" />
                   Ingelogd
                 </>
               ) : (

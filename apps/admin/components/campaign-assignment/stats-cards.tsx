@@ -28,9 +28,9 @@ export function CampaignAssignmentStatsCards({
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {[...Array(5)].map((_, i) => (
           <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4" />
+              <Skeleton className="size-4" />
             </CardHeader>
             <CardContent>
               <Skeleton className="h-8 w-20 mb-1" />
@@ -48,9 +48,9 @@ export function CampaignAssignmentStatsCards({
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       {/* Total Processed */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Totaal Verwerkt</CardTitle>
-          <Activity className="h-4 w-4 text-muted-foreground" />
+          <Activity className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
@@ -62,9 +62,9 @@ export function CampaignAssignmentStatsCards({
 
       {/* Added to Instantly */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Toegevoegd</CardTitle>
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <CheckCircle2 className="size-4 text-green-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">
@@ -78,9 +78,9 @@ export function CampaignAssignmentStatsCards({
 
       {/* Skipped */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Overgeslagen</CardTitle>
-          <SkipForward className="h-4 w-4 text-yellow-500" />
+          <SkipForward className="size-4 text-yellow-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-yellow-600">
@@ -94,9 +94,9 @@ export function CampaignAssignmentStatsCards({
 
       {/* Errors */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Errors</CardTitle>
-          <XCircle className="h-4 w-4 text-red-500" />
+          <XCircle className="size-4 text-red-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -112,9 +112,9 @@ export function CampaignAssignmentStatsCards({
 
       {/* Success Rate */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <TrendingUp className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">

@@ -152,13 +152,13 @@ export function SimpleCampaignCombobox({
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>
             )}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[450px] p-0 max-h-[500px] overflow-hidden" align="start">
           {/* Search Input */}
           <div className="flex items-center border-b px-3 py-2">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Search className="mr-2 size-4 shrink-0 opacity-50" />
             <input
               className="flex-1 outline-none text-sm placeholder:text-muted-foreground"
               placeholder="Zoek campagne..."

@@ -218,13 +218,13 @@ export default function NieuweVacaturePage() {
       <div className="flex items-center gap-4 mb-6">
         <Link href="/job-postings">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="size-4 mr-2" />
             Terug
           </Button>
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Briefcase className="h-8 w-8" />
+            <Briefcase className="size-8" />
             Nieuwe vacature
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -274,7 +274,7 @@ export default function NieuweVacaturePage() {
               <AccordionItem value="new-company" className="border rounded-lg px-4">
                 <AccordionTrigger className="text-sm">
                   <span className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
+                    <Plus className="size-4" />
                     Of: nieuw bedrijf aanmaken
                   </span>
                 </AccordionTrigger>
@@ -541,7 +541,7 @@ export default function NieuweVacaturePage() {
             </Button>
           </Link>
           <Button type="submit" disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {saving && <Loader2 className="size-4 mr-2 animate-spin" />}
             Vacature aanmaken
           </Button>
         </div>

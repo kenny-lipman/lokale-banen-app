@@ -81,19 +81,19 @@ export function NavigationControls({
   const getStageIcon = (status: string, stageId: string) => {
     switch (status) {
       case 'completed':
-        return <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+        return <div className="size-6 bg-green-100 rounded-full flex items-center justify-center">
           <span className="text-green-600 text-xs font-semibold">✓</span>
         </div>
       case 'processing':
-        return <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center animate-pulse">
-          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+        return <div className="size-6 bg-blue-100 rounded-full flex items-center justify-center animate-pulse">
+          <div className="size-2 bg-blue-600 rounded-full"></div>
         </div>
       case 'current':
-        return <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+        return <div className="size-6 bg-blue-100 rounded-full flex items-center justify-center">
           <span className="text-blue-600 text-xs font-semibold">{stages[currentStageIndex].number}</span>
         </div>
       default:
-        return <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+        return <div className="size-6 bg-gray-100 rounded-full flex items-center justify-center">
           <span className="text-gray-400 text-xs font-semibold">{stages.find(s => s.id === stageId)?.number}</span>
         </div>
     }
@@ -131,7 +131,7 @@ export function NavigationControls({
               >
                 {getStageIcon(status, stage.id)}
                 <div className="flex-1 text-left">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-x-2">
                     <span className={`text-sm font-medium ${
                       status === 'completed' ? 'text-green-700' :
                       status === 'processing' ? 'text-blue-700' :
@@ -166,7 +166,7 @@ export function NavigationControls({
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Previous/Next Buttons */}
-          <div className="flex space-x-2">
+          <div className="flex gap-x-2">
             <Button
               variant="outline"
               size="sm"
@@ -174,7 +174,7 @@ export function NavigationControls({
               disabled={!canGoBack || isProcessing}
               className="flex-1"
             >
-              <ChevronLeft className="w-4 h-4 mr-1" />
+              <ChevronLeft className="size-4 mr-1" />
               Previous
             </Button>
             
@@ -186,7 +186,7 @@ export function NavigationControls({
               className="flex-1"
             >
               Next
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight className="size-4 ml-1" />
             </Button>
           </div>
 
@@ -199,7 +199,7 @@ export function NavigationControls({
               disabled={isProcessing}
               className="w-full"
             >
-              <SkipForward className="w-4 h-4 mr-2" />
+              <SkipForward className="size-4 mr-2" />
               Skip Stage
             </Button>
           )}
@@ -212,7 +212,7 @@ export function NavigationControls({
             disabled={isProcessing}
             className="w-full"
           >
-            <RotateCcw className="w-4 h-4 mr-2" />
+            <RotateCcw className="size-4 mr-2" />
             Restart Workflow
           </Button>
         </CardContent>
@@ -225,14 +225,14 @@ export function NavigationControls({
             <CardTitle className="text-lg text-blue-900">Processing Controls</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex space-x-2">
+            <div className="flex gap-x-2">
               <Button
                 variant="outline"
                 size="sm"
                 disabled
                 className="flex-1"
               >
-                <Pause className="w-4 h-4 mr-2" />
+                <Pause className="size-4 mr-2" />
                 Pause
               </Button>
               
@@ -242,7 +242,7 @@ export function NavigationControls({
                 disabled
                 className="flex-1"
               >
-                <Square className="w-4 h-4 mr-2" />
+                <Square className="size-4 mr-2" />
                 Stop
               </Button>
             </div>

@@ -89,7 +89,7 @@ export function CampaignConfirmationModal({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <AlertTriangle className="size-5 text-orange-500" />
             Confirm Campaign Addition
           </DialogTitle>
         </DialogHeader>
@@ -120,7 +120,7 @@ export function CampaignConfirmationModal({
             <div className="space-y-3">
               {unverifiedCount > 0 && (
                 <Alert>
-                  <Mail className="h-4 w-4" />
+                  <Mail className="size-4" />
                   <AlertDescription>
                     <strong>{unverifiedCount} contacts</strong> have unverified email addresses. 
                     They may not be accepted by the campaign platform.
@@ -130,7 +130,7 @@ export function CampaignConfirmationModal({
               
               {exceedsLimit && (
                 <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTriangle className="size-4" />
                   <AlertDescription>
                     This would exceed the campaign limit! 
                     New total: <strong>{newTotalContacts}</strong> / {campaignDetails.maxContacts} contacts.
@@ -143,14 +143,14 @@ export function CampaignConfirmationModal({
           {/* Contacts Breakdown */}
           <div>
             <h3 className="font-medium mb-3 flex items-center gap-2">
-              <Users className="w-4 h-4" />
+              <Users className="size-4" />
               Contacts to Add
             </h3>
             <div className="max-h-64 overflow-y-auto space-y-4 border rounded-lg p-4">
               {Object.entries(contactsByCompany).map(([companyName, contacts]) => (
                 <div key={companyName} className="space-y-2">
                   <div className="flex items-center gap-2 font-medium text-gray-700">
-                    <Building2 className="w-4 h-4" />
+                    <Building2 className="size-4" />
                     {companyName}
                     <Badge variant="outline">{contacts.length} contacts</Badge>
                   </div>
@@ -159,16 +159,16 @@ export function CampaignConfirmationModal({
                       <div key={contact.id} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           {contact.isKeyContact && (
-                            <Crown className="w-3 h-3 text-yellow-500" />
+                            <Crown className="size-3 text-yellow-500" />
                           )}
                           <span>{contact.name}</span>
                           <span className="text-gray-500">({contact.title})</span>
                         </div>
                         <div className="flex items-center gap-1">
                           {contact.emailVerified ? (
-                            <CheckCircle className="w-3 h-3 text-green-500" />
+                            <CheckCircle className="size-3 text-green-500" />
                           ) : (
-                            <AlertTriangle className="w-3 h-3 text-yellow-500" />
+                            <AlertTriangle className="size-3 text-yellow-500" />
                           )}
                           <span className={contact.emailVerified ? 'text-green-600' : 'text-yellow-600'}>
                             {contact.emailVerified ? 'Verified' : 'Unverified'}
@@ -185,7 +185,7 @@ export function CampaignConfirmationModal({
           {/* Campaign Details */}
           <div className="p-4 bg-blue-50 rounded-lg">
             <h3 className="font-medium mb-2 flex items-center gap-2">
-              <Target className="w-4 h-4" />
+              <Target className="size-4" />
               Campaign Details
             </h3>
             <div className="space-y-1 text-sm">
@@ -198,7 +198,7 @@ export function CampaignConfirmationModal({
 
           {/* Warning */}
           <Alert>
-            <AlertTriangle className="h-4 w-4" />
+            <AlertTriangle className="size-4" />
             <AlertDescription>
               <strong>This action cannot be undone.</strong> Contacts will be immediately added to the campaign 
               and may start receiving emails according to the campaign schedule.
@@ -217,12 +217,12 @@ export function CampaignConfirmationModal({
             >
               {isConfirming ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                   Adding...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                  <CheckCircle className="size-4 mr-2" />
                   Yes, Add to Campaign
                 </>
               )}

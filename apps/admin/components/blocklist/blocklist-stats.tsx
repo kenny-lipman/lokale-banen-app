@@ -51,7 +51,7 @@ export function BlocklistStats({ stats, loading = false, className = "" }: Block
       <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-4 ${className}`}>
         {[...Array(4)].map((_, i) => (
           <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
               </CardTitle>
@@ -77,9 +77,9 @@ export function BlocklistStats({ stats, loading = false, className = "" }: Block
     <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-4 ${className}`}>
       {/* Total Blocked */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Totaal Geblokkeerd</CardTitle>
-          <Shield className="h-4 w-4 text-muted-foreground" />
+          <Shield className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.overview.total}</div>
@@ -96,11 +96,11 @@ export function BlocklistStats({ stats, loading = false, className = "" }: Block
 
       {/* By Type */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Per Type</CardTitle>
           <div className="flex gap-1">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            <Globe className="h-4 w-4 text-muted-foreground" />
+            <Mail className="size-4 text-muted-foreground" />
+            <Globe className="size-4 text-muted-foreground" />
           </div>
         </CardHeader>
         <CardContent>
@@ -117,14 +117,14 @@ export function BlocklistStats({ stats, loading = false, className = "" }: Block
 
       {/* Sync Status */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Sync Status</CardTitle>
           {syncPercentage >= 90 ? (
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <CheckCircle2 className="size-4 text-green-500" />
           ) : syncPercentage >= 50 ? (
-            <Clock className="h-4 w-4 text-yellow-500" />
+            <Clock className="size-4 text-yellow-500" />
           ) : (
-            <AlertCircle className="h-4 w-4 text-red-500" />
+            <AlertCircle className="size-4 text-red-500" />
           )}
         </CardHeader>
         <CardContent>
@@ -148,9 +148,9 @@ export function BlocklistStats({ stats, loading = false, className = "" }: Block
 
       {/* Recent Activity */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Recente Activiteit</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <TrendingUp className="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">+{stats.recentActivity.last24Hours}</div>

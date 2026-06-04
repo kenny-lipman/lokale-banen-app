@@ -71,14 +71,15 @@ async function getHandler(_request: NextRequest) {
 async function postHandler(request: NextRequest) {
   const startTime = Date.now();
   const supabase = getServiceClient();
-  const body = await request.json().catch(() => ({}));
-
-  // Check existing progress
-  const { data: existing } = await supabase
-    .from("scraper_backfill_progress")
-    .select("*")
-    .eq("scraper_name", SCRAPER_NAME)
-    .single();
+  // Body-parse en bestaande-voortgang lookup zijn onafhankelijk: parallel.
+  const [body, { data: existing }] = await Promise.all([
+    request.json().catch(() => ({})),
+    supabase
+      .from("scraper_backfill_progress")
+      .select("*")
+      .eq("scraper_name", SCRAPER_NAME)
+      .single(),
+  ]);
 
   if (existing?.status === "completed") {
     return NextResponse.json({

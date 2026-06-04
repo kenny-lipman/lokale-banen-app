@@ -233,18 +233,18 @@ export function ContactDetailsDrawer({
       <SheetContent className="w-[800px] sm:max-w-[800px] overflow-y-auto">
         <SheetHeader className="space-y-4">
           <div className="flex items-start justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-purple-600" />
+            <div className="flex items-center gap-x-3">
+              <div className="size-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <User className="size-6 text-purple-600" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <SheetTitle className="text-xl">{fullName}</SheetTitle>
                   {contact.is_key_contact && (
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                    <Star className="size-4 text-yellow-500 fill-yellow-500" />
                   )}
                   {contact.is_blocked && (
-                    <Shield className="w-4 h-4 text-red-500" />
+                    <Shield className="size-4 text-red-500" />
                   )}
                 </div>
                 {contact.title && (
@@ -268,7 +268,7 @@ export function ContactDetailsDrawer({
               {contact.email && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-gray-400" />
+                    <Mail className="size-4 text-gray-400" />
                     <a href={`mailto:${contact.email}`} className="text-blue-600 hover:underline text-sm">
                       {contact.email}
                     </a>
@@ -279,7 +279,7 @@ export function ContactDetailsDrawer({
 
               {contact.phone && (
                 <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
+                  <Phone className="size-4 text-gray-400" />
                   <a href={`tel:${contact.phone}`} className="text-green-600 hover:underline text-sm">
                     {contact.phone}
                   </a>
@@ -288,7 +288,7 @@ export function ContactDetailsDrawer({
 
               {contact.linkedin_url && (
                 <div className="flex items-center gap-2">
-                  <Linkedin className="w-4 h-4 text-gray-400" />
+                  <Linkedin className="size-4 text-gray-400" />
                   <a
                     href={contact.linkedin_url}
                     target="_blank"
@@ -296,7 +296,7 @@ export function ContactDetailsDrawer({
                     className="text-blue-600 hover:underline text-sm flex items-center gap-1"
                   >
                     LinkedIn Profile
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="size-3" />
                   </a>
                 </div>
               )}
@@ -316,8 +316,8 @@ export function ContactDetailsDrawer({
                   className="flex items-center justify-between group hover:bg-gray-50 -m-2 p-2 rounded-lg transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Building2 className="w-5 h-5 text-orange-600" />
+                    <div className="size-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="size-5 text-orange-600" />
                     </div>
                     <div>
                       <p className="font-medium">{contact.companies_name || 'Unknown Company'}</p>
@@ -332,7 +332,7 @@ export function ContactDetailsDrawer({
                       </div>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  <ArrowRight className="size-4 text-gray-400 group-hover:text-gray-600" />
                 </Link>
               </CardContent>
             </Card>
@@ -348,7 +348,7 @@ export function ContactDetailsDrawer({
                 {/* Show current campaign */}
                 {contact.campaign_name && (
                   <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-blue-500" />
+                    <Target className="size-4 text-blue-500" />
                     <span className="text-sm font-medium">{contact.campaign_name}</span>
                     <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Actief</Badge>
                   </div>
@@ -358,14 +358,14 @@ export function ContactDetailsDrawer({
                   .filter(name => name !== contact.campaign_name)
                   .map((campaignName, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-gray-400" />
+                      <Target className="size-4 text-gray-400" />
                       <span className="text-sm text-gray-600">{campaignName}</span>
                     </div>
                   ))
                 }
                 {contact.last_touch && (
                   <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                    <Clock className="w-3 h-3" />
+                    <Clock className="size-3" />
                     <span>Last touch: {formatDate(contact.last_touch)}</span>
                   </div>
                 )}
@@ -381,7 +381,7 @@ export function ContactDetailsDrawer({
                   <CardTitle className="text-sm font-medium text-gray-500">
                     Vacatures ({jobPostings.length})
                   </CardTitle>
-                  {loadingJobPostings && <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />}
+                  {loadingJobPostings && <RefreshCw className="size-4 animate-spin text-gray-400" />}
                 </div>
               </CardHeader>
               <CardContent>
@@ -390,7 +390,7 @@ export function ContactDetailsDrawer({
                     {jobPostings.slice(0, 5).map((job) => (
                       <div key={job.id} className="flex items-center justify-between py-2 border-b last:border-0">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <Briefcase className="size-4 text-gray-400 flex-shrink-0" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{job.title}</p>
                             {job.location && (
@@ -405,7 +405,7 @@ export function ContactDetailsDrawer({
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-800 ml-2"
                           >
-                            <ExternalLink className="w-4 h-4" />
+                            <ExternalLink className="size-4" />
                           </a>
                         )}
                       </div>
@@ -418,7 +418,7 @@ export function ContactDetailsDrawer({
                   </div>
                 ) : (
                   <div className="text-center py-4 text-gray-500">
-                    <Briefcase className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <Briefcase className="size-8 mx-auto mb-2 text-gray-300" />
                     <p className="text-sm">Geen vacatures gevonden</p>
                   </div>
                 )}
@@ -435,7 +435,7 @@ export function ContactDetailsDrawer({
               <CardContent className="space-y-2">
                 {contact.qualification_timestamp && (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="w-4 h-4" />
+                    <Calendar className="size-4" />
                     <span>Gekwalificeerd op: {formatDateTime(contact.qualification_timestamp)}</span>
                   </div>
                 )}
@@ -499,7 +499,7 @@ export function ContactDetailsDrawer({
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-gray-500">Activiteit & Sync Events</CardTitle>
-                {loadingSyncEvents && <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />}
+                {loadingSyncEvents && <RefreshCw className="size-4 animate-spin text-gray-400" />}
               </div>
             </CardHeader>
             <CardContent>
@@ -509,9 +509,9 @@ export function ContactDetailsDrawer({
                     <div key={event.id} className="flex items-start gap-3 pb-3 border-b last:border-0 last:pb-0">
                       <div className="mt-0.5">
                         {event.sync_success ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <CheckCircle className="size-4 text-green-500" />
                         ) : (
-                          <AlertCircle className="w-4 h-4 text-red-500" />
+                          <AlertCircle className="size-4 text-red-500" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -519,7 +519,7 @@ export function ContactDetailsDrawer({
                           {getEventTypeBadge(event.event_type)}
                           {event.has_reply && (
                             <Badge variant="outline" className="text-xs">
-                              <MessageSquare className="w-3 h-3 mr-1" />
+                              <MessageSquare className="size-3 mr-1" />
                               {event.reply_sentiment || 'Reply'}
                             </Badge>
                           )}
@@ -541,7 +541,7 @@ export function ContactDetailsDrawer({
                 </div>
               ) : (
                 <div className="text-center py-4 text-gray-500">
-                  <Zap className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <Zap className="size-8 mx-auto mb-2 text-gray-300" />
                   <p className="text-sm">Geen sync events gevonden</p>
                 </div>
               )}

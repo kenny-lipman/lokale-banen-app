@@ -553,8 +553,10 @@ export class BlocklistErrorHandler {
     issues: string[];
     recommendations: string[];
   }> {
-    const stats = await this.getErrorStats('1h');
-    const unresolvedErrors = await this.getUnresolvedErrors(10);
+    const [stats, unresolvedErrors] = await Promise.all([
+      this.getErrorStats('1h'),
+      this.getUnresolvedErrors(10),
+    ]);
 
     const issues: string[] = [];
     const recommendations: string[] = [];

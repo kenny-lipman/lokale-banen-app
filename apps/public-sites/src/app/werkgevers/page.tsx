@@ -95,7 +95,7 @@ export default async function WerkgeversPage() {
             variant="primary"
             size="lg"
           >
-            <Mail className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <Mail className="size-4" strokeWidth={2} aria-hidden="true" />
             Plaats jouw vacature
           </PillButton>
           <PillButton href="/" size="lg">Bekijk de vacatures</PillButton>
@@ -118,7 +118,7 @@ function Stat({
 }) {
   return (
     <div className="bg-surface border border-divider-subtle p-5">
-      <Icon className="h-5 w-5 text-secondary" strokeWidth={1.75} aria-hidden="true" />
+      <Icon className="size-5 text-secondary" strokeWidth={1.75} aria-hidden="true" />
       <p className="m-0 mt-3 text-h2 font-bold text-primary tracking-tight">{value}</p>
       <p className="m-0 mt-1 text-meta font-light text-muted">{label}</p>
     </div>
@@ -136,7 +136,7 @@ function Step({
 }) {
   return (
     <li className="grid grid-cols-[44px_1fr] gap-4">
-      <span className="inline-flex items-center justify-center w-11 h-11 bg-primary text-primary-ink text-h3 font-bold tracking-tight">
+      <span className="inline-flex items-center justify-center size-11 bg-primary text-primary-ink text-h3 font-bold tracking-tight">
         {n}
       </span>
       <div>

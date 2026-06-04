@@ -31,8 +31,7 @@ interface JobPageProps {
 const ARCHIVE_GRACE_MS = 30 * 86_400_000
 
 export async function generateMetadata({ params }: JobPageProps): Promise<Metadata> {
-  const { slug } = await params
-  const tenant = await getTenant()
+  const [{ slug }, tenant] = await Promise.all([params, getTenant()])
   if (!tenant) return {}
 
   const job = await getJobBySlug(tenant.id, slug)
@@ -103,8 +102,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
 }
 
 export default async function JobPage({ params }: JobPageProps) {
-  const { slug } = await params
-  const tenant = await getTenant()
+  const [{ slug }, tenant] = await Promise.all([params, getTenant()])
   if (!tenant) notFound()
 
   // Master aggregator → redirect naar primary platform domain.

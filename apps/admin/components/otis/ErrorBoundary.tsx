@@ -133,7 +133,7 @@ export class OtisErrorBoundary extends Component<Props, State> {
           <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-6">
             <div className="text-center">
               <div className="flex justify-center mb-4">
-                <AlertTriangle className="h-12 w-12 text-red-500" />
+                <AlertTriangle className="size-12 text-red-500" />
               </div>
               
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -147,7 +147,7 @@ export class OtisErrorBoundary extends Component<Props, State> {
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="mb-6 text-left">
                   <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 flex items-center gap-2">
-                    <Bug className="h-4 w-4" />
+                    <Bug className="size-4" />
                     Error Details (Development)
                   </summary>
                   <div className="mt-2 p-3 bg-gray-100 rounded text-xs font-mono text-gray-800 overflow-auto max-h-48">
@@ -181,7 +181,7 @@ export class OtisErrorBoundary extends Component<Props, State> {
                   variant="outline"
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="size-4" />
                   Try Again
                 </Button>
                 
@@ -197,7 +197,7 @@ export class OtisErrorBoundary extends Component<Props, State> {
                   variant="outline"
                   className="flex items-center gap-2"
                 >
-                  <Home className="h-4 w-4" />
+                  <Home className="size-4" />
                   Go Home
                 </Button>
               </div>
