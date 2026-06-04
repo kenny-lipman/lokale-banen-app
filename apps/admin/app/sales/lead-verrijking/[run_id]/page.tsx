@@ -33,7 +33,7 @@ type OwnerConfig = {
   contactmoment_offset_workdays?: number
 }
 
-// Dedupe op `title.trim().toLowerCase()`. Eerste voorkomen wint — gebruik
+// Dedupe op `title.trim().toLowerCase()`. Eerste voorkomen wint - gebruik
 // dus volgorde manual-eerst zodat manual-source en -url winnen bij conflict.
 function dedupeVacancies(list: NormalizedVacancy[]): NormalizedVacancy[] {
   const seen = new Set<string>()
@@ -68,7 +68,7 @@ export default function RunDetailPage({ params }: PageProps) {
     if (!run) return
     if (run.status === 'enriching') return
     if (hydratedRef.current) return
-    // Wacht met hydratie tot master_record daadwerkelijk geladen is — anders
+    // Wacht met hydratie tot master_record daadwerkelijk geladen is - anders
     // race tussen onReplay (zet hydratedRef=false + refetch) en de async
     // orchestrator: eerste polling-tick zou master kunnen hydraten als null en
     // hydratedRef pinnen op true vóórdat de orchestrator klaar is.
@@ -319,7 +319,7 @@ export default function RunDetailPage({ params }: PageProps) {
         <div className="lg:col-span-5 space-y-4">
           <LeadCareerPageSuggestions runId={run_id} />
           {/* pages_crawled/pages_discovered direct uit fresh run-data lezen
-              i.p.v. lokale `currentMaster` — die wordt door `hydratedRef`
+              i.p.v. lokale `currentMaster` - die wordt door `hydratedRef`
               maar éénmaal gehydrateerd en mist updates uit een website-replay. */}
           <LeadSitemapPages
             master={{
@@ -401,7 +401,7 @@ export default function RunDetailPage({ params }: PageProps) {
           <div>
             <p className="font-medium">Polling time-out na 5 minuten.</p>
             <p className="text-xs mt-1">
-              De orchestrator draait waarschijnlijk nog — handmatig vernieuwen om de status opnieuw op te halen.
+              De orchestrator draait waarschijnlijk nog - handmatig vernieuwen om de status opnieuw op te halen.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
@@ -412,7 +412,7 @@ export default function RunDetailPage({ params }: PageProps) {
       )}
       {showEnriching && (
         <div className="mt-6 rounded-md border border-dashed p-6 text-sm text-gray-500">
-          Verrijking loopt — review verschijnt zodra de orchestrator klaar is.
+          Verrijking loopt - review verschijnt zodra de orchestrator klaar is.
         </div>
       )}
       {showReview && master && <div className="mt-6">{renderReviewGrid(master)}</div>}
