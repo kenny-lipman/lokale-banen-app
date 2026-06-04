@@ -217,6 +217,9 @@ function JobPostingsContent() {
         job={selectedJobForDrawer as any}
         open={!!selectedJobForDrawer}
         onClose={handleCloseJobDrawer}
+        onCompanyClick={(companyId) =>
+          window.open(`/bedrijven/${companyId}/bewerken`, "_blank", "noopener")
+        }
         onJobChange={async () => {
           // Refetch full job data + update counts
           const jobId = selectedJobForDrawer?.id
