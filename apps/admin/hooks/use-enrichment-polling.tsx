@@ -78,6 +78,8 @@ export function useEnrichmentPolling(
   config: Partial<EnrichmentPollingConfig> = {},
 ) {
   const fullConfig = { ...DEFAULT_CONFIG, ...config }
+  const configRef = useRef(config)
+  configRef.current = config
   const [enabled, setEnabled] = useState(true)
   const [phase, setPhase] = useState<"active" | "manual" | "stopped">("stopped")
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -156,14 +158,14 @@ export function useEnrichmentPolling(
   useEffect(() => {
     if (!batchId || !data) return
 
-    fullConfig.onStatusChange?.(data)
+    configRef.current.onStatusChange?.(data)
 
-    if (fullConfig.onCompanyUpdate && data.company_results) {
+    if (configRef.current.onCompanyUpdate && data.company_results) {
       data.company_results.forEach((result) => {
         const seenKey = `${result.company_id}:${result.status}:${result.enriched_at ?? ""}`
         if (!notifiedCompaniesRef.current.has(seenKey)) {
           notifiedCompaniesRef.current.add(seenKey)
-          fullConfig.onCompanyUpdate?.(result.company_id, result)
+          configRef.current.onCompanyUpdate?.(result.company_id, result)
         }
       })
     }
@@ -173,7 +175,7 @@ export function useEnrichmentPolling(
         notifiedTerminalRef.current = data.batch_id
         setPhase("stopped")
         setCanManualRefresh(false)
-        fullConfig.onComplete?.(data.batch_id, data)
+        configRef.current.onComplete?.(data.batch_id, data)
         toast.success(data.status === "completed" ? "Enrichment Complete!" : "Enrichment Failed", {
           description: data.status === "completed"
               ? `Successfully enriched ${data.completed_companies} companies`
@@ -195,15 +197,15 @@ export function useEnrichmentPolling(
         description: "Enrichment may take a few minutes. Use 'Check Status' to update manually."
       })
     }
-  }, [data, batchId, fullConfig, phase])
+  }, [data, batchId, fullConfig.maxPollingDuration, phase])
 
   // Error-callback
   useEffect(() => {
     if (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      fullConfig.onError?.(errorMessage)
+      configRef.current.onError?.(errorMessage)
     }
-  }, [error, fullConfig])
+  }, [error])
 
   const stopPolling = useCallback(() => {
     setEnabled(false)

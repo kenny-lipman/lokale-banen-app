@@ -46,6 +46,7 @@ export function SimpleCampaignCombobox({
   const [open, setOpen] = React.useState(false)
   const [searchValue, setSearchValue] = React.useState("")
   const [selectedIndex, setSelectedIndex] = React.useState(-1)
+  const listId = React.useId()
   
   // Debounce search for better performance
   const debouncedSearchValue = useDebounce(searchValue, 200)
@@ -134,6 +135,7 @@ export function SimpleCampaignCombobox({
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            aria-controls={listId}
             className="w-full justify-between h-auto min-h-[40px] font-normal"
           >
             {selectedCampaign ? (
@@ -169,7 +171,9 @@ export function SimpleCampaignCombobox({
           </div>
 
           {/* Scrollable Campaign List */}
-          <div 
+          <div
+            id={listId}
+            role="listbox"
             className="max-h-[400px] overflow-y-auto overflow-x-hidden"
             style={{
               scrollbarWidth: 'thin',

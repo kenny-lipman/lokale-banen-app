@@ -80,7 +80,36 @@ function getStatusBadge(status: string | null) {
   return <Badge variant="outline">{status}</Badge>
 }
 
-export function ApifyRunsTable({ 
+// Render sortable column header
+function SortableHeader({
+  field,
+  children,
+  sortField,
+  sortDirection,
+  onSort,
+}: {
+  field: SortField
+  children: React.ReactNode
+  sortField: SortField
+  sortDirection: SortDirection
+  onSort: (field: SortField) => void
+}) {
+  return (
+    <TableHead
+      className="cursor-pointer select-none hover:bg-gray-50"
+      onClick={() => onSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField !== field && <ArrowUpDown className="size-4 text-gray-400" />}
+        {sortField === field && sortDirection === 'asc' && <ChevronUp className="size-4 text-gray-600" />}
+        {sortField === field && sortDirection === 'desc' && <ChevronDown className="size-4 text-gray-600" />}
+      </div>
+    </TableHead>
+  )
+}
+
+export function ApifyRunsTable({
   data, 
   onRowClick, 
   selectedId,
@@ -149,21 +178,6 @@ export function ApifyRunsTable({
     setCurrentPage(1)
   }
 
-  // Render sortable column header
-  const SortableHeader = ({ field, children }: { field: SortField, children: React.ReactNode }) => (
-    <TableHead 
-      className="cursor-pointer select-none hover:bg-gray-50"
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center gap-1">
-        {children}
-        {sortField !== field && <ArrowUpDown className="size-4 text-gray-400" />}
-        {sortField === field && sortDirection === 'asc' && <ChevronUp className="size-4 text-gray-600" />}
-        {sortField === field && sortDirection === 'desc' && <ChevronDown className="size-4 text-gray-600" />}
-      </div>
-    </TableHead>
-  )
-
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Search and Stats */}
@@ -196,13 +210,13 @@ export function ApifyRunsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <SortableHeader field="created_at">Starttijd</SortableHeader>
-              <SortableHeader field="finished_at">Eindtijd</SortableHeader>
-              <SortableHeader field="status">Status</SortableHeader>
-              <SortableHeader field="platform">Platform</SortableHeader>
-              <SortableHeader field="functie">Functie</SortableHeader>
-              <SortableHeader field="locatie">Locatie</SortableHeader>
-              <SortableHeader field="job_count">Vacatures</SortableHeader>
+              <SortableHeader field="created_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Starttijd</SortableHeader>
+              <SortableHeader field="finished_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Eindtijd</SortableHeader>
+              <SortableHeader field="status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Status</SortableHeader>
+              <SortableHeader field="platform" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Platform</SortableHeader>
+              <SortableHeader field="functie" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Functie</SortableHeader>
+              <SortableHeader field="locatie" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Locatie</SortableHeader>
+              <SortableHeader field="job_count" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Vacatures</SortableHeader>
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useId, useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -102,6 +102,8 @@ export function BlocklistForm({
   const [openContact, setOpenContact] = useState(false)
   const [searchCompany, setSearchCompany] = useState("")
   const [searchContact, setSearchContact] = useState("")
+  const companyListId = useId()
+  const contactListId = useId()
   const isEditing = !!initialData?.id
 
   const form = useForm<BlocklistFormData>({
@@ -385,6 +387,8 @@ export function BlocklistForm({
                       <Button
                         variant="outline"
                         role="combobox"
+                        aria-expanded={openCompany}
+                        aria-controls={companyListId}
                         className={cn(
                           "w-full justify-between",
                           !field.value && "text-muted-foreground"
@@ -412,7 +416,7 @@ export function BlocklistForm({
                             : "Typ om bedrijven te zoeken..."
                         }
                       </CommandEmpty>
-                      <CommandGroup>
+                      <CommandGroup id={companyListId} role="listbox">
                         {companies
                           .slice(0, 20)
                           .map((company) => (
@@ -454,6 +458,8 @@ export function BlocklistForm({
                       <Button
                         variant="outline"
                         role="combobox"
+                        aria-expanded={openContact}
+                        aria-controls={contactListId}
                         disabled={loadingContacts || !watchCompanyId}
                         className={cn(
                           "w-full justify-between",
@@ -484,7 +490,7 @@ export function BlocklistForm({
                             : "Typ om contacten te zoeken..."
                         }
                       </CommandEmpty>
-                      <CommandGroup>
+                      <CommandGroup id={contactListId} role="listbox">
                         {contacts
                           .slice(0, 20)
                           .map((contact) => (

@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode, useState } from "react"
+import { ReactNode, useId, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -28,6 +28,7 @@ function MultiSelect({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const listId = useId()
 
   const showSearch = options.length > 8
   const filteredOptions = showSearch && search
@@ -50,6 +51,7 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-controls={listId}
           className={`min-w-[180px] max-w-[220px] justify-between bg-white border-gray-200 hover:border-gray-300 transition-colors ${
             selectedCount > 0 ? 'border-blue-300 bg-blue-50/30' : ''
           }`}
@@ -72,7 +74,7 @@ function MultiSelect({
             />
           </div>
         )}
-        <div className="max-h-64 overflow-auto">
+        <div id={listId} role="listbox" className="max-h-64 overflow-auto">
           {filteredOptions.length === 0 && (
             <p className="text-sm text-gray-500 px-2 py-3 text-center">Geen resultaten</p>
           )}

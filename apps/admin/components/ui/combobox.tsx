@@ -44,6 +44,7 @@ export function Combobox({
   disabled = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const listId = React.useId()
 
   const selectedOption = options.find((option) => option.value === value)
 
@@ -54,6 +55,7 @@ export function Combobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-controls={listId}
           className="w-full justify-between"
           disabled={disabled}
         >
@@ -64,7 +66,7 @@ export function Combobox({
       <PopoverContent className="w-full p-0">
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList id={listId} role="listbox">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
