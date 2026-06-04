@@ -22,9 +22,14 @@ type Props = {
     city?: string | null
   }
   onVacancyCreated: (payload: VacaturePayload) => void
+  // Alleen in re-syncbare statussen kan een toegevoegde vacature ook
+  // gepersisteerd worden (auto-save slaat niet op tijdens syncing/completed).
+  // Buiten die statussen wordt toevoegen geblokkeerd om een wees-job_posting
+  // zonder lead-koppeling te voorkomen.
+  canAddVacancy: boolean
 }
 
-export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitles, onChange, lead, onVacancyCreated }: Props) {
+export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitles, onChange, lead, onVacancyCreated, canAddVacancy }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const websiteVacancies = enrichments.website?.parsed?.vacancies ?? []
   const all: NormalizedVacancy[] = [...manualVacancies, ...websiteVacancies]
@@ -51,7 +56,13 @@ export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitl
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Vacatures</CardTitle>
-        <Button size="sm" variant="outline" onClick={() => setModalOpen(true)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setModalOpen(true)}
+          disabled={!canAddVacancy}
+          title={canAddVacancy ? undefined : 'Toevoegen kan alleen tijdens review'}
+        >
           <Plus className="size-4 mr-1" />
           Toevoegen
         </Button>

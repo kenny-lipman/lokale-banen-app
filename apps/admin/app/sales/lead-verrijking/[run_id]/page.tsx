@@ -314,6 +314,11 @@ export default function RunDetailPage({ params }: PageProps) {
               city: currentMaster.address?.city ?? null,
             }}
             onVacancyCreated={onVacancyCreated}
+            canAddVacancy={
+              run!.status === 'review' ||
+              run!.status === 'failed' ||
+              run!.status === 'duplicate'
+            }
           />
         </div>
         <div className="lg:col-span-5 space-y-4">
