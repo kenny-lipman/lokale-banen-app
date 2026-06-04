@@ -1,5 +1,5 @@
 /**
- * LIVE MINI-RUN — niet voor CI. Schrijft 1 echte vacature naar prod-DB.
+ * LIVE MINI-RUN: niet voor CI. Schrijft 1 echte vacature naar prod-DB.
  *
  * Voor laatste validatie van de full insert-pipeline.
  * Rollback bij issue: DELETE FROM job_postings WHERE source_id = (werkenindekempen) AND scraped_at >= now() - interval '5 minutes';

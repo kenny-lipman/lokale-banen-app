@@ -1,5 +1,5 @@
 /**
- * LIVE DRY-RUN — niet voor CI.
+ * LIVE DRY-RUN: niet voor CI.
  *
  * Roept de echte scraper aan met `dryRun: true` tegen werkenindekempen.nl + Mistral.
  * Schrijft NIETS naar job_postings/companies/contacts.
