@@ -8,19 +8,24 @@
  */
 
 import { describe, test, expect } from "vitest";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { scrapeWerkenindekempen } from "@/lib/scrapers/werkenindekempen/scraper";
 
+// Guarded met existsSync zodat een ontbrekend .env.local (bijv. in CI of een
+// verse worktree) niet bij collection crasht. De live-suite staat toch op
+// describe.skip; deze env-load is alleen voor handmatige runs.
 const envPath = resolve(__dirname, "../../../../..", ".env.local");
-const envContent = readFileSync(envPath, "utf-8");
-for (const line of envContent.split("\n")) {
-  if (!line || line.startsWith("#")) continue;
-  const idx = line.indexOf("=");
-  if (idx < 0) continue;
-  const k = line.slice(0, idx).trim();
-  const v = line.slice(idx + 1).trim().replace(/^"|"$/g, "");
-  if (k && !process.env[k]) process.env[k] = v;
+if (existsSync(envPath)) {
+  const envContent = readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    if (!line || line.startsWith("#")) continue;
+    const idx = line.indexOf("=");
+    if (idx < 0) continue;
+    const k = line.slice(0, idx).trim();
+    const v = line.slice(idx + 1).trim().replace(/^"|"$/g, "");
+    if (k && !process.env[k]) process.env[k] = v;
+  }
 }
 
 describe.skip("LIVE MINI-RUN (handmatig, prod-DB write)", () => {

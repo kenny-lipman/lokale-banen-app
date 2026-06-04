@@ -303,8 +303,11 @@ describe('buildAddressPayload', () => {
 describe('buildDealPayload', () => {
   it('bouwt deal met title, owner, person_id, org_id, contactmoment', () => {
     const p = buildDealPayload(masterFull, 100, 200, owner, '2026-05-08')
-    expect(p.title).toMatch(/WeTarget B\.V\./)
-    expect(p.title).toMatch(/2026-05-/)
+    // De deal-titel is `${bedrijf} - ${vandaag}`, waarbij vandaag dynamisch is
+    // (new Date()). Bereken de verwachte datum op dezelfde manier zodat de test
+    // niet verloopt zodra de maand wisselt.
+    const today = new Date().toISOString().split('T')[0]
+    expect(p.title).toBe(`WeTarget B.V. - ${today}`)
     expect(p.org_id).toBe(100)
     expect(p.person_id).toBe(200)
     expect(p.pipeline_id).toBe(11)
