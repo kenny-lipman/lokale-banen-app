@@ -254,7 +254,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     if (!enrichmentStatus) {
       return (
         <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
-          <AlertCircle className="w-3 h-3 mr-1" />
+          <AlertCircle className="size-3 mr-1" />
           -
         </Badge>
       )
@@ -264,35 +264,35 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
       case "completed":
         return (
           <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
-            <CheckCircle className="w-3 h-3 mr-1" />
+            <CheckCircle className="size-3 mr-1" />
             Completed
           </Badge>
         )
       case "processing":
         return (
           <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             Processing
           </Badge>
         )
       case "failed":
         return (
           <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-2 py-1">
-            <XCircle className="w-3 h-3 mr-1" />
+            <XCircle className="size-3 mr-1" />
             Failed
           </Badge>
         )
       case "pending":
         return (
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             Pending
           </Badge>
         )
       default:
         return (
           <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-2 py-1">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             {enrichmentStatus}
           </Badge>
         )
@@ -303,7 +303,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     if (synced === true) {
       return (
         <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-1">
-          <CheckCircle className="w-3 h-3 mr-1" />
+          <CheckCircle className="size-3 mr-1" />
           Gesynct
         </Badge>
       )
@@ -311,7 +311,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
 
     return (
       <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
-        <XCircle className="w-3 h-3 mr-1" />
+        <XCircle className="size-3 mr-1" />
         Niet gesynct
       </Badge>
     )
@@ -321,7 +321,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
     if (synced === true) {
       return (
         <Badge className="bg-cyan-100 text-cyan-800 border-cyan-200 text-xs px-2 py-1">
-          <Send className="w-3 h-3 mr-1" />
+          <Send className="size-3 mr-1" />
           In Instantly
         </Badge>
       )
@@ -329,7 +329,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
 
     return (
       <Badge variant="outline" className="text-gray-600 text-xs px-2 py-1">
-        <XCircle className="w-3 h-3 mr-1" />
+        <XCircle className="size-3 mr-1" />
         -
       </Badge>
     )
@@ -528,7 +528,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         toast.success("Status bijgewerkt", {
           description: (
             <span className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
+              <CheckCircle className="size-5 text-green-600" />
               {`Status gewijzigd voor ${selectedCount} bedrijven naar ${bulkStatus}.`}
             </span>
           )
@@ -584,13 +584,13 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
         <div className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                <Zap className="w-6 h-6 text-white" />
+              <div className="size-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Zap className="size-6 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   Apollo Bedrijfsverrijking
-                  <Sparkles className="w-4 h-4 text-blue-500" />
+                  <Sparkles className="size-4 text-blue-500" />
                 </h3>
                 <p className="text-sm text-gray-600">
                   Selecteer bedrijven en verrijk ze automatisch met contactgegevens en bedrijfsinformatie
@@ -598,7 +598,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
               </div>
             </div>
             <div className="hidden md:flex items-center gap-2 text-sm text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
-              <Zap className="w-4 h-4" />
+              <Zap className="size-4" />
               Beschikbaar
             </div>
           </div>
@@ -768,7 +768,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                 <div className="flex items-center gap-2">
                   <input type="checkbox" checked={isAllSelected} onChange={selectAll} aria-label="Selecteer alles" />
                   <div className="flex items-center gap-1 text-xs text-blue-600" title="Apollo enrichment beschikbaar voor geselecteerde bedrijven">
-                    <Zap className="w-3 h-3" />
+                    <Zap className="size-3" />
                   </div>
                 </div>
               </TableHead>
@@ -781,7 +781,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                     aria-label="Selecteer alles voor qualification" 
                   />
                   <div className="flex items-center gap-1 text-xs text-green-600" title="Qualification selectie">
-                    <Target className="w-3 h-3" />
+                    <Target className="size-3" />
                   </div>
                 </div>
               </TableHead>
@@ -806,9 +806,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                 }}
               >
                 Contacten
-                {orderBy !== 'contact_count' && <ArrowUpDown className="inline w-4 h-4 ml-1 text-gray-400" />}
-                {orderBy === 'contact_count' && orderDirection === 'asc' && <ChevronUp className="inline w-4 h-4 ml-1 text-gray-600" />}
-                {orderBy === 'contact_count' && orderDirection === 'desc' && <ChevronDown className="inline w-4 h-4 ml-1 text-gray-600" />}
+                {orderBy !== 'contact_count' && <ArrowUpDown className="inline size-4 ml-1 text-gray-400" />}
+                {orderBy === 'contact_count' && orderDirection === 'asc' && <ChevronUp className="inline size-4 ml-1 text-gray-600" />}
+                {orderBy === 'contact_count' && orderDirection === 'desc' && <ChevronDown className="inline size-4 ml-1 text-gray-600" />}
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
@@ -823,9 +823,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                 }}
               >
                 Vacatures
-                {orderBy !== 'job_counts' && <ArrowUpDown className="inline w-4 h-4 ml-1 text-gray-400" />}
-                {orderBy === 'job_counts' && orderDirection === 'asc' && <ChevronUp className="inline w-4 h-4 ml-1 text-gray-600" />}
-                {orderBy === 'job_counts' && orderDirection === 'desc' && <ChevronDown className="inline w-4 h-4 ml-1 text-gray-600" />}
+                {orderBy !== 'job_counts' && <ArrowUpDown className="inline size-4 ml-1 text-gray-400" />}
+                {orderBy === 'job_counts' && orderDirection === 'asc' && <ChevronUp className="inline size-4 ml-1 text-gray-600" />}
+                {orderBy === 'job_counts' && orderDirection === 'desc' && <ChevronDown className="inline size-4 ml-1 text-gray-600" />}
               </TableHead>
               <TableHead>Grootte</TableHead>
               <TableHead
@@ -841,9 +841,9 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                 }}
               >
                 Aangemaakt
-                {orderBy !== 'created_at' && <ArrowUpDown className="inline w-4 h-4 ml-1 text-gray-400" />}
-                {orderBy === 'created_at' && orderDirection === 'asc' && <ChevronUp className="inline w-4 h-4 ml-1 text-gray-600" />}
-                {orderBy === 'created_at' && orderDirection === 'desc' && <ChevronDown className="inline w-4 h-4 ml-1 text-gray-600" />}
+                {orderBy !== 'created_at' && <ArrowUpDown className="inline size-4 ml-1 text-gray-400" />}
+                {orderBy === 'created_at' && orderDirection === 'asc' && <ChevronUp className="inline size-4 ml-1 text-gray-600" />}
+                {orderBy === 'created_at' && orderDirection === 'desc' && <ChevronDown className="inline size-4 ml-1 text-gray-600" />}
               </TableHead>
               <TableHead className="w-[120px]">Acties</TableHead>
             </TableRow>
@@ -854,7 +854,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                 <TableSkeleton rows={8} columns={15} />
                 <TableRow>
                   <TableCell colSpan={15} className="text-center py-4 text-gray-500">
-                    <div className="flex items-center justify-center space-x-2">
+                    <div className="flex items-center justify-center gap-x-2">
                       <LoadingSpinner size="sm" />
                       <span>Bedrijven laden... ({totalCount.toLocaleString('nl-NL')} totaal)</span>
                     </div>
@@ -864,8 +864,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
             ) : error ? (
               <TableRow>
                 <TableCell colSpan={15} className="text-center py-8 text-red-500">
-                  <div className="flex flex-col items-center space-y-2">
-                    <AlertCircle className="w-8 h-8 text-red-400" />
+                  <div className="flex flex-col items-center gap-y-2">
+                    <AlertCircle className="size-8 text-red-400" />
                     <span>Fout bij het laden van bedrijven</span>
                     <Button variant="outline" size="sm" onClick={() => refetch()}>
                       Opnieuw proberen
@@ -907,8 +907,8 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                    <div className="flex items-center gap-x-3">
+                      <div className="size-10 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                         {company.logo_url ? (
                           <img
                             src={company.logo_url || "/placeholder.svg"}
@@ -916,7 +916,7 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <Building2 className="w-5 h-5 text-gray-400" />
+                          <Building2 className="size-5 text-gray-400" />
                         )}
                       </div>
                       <div>
@@ -926,17 +926,17 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                         >
                           {company.name}
                         </button>
-                        <div className="flex items-center space-x-2 mt-1">
+                        <div className="flex items-center gap-x-2 mt-1">
                                                   {company.is_customer && (
                           <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
-                            <Crown className="w-3 h-3 mr-1" />
+                            <Crown className="size-3 mr-1" />
                             Klant
                           </Badge>
                         )}
                         {/* Apollo Enrichment Status Indicator */}
                         {company.apollo_enriched_at && (
                           <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs" title={`Apollo verrijkt: ${new Date(company.apollo_enriched_at).toLocaleDateString()}`}>
-                            <Zap className="w-3 h-3 mr-1" />
+                            <Zap className="size-3 mr-1" />
                             Apollo
                             {company.apollo_contacts_count && company.apollo_contacts_count > 0 && (
                               <span className="ml-1">({company.apollo_contacts_count})</span>
@@ -1017,14 +1017,14 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                       className="h-auto p-1 text-left justify-start"
                       onClick={(e) => handleContactsClick(company.id, e)}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-x-1">
                         <span className="font-medium">{company.contact_count}</span>
                         <span className="text-xs text-gray-500">contacten</span>
                       </div>
                     </Button>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center gap-x-1">
                       <span className="font-medium">{company.job_counts}</span>
                       <span className="text-xs text-gray-500">vacatures</span>
                     </div>
@@ -1036,21 +1036,21 @@ export function CompaniesTable({ onCompanyClick, onStatusChange }: CompaniesTabl
                     {formatDate(company.created_at)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex space-x-1">
+                    <div className="flex gap-x-1">
                       <Button variant="ghost" size="sm" onClick={(e) => handleCompanySidebarClick(company, e)}>
-                        <Eye className="w-4 h-4 text-gray-500" />
+                        <Eye className="size-4 text-gray-500" />
                       </Button>
                       {company.website && (
                         <Button variant="ghost" size="sm" asChild>
                           <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer">
-                            <Globe className="w-4 h-4 text-gray-500" />
+                            <Globe className="size-4 text-gray-500" />
                           </a>
                         </Button>
                       )}
                       {company.indeed_url && (
                         <Button variant="ghost" size="sm" asChild>
                           <a href={company.indeed_url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="w-4 h-4 text-gray-500" />
+                            <ExternalLink className="size-4 text-gray-500" />
                           </a>
                         </Button>
                       )}

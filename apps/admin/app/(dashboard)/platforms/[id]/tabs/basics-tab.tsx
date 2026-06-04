@@ -39,7 +39,7 @@ export function BasicsTab({ platform, values, onChange }: BasicsTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
+            <Settings className="size-5" />
             Basis
           </CardTitle>
           <CardDescription>
@@ -99,7 +99,7 @@ export function BasicsTab({ platform, values, onChange }: BasicsTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
+            <Globe className="size-5" />
             Domeinen
           </CardTitle>
           <CardDescription>

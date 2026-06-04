@@ -136,7 +136,7 @@ export function FileUpload({
   }
 
   const getFileIcon = (filename: string) => {
-    return <FileText className="h-8 w-8 text-blue-500" />
+    return <FileText className="size-8 text-blue-500" />
   }
 
   const downloadTemplate = () => {
@@ -179,7 +179,7 @@ domain,malicious-site.org,Malicious domain`
           onClick={downloadTemplate}
           className="text-xs"
         >
-          <Download className="h-3 w-3 mr-1" />
+          <Download className="size-3 mr-1" />
           Template
         </Button>
       </div>
@@ -225,15 +225,15 @@ domain,malicious-site.org,Malicious domain`
                   </p>
                 </div>
                 {loading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <div className="animate-spin rounded-full size-4 border-b-2 border-primary"></div>
                 ) : (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={clearSelectedFile}
-                    className="h-6 w-6 p-0"
+                    className="size-6 p-0"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="size-3" />
                   </Button>
                 )}
               </div>
@@ -241,7 +241,7 @@ domain,malicious-site.org,Malicious domain`
               {/* Success State */}
               {!currentError && !loading && (
                 <div className="flex items-center gap-2 text-green-600">
-                  <CheckCircle className="h-4 w-4" />
+                  <CheckCircle className="size-4" />
                   <span className="text-sm">Bestand geselecteerd</span>
                 </div>
               )}
@@ -249,7 +249,7 @@ domain,malicious-site.org,Malicious domain`
               {/* Loading State */}
               {loading && (
                 <div className="flex items-center gap-2 text-blue-600">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full size-4 border-b-2 border-blue-600"></div>
                   <span className="text-sm">Bestand wordt verwerkt...</span>
                 </div>
               )}
@@ -291,7 +291,7 @@ domain,malicious-site.org,Malicious domain`
           {currentError && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
               <div className="flex items-center gap-2 text-red-600">
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="size-4" />
                 <span className="text-sm font-medium">Fout</span>
               </div>
               <div className="mt-1">

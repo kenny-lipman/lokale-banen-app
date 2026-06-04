@@ -44,8 +44,7 @@ type ValidSort = (typeof VALID_SORTS)[number]
 export async function generateMetadata({
   searchParams,
 }: VacaturesPageProps): Promise<Metadata> {
-  const sp = await searchParams
-  const tenant = await getTenant()
+  const [sp, tenant] = await Promise.all([searchParams, getTenant()])
   if (!tenant) return {}
 
   const page = parseInt(sp.page || '1', 10) || 1
@@ -82,8 +81,7 @@ export async function generateMetadata({
 }
 
 export default async function VacaturesPage({ searchParams }: VacaturesPageProps) {
-  const sp = await searchParams
-  const tenant = await getTenant()
+  const [sp, tenant] = await Promise.all([searchParams, getTenant()])
   if (!tenant) notFound()
 
   const pageNum = parseInt(sp.page || '1', 10)

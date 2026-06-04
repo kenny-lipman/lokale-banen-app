@@ -48,7 +48,7 @@ export function Pagination({
         href={currentPage > 1 ? buildHref(currentPage - 1) : undefined}
         aria-label="Vorige pagina"
       >
-        <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+        <ChevronLeft className="size-4" strokeWidth={2} aria-hidden="true" />
       </PageStep>
 
       {pages.map((page, i) =>
@@ -82,7 +82,7 @@ export function Pagination({
         href={currentPage < totalPages ? buildHref(currentPage + 1) : undefined}
         aria-label="Volgende pagina"
       >
-        <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+        <ChevronRight className="size-4" strokeWidth={2} aria-hidden="true" />
       </PageStep>
     </nav>
   )

@@ -113,7 +113,7 @@ export default function PlatformsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Monitor className="h-8 w-8" />
+            <Monitor className="size-8" />
             Platforms
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -156,7 +156,7 @@ export default function PlatformsPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 size-4" />
             <Input
               placeholder="Zoek platform..."
               value={search}
@@ -185,7 +185,7 @@ export default function PlatformsPage() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    <Loader2 className="size-6 animate-spin mx-auto mb-2" />
                     <span className="text-muted-foreground">Laden...</span>
                   </TableCell>
                 </TableRow>
@@ -205,7 +205,7 @@ export default function PlatformsPage() {
                       <div className="flex items-center gap-2">
                         {platform.primary_color && (
                           <div
-                            className="w-3 h-3 rounded-full border"
+                            className="size-3 rounded-full border"
                             style={{ backgroundColor: platform.primary_color }}
                           />
                         )}
@@ -225,9 +225,9 @@ export default function PlatformsPage() {
                             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground w-fit"
                             title="Open preview (Vercel)"
                           >
-                            <Monitor className="h-3 w-3" />
+                            <Monitor className="size-3" />
                             <span className="font-mono">{platform.preview_domain}</span>
-                            <ExternalLink className="h-3 w-3" />
+                            <ExternalLink className="size-3" />
                           </a>
                         ) : null}
                         {platform.domain ? (
@@ -238,9 +238,9 @@ export default function PlatformsPage() {
                             className="inline-flex items-center gap-1 text-sm font-medium hover:text-foreground w-fit"
                             title="Open live domein"
                           >
-                            <Globe className="h-3 w-3 text-muted-foreground" />
+                            <Globe className="size-3 text-muted-foreground" />
                             <span>{platform.domain}</span>
-                            <ExternalLink className="h-3 w-3" />
+                            <ExternalLink className="size-3" />
                           </a>
                         ) : null}
                         {!platform.preview_domain && !platform.domain && (

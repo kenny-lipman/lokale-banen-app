@@ -38,13 +38,13 @@ export function BulkActionBar({
             <>
               <div className="flex items-center gap-2">
                 <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-                  <Users className="w-3 h-3 mr-1" />
+                  <Users className="size-3 mr-1" />
                   {selectedCount} bedrijven geselecteerd
                 </Badge>
                 
                 {exceedsBatchLimit && (
                   <Badge className="bg-red-100 text-red-800 border-red-200">
-                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    <AlertTriangle className="size-3 mr-1" />
                     Max 100 bedrijven
                   </Badge>
                 )}
@@ -58,7 +58,7 @@ export function BulkActionBar({
           ) : (
             <div className="flex items-center gap-2">
               <Badge className="bg-gray-100 text-gray-600 border-gray-200">
-                <Users className="w-3 h-3 mr-1" />
+                <Users className="size-3 mr-1" />
                 Geen bedrijven geselecteerd
               </Badge>
               <div className="text-sm text-gray-500">
@@ -87,12 +87,12 @@ export function BulkActionBar({
           >
             {isEnriching ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                 Bezig met verrijken...
               </>
             ) : (
               <>
-                <Zap className="w-4 h-4 mr-2" />
+                <Zap className="size-4 mr-2" />
                 Verrijk met Apollo ({enrichableCount})
               </>
             )}
@@ -118,7 +118,7 @@ export function BulkActionBar({
       {isEnriching && (
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="flex items-center gap-2 text-sm text-blue-600">
-            <Zap className="w-4 h-4 animate-pulse" />
+            <Zap className="size-4 animate-pulse" />
             Apollo verrijkt de geselecteerde bedrijven met contactgegevens...
           </div>
         </div>

@@ -45,7 +45,7 @@ function getStatusBadge(status: string | null) {
   if (!status) {
     return (
       <Badge variant="outline" className="text-gray-600">
-        <AlertCircle className="w-3 h-3 mr-1" />
+        <AlertCircle className="size-3 mr-1" />
         Onbekend
       </Badge>
     )
@@ -55,7 +55,7 @@ function getStatusBadge(status: string | null) {
   if (["success", "completed", "succeeded"].includes(normalized)) {
     return (
       <Badge className="bg-green-100 text-green-800 border-green-200">
-        <CheckCircle className="w-3 h-3 mr-1" />
+        <CheckCircle className="size-3 mr-1" />
         Succesvol
       </Badge>
     )
@@ -63,7 +63,7 @@ function getStatusBadge(status: string | null) {
   if (["running", "in_progress", "active", "processing", "ready"].includes(normalized)) {
     return (
       <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-        <Clock className="w-3 h-3 mr-1" />
+        <Clock className="size-3 mr-1" />
         Bezig
       </Badge>
     )
@@ -71,7 +71,7 @@ function getStatusBadge(status: string | null) {
   if (["error", "failed", "fail", "aborted", "cancelled"].includes(normalized)) {
     return (
       <Badge className="bg-red-100 text-red-800 border-red-200">
-        <XCircle className="w-3 h-3 mr-1" />
+        <XCircle className="size-3 mr-1" />
         Mislukt
       </Badge>
     )
@@ -157,9 +157,9 @@ export function ApifyRunsTable({
     >
       <div className="flex items-center gap-1">
         {children}
-        {sortField !== field && <ArrowUpDown className="w-4 h-4 text-gray-400" />}
-        {sortField === field && sortDirection === 'asc' && <ChevronUp className="w-4 h-4 text-gray-600" />}
-        {sortField === field && sortDirection === 'desc' && <ChevronDown className="w-4 h-4 text-gray-600" />}
+        {sortField !== field && <ArrowUpDown className="size-4 text-gray-400" />}
+        {sortField === field && sortDirection === 'asc' && <ChevronUp className="size-4 text-gray-600" />}
+        {sortField === field && sortDirection === 'desc' && <ChevronDown className="size-4 text-gray-600" />}
       </div>
     </TableHead>
   )
@@ -170,7 +170,7 @@ export function ApifyRunsTable({
       <Card className="p-4 bg-gradient-to-r from-gray-50 to-gray-100/50">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 size-4" />
             <Input
               placeholder="Zoek op platform, functie, locatie of status..."
               value={searchTerm}
@@ -210,7 +210,7 @@ export function ApifyRunsTable({
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12">
                   <div className="space-y-2">
-                    <Clock className="w-12 h-12 mx-auto text-gray-300" />
+                    <Clock className="size-12 mx-auto text-gray-300" />
                     <h3 className="font-medium text-gray-900">Geen runs gevonden</h3>
                     <p className="text-gray-500">
                       {searchTerm 
@@ -300,7 +300,7 @@ export function ApifyRunsTable({
       {selectedId && (
         <Card className="p-4 bg-blue-50 border-blue-200">
           <div className="flex items-center gap-2 text-blue-800 text-sm font-medium mb-2">
-            <Clock className="w-4 h-4" />
+            <Clock className="size-4" />
             Geselecteerde run details
           </div>
           {(() => {

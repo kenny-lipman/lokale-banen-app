@@ -26,7 +26,7 @@ export function ContentTab({ values, onChange }: ContentTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Type className="h-5 w-5" />
+            <Type className="size-5" />
             Hero
           </CardTitle>
           <CardDescription>
@@ -86,7 +86,7 @@ export function ContentTab({ values, onChange }: ContentTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <FileText className="size-5" />
             Over ons
           </CardTitle>
           <CardDescription>
@@ -106,7 +106,7 @@ export function ContentTab({ values, onChange }: ContentTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <FileText className="size-5" />
             Privacy
           </CardTitle>
           <CardDescription>
@@ -126,7 +126,7 @@ export function ContentTab({ values, onChange }: ContentTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <FileText className="size-5" />
             Algemene voorwaarden
           </CardTitle>
           <CardDescription>

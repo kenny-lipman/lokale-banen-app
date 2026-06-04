@@ -19,13 +19,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
   }
   
   const icons = {
-    scraped: <Check className="w-3 h-3" />,
-    pending: <Clock className="w-3 h-3" />,
-    failed: <X className="w-3 h-3" />,
-    inProgress: <Loader2 className="w-3 h-3 animate-spin" />,
-    enriched: <Check className="w-3 h-3" />,
-    processing: <Loader2 className="w-3 h-3 animate-spin" />,
-    completed: <Check className="w-3 h-3" />
+    scraped: <Check className="size-3" />,
+    pending: <Clock className="size-3" />,
+    failed: <X className="size-3" />,
+    inProgress: <Loader2 className="size-3 animate-spin" />,
+    enriched: <Check className="size-3" />,
+    processing: <Loader2 className="size-3 animate-spin" />,
+    completed: <Check className="size-3" />
   }
   
   const getStatusDisplay = (status: string) => {

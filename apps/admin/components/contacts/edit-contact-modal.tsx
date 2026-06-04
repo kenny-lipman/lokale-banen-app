@@ -286,18 +286,18 @@ export function EditContactModal({
                 onClick={onClose}
                 disabled={isLoading}
               >
-                <X className="w-4 h-4 mr-2" />
+                <X className="size-4 mr-2" />
                 Annuleren
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="size-4 mr-2 animate-spin" />
                     Opslaan...
                   </>
                 ) : (
                   <>
-                    <Save className="w-4 h-4 mr-2" />
+                    <Save className="size-4 mr-2" />
                     Wijzigingen opslaan
                   </>
                 )}

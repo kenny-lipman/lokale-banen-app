@@ -168,7 +168,7 @@ export function LeadMasterRecord({ runId, master, enrichments, ownerConfig, onCh
         <div className="grid grid-cols-12 gap-2 items-center pt-3 border-t">
           <label className="col-span-3 text-xs text-gray-600 flex items-center gap-1">
             Hoofddomein
-            {isFixed && <Lock className="w-3 h-3 text-gray-400" />}
+            {isFixed && <Lock className="size-3 text-gray-400" />}
           </label>
           <Input
             className="col-span-6"
@@ -211,7 +211,7 @@ export function LeadMasterRecord({ runId, master, enrichments, ownerConfig, onCh
               >
                 {resolvingHoofddomein ? (
                   <>
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    <Loader2 className="size-3 mr-1 animate-spin" />
                     Matchen…
                   </>
                 ) : (

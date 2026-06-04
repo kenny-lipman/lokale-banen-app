@@ -97,7 +97,7 @@ export function LeadRunsTable({ runs, loading }: Props) {
                     className="text-blue-600 hover:underline inline-flex items-center"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <ExternalLink className="w-3 h-3 mr-1" />
+                    <ExternalLink className="size-3 mr-1" />
                     {r.pipedrive_deal_id ? `Deal ${r.pipedrive_deal_id}` : `Org ${r.pipedrive_org_id}`}
                   </a>
                 ) : (
@@ -107,7 +107,7 @@ export function LeadRunsTable({ runs, loading }: Props) {
               <td className="py-3">
                 <Button asChild variant="ghost" size="sm">
                   <Link href={`/sales/lead-verrijking/${r.id}`}>
-                    <Eye className="w-4 h-4" />
+                    <Eye className="size-4" />
                   </Link>
                 </Button>
               </td>

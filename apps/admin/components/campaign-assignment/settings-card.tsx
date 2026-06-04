@@ -136,7 +136,7 @@ export function CampaignAssignmentSettingsCard({ onSettingsChange }: SettingsCar
       <Card>
         <CardContent className="pt-6">
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               {error || 'Could not load settings'}
             </AlertDescription>
@@ -151,17 +151,17 @@ export function CampaignAssignmentSettingsCard({ onSettingsChange }: SettingsCar
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Settings className="h-5 w-5 text-muted-foreground" />
+            <Settings className="size-5 text-muted-foreground" />
             <CardTitle>Instellingen</CardTitle>
           </div>
           {hasChanges && (
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleReset}>
-                <RotateCcw className="h-4 w-4 mr-1" />
+                <RotateCcw className="size-4 mr-1" />
                 Reset
               </Button>
               <Button size="sm" onClick={handleSave} disabled={saving}>
-                <Save className="h-4 w-4 mr-1" />
+                <Save className="size-4 mr-1" />
                 {saving ? 'Opslaan...' : 'Opslaan'}
               </Button>
             </div>
@@ -174,7 +174,7 @@ export function CampaignAssignmentSettingsCard({ onSettingsChange }: SettingsCar
       <CardContent className="space-y-6">
         {error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}

@@ -130,7 +130,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-meta font-regular text-secondary hover:underline underline-offset-2"
                 >
-                  <Globe className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <Globe className="size-4" strokeWidth={1.75} aria-hidden="true" />
                   Website
                 </a>
               )}
@@ -141,7 +141,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-meta font-regular text-secondary hover:underline underline-offset-2"
                 >
-                  <Linkedin className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <Linkedin className="size-4" strokeWidth={1.75} aria-hidden="true" />
                   LinkedIn
                 </a>
               )}
@@ -236,7 +236,7 @@ function FactRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="w-4 h-4 mt-0.5 shrink-0 text-secondary" strokeWidth={1.8} aria-hidden="true" />
+      <Icon className="size-4 mt-0.5 shrink-0 text-secondary" strokeWidth={1.8} aria-hidden="true" />
       <div className="min-w-0">
         <dt className="m-0 text-small text-muted uppercase tracking-[0.06em]">
           {label}

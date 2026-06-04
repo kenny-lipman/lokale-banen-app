@@ -146,7 +146,7 @@ export default function PlatformDetailPage() {
     return (
       <div className="container mx-auto py-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+          <Loader2 className="size-8 animate-spin mx-auto mb-2" />
           <span className="text-muted-foreground">Platform laden...</span>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function PlatformDetailPage() {
       <div className="container mx-auto py-6">
         <p className="text-muted-foreground">Platform niet gevonden.</p>
         <Button variant="outline" onClick={() => router.push("/platforms")} className="mt-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="size-4 mr-2" />
           Terug naar platforms
         </Button>
       </div>
@@ -170,12 +170,12 @@ export default function PlatformDetailPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => router.push("/platforms")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="size-4 mr-2" />
           Terug
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Monitor className="h-6 w-6" />
+            <Monitor className="size-6" />
             {platform.regio_platform}
           </h1>
           <p className="text-muted-foreground text-sm">
@@ -202,7 +202,7 @@ export default function PlatformDetailPage() {
               className={productionUrl && previewUrl ? "rounded-r-none border-r-0" : ""}
             >
               <a href={primaryViewUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" />
+                <ExternalLink className="size-4 mr-2" />
                 Bekijk site
               </a>
             </Button>
@@ -215,20 +215,20 @@ export default function PlatformDetailPage() {
                     className="rounded-l-none px-2"
                     aria-label="Kies domein"
                   >
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
                     <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-2" />
+                      <ExternalLink className="size-4 mr-2" />
                       Preview-domein
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <a href={productionUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-2" />
+                      <ExternalLink className="size-4 mr-2" />
                       Productiedomein
                     </a>
                   </DropdownMenuItem>
@@ -260,27 +260,27 @@ export default function PlatformDetailPage() {
       >
         <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
           <TabsTrigger value="basics" className="flex items-center gap-1.5 py-2">
-            <Settings className="h-4 w-4" />
+            <Settings className="size-4" />
             <span className="hidden sm:inline">Basis</span>
           </TabsTrigger>
           <TabsTrigger value="branding" className="flex items-center gap-1.5 py-2">
-            <Palette className="h-4 w-4" />
+            <Palette className="size-4" />
             <span className="hidden sm:inline">Branding</span>
           </TabsTrigger>
           <TabsTrigger value="content" className="flex items-center gap-1.5 py-2">
-            <Type className="h-4 w-4" />
+            <Type className="size-4" />
             <span className="hidden sm:inline">Content</span>
           </TabsTrigger>
           <TabsTrigger value="seo" className="flex items-center gap-1.5 py-2">
-            <Search className="h-4 w-4" />
+            <Search className="size-4" />
             <span className="hidden sm:inline">SEO</span>
           </TabsTrigger>
           <TabsTrigger value="contact" className="flex items-center gap-1.5 py-2">
-            <Mail className="h-4 w-4" />
+            <Mail className="size-4" />
             <span className="hidden sm:inline">Contact</span>
           </TabsTrigger>
           <TabsTrigger value="go-live" className="flex items-center gap-1.5 py-2">
-            <Rocket className="h-4 w-4" />
+            <Rocket className="size-4" />
             <span className="hidden sm:inline">Go-Live</span>
           </TabsTrigger>
         </TabsList>
@@ -334,7 +334,7 @@ function AutoSaveIndicator({
   if (status === "saving") {
     return (
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <Loader2 className="size-3.5 animate-spin" />
         Opslaan...
       </span>
     )
@@ -342,7 +342,7 @@ function AutoSaveIndicator({
   if (status === "dirty") {
     return (
       <span className="flex items-center gap-2 text-xs text-amber-700">
-        <CircleDashed className="h-3.5 w-3.5" />
+        <CircleDashed className="size-3.5" />
         Wijzigingen wachten...
       </span>
     )
@@ -353,7 +353,7 @@ function AutoSaveIndicator({
         className="flex items-center gap-2 text-xs text-red-700"
         title={error ?? undefined}
       >
-        <TriangleAlert className="h-3.5 w-3.5" />
+        <TriangleAlert className="size-3.5" />
         Opslaan mislukt
       </span>
     )
@@ -363,7 +363,7 @@ function AutoSaveIndicator({
     const mm = String(lastSavedAt.getMinutes()).padStart(2, "0")
     return (
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
-        <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+        <CheckCircle2 className="size-3.5 text-green-600" />
         Opgeslagen om {hh}:{mm}
       </span>
     )

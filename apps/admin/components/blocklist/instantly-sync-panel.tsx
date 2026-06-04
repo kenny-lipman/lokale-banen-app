@@ -90,7 +90,7 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
     if (!stats?.syncStatus?.instantly) {
       return (
         <Badge variant="outline" className="flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
+          <AlertTriangle className="size-3" />
           Onbekend
         </Badge>
       )
@@ -101,7 +101,7 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
     if (pending > 0) {
       return (
         <Badge variant="secondary" className="flex items-center gap-1">
-          <RefreshCw className="h-3 w-3" />
+          <RefreshCw className="size-3" />
           {pending} pending
         </Badge>
       )
@@ -110,7 +110,7 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
     if (synced > 0) {
       return (
         <Badge variant="default" className="flex items-center gap-1 bg-green-100 text-green-800">
-          <CheckCircle2 className="h-3 w-3" />
+          <CheckCircle2 className="size-3" />
           {synced} gesynchroniseerd
         </Badge>
       )
@@ -118,7 +118,7 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
 
     return (
       <Badge variant="outline" className="flex items-center gap-1">
-        <AlertTriangle className="h-3 w-3" />
+        <AlertTriangle className="size-3" />
         Niet gesynchroniseerd
       </Badge>
     )
@@ -142,7 +142,7 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
       <CardContent className="space-y-4">
         {/* Info Alert */}
         <Alert>
-          <Info className="h-4 w-4" />
+          <Info className="size-4" />
           <AlertDescription>
             Deze synchronisatie voegt geblokkeerde entries toe aan de respectievelijke platforms.
             Entries die al gesynchroniseerd zijn worden overgeslagen.
@@ -157,9 +157,9 @@ export function InstantlySyncPanel({ onSync, loading = false, stats }: Instantly
             className="flex items-center gap-2"
           >
             {syncLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="size-4" />
             )}
             {syncLoading ? "Synchroniseren..." : "Alles Synchroniseren"}
           </Button>

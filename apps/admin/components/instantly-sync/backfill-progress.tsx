@@ -40,13 +40,13 @@ interface BackfillProgressProps {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
-  pending: { label: "Wachtend", variant: "outline", icon: <Clock className="h-3 w-3" /> },
-  collecting: { label: "Verzamelen", variant: "secondary", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-  processing: { label: "Verwerken", variant: "default", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-  paused: { label: "Gepauzeerd", variant: "outline", icon: <Pause className="h-3 w-3" /> },
-  completed: { label: "Voltooid", variant: "default", icon: <CheckCircle2 className="h-3 w-3" /> },
-  failed: { label: "Mislukt", variant: "destructive", icon: <XCircle className="h-3 w-3" /> },
-  cancelled: { label: "Geannuleerd", variant: "outline", icon: <Ban className="h-3 w-3" /> },
+  pending: { label: "Wachtend", variant: "outline", icon: <Clock className="size-3" /> },
+  collecting: { label: "Verzamelen", variant: "secondary", icon: <Loader2 className="size-3 animate-spin" /> },
+  processing: { label: "Verwerken", variant: "default", icon: <Loader2 className="size-3 animate-spin" /> },
+  paused: { label: "Gepauzeerd", variant: "outline", icon: <Pause className="size-3" /> },
+  completed: { label: "Voltooid", variant: "default", icon: <CheckCircle2 className="size-3" /> },
+  failed: { label: "Mislukt", variant: "destructive", icon: <XCircle className="size-3" /> },
+  cancelled: { label: "Geannuleerd", variant: "outline", icon: <Ban className="size-3" /> },
 }
 
 export function BackfillProgress({
@@ -94,7 +94,7 @@ export function BackfillProgress({
               </Badge>
               {batch.dry_run && (
                 <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700 flex items-center gap-1">
-                  <FlaskConical className="h-3 w-3" />
+                  <FlaskConical className="size-3" />
                   DRY RUN
                 </Badge>
               )}
@@ -110,7 +110,7 @@ export function BackfillProgress({
           {/* Dry Run Alert */}
           {batch.dry_run && (
             <Alert className="border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
-              <FlaskConical className="h-4 w-4 text-amber-600" />
+              <FlaskConical className="size-4 text-amber-600" />
               <AlertTitle className="text-amber-800 dark:text-amber-300">Test Modus (Dry Run)</AlertTitle>
               <AlertDescription className="text-amber-700 dark:text-amber-400">
                 Dit is een test run. Leads worden <strong>niet</strong> gesynchroniseerd naar Pipedrive
@@ -122,7 +122,7 @@ export function BackfillProgress({
           {/* Collection Progress (Campaign X/Y) */}
           {batch.status === 'collecting' && batch.total_campaigns > 0 && (
             <div className="flex items-center gap-3 text-sm bg-blue-50 dark:bg-blue-950/30 rounded-lg px-4 py-3 border border-blue-200 dark:border-blue-800">
-              <Folders className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <Folders className="size-4 text-blue-600 dark:text-blue-400" />
               <div>
                 <span className="text-blue-700 dark:text-blue-300">
                   Campagne <strong>{batch.current_campaign_index}</strong> van <strong>{batch.total_campaigns}</strong>
@@ -153,7 +153,7 @@ export function BackfillProgress({
             <Card className="bg-muted/50">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <Clock className="size-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Totaal</span>
                 </div>
                 <div className="text-2xl font-bold mt-1">
@@ -166,7 +166,7 @@ export function BackfillProgress({
             <Card className="bg-green-50 dark:bg-green-950/20">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <CheckCircle2 className="size-4 text-green-600" />
                   <span className="text-sm font-medium">Gesynchroniseerd</span>
                 </div>
                 <div className="text-2xl font-bold mt-1 text-green-600">
@@ -179,7 +179,7 @@ export function BackfillProgress({
             <Card className="bg-yellow-50 dark:bg-yellow-950/20">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <SkipForward className="h-4 w-4 text-yellow-600" />
+                  <SkipForward className="size-4 text-yellow-600" />
                   <span className="text-sm font-medium">Overgeslagen</span>
                 </div>
                 <div className="text-2xl font-bold mt-1 text-yellow-600">
@@ -192,7 +192,7 @@ export function BackfillProgress({
             <Card className="bg-red-50 dark:bg-red-950/20">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
+                  <XCircle className="size-4 text-red-600" />
                   <span className="text-sm font-medium">Mislukt</span>
                 </div>
                 <div className="text-2xl font-bold mt-1 text-red-600">
@@ -206,7 +206,7 @@ export function BackfillProgress({
           {isActive && eta && (
             <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+                <Clock className="size-4" />
                 <span>
                   Geschatte tijd resterend: <strong>{eta.estimatedMinutesRemaining} minuten</strong>
                 </span>
@@ -220,7 +220,7 @@ export function BackfillProgress({
           {/* Error Message */}
           {batch.last_error && (
             <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/20 rounded-lg px-4 py-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="size-4 mt-0.5 flex-shrink-0" />
               <span>{batch.last_error}</span>
             </div>
           )}

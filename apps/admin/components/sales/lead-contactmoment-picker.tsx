@@ -69,7 +69,7 @@ export function ContactmomentPickerControl({
             disabled={disabled || saving}
             type="button"
           >
-            <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
+            <CalendarIcon className="mr-2 size-4 text-gray-500" />
             {triggerLabel}
           </Button>
         </PopoverTrigger>
@@ -98,7 +98,7 @@ export function ContactmomentPickerControl({
           title="Reset naar auto"
           type="button"
         >
-          <RotateCcw className="h-4 w-4" />
+          <RotateCcw className="size-4" />
         </Button>
       ) : null}
     </div>
@@ -142,9 +142,9 @@ export function LeadContactmomentPicker({ runId, contactmomentOverride, offsetWo
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-y-0">
         <CardTitle className="text-base">Contactmoment</CardTitle>
-        {saving ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> : null}
+        {saving ? <Loader2 className="size-4 animate-spin text-gray-400" /> : null}
       </CardHeader>
       <CardContent className="space-y-2">
         <ContactmomentPickerControl

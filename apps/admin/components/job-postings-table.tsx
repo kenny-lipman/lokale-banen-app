@@ -325,35 +325,35 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
       case "new":
         return (
           <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             Nieuw
           </Badge>
         )
       case "active":
         return (
           <Badge className="bg-green-100 text-green-800 border-green-200">
-            <CheckCircle className="w-3 h-3 mr-1" />
+            <CheckCircle className="size-3 mr-1" />
             Actief
           </Badge>
         )
       case "inactive":
         return (
           <Badge className="bg-gray-100 text-gray-800 border-gray-200">
-            <Clock className="w-3 h-3 mr-1" />
+            <Clock className="size-3 mr-1" />
             Inactief
           </Badge>
         )
       case "archived":
         return (
           <Badge className="bg-red-100 text-red-800 border-red-200">
-            <Archive className="w-3 h-3 mr-1" />
+            <Archive className="size-3 mr-1" />
             Gearchiveerd
           </Badge>
         )
       default:
         return (
           <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-            <XCircle className="w-3 h-3 mr-1" />
+            <XCircle className="size-3 mr-1" />
             {status || "Onbekend"}
           </Badge>
         )
@@ -376,7 +376,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
       <div className="flex flex-col items-center justify-center py-12">
         <div className="text-center max-w-md mx-auto">
           <div className="mb-4">
-            <svg className="mx-auto h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="mx-auto size-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
@@ -388,7 +388,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
             onClick={() => window.location.reload()} 
             className="flex items-center gap-2"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="size-4" />
             Pagina Vernieuwen
           </Button>
         </div>
@@ -588,7 +588,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
       {error && !initializationError && (
         <div className="border border-red-200 bg-red-50 rounded-lg p-4">
           <div className="flex items-center gap-2 text-red-600">
-            <AlertCircle className="w-5 h-5" />
+            <AlertCircle className="size-5" />
             <span className="font-medium">Fout bij het laden van vacatures</span>
           </div>
           <p className="mt-1 text-sm text-red-600">
@@ -599,7 +599,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
             size="sm"
             className="mt-3 bg-red-600 hover:bg-red-700"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="size-4 mr-2" />
             Opnieuw proberen
           </Button>
         </div>
@@ -641,7 +641,7 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
             onClick={() => setPushModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            <Upload className="w-4 h-4 mr-2" />
+            <Upload className="size-4 mr-2" />
             Push naar Lokale Banen
           </Button>
         </div>
@@ -744,12 +744,12 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-x-2">
                       {job.company_logo && (
                         <img
                           src={job.company_logo || "/placeholder.svg"}
                           alt={job.company_name}
-                          className="w-6 h-6 rounded"
+                          className="size-6 rounded"
                         />
                       )}
                       <div>
@@ -767,14 +767,14 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
                         )}
                         {job.is_customer && (
                           <Badge className="bg-green-100 text-green-800 border-green-200 ml-1 text-xs">
-                            <Crown className="w-3 h-3 mr-1" />
+                            <Crown className="size-3 mr-1" />
                             Klant
                           </Badge>
                         )}
                         <div className="text-xs text-gray-500 mt-1">
                           {job.company_rating && job.company_rating > 0 ? (
                             <div className="flex items-center">
-                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 mr-1" />
+                              <Star className="size-3 fill-yellow-400 text-yellow-400 mr-1" />
                               {job.company_rating}
                             </div>
                           ) : (
@@ -820,19 +820,19 @@ export function JobPostingsTable({ onCompanyClick = () => {}, data, onJobSelect,
                   <TableCell>{getStatusBadge(job.status)}</TableCell>
                   <TableCell className="text-sm text-gray-600">{formatDate(job.scraped_at)}</TableCell>
                   <TableCell>
-                    <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-x-1" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleJobClick(job)}
                         title="Bekijk details"
                       >
-                        <Eye className="w-4 h-4 text-gray-500" />
+                        <Eye className="size-4 text-gray-500" />
                       </Button>
                       {job.url && (
                         <Button variant="ghost" size="sm" asChild>
                           <a href={job.url} target="_blank" rel="noopener noreferrer" title="Open vacature">
-                            <ExternalLink className="w-4 h-4 text-gray-500" />
+                            <ExternalLink className="size-4 text-gray-500" />
                           </a>
                         </Button>
                       )}

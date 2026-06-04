@@ -58,7 +58,7 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
               aria-label="Opgeslagen vacatures"
               className="hidden sm:inline-flex items-center justify-center min-w-11 min-h-11 rounded-md text-primary hover:bg-primary-tint transition-colors"
             >
-              <Bookmark className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+              <Bookmark className="size-5" strokeWidth={1.75} aria-hidden="true" />
             </Link>
             <UserNav />
             <MobileMenu tenantName={tenant.name} />
@@ -68,7 +68,7 @@ export function SiteHeader({ tenant }: SiteHeaderProps) {
             href="/werkgevers/pakketten"
             className="hidden md:inline-flex items-center gap-2 h-11 px-[22px] rounded-button bg-secondary text-secondary-ink text-meta font-bold tracking-tight transition-colors hover:bg-secondary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2"
           >
-            <PlusCircle className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <PlusCircle className="size-4" strokeWidth={2} aria-hidden="true" />
             Vacature plaatsen
           </Link>
         </div>

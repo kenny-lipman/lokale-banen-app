@@ -141,8 +141,8 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
     return (
       <Card className="w-full">
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-6 w-6" />
+          <div className="flex items-center gap-x-2">
+            <Skeleton className="size-6" />
             <Skeleton className="h-6 w-48" />
           </div>
           <Skeleton className="h-4 w-96" />
@@ -168,7 +168,7 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
       <Card className="w-full">
         <CardContent className="pt-6">
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               {error}. Please refresh the page to try again.
             </AlertDescription>
@@ -181,9 +181,9 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
   return (
     <Card className="w-full" role="region" aria-label="Automation preferences settings">
       <CardHeader>
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg" aria-hidden="true">
-            <Zap className="h-4 w-4 text-blue-600" />
+        <div className="flex items-center gap-x-2">
+          <div className="flex items-center justify-center size-8 bg-blue-100 rounded-lg" aria-hidden="true">
+            <Zap className="size-4 text-blue-600" />
           </div>
           <div>
             <CardTitle className="text-xl" id="automation-title">Job Posting Automation</CardTitle>
@@ -194,19 +194,19 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
         </div>
         
         {/* Summary Stats */}
-        <div className="flex items-center space-x-4 text-sm text-gray-600" aria-live="polite" aria-atomic="true">
-          <div className="flex items-center space-x-1">
-            <CheckCircle className="h-4 w-4 text-green-500" aria-hidden="true" />
+        <div className="flex items-center gap-x-4 text-sm text-gray-600" aria-live="polite" aria-atomic="true">
+          <div className="flex items-center gap-x-1">
+            <CheckCircle className="size-4 text-green-500" aria-hidden="true" />
             <span id="enabled-count">{getTotalEnabledCount()} of {getTotalRegionsCount()} regions enabled</span>
           </div>
           {getCentralPlacesCount() > 0 && (
-            <div className="flex items-center space-x-1 text-blue-600">
+            <div className="flex items-center gap-x-1 text-blue-600">
               <span>• {getCentralPlacesCount()} platforms with central places configured</span>
             </div>
           )}
           {saving && (
-            <div className="flex items-center space-x-1 text-blue-600" aria-live="assertive">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" aria-hidden="true"></div>
+            <div className="flex items-center gap-x-1 text-blue-600" aria-live="assertive">
+              <div className="animate-spin rounded-full size-3 border-b-2 border-blue-600" aria-hidden="true"></div>
               <span>Saving...</span>
             </div>
           )}
@@ -216,7 +216,7 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
       <CardContent className="space-y-4">
         {preferencesError && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               {preferencesError}. Your changes may not have been saved.
             </AlertDescription>
@@ -225,7 +225,7 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
 
         {platforms.length === 0 ? (
           <div className="text-center py-8 text-gray-500" role="status" aria-live="polite">
-            <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" aria-hidden="true" />
+            <Settings className="size-12 mx-auto mb-4 text-gray-300" aria-hidden="true" />
             <p>No regions found. Please contact your administrator.</p>
           </div>
         ) : (
@@ -247,8 +247,8 @@ export const AutomationPreferencesSection: React.FC<AutomationPreferencesSection
 
         {/* Help Text */}
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+          <div className="flex items-start gap-x-2">
+            <AlertCircle className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-gray-600">
               <p className="font-medium mb-1">How it works:</p>
               <ul className="space-y-1">

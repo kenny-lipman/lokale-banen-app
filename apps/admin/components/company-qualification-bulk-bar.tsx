@@ -31,7 +31,7 @@ export function CompanyQualificationBulkBar({
             <>
               <div className="flex items-center gap-2">
                 <Badge className="bg-green-100 text-green-800 border-green-200">
-                  <Users className="w-3 h-3 mr-1" />
+                  <Users className="size-3 mr-1" />
                   {selectedCount} bedrijven geselecteerd
                 </Badge>
               </div>
@@ -43,7 +43,7 @@ export function CompanyQualificationBulkBar({
           ) : (
             <div className="flex items-center gap-2">
               <Badge className="bg-gray-100 text-gray-600 border-gray-200">
-                <Target className="w-3 h-3 mr-1" />
+                <Target className="size-3 mr-1" />
                 Geen bedrijven geselecteerd
               </Badge>
               <div className="text-sm text-gray-500">
@@ -66,12 +66,12 @@ export function CompanyQualificationBulkBar({
               >
                 {isQualifying ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                     Bezig...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <CheckCircle className="size-4 mr-2" />
                     Qualify ({selectedCount})
                   </>
                 )}
@@ -84,7 +84,7 @@ export function CompanyQualificationBulkBar({
                 className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold px-4 py-2 transition-all duration-200"
                 title={`Markeer ${selectedCount} geselecteerde bedrijven voor review`}
               >
-                <AlertCircle className="w-4 h-4 mr-2" />
+                <AlertCircle className="size-4 mr-2" />
                 Review ({selectedCount})
               </Button>
 
@@ -95,7 +95,7 @@ export function CompanyQualificationBulkBar({
                 className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 transition-all duration-200"
                 title={`Diskwalificeer ${selectedCount} geselecteerde bedrijven`}
               >
-                <XCircle className="w-4 h-4 mr-2" />
+                <XCircle className="size-4 mr-2" />
                 Disqualify ({selectedCount})
               </Button>
 
@@ -120,7 +120,7 @@ export function CompanyQualificationBulkBar({
       {isQualifying && (
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="flex items-center gap-2 text-sm text-green-600">
-            <CheckCircle className="w-4 h-4 animate-pulse" />
+            <CheckCircle className="size-4 animate-pulse" />
             Bezig met het updaten van de qualification status...
           </div>
         </div>

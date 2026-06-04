@@ -26,8 +26,7 @@ export async function generateMetadata({
   params,
   searchParams,
 }: CompanyPageProps): Promise<Metadata> {
-  const [{ 'company-slug': companySlug }, sp] = await Promise.all([params, searchParams])
-  const tenant = await getTenant()
+  const [{ 'company-slug': companySlug }, sp, tenant] = await Promise.all([params, searchParams, getTenant()])
   if (!tenant) return {}
 
   const company = await getCompanyBySlug(tenant.id, companySlug)
@@ -63,8 +62,7 @@ export async function generateMetadata({
 }
 
 export default async function CompanyPage({ params, searchParams }: CompanyPageProps) {
-  const [{ 'company-slug': companySlug }, sp] = await Promise.all([params, searchParams])
-  const tenant = await getTenant()
+  const [{ 'company-slug': companySlug }, sp, tenant] = await Promise.all([params, searchParams, getTenant()])
   if (!tenant) notFound()
 
   const company = await getCompanyBySlug(tenant.id, companySlug)

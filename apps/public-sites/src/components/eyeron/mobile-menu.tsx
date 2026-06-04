@@ -51,7 +51,7 @@ export function MobileMenu({ tenantName }: MobileMenuProps) {
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >
-        <Menu className="h-6 w-6" strokeWidth={2} aria-hidden="true" />
+        <Menu className="size-6" strokeWidth={2} aria-hidden="true" />
       </button>
 
       <div
@@ -85,7 +85,7 @@ export function MobileMenu({ tenantName }: MobileMenuProps) {
               aria-label="Sluit menu"
               onClick={() => setOpen(false)}
             >
-              <X className="h-6 w-6" strokeWidth={2} aria-hidden="true" />
+              <X className="size-6" strokeWidth={2} aria-hidden="true" />
             </button>
           </div>
 
@@ -111,7 +111,7 @@ export function MobileMenu({ tenantName }: MobileMenuProps) {
               onClick={() => setOpen(false)}
               className="inline-flex items-center gap-2 py-3 px-3 rounded-md text-meta font-bold text-primary hover:bg-primary-tint"
             >
-              <Bookmark className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+              <Bookmark className="size-5" strokeWidth={1.75} aria-hidden="true" />
               Opgeslagen vacatures
             </Link>
           </div>

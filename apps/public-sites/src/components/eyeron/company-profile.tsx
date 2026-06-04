@@ -26,7 +26,7 @@ export function CompanyProfile({ company, jobCount }: CompanyProfileProps) {
 
   return (
     <section className="grid sm:grid-cols-[120px_1fr] gap-6 sm:gap-7 mb-10 pb-8 border-b border-divider">
-      <div className="w-[120px] h-[120px] flex items-center justify-center bg-surface border border-divider-subtle p-3">
+      <div className="size-[120px] flex items-center justify-center bg-surface border border-divider-subtle p-3">
         {company.logo_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -64,7 +64,7 @@ export function CompanyProfile({ company, jobCount }: CompanyProfileProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-meta font-regular text-secondary hover:underline underline-offset-2"
             >
-              <Globe className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <Globe className="size-4" strokeWidth={1.75} aria-hidden="true" />
               Website
             </a>
           )}
@@ -75,13 +75,13 @@ export function CompanyProfile({ company, jobCount }: CompanyProfileProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-meta font-regular text-secondary hover:underline underline-offset-2"
             >
-              <Linkedin className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <Linkedin className="size-4" strokeWidth={1.75} aria-hidden="true" />
               LinkedIn
             </a>
           )}
           {addressParts && !company.website && !company.linkedin_url && (
             <span className="inline-flex items-center gap-1.5 text-meta font-light text-muted">
-              <MapPin className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <MapPin className="size-4" strokeWidth={1.75} aria-hidden="true" />
               {addressParts}
             </span>
           )}

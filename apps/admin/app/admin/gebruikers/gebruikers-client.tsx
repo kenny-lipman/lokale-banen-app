@@ -101,7 +101,7 @@ export function GebruikersClient({ currentUserId }: Props) {
             Vernieuwen
           </Button>
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="size-4 mr-1" />
             Nieuwe gebruiker
           </Button>
         </div>
@@ -113,7 +113,7 @@ export function GebruikersClient({ currentUserId }: Props) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-orange-600" />
+            <Settings className="size-5 text-orange-600" />
             <CardTitle>Accounts ({users.length})</CardTitle>
             <span className="text-xs text-gray-500 ml-auto">
               {adminCount} admin{adminCount === 1 ? '' : 's'} · {memberCount} member{memberCount === 1 ? '' : 's'} · {disabledCount} disabled
@@ -124,7 +124,7 @@ export function GebruikersClient({ currentUserId }: Props) {
         <CardContent>
           {loading ? (
             <div className="text-sm text-gray-500 py-8 text-center">
-              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+              <Loader2 className="size-5 animate-spin mx-auto mb-2" />
               Laden...
             </div>
           ) : (
@@ -160,12 +160,12 @@ export function GebruikersClient({ currentUserId }: Props) {
                       <td className="py-3">
                         {u.banned ? (
                           <Badge variant="secondary" className="gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+                            <span className="size-1.5 rounded-full bg-gray-500" />
                             Disabled
                           </Badge>
                         ) : (
                           <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                            <span className="size-1.5 rounded-full bg-green-500" />
                             Actief
                           </Badge>
                         )}
@@ -175,8 +175,8 @@ export function GebruikersClient({ currentUserId }: Props) {
                       <td className="py-3 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" className="size-8 p-0">
+                              <MoreVertical className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
@@ -359,10 +359,10 @@ function CreateUserModal({
             <div className="flex gap-2">
               <Input value={password} onChange={(e) => setPassword(e.target.value)} className="font-mono" />
               <Button type="button" variant="outline" size="sm" onClick={() => setPassword(generatePassword())} title="Genereer nieuw wachtwoord">
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="size-4" />
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={copyPassword} title="Kopieer">
-                <Copy className="w-4 h-4" />
+                <Copy className="size-4" />
               </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1.5">Minimaal 8 tekens.</p>
@@ -388,7 +388,7 @@ function CreateUserModal({
             Annuleren
           </Button>
           <Button onClick={submit} disabled={submitting || !email || password.length < 8}>
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            {submitting ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
             Account aanmaken
           </Button>
         </DialogFooter>
@@ -452,7 +452,7 @@ function RoleModal({
             Annuleren
           </Button>
           <Button onClick={submit} disabled={submitting || role === user.role}>
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            {submitting ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
             Opslaan
           </Button>
         </DialogFooter>
@@ -516,7 +516,7 @@ function ConfirmModal({
             disabled={submitting}
             className={confirmVariant === 'amber' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}
           >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            {submitting ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
             {confirmLabel}
           </Button>
         </DialogFooter>
@@ -585,7 +585,7 @@ function DeleteModal({
             disabled={!canDelete || submitting}
             className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
           >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            {submitting ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
             Verwijderen
           </Button>
         </DialogFooter>

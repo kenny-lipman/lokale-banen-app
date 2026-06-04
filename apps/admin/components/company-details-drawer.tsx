@@ -351,11 +351,11 @@ export function CompanyDetailsDrawer({
   const getJobStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
       case 'active':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>
+        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="size-3 mr-1" />Active</Badge>
       case 'inactive':
-        return <Badge className="bg-gray-100 text-gray-800"><Clock className="w-3 h-3 mr-1" />Inactive</Badge>
+        return <Badge className="bg-gray-100 text-gray-800"><Clock className="size-3 mr-1" />Inactive</Badge>
       case 'new':
-        return <Badge className="bg-blue-100 text-blue-800"><AlertCircle className="w-3 h-3 mr-1" />New</Badge>
+        return <Badge className="bg-blue-100 text-blue-800"><AlertCircle className="size-3 mr-1" />New</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -368,12 +368,12 @@ export function CompanyDetailsDrawer({
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
         <SheetHeader className="space-y-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-orange-600" />
+          <div className="flex items-center gap-x-3">
+            <div className="size-12 bg-orange-100 rounded-lg flex items-center justify-center">
+              <Building2 className="size-6 text-orange-600" />
             </div>
             <div className="flex-1">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-x-2">
                 <SheetTitle className="text-xl">{company?.name || 'Loading...'}</SheetTitle>
                 {company?.qualification_status && getQualificationBadge(company.qualification_status)}
                 {getEnrichmentBadge(company?.enrichment_status, company?.apollo_contacts_count)}
@@ -385,7 +385,7 @@ export function CompanyDetailsDrawer({
 
         {loading && (
           <div className="flex items-center justify-center py-8">
-            <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+            <RefreshCw className="size-6 animate-spin mr-2" />
             <span>Loading company details...</span>
           </div>
         )}
@@ -393,7 +393,7 @@ export function CompanyDetailsDrawer({
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-6">
             <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+              <AlertCircle className="size-5 text-red-500 mr-2" />
               <span className="text-red-700">{error}</span>
             </div>
           </div>
@@ -462,7 +462,7 @@ export function CompanyDetailsDrawer({
                         onClick={pollingState.manualRefresh}
                         className="text-blue-600 border-blue-300 hover:bg-blue-50"
                       >
-                        <RefreshCw className="w-3 h-3 mr-1" />
+                        <RefreshCw className="size-3 mr-1" />
                         Check Status
                       </Button>
                     </QuickHelpTooltip>
@@ -480,7 +480,7 @@ export function CompanyDetailsDrawer({
                           <span className="font-medium">{pollingState.progress.percentage}%</span>
                         </div>
                         <Progress value={pollingState.progress.percentage} className="h-2" />
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        <div className="flex items-center gap-x-4 text-xs text-gray-500">
                           <span>Completed: {pollingState.progress.completed}</span>
                           <span>Failed: {pollingState.progress.failed}</span>
                           <span>Total: {pollingState.progress.total}</span>
@@ -526,8 +526,8 @@ export function CompanyDetailsDrawer({
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {company.website && (
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Globe className="w-4 h-4 text-gray-500" />
+                      <div className="flex items-center gap-x-2 text-sm">
+                        <Globe className="size-4 text-gray-500" />
                         <a
                           href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
                           target="_blank"
@@ -540,8 +540,8 @@ export function CompanyDetailsDrawer({
                     )}
 
                     {company.location && (
-                      <div className="flex items-center space-x-2 text-sm">
-                        <MapPin className="w-4 h-4 text-gray-500" />
+                      <div className="flex items-center gap-x-2 text-sm">
+                        <MapPin className="size-4 text-gray-500" />
                         <span className="text-gray-700">{company.location}</span>
                       </div>
                     )}
@@ -550,8 +550,8 @@ export function CompanyDetailsDrawer({
                     {(company.hoofddomein || (company.subdomeinen && company.subdomeinen.length > 0)) && (
                       <div className="space-y-2">
                         {company.hoofddomein && (
-                          <div className="flex items-center space-x-2 text-sm">
-                            <Globe className="w-4 h-4 text-orange-500" />
+                          <div className="flex items-center gap-x-2 text-sm">
+                            <Globe className="size-4 text-orange-500" />
                             <Badge className="bg-orange-100 text-orange-800 border-orange-200">
                               {company.hoofddomein}
                             </Badge>
@@ -559,8 +559,8 @@ export function CompanyDetailsDrawer({
                           </div>
                         )}
                         {company.subdomeinen && company.subdomeinen.length > 0 && (
-                          <div className="flex items-start space-x-2 text-sm">
-                            <Globe className="w-4 h-4 text-blue-500 mt-0.5" />
+                          <div className="flex items-start gap-x-2 text-sm">
+                            <Globe className="size-4 text-blue-500 mt-0.5" />
                             <div className="flex flex-wrap gap-1">
                               {company.subdomeinen.map((subdomein, index) => (
                                 <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
@@ -574,19 +574,19 @@ export function CompanyDetailsDrawer({
                       </div>
                     )}
 
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Briefcase className="w-4 h-4 text-gray-500" />
+                    <div className="flex items-center gap-x-2 text-sm">
+                      <Briefcase className="size-4 text-gray-500" />
                       <span className="text-gray-700">{company.job_count} job postings</span>
                     </div>
 
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Target className="w-4 h-4 text-gray-500" />
+                    <div className="flex items-center gap-x-2 text-sm">
+                      <Target className="size-4 text-gray-500" />
                       <span className="text-gray-700">{company.contactsFound} contacts found</span>
                     </div>
 
                     {(company.size_min || company.size_max) && (
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Users className="w-4 h-4 text-gray-500" />
+                      <div className="flex items-center gap-x-2 text-sm">
+                        <Users className="size-4 text-gray-500" />
                         <span className="text-gray-700">
                           {company.size_min && company.size_max 
                             ? `${company.size_min} - ${company.size_max} employees`
@@ -599,20 +599,20 @@ export function CompanyDetailsDrawer({
                     )}
 
                     {company.category_size && (
-                      <div className="flex items-center space-x-2 text-sm">
-                        <BarChart3 className="w-4 h-4 text-gray-500" />
+                      <div className="flex items-center gap-x-2 text-sm">
+                        <BarChart3 className="size-4 text-gray-500" />
                         <span className="text-gray-700">{company.category_size}</span>
                       </div>
                     )}
 
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="w-4 h-4 text-gray-500" />
+                    <div className="flex items-center gap-x-2 text-sm">
+                      <Calendar className="size-4 text-gray-500" />
                       <span className="text-gray-700">Added: {formatDate(company.created_at)}</span>
                     </div>
 
                     {company.qualification_timestamp && (
-                      <div className="flex items-center space-x-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-gray-500" />
+                      <div className="flex items-center gap-x-2 text-sm">
+                        <CheckCircle className="size-4 text-gray-500" />
                         <span className="text-gray-700">
                           Qualified: {formatDate(company.qualification_timestamp)}
                         </span>
@@ -693,7 +693,7 @@ export function CompanyDetailsDrawer({
                                   {job.url && (
                                     <Button variant="ghost" size="sm" asChild>
                                       <a href={job.url} target="_blank" rel="noopener noreferrer">
-                                        <ExternalLink className="w-3 h-3" />
+                                        <ExternalLink className="size-3" />
                                       </a>
                                     </Button>
                                   )}
@@ -705,7 +705,7 @@ export function CompanyDetailsDrawer({
                       </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
-                        <Briefcase className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <Briefcase className="size-12 mx-auto mb-4 text-gray-300" />
                         <p>No job postings found</p>
                       </div>
                     )}
@@ -717,11 +717,11 @@ export function CompanyDetailsDrawer({
               <TabsContent value="contacts">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Users className="w-5 h-5 text-purple-600" />
+                    <CardTitle className="flex items-center gap-x-2">
+                      <Users className="size-5 text-purple-600" />
                       <span>Contacten</span>
                       {loadingContacts && (
-                        <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                        <RefreshCw className="size-4 animate-spin text-gray-400" />
                       )}
                     </CardTitle>
                     <CardDescription>
@@ -745,21 +745,21 @@ export function CompanyDetailsDrawer({
                           {loadingContacts ? (
                             <TableRow>
                               <TableCell colSpan={6} className="text-center py-8">
-                                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
+                                <RefreshCw className="size-6 animate-spin mx-auto mb-2 text-gray-400" />
                                 <p className="text-gray-500">Contacten laden...</p>
                               </TableCell>
                             </TableRow>
                           ) : contactsError ? (
                             <TableRow>
                               <TableCell colSpan={6} className="text-center py-8 text-red-500">
-                                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                                <AlertCircle className="size-8 mx-auto mb-2" />
                                 <p>Error: {contactsError}</p>
                               </TableCell>
                             </TableRow>
                           ) : contacts.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={6} className="text-center py-8 text-gray-400">
-                                <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                <Users className="size-8 mx-auto mb-2 text-gray-300" />
                                 <p>Geen contacten gevonden</p>
                                 {company.qualification_status !== 'enriched' && (
                                   <p className="text-sm mt-2">Verrijk eerst het bedrijf om contacten te vinden</p>
@@ -781,7 +781,7 @@ export function CompanyDetailsDrawer({
                                       href={`mailto:${contact.email}`} 
                                       className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
                                     >
-                                      <Mail className="w-3 h-3" />
+                                      <Mail className="size-3" />
                                       <span className="text-sm">{contact.email}</span>
                                     </a>
                                   ) : (
@@ -816,7 +816,7 @@ export function CompanyDetailsDrawer({
                                       rel="noopener noreferrer"
                                       className="text-blue-600 hover:text-blue-800"
                                     >
-                                      <Link className="w-4 h-4" />
+                                      <Link className="size-4" />
                                     </a>
                                   ) : (
                                     <span className="text-gray-400">-</span>
@@ -877,8 +877,8 @@ export function CompanyDetailsDrawer({
                         
                         {company.enrichment_data.enriched_at && (
                           <div className="pt-4 border-t">
-                            <div className="flex items-center space-x-2 text-sm text-gray-600">
-                              <Sparkles className="w-4 h-4" />
+                            <div className="flex items-center gap-x-2 text-sm text-gray-600">
+                              <Sparkles className="size-4" />
                               <span>Enriched: {formatDate(company.enrichment_data.enriched_at)}</span>
                               {company.enrichment_data.enrichment_source && (
                                 <Badge variant="outline">
@@ -891,7 +891,7 @@ export function CompanyDetailsDrawer({
                       </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
-                        <Sparkles className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <Sparkles className="size-12 mx-auto mb-4 text-gray-300" />
                         <p>No enrichment data available</p>
                         <p className="text-sm">Use the "Enrich" button to fetch additional company data</p>
                       </div>
@@ -900,7 +900,7 @@ export function CompanyDetailsDrawer({
                     {company.enrichment_error_message && (
                       <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
                         <div className="flex items-center">
-                          <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
+                          <AlertCircle className="size-4 text-red-500 mr-2" />
                           <div>
                             <p className="text-sm font-medium text-red-800">Enrichment Error</p>
                             <p className="text-sm text-red-700">{company.enrichment_error_message}</p>

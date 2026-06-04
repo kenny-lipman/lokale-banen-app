@@ -133,7 +133,7 @@ export function LeadContactsColumn({
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Contacten</CardTitle>
         <Button size="sm" variant="outline" onClick={() => setModalOpen(true)}>
-          <Plus className="w-4 h-4 mr-1" />
+          <Plus className="size-4 mr-1" />
           Handmatig
         </Button>
       </CardHeader>
@@ -240,7 +240,7 @@ function ContactCard({
               <span className="text-sm font-medium">{contact.name}</span>
               {contact.is_warm_lead && contact.source_origin.includes('apollo') && (
                 <Badge variant="outline" className="text-yellow-700 border-yellow-300 text-[10px]">
-                  <AlertTriangle className="w-3 h-3 mr-0.5" />
+                  <AlertTriangle className="size-3 mr-0.5" />
                   Apollo CRM
                 </Badge>
               )}
@@ -270,7 +270,7 @@ function ContactCard({
           <div className="flex flex-col items-end gap-1">
             {contact.ai_priority_score !== undefined && (
               <span className="flex items-center text-xs text-orange-600">
-                <Star className="w-3 h-3 mr-0.5 fill-orange-500" />
+                <Star className="size-3 mr-0.5 fill-orange-500" />
                 {contact.ai_priority_score}
               </span>
             )}
@@ -284,7 +284,7 @@ function ContactCard({
           aria-label="Contact bewerken"
           className="absolute top-2 right-2 p-1 rounded text-gray-400 hover:text-orange-700 hover:bg-white transition"
         >
-          <Pencil className="w-3.5 h-3.5" />
+          <Pencil className="size-3.5" />
         </button>
       )}
     </div>

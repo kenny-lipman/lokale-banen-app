@@ -49,7 +49,7 @@ const helpConfigs: Record<string, HelpContent> = {
   idle: {
     title: "Ready to Enrich",
     message: "Apollo enrichment will find contacts and additional company data",
-    icon: <Zap className="w-4 h-4" />,
+    icon: <Zap className="size-4" />,
     expandedContent: "Apollo enrichment uses advanced algorithms to find verified contact information, company details, and professional insights. This typically includes email addresses, phone numbers, LinkedIn profiles, and organizational data.",
     tips: [
       "Companies with websites provide better enrichment results",
@@ -62,7 +62,7 @@ const helpConfigs: Record<string, HelpContent> = {
   processing: {
     title: "Enrichment in Progress",
     message: "Apollo is analyzing company data and finding contacts",
-    icon: <RefreshCw className="w-4 h-4 animate-spin" />,
+    icon: <RefreshCw className="size-4 animate-spin" />,
     expandedContent: "The enrichment process involves multiple steps: data verification, contact discovery, email validation, and social profile matching. We're checking for updates every 3 seconds to provide real-time progress.",
     tips: [
       "Most enrichments complete within 30 seconds",
@@ -80,7 +80,7 @@ const helpConfigs: Record<string, HelpContent> = {
   manual: {
     title: "Extended Processing",
     message: "Enrichment is taking longer than usual. Check manually for updates.",
-    icon: <Clock className="w-4 h-4" />,
+    icon: <Clock className="size-4" />,
     expandedContent: "Some companies require additional processing time, especially large organizations with complex structures or limited public data. We've switched to manual checking to reduce server load.",
     tips: [
       "Click 'Check Status' to get the latest update",
@@ -98,7 +98,7 @@ const helpConfigs: Record<string, HelpContent> = {
   completed: {
     title: "Enrichment Complete",
     message: "Successfully found contacts and company data",
-    icon: <CheckCircle className="w-4 h-4" />,
+    icon: <CheckCircle className="size-4" />,
     expandedContent: "Apollo has successfully enriched this company with verified contact information and additional business intelligence. All contacts have been validated and are ready for outreach.",
     tips: [
       "Contact data includes verified email addresses",
@@ -110,7 +110,7 @@ const helpConfigs: Record<string, HelpContent> = {
   failed: {
     title: "Enrichment Failed",
     message: "Unable to complete enrichment for this company",
-    icon: <AlertTriangle className="w-4 h-4" />,
+    icon: <AlertTriangle className="size-4" />,
     expandedContent: "The enrichment process encountered an issue and couldn't complete successfully. This could be due to limited public data, network issues, or company privacy settings.",
     tips: [
       "Try again in a few minutes",
@@ -198,7 +198,7 @@ export function ContextualHelp({
     <Card className={cn("transition-all duration-300", styles.cardClass, className)}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-3 flex-1">
+          <div className="flex items-start gap-x-3 flex-1">
             <div className={cn("mt-0.5", styles.iconClass)}>
               {config.icon}
             </div>
@@ -214,13 +214,13 @@ export function ContextualHelp({
                   )}
                 </h4>
                 
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center gap-x-1">
                   {config.estimatedTime && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Badge variant="outline" className="text-xs">
-                            <Clock className="w-3 h-3 mr-1" />
+                            <Clock className="size-3 mr-1" />
                             {config.estimatedTime}
                           </Badge>
                         </TooltipTrigger>
@@ -234,10 +234,10 @@ export function ContextualHelp({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0"
+                    className="size-6 p-0"
                     onClick={() => setIsDismissed(true)}
                   >
-                    <X className="w-3 h-3" />
+                    <X className="size-3" />
                   </Button>
                 </div>
               </div>
@@ -248,13 +248,13 @@ export function ContextualHelp({
 
               {/* Progress information for processing phase */}
               {phase === 'processing' && progress && (
-                <div className="flex items-center space-x-4 text-xs">
-                  <div className="flex items-center space-x-1">
-                    <Building2 className="w-3 h-3" />
+                <div className="flex items-center gap-x-4 text-xs">
+                  <div className="flex items-center gap-x-1">
+                    <Building2 className="size-3" />
                     <span>{progress.completed}/{progress.total} companies</span>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp className="w-3 h-3" />
+                  <div className="flex items-center gap-x-1">
+                    <TrendingUp className="size-3" />
                     <span>{progress.percentage}% complete</span>
                   </div>
                 </div>
@@ -270,9 +270,9 @@ export function ContextualHelp({
                     className="h-6 p-0 text-xs hover:bg-transparent"
                   >
                     {isExpanded ? (
-                      <ChevronUp className="w-3 h-3 mr-1" />
+                      <ChevronUp className="size-3 mr-1" />
                     ) : (
-                      <ChevronDown className="w-3 h-3 mr-1" />
+                      <ChevronDown className="size-3 mr-1" />
                     )}
                     {isExpanded ? 'Show less' : 'Show more details'}
                   </Button>
@@ -288,7 +288,7 @@ export function ContextualHelp({
                       {config.tips && config.tips.length > 0 && (
                         <div>
                           <h5 className="text-xs font-medium text-gray-800 mb-1 flex items-center">
-                            <Info className="w-3 h-3 mr-1" />
+                            <Info className="size-3 mr-1" />
                             Tips
                           </h5>
                           <ul className="text-xs text-gray-600 space-y-1">
@@ -305,7 +305,7 @@ export function ContextualHelp({
                       {config.troubleshooting && config.troubleshooting.length > 0 && (
                         <div>
                           <h5 className="text-xs font-medium text-gray-800 mb-1 flex items-center">
-                            <HelpCircle className="w-3 h-3 mr-1" />
+                            <HelpCircle className="size-3 mr-1" />
                             Troubleshooting
                           </h5>
                           <ul className="text-xs text-gray-600 space-y-1">
@@ -371,8 +371,8 @@ export function ProgressiveHelp({ phase, elapsedTime = 0 }: { phase: string, ela
   }
 
   return (
-    <div className="flex items-center space-x-2 text-sm text-gray-600">
-      <Clock className="w-4 h-4" />
+    <div className="flex items-center gap-x-2 text-sm text-gray-600">
+      <Clock className="size-4" />
       <span>{getMessage()}</span>
     </div>
   )

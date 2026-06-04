@@ -43,10 +43,10 @@ export default function ForgotPasswordPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="pb-6">
           <Link href="/login" className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4">
-            <ChevronLeft className="w-3 h-3" />
+            <ChevronLeft className="size-3" />
             Terug naar inloggen
           </Link>
-          <div className="flex flex-col items-center space-y-4">
+          <div className="flex flex-col items-center gap-y-4">
             <Logo size="xl" className="text-gray-900" />
             <div className="text-center">
               <CardTitle className="text-2xl font-bold text-gray-900">Wachtwoord vergeten</CardTitle>
@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
                 E-mailadres
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                 <Input
                   id="email"
                   type="email"
@@ -77,15 +77,15 @@ export default function ForgotPasswordPage() {
             </div>
 
             {error && (
-              <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+              <div className="flex items-center gap-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="size-4 text-red-600 flex-shrink-0" />
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
 
             {success && (
-              <div className="flex items-start space-x-2 p-3 bg-green-50 border border-green-200 rounded-md">
-                <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-x-2 p-3 bg-green-50 border border-green-200 rounded-md">
+                <CheckCircle className="size-4 text-green-600 flex-shrink-0 mt-0.5" />
                 <p className="text-green-700 text-sm">
                   Als dit e-mailadres bij ons bekend is, ontvang je binnen enkele minuten een reset-link. De link is 15 minuten geldig.
                 </p>
@@ -95,7 +95,7 @@ export default function ForgotPasswordPage() {
             <Button type="submit" className="w-full h-11" disabled={loading || success}>
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="size-4 animate-spin mr-2" />
                   Versturen...
                 </>
               ) : (

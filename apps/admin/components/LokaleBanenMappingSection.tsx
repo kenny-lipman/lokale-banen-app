@@ -159,7 +159,7 @@ export function LokaleBanenMappingSection() {
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
+        <AlertCircle className="size-4" />
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     )
@@ -171,7 +171,7 @@ export function LokaleBanenMappingSection() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <ArrowRightLeft className="h-5 w-5" />
+              <ArrowRightLeft className="size-5" />
               Lokale Banen Mappings
             </CardTitle>
             <CardDescription className="mt-1">
@@ -291,12 +291,12 @@ function MappingTable({
                     <TableCell>
                       {mapping.their_value ? (
                         <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle className="h-3 w-3 mr-1" />
+                          <CheckCircle className="size-3 mr-1" />
                           Gemapt
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-orange-600 border-orange-300">
-                          <XCircle className="h-3 w-3 mr-1" />
+                          <XCircle className="size-3 mr-1" />
                           Open
                         </Badge>
                       )}

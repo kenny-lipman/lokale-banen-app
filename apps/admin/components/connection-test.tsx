@@ -81,7 +81,7 @@ export function ConnectionTest() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
+              <Database className="size-5" />
               <CardTitle className="text-lg">Database Verbinding</CardTitle>
             </div>
             <div className="flex items-center gap-2">
@@ -89,21 +89,21 @@ export function ConnectionTest() {
                 <Badge variant={connectionStatus.success ? "default" : "destructive"} className="text-xs">
                   {connectionStatus.success ? (
                     <>
-                      <CheckCircle className="h-3 w-3 mr-1" />
+                      <CheckCircle className="size-3 mr-1" />
                       Verbonden
                     </>
                   ) : (
                     <>
-                      <XCircle className="h-3 w-3 mr-1" />
+                      <XCircle className="size-3 mr-1" />
                       Fout
                     </>
                   )}
                 </Badge>
               )}
               {dbExpanded ? (
-                <ChevronDown className="h-4 w-4 text-gray-500" />
+                <ChevronDown className="size-4 text-gray-500" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500" />
+                <ChevronRight className="size-4 text-gray-500" />
               )}
             </div>
           </div>
@@ -121,19 +121,19 @@ export function ConnectionTest() {
                   <Badge variant={connectionStatus.success ? "default" : "destructive"}>
                     {connectionStatus.success ? (
                       <>
-                        <CheckCircle className="h-4 w-4 mr-1" />
+                        <CheckCircle className="size-4 mr-1" />
                         Verbonden
                       </>
                     ) : (
                       <>
-                        <XCircle className="h-4 w-4 mr-1" />
+                        <XCircle className="size-4 mr-1" />
                         Fout
                       </>
                     )}
                   </Badge>
                 ) : (
                   <Badge variant="secondary">
-                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                    <RefreshCw className="size-4 mr-1 animate-spin" />
                     Testen...
                   </Badge>
                 )}
@@ -144,7 +144,7 @@ export function ConnectionTest() {
                   {connectionStatus.success ? (
                     <>
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="size-4 text-green-600" />
                         <span>Database verbinding succesvol</span>
                       </div>
                       {connectionStatus.count !== undefined && (
@@ -160,7 +160,7 @@ export function ConnectionTest() {
                     </>
                   ) : (
                     <div className="flex items-center gap-2 text-red-600">
-                      <XCircle className="h-4 w-4" />
+                      <XCircle className="size-4" />
                       <span>Fout: {connectionStatus.error}</span>
                     </div>
                   )}
@@ -170,12 +170,12 @@ export function ConnectionTest() {
               <Button onClick={testConnection} disabled={loading} variant="outline" size="sm">
                 {loading ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="size-4 mr-2 animate-spin" />
                     Testen...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="size-4 mr-2" />
                     Opnieuw Testen
                   </>
                 )}
@@ -193,26 +193,26 @@ export function ConnectionTest() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <Shield className="size-5" />
               <CardTitle className="text-lg">Authenticatie Debug</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={isAuthenticated ? "default" : "secondary"} className="text-xs">
                 {authLoading ? (
                   <>
-                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    <RefreshCw className="size-3 mr-1 animate-spin" />
                     Laden...
                   </>
                 ) : (
                   <>
                     {isAuthenticated ? (
                       <>
-                        <CheckCircle className="h-3 w-3 mr-1" />
+                        <CheckCircle className="size-3 mr-1" />
                         Ingelogd
                       </>
                     ) : (
                       <>
-                        <AlertCircle className="h-3 w-3 mr-1" />
+                        <AlertCircle className="size-3 mr-1" />
                         Uitgelogd
                       </>
                     )}
@@ -220,9 +220,9 @@ export function ConnectionTest() {
                 )}
               </Badge>
               {authExpanded ? (
-                <ChevronDown className="h-4 w-4 text-gray-500" />
+                <ChevronDown className="size-4 text-gray-500" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500" />
+                <ChevronRight className="size-4 text-gray-500" />
               )}
             </div>
           </div>
@@ -239,19 +239,19 @@ export function ConnectionTest() {
                 <Badge variant={isAuthenticated ? "default" : "secondary"}>
                   {authLoading ? (
                     <>
-                      <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                      <RefreshCw className="size-4 mr-1 animate-spin" />
                       Laden...
                     </>
                   ) : (
                     <>
                       {isAuthenticated ? (
                         <>
-                          <CheckCircle className="h-4 w-4 mr-1" />
+                          <CheckCircle className="size-4 mr-1" />
                           Ingelogd
                         </>
                       ) : (
                         <>
-                          <AlertCircle className="h-4 w-4 mr-1" />
+                          <AlertCircle className="size-4 mr-1" />
                           Uitgelogd
                         </>
                       )}
@@ -289,7 +289,7 @@ export function ConnectionTest() {
               )}
 
               <Button onClick={getAuthDebugInfo} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="size-4 mr-2" />
                 Debug Info Vernieuwen
               </Button>
             </div>

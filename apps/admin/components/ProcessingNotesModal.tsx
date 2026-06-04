@@ -93,7 +93,7 @@ export function ProcessingNotesModal({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+            <FileText className="size-5" />
             Edit Processing Notes
           </DialogTitle>
           <div className="text-sm text-gray-600">
@@ -145,7 +145,7 @@ export function ProcessingNotesModal({
             onClick={handleCancel}
             disabled={isSaving}
           >
-            <X className="w-4 h-4 mr-2" />
+            <X className="size-4 mr-2" />
             Cancel
           </Button>
           
@@ -153,7 +153,7 @@ export function ProcessingNotesModal({
             onClick={handleSave}
             disabled={isSaving || !hasUnsavedChanges}
           >
-            <Save className="w-4 h-4 mr-2" />
+            <Save className="size-4 mr-2" />
             {isSaving ? 'Saving...' : 'Save Notes'}
           </Button>
         </DialogFooter>

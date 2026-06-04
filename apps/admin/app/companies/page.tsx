@@ -123,7 +123,7 @@ export default function CompaniesPage() {
           </div>
           <Link href="/bedrijven/nieuw">
             <Button>
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="size-4 mr-2" />
               Nieuw bedrijf
             </Button>
           </Link>

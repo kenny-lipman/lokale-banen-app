@@ -54,8 +54,10 @@ export async function run(): Promise<{ stats: BusinessStats; success: boolean; e
   const startTime = Date.now()
   const stats: BusinessStats = emptyStats({})
 
-  const queue = await fetchQueueBatch(supabase, PER_RUN_LIMIT)
-  const resolver = await loadCityResolver(supabase)
+  const [queue, resolver] = await Promise.all([
+    fetchQueueBatch(supabase, PER_RUN_LIMIT),
+    loadCityResolver(supabase),
+  ])
 
   // ── Prematch-pass: rows met unique cities-match → direct UPDATE, skip LocationIQ ──
   const remaining: QueueRow[] = []

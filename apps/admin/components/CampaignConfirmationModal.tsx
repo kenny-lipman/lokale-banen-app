@@ -185,13 +185,13 @@ export function CampaignConfirmationModal({
   const getQualificationIcon = (status?: string) => {
     switch (status) {
       case 'qualified':
-        return <CheckCircle className="h-4 w-4 text-green-600" />
+        return <CheckCircle className="size-4 text-green-600" />
       case 'review':
-        return <Clock className="h-4 w-4 text-yellow-600" />
+        return <Clock className="size-4 text-yellow-600" />
       case 'disqualified':
-        return <XCircle className="h-4 w-4 text-red-600" />
+        return <XCircle className="size-4 text-red-600" />
       default:
-        return <Clock className="h-4 w-4 text-gray-400" />
+        return <Clock className="size-4 text-gray-400" />
     }
   }
 
@@ -219,7 +219,7 @@ export function CampaignConfirmationModal({
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                <AlertTriangle className="size-5 text-orange-500" />
                 Confirm Campaign Addition
               </DialogTitle>
               <DialogDescription className="text-sm text-gray-600 mt-2">
@@ -235,7 +235,7 @@ export function CampaignConfirmationModal({
             <Card className="border-orange-200 bg-orange-50">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <Target className="h-5 w-5 text-orange-600" />
+                  <Target className="size-5 text-orange-600" />
                   <div className="flex-1">
                     <h3 className="font-medium text-orange-900">{selectedCampaign.name}</h3>
                     {selectedCampaign.description && (
@@ -289,9 +289,9 @@ export function CampaignConfirmationModal({
                         steps.step1?.status === 'failed' && "bg-red-100 text-red-700",
                         steps.step1?.status === 'pending' && "bg-blue-100 text-blue-700"
                       )}>
-                        {steps.step1?.status === 'success' && <CheckCircle className="h-3 w-3" />}
-                        {steps.step1?.status === 'failed' && <XCircle className="h-3 w-3" />}
-                        {steps.step1?.status === 'pending' && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {steps.step1?.status === 'success' && <CheckCircle className="size-3" />}
+                        {steps.step1?.status === 'failed' && <XCircle className="size-3" />}
+                        {steps.step1?.status === 'pending' && <Loader2 className="size-3 animate-spin" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
@@ -337,7 +337,7 @@ export function CampaignConfirmationModal({
                 </Badge>
                 {blockedCount > 0 && (
                   <Badge variant="destructive" className="text-sm">
-                    <ShieldAlert className="h-3 w-3 mr-1" />
+                    <ShieldAlert className="size-3 mr-1" />
                     {blockedCount} geblokkeerd
                   </Badge>
                 )}
@@ -351,25 +351,25 @@ export function CampaignConfirmationModal({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {qualifiedContacts > 0 && (
                 <div className="flex items-center gap-2 p-2 bg-green-50 rounded-md">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="size-4 text-green-600" />
                   <span className="text-sm font-medium text-green-800">{qualifiedContacts} Qualified</span>
                 </div>
               )}
               {reviewContacts > 0 && (
                 <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-md">
-                  <Clock className="h-4 w-4 text-yellow-600" />
+                  <Clock className="size-4 text-yellow-600" />
                   <span className="text-sm font-medium text-yellow-800">{reviewContacts} Review</span>
                 </div>
               )}
               {pendingContacts > 0 && (
                 <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
-                  <Clock className="h-4 w-4 text-gray-400" />
+                  <Clock className="size-4 text-gray-400" />
                   <span className="text-sm font-medium text-gray-600">{pendingContacts} Pending</span>
                 </div>
               )}
               {disqualifiedContacts > 0 && (
                 <div className="flex items-center gap-2 p-2 bg-red-50 rounded-md">
-                  <XCircle className="h-4 w-4 text-red-600" />
+                  <XCircle className="size-4 text-red-600" />
                   <span className="text-sm font-medium text-red-800">{disqualifiedContacts} Disqualified</span>
                 </div>
               )}
@@ -388,12 +388,12 @@ export function CampaignConfirmationModal({
               >
                 {expandedCompanies ? (
                   <>
-                    <ChevronUp className="h-3 w-3 mr-1" />
+                    <ChevronUp className="size-3 mr-1" />
                     Collapse
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="h-3 w-3 mr-1" />
+                    <ChevronDown className="size-3 mr-1" />
                     Expand
                   </>
                 )}
@@ -404,7 +404,7 @@ export function CampaignConfirmationModal({
               {companyGroups.slice(0, expandedCompanies ? undefined : 3).map((company, index) => (
                 <div key={company.name} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                   <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-gray-500" />
+                    <Building2 className="size-4 text-gray-500" />
                     <span className="text-sm font-medium">{company.name}</span>
                   </div>
                   <Badge variant="secondary" className="text-xs">
@@ -440,12 +440,12 @@ export function CampaignConfirmationModal({
               >
                 {expandedContacts ? (
                   <>
-                    <ChevronUp className="h-3 w-3 mr-1" />
+                    <ChevronUp className="size-3 mr-1" />
                     Collapse
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="h-3 w-3 mr-1" />
+                    <ChevronDown className="size-3 mr-1" />
                     Expand
                   </>
                 )}
@@ -459,7 +459,7 @@ export function CampaignConfirmationModal({
                     <div className="flex items-center gap-3 flex-1">
                       <div className="flex items-center gap-2">
                         {getQualificationIcon(contact.qualificationStatus)}
-                        <User className="h-4 w-4 text-gray-400" />
+                        <User className="size-4 text-gray-400" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -473,12 +473,12 @@ export function CampaignConfirmationModal({
                         <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
                           {contact.title && (
                             <div className="flex items-center gap-1">
-                              <Briefcase className="h-3 w-3" />
+                              <Briefcase className="size-3" />
                               <span className="truncate">{contact.title}</span>
                             </div>
                           )}
                           <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
+                            <Mail className="size-3" />
                             <span className="truncate">{contact.email}</span>
                           </div>
                         </div>
@@ -516,9 +516,9 @@ export function CampaignConfirmationModal({
               !severity && "bg-red-50 border-red-200"
             )}>
               <div className="flex items-start gap-3">
-                {severity === 'success' && <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />}
-                {severity === 'warning' && <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />}
-                {(severity === 'error' || !severity) && <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />}
+                {severity === 'success' && <CheckCircle className="size-5 text-green-600 mt-0.5 flex-shrink-0" />}
+                {severity === 'warning' && <AlertTriangle className="size-5 text-yellow-600 mt-0.5 flex-shrink-0" />}
+                {(severity === 'error' || !severity) && <XCircle className="size-5 text-red-600 mt-0.5 flex-shrink-0" />}
                 <div className="flex-1">
                   <h4 className={cn(
                     "font-medium",
@@ -584,7 +584,7 @@ export function CampaignConfirmationModal({
                         !severity && "text-red-700 border-red-300 hover:bg-red-100"
                       )}
                     >
-                      <RefreshCw className="h-3 w-3 mr-1" />
+                      <RefreshCw className="size-3 mr-1" />
                       Retry
                     </Button>
                   )}
@@ -596,7 +596,7 @@ export function CampaignConfirmationModal({
           {/* Warning Message */}
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="size-5 text-red-600 mt-0.5 flex-shrink-0" />
               <div>
                 <h4 className="font-medium text-red-900">Important</h4>
                 <p className="text-sm text-red-700 mt-1">
@@ -624,13 +624,13 @@ export function CampaignConfirmationModal({
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="size-4 mr-2 animate-spin" />
                 Adding to Campaign...
               </>
             ) : (
               <>
                 {blockedCount > 0 && (
-                  <Shield className="h-4 w-4 mr-2" />
+                  <Shield className="size-4 mr-2" />
                 )}
                 Add {validContacts} Valid Contact{validContacts !== 1 ? 's' : ''} to Campaign
               </>

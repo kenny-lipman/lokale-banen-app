@@ -69,7 +69,7 @@ export default function OwnerMappingPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-orange-600" />
+            <Settings className="size-5 text-orange-600" />
             <CardTitle>Dealeigenaars ({configs.length})</CardTitle>
           </div>
           <CardDescription>Klik op ✎ om een rij te bewerken. "Test config" valideert alle velden tegen Pipedrive.</CardDescription>
@@ -114,7 +114,7 @@ export default function OwnerMappingPage() {
                     </td>
                     <td className="py-3">
                       <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="size-4" />
                       </Button>
                     </td>
                   </tr>

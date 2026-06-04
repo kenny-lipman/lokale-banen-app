@@ -233,7 +233,7 @@ export function AddRegionModal({ trigger }: AddRegionModalProps) {
       <DialogTrigger asChild>
         {trigger || (
           <Button className="bg-orange-600 hover:bg-orange-700 text-white">
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="size-4 mr-2" />
             Voeg regio toe
           </Button>
         )}
@@ -325,7 +325,7 @@ export function AddRegionModal({ trigger }: AddRegionModalProps) {
                             ))}
                             <Separator className="my-1" />
                             <SelectItem value="CREATE_NEW" className="text-orange-600 font-medium">
-                              <Plus className="w-4 h-4 mr-2 inline" />
+                              <Plus className="size-4 mr-2 inline" />
                               Nieuw platform aanmaken
                             </SelectItem>
                           </>
@@ -348,7 +348,7 @@ export function AddRegionModal({ trigger }: AddRegionModalProps) {
                       }}
                       disabled={isLoading}
                     >
-                      <X className="w-4 h-4" />
+                      <X className="size-4" />
                     </Button>
                   </div>
                   
@@ -409,7 +409,7 @@ export function AddRegionModal({ trigger }: AddRegionModalProps) {
               )}
             />
 
-            <div className="flex justify-end space-x-2 pt-4">
+            <div className="flex justify-end gap-x-2 pt-4">
               <Button
                 type="button"
                 variant="outline"

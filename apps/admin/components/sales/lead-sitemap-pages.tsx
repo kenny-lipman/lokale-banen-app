@@ -78,9 +78,9 @@ export function LeadSitemapPages({ master }: Props) {
             {rows.length > COLLAPSED_LIMIT && (
               <Button size="sm" variant="ghost" className="h-7 text-xs ml-2" onClick={() => setExpanded((v) => !v)}>
                 {expanded ? (
-                  <><ChevronUp className="w-3 h-3 mr-1" />Inklappen</>
+                  <><ChevronUp className="size-3 mr-1" />Inklappen</>
                 ) : (
-                  <><ChevronDown className="w-3 h-3 mr-1" />Toon alle {rows.length}</>
+                  <><ChevronDown className="size-3 mr-1" />Toon alle {rows.length}</>
                 )}
               </Button>
             )}
@@ -124,9 +124,9 @@ export function LeadSitemapPages({ master }: Props) {
                       >
                         <td className="px-3 py-2 text-center">
                           {r.fetched ? (
-                            <Check className="w-3.5 h-3.5 text-green-600 inline-block" />
+                            <Check className="size-3.5 text-green-600 inline-block" />
                           ) : (
-                            <Minus className="w-3.5 h-3.5 text-slate-300 inline-block" />
+                            <Minus className="size-3.5 text-slate-300 inline-block" />
                           )}
                         </td>
                         <td className="px-3 py-2 font-mono text-xs truncate max-w-md">{r.path}</td>
@@ -149,7 +149,7 @@ export function LeadSitemapPages({ master }: Props) {
                               aria-label="Open in nieuw tabblad"
                               className="inline-block text-slate-400 hover:text-orange-600"
                             >
-                              <ExternalLink className="w-3.5 h-3.5" />
+                              <ExternalLink className="size-3.5" />
                             </a>
                           )}
                         </td>

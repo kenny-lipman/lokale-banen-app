@@ -99,7 +99,7 @@ export function SimpleDropdown({
         ) : (
           <span className="text-gray-500 text-sm">{placeholder}</span>
         )}
-        <ChevronsUpDown className="ml-2 h-4 w-4 text-gray-400 flex-shrink-0" />
+        <ChevronsUpDown className="ml-2 size-4 text-gray-400 flex-shrink-0" />
       </button>
 
       {/* Dropdown */}
@@ -108,7 +108,7 @@ export function SimpleDropdown({
           {/* Search Input */}
           <div className="p-3 border-b border-gray-200">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
               <input
                 ref={inputRef}
                 type="text"

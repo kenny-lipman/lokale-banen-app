@@ -47,28 +47,28 @@ export function CompanyQualificationActions({
       case 'qualified':
         return (
           <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
-            <CheckCircle className="w-3 h-3 mr-1" />
+            <CheckCircle className="size-3 mr-1" />
             Qualified
           </Badge>
         )
       case 'review':
         return (
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
-            <AlertCircle className="w-3 h-3 mr-1" />
+            <AlertCircle className="size-3 mr-1" />
             Review
           </Badge>
         )
       case 'disqualified':
         return (
           <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-            <XCircle className="w-3 h-3 mr-1" />
+            <XCircle className="size-3 mr-1" />
             Disqualified
           </Badge>
         )
       default:
         return (
           <Badge variant="outline" className="border-gray-400 text-xs">
-            <Clock className="w-3 h-3 mr-1" />
+            <Clock className="size-3 mr-1" />
             Awaiting Qualification
           </Badge>
         )

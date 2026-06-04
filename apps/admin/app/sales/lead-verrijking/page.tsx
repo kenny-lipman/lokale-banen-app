@@ -84,7 +84,7 @@ export default function LeadVerrijkingPage() {
         </div>
         <Button asChild>
           <Link href="/sales/lead-verrijking/nieuw">
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="size-4 mr-1" />
             Nieuwe lead
           </Link>
         </Button>
@@ -93,7 +93,7 @@ export default function LeadVerrijkingPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-orange-600" />
+            <Mail className="size-5 text-orange-600" />
             <CardTitle>Run-historie ({total})</CardTitle>
             {runs.some((r) => r.status === 'enriching' || r.status === 'syncing') && (
               <div className="flex items-center gap-1 text-xs text-blue-600 ml-2">
@@ -129,7 +129,7 @@ export default function LeadVerrijkingPage() {
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="size-4" />
                 </Button>
                 <span className="text-xs text-gray-600">
                   Pagina {page} van {totalPages}
@@ -140,7 +140,7 @@ export default function LeadVerrijkingPage() {
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="size-4" />
                 </Button>
               </div>
             </div>

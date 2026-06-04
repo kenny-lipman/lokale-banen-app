@@ -80,7 +80,7 @@ export function CityAddModal({ platforms, onAdded }: Props) {
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); setOpen(o) }}>
       <DialogTrigger asChild>
         <Button className="bg-orange-600 hover:bg-orange-700">
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="size-4 mr-2" />
           Plaats toevoegen
         </Button>
       </DialogTrigger>

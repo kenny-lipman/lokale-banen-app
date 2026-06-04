@@ -197,9 +197,9 @@ function SourceReplayButton({ runId, source, onReplayed }: SourceReplayButtonPro
       onClick={handleReplay}
     >
       {busy ? (
-        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+        <Loader2 className="size-3 mr-1 animate-spin" />
       ) : (
-        <RotateCcw className="w-3 h-3 mr-1" />
+        <RotateCcw className="size-3 mr-1" />
       )}
       Opnieuw
     </Button>
@@ -266,7 +266,7 @@ function CandidatePicker({ runId, candidates, selectedIndex, onPromoted }: Candi
                   className="w-full mt-2"
                 >
                   {isLoading ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <Loader2 className="size-3 animate-spin" />
                   ) : isActive ? (
                     'Geselecteerd'
                   ) : (
@@ -406,7 +406,7 @@ function KvkRecoveryPanel({ runId, enrichments, inputDomain, onReplayed }: KvkRe
                   className="h-8 bg-white"
                 >
                   {isBusy ? (
-                    <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                    <Loader2 className="size-3 mr-1.5 animate-spin" />
                   ) : null}
                   <span>{s.value}</span>
                   <span className="text-gray-400 text-xs ml-2">· {s.source}</span>
@@ -422,7 +422,7 @@ function KvkRecoveryPanel({ runId, enrichments, inputDomain, onReplayed }: KvkRe
           {suggestions.length > 0 ? 'Of zoek handmatig' : 'Zoek handmatig in KvK'}
         </h4>
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -431,7 +431,7 @@ function KvkRecoveryPanel({ runId, enrichments, inputDomain, onReplayed }: KvkRe
             disabled={anyReplay}
           />
           {searching && (
-            <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 animate-spin" />
+            <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 animate-spin" />
           )}
         </div>
 
@@ -466,7 +466,7 @@ function KvkRecoveryPanel({ runId, enrichments, inputDomain, onReplayed }: KvkRe
                     </div>
                   </div>
                   {isBusy ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
+                    <Loader2 className="size-3.5 animate-spin text-gray-500" />
                   ) : (
                     <span className="text-xs text-orange-700 shrink-0">Selecteer</span>
                   )}

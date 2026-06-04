@@ -12,7 +12,7 @@ export function UserNav() {
 
   if (!isLoaded) {
     // Reserveer ruimte zodat de header-layout niet shift bij hydratatie.
-    return <div className="h-11 w-11" aria-hidden="true" />
+    return <div className="size-11" aria-hidden="true" />
   }
 
   if (isSignedIn) {
@@ -32,7 +32,7 @@ export function UserNav() {
         className="inline-flex items-center justify-center min-w-11 min-h-11 rounded-md text-primary hover:bg-primary-tint transition-colors"
         aria-label="Inloggen"
       >
-        <User className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+        <User className="size-5" strokeWidth={2} aria-hidden="true" />
       </button>
     </SignInButton>
   )

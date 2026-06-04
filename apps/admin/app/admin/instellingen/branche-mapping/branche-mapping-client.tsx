@@ -109,7 +109,7 @@ export function BrancheMappingClient() {
           </p>
         </div>
         <Button onClick={sync} disabled={syncing} variant="outline">
-          {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {syncing ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RefreshCw className="size-4 mr-2" />}
           Sync vanuit Pipedrive
         </Button>
       </div>
@@ -157,7 +157,7 @@ export function BrancheMappingClient() {
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => setEditTarget(row)}>
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="size-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -265,7 +265,7 @@ function EditSbiModal({
                     className="ml-1 rounded hover:bg-gray-200"
                     aria-label={`Verwijder ${p}`}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="size-3" />
                   </button>
                 </Badge>
               ))}
@@ -286,7 +286,7 @@ function EditSbiModal({
             }}
             disabled={saving}
           >
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            {saving ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
             Opslaan
           </Button>
         </DialogFooter>

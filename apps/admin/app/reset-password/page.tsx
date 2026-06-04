@@ -85,7 +85,7 @@ function ResetPasswordForm() {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto mb-4" />
+          <Loader2 className="size-8 animate-spin text-orange-600 mx-auto mb-4" />
           <p className="text-gray-600">Reset-link controleren...</p>
         </div>
       </div>
@@ -103,21 +103,21 @@ function ResetPasswordForm() {
       <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="text-center pb-6">
-            <div className="flex flex-col items-center space-y-4 mb-2">
+            <div className="flex flex-col items-center gap-y-4 mb-2">
               <Logo size="xl" className="text-gray-900" />
               <CardTitle className="text-xl font-semibold text-gray-900">Link niet bruikbaar</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md text-left">
-              <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="size-4 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-red-700 text-sm">{reasons[validation.reason]}</p>
             </div>
             <Link href="/forgot-password" className="block">
               <Button variant="outline" className="w-full">Nieuwe reset-link aanvragen</Button>
             </Link>
             <Link href="/login" className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
-              <ChevronLeft className="w-3 h-3" />
+              <ChevronLeft className="size-3" />
               Terug naar inloggen
             </Link>
           </CardContent>
@@ -130,7 +130,7 @@ function ResetPasswordForm() {
     <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center pb-6">
-          <div className="flex flex-col items-center space-y-4 mb-6">
+          <div className="flex flex-col items-center gap-y-4 mb-6">
             <Logo size="xl" className="text-gray-900" />
             <div>
               <CardTitle className="text-2xl font-bold text-gray-900">Nieuw wachtwoord</CardTitle>
@@ -145,7 +145,7 @@ function ResetPasswordForm() {
                 Nieuw wachtwoord
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                 <PasswordInput
                   id="password"
                   value={password}
@@ -165,7 +165,7 @@ function ResetPasswordForm() {
                 Bevestig wachtwoord
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                 <PasswordInput
                   id="confirm"
                   value={confirm}
@@ -181,15 +181,15 @@ function ResetPasswordForm() {
             </div>
 
             {error && (
-              <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+              <div className="flex items-center gap-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="size-4 text-red-600 flex-shrink-0" />
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
 
             {success && (
-              <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-md">
-                <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <div className="flex items-center gap-x-2 p-3 bg-green-50 border border-green-200 rounded-md">
+                <CheckCircle className="size-4 text-green-600 flex-shrink-0" />
                 <p className="text-green-700 text-sm">Wachtwoord gewijzigd. Je wordt doorverwezen naar inloggen...</p>
               </div>
             )}
@@ -197,12 +197,12 @@ function ResetPasswordForm() {
             <Button type="submit" className="w-full h-11" disabled={loading || success}>
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="size-4 animate-spin mr-2" />
                   Wijzigen...
                 </>
               ) : success ? (
                 <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <CheckCircle className="size-4 mr-2" />
                   Gewijzigd
                 </>
               ) : (
@@ -221,7 +221,7 @@ export default function ResetPasswordPage() {
     <Suspense
       fallback={
         <div className="flex justify-center items-center min-h-screen bg-gray-50">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+          <Loader2 className="size-8 animate-spin text-orange-600" />
         </div>
       }
     >

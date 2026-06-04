@@ -50,7 +50,7 @@ export function ShareButtons({ url, title, variant = 'inline' }: ShareButtonsPro
         } hover:bg-primary-tint transition-colors`}
         aria-label="Deel via WhatsApp"
       >
-        <MessageCircle className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+        <MessageCircle className="size-5" strokeWidth={1.75} aria-hidden="true" />
       </a>
       <button
         type="button"
@@ -61,9 +61,9 @@ export function ShareButtons({ url, title, variant = 'inline' }: ShareButtonsPro
         aria-label={copied ? 'Link gekopieerd' : 'Kopieer link'}
       >
         {copied ? (
-          <Check className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
+          <Check className="size-5" strokeWidth={2.25} aria-hidden="true" />
         ) : (
-          <Link2 className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+          <Link2 className="size-5" strokeWidth={1.75} aria-hidden="true" />
         )}
       </button>
     </div>

@@ -18,7 +18,7 @@ export default function NotFound() {
           href="/"
           className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-primary text-primary-foreground text-button transition-colors duration-150 hover:bg-primary-hover"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="size-4" />
           Terug naar vacatures
         </Link>
       </div>

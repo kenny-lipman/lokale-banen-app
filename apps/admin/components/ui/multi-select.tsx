@@ -95,14 +95,14 @@ export function MultiSelect({
           <div className="flex items-center gap-1 ml-2 shrink-0">
             {selected.length > 0 && (
               <X
-                className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer"
+                className="size-4 text-gray-400 hover:text-gray-600 cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation()
                   onChange([])
                 }}
               />
             )}
-            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+            <ChevronsUpDown className="size-4 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
@@ -128,7 +128,7 @@ export function MultiSelect({
                     : "border-gray-300"
                 )}>
                   {selected.includes(option.value) && (
-                    <Check className="h-3 w-3 text-white" />
+                    <Check className="size-3 text-white" />
                   )}
                 </div>
                 {option.label}

@@ -77,7 +77,7 @@ export default function InstantlySyncPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <ArrowLeftRight className="h-8 w-8" />
+            <ArrowLeftRight className="size-8" />
             Instantly {"<>"} PD Sync
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -98,7 +98,7 @@ export default function InstantlySyncPage() {
               </Label>
               {autoRefreshEnabled && (
                 <Badge variant="secondary" className="text-xs">
-                  <Zap className="h-3 w-3 mr-1" />
+                  <Zap className="size-3 mr-1" />
                   Live
                 </Badge>
               )}
@@ -115,15 +115,15 @@ export default function InstantlySyncPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="live-events" className="flex items-center gap-2">
-            <Radio className="h-4 w-4" />
+            <Radio className="size-4" />
             Live Events
           </TabsTrigger>
           <TabsTrigger value="campaigns" className="flex items-center gap-2">
-            <Send className="h-4 w-4" />
+            <Send className="size-4" />
             Campagnes
           </TabsTrigger>
           <TabsTrigger value="backfill" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
+            <Database className="size-4" />
             Backfill
           </TabsTrigger>
         </TabsList>
@@ -145,7 +145,7 @@ export default function InstantlySyncPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
+                  <Filter className="size-4" />
                   <CardTitle className="text-lg">Filters</CardTitle>
                   {hasActiveFilters && (
                     <Badge variant="secondary" className="ml-2">
@@ -161,7 +161,7 @@ export default function InstantlySyncPage() {
                       onClick={clearFilters}
                       className="text-muted-foreground"
                     >
-                      <X className="h-4 w-4 mr-1" />
+                      <X className="size-4 mr-1" />
                       Wissen
                     </Button>
                   )}
@@ -182,7 +182,7 @@ export default function InstantlySyncPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Zoeken</label>
                     <div className="relative">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
                       <Input
                         placeholder="Email of campaign..."
                         value={filters.search || ""}

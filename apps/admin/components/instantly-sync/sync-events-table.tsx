@@ -48,7 +48,7 @@ export function SyncEventsTable({ events, loading, onViewDetails }: SyncEventsTa
                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                <TableCell><Skeleton className="size-8" /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -138,7 +138,7 @@ export function SyncEventsTable({ events, loading, onViewDetails }: SyncEventsTa
                       onViewDetails(event)
                     }}
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="size-4" />
                   </Button>
                 </TableCell>
               </TableRow>
@@ -154,7 +154,7 @@ function SyncStatusBadge({ event }: { event: SyncEvent }) {
   if (event.status_skipped) {
     return (
       <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">
-        <SkipForward className="h-3 w-3 mr-1" />
+        <SkipForward className="size-3 mr-1" />
         Skipped
       </Badge>
     )
@@ -163,7 +163,7 @@ function SyncStatusBadge({ event }: { event: SyncEvent }) {
   if (!event.sync_success) {
     return (
       <Badge variant="destructive">
-        <XCircle className="h-3 w-3 mr-1" />
+        <XCircle className="size-3 mr-1" />
         Error
       </Badge>
     )
@@ -171,7 +171,7 @@ function SyncStatusBadge({ event }: { event: SyncEvent }) {
 
   return (
     <Badge variant="secondary" className="bg-green-100 text-green-700">
-      <CheckCircle2 className="h-3 w-3 mr-1" />
+      <CheckCircle2 className="size-3 mr-1" />
       OK
     </Badge>
   )

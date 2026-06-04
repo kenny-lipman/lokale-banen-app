@@ -114,7 +114,7 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
+            <Mail className="size-5" />
             MailerLite Groep-Koppeling
           </CardTitle>
         </CardHeader>
@@ -134,13 +134,13 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
+            <Mail className="size-5" />
             MailerLite Groep-Koppeling
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </CardContent>
@@ -154,7 +154,7 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5" />
+          <Mail className="size-5" />
           MailerLite Groep-Koppeling
         </CardTitle>
         <CardDescription>
@@ -176,9 +176,9 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
               >
                 <div className="flex items-center gap-3 min-w-0">
                   {currentGroupId ? (
-                    <Link2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <Link2 className="size-4 text-green-500 flex-shrink-0" />
                   ) : (
-                    <Unlink className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <Unlink className="size-4 text-gray-400 flex-shrink-0" />
                   )}
                   <div className="min-w-0">
                     <p className="font-medium text-sm truncate">{platform.regio_platform}</p>
@@ -217,7 +217,7 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
                   </select>
 
                   {isSaving && (
-                    <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="size-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                   )}
                 </div>
               </div>
@@ -227,7 +227,7 @@ export const MailerLiteGroupSection: React.FC<MailerLiteGroupSectionProps> = ({
 
         {groups.length === 0 && (
           <Alert className="mt-4">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertDescription>
               Geen &quot;Werkgevers&quot; groepen gevonden in MailerLite. Controleer of de API key correct is geconfigureerd.
             </AlertDescription>

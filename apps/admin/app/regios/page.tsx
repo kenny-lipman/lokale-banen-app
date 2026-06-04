@@ -269,7 +269,7 @@ export default function RegionsPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative max-w-xs flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
           <Input
             placeholder="Zoek plaats, postcode of platform…"
             value={search}

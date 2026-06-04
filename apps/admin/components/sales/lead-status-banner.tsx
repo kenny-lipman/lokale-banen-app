@@ -53,7 +53,7 @@ export function LeadStatusBanner({
       <div className="flex items-center gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link href="/sales/lead-verrijking">
-            <ArrowLeft className="w-4 h-4 mr-1" />
+            <ArrowLeft className="size-4 mr-1" />
             Overzicht
           </Link>
         </Button>
@@ -76,9 +76,9 @@ export function LeadStatusBanner({
         {canReplay && (
           <Button variant="outline" size="sm" onClick={onReplay} disabled={replaying}>
             {replaying ? (
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              <Loader2 className="size-3 mr-1 animate-spin" />
             ) : (
-              <RotateCcw className="w-3 h-3 mr-1" />
+              <RotateCcw className="size-3 mr-1" />
             )}
             Opnieuw runnen
           </Button>
@@ -93,7 +93,7 @@ function SaveIndicator({ state }: { state: SaveState }) {
   if (state === 'saving') {
     return (
       <span className="flex items-center text-xs text-gray-500">
-        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+        <Loader2 className="size-3 mr-1 animate-spin" />
         Opslaan…
       </span>
     )
@@ -101,14 +101,14 @@ function SaveIndicator({ state }: { state: SaveState }) {
   if (state === 'saved') {
     return (
       <span className="flex items-center text-xs text-green-600">
-        <Cloud className="w-3 h-3 mr-1" />
+        <Cloud className="size-3 mr-1" />
         Opgeslagen
       </span>
     )
   }
   return (
     <span className="flex items-center text-xs text-red-600">
-      <CloudOff className="w-3 h-3 mr-1" />
+      <CloudOff className="size-3 mr-1" />
       Opslaan mislukt
     </span>
   )

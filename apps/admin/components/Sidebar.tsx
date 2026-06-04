@@ -267,12 +267,12 @@ export default function Sidebar() {
               : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
           )}
         >
-          <item.icon className="h-[18px] w-[18px] shrink-0" />
+          <item.icon className="size-[18px] shrink-0" />
           <span className="flex-1 truncate text-left">{item.label}</span>
           {isOpen ? (
-            <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+            <ChevronDown className="size-3.5 text-sidebar-foreground/50" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+            <ChevronRight className="size-3.5 text-sidebar-foreground/50" />
           )}
         </button>
         {isOpen && (
@@ -307,7 +307,7 @@ export default function Sidebar() {
           aria-label={collapsed ? "Sidebar uitklappen (Cmd+B)" : "Sidebar inklappen (Cmd+B)"}
           title={collapsed ? "Uitklappen (Cmd+B)" : "Inklappen (Cmd+B)"}
         >
-          {collapsed ? <PanelLeft className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
+          {collapsed ? <PanelLeft className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
         </button>
       </div>
 
@@ -346,7 +346,7 @@ export default function Sidebar() {
                 collapsed && "justify-center",
               )}
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[11px] font-semibold text-white">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-[11px] font-semibold text-white">
                 {initials(displayName)}
               </span>
               {!collapsed && (
@@ -369,7 +369,7 @@ export default function Sidebar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/settings" className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
+                <Settings className="mr-2 size-4" />
                 Instellingen
               </Link>
             </DropdownMenuItem>
@@ -378,7 +378,7 @@ export default function Sidebar() {
               onClick={handleLogout}
               className="cursor-pointer text-red-600 focus:text-red-600"
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="mr-2 size-4" />
               Uitloggen
             </DropdownMenuItem>
           </DropdownMenuContent>

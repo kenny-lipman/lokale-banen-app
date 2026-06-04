@@ -147,7 +147,7 @@ export function BackfillControls({
                 </div>
 
                 {/* Dry Run Toggle */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-x-2">
                   <Switch
                     id="dry-run"
                     checked={dryRun}
@@ -163,7 +163,7 @@ export function BackfillControls({
                 onClick={() => setShowAdvanced(!showAdvanced)}
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showAdvanced ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                 Geavanceerde opties
               </button>
 
@@ -196,12 +196,12 @@ export function BackfillControls({
             >
               {isStarting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   Starting...
                 </>
               ) : (
                 <>
-                  <Rocket className="mr-2 h-4 w-4" />
+                  <Rocket className="mr-2 size-4" />
                   Start Backfill
                 </>
               )}
@@ -226,9 +226,9 @@ export function BackfillControls({
                 disabled={isPausing}
               >
                 {isPausing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <Pause className="mr-2 h-4 w-4" />
+                  <Pause className="mr-2 size-4" />
                 )}
                 Pauzeren
               </Button>
@@ -241,9 +241,9 @@ export function BackfillControls({
                 disabled={isResuming}
               >
                 {isResuming ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <Play className="mr-2 h-4 w-4" />
+                  <Play className="mr-2 size-4" />
                 )}
                 Hervatten
               </Button>
@@ -254,9 +254,9 @@ export function BackfillControls({
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={isCancelling}>
                   {isCancelling ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 size-4 animate-spin" />
                   ) : (
-                    <Square className="mr-2 h-4 w-4" />
+                    <Square className="mr-2 size-4" />
                   )}
                   Annuleren
                 </Button>
@@ -285,9 +285,9 @@ export function BackfillControls({
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
+                  <RefreshCw className="mr-2 size-4" />
                 )}
                 Status Verversen
               </Button>
@@ -311,9 +311,9 @@ export function BackfillControls({
               disabled={isRetrying}
             >
               {isRetrying ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <RotateCcw className="mr-2 size-4" />
               )}
               Opnieuw Proberen
             </Button>

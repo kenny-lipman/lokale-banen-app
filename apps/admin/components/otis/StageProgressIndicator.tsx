@@ -32,11 +32,11 @@ export function StageProgressIndicator({
 }: StageProgressIndicatorProps) {
   const getStageIcon = () => {
     switch (currentStage) {
-      case 'scraping': return <TrendingUp className="w-5 h-5 text-blue-600" />
-      case 'enrichment': return <Building className="w-5 h-5 text-green-600" />
-      case 'campaigns': return <Mail className="w-5 h-5 text-orange-600" />
-      case 'results': return <CheckCircle className="w-5 h-5 text-purple-600" />
-      default: return <Clock className="w-5 h-5 text-gray-600" />
+      case 'scraping': return <TrendingUp className="size-5 text-blue-600" />
+      case 'enrichment': return <Building className="size-5 text-green-600" />
+      case 'campaigns': return <Mail className="size-5 text-orange-600" />
+      case 'results': return <CheckCircle className="size-5 text-purple-600" />
+      default: return <Clock className="size-5 text-gray-600" />
     }
   }
 
@@ -75,7 +75,7 @@ export function StageProgressIndicator({
   return (
     <Card className={`border-2 ${getStageColor()}`}>
       <CardHeader className="pb-3">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-x-3">
           {getStageIcon()}
           <div className="flex-1">
             <CardTitle className="text-lg">{getStageTitle()}</CardTitle>
@@ -123,8 +123,8 @@ export function StageProgressIndicator({
         {/* Current Operation */}
         {isProcessing && (
           <div className="pt-2 border-t border-gray-200">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <div className="flex items-center gap-x-2">
+              <div className="size-2 bg-blue-500 rounded-full animate-pulse"></div>
               <span className="text-sm text-gray-600">{currentOperation}</span>
             </div>
           </div>

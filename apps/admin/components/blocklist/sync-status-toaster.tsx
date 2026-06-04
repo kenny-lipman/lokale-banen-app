@@ -38,7 +38,7 @@ export function SyncStatusToaster({
             toast.success('Instantly Sync Voltooid', {
               description: (
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="size-4 text-green-600" />
                   <span>{newSyncs} contact{newSyncs !== 1 ? 'en' : ''} gesynchroniseerd</span>
                 </div>
               ),
@@ -52,7 +52,7 @@ export function SyncStatusToaster({
             toast.error('Instantly Sync Fout', {
               description: (
                 <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
+                  <XCircle className="size-4 text-red-600" />
                   <span>{newErrors} synchronisatie{newErrors !== 1 ? 's' : ''} mislukt</span>
                 </div>
               ),
@@ -66,7 +66,7 @@ export function SyncStatusToaster({
             toast.success('Pipedrive Sync Voltooid', {
               description: (
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="size-4 text-green-600" />
                   <span>{newSyncs} contact{newSyncs !== 1 ? 'en' : ''} gesynchroniseerd</span>
                 </div>
               ),
@@ -80,7 +80,7 @@ export function SyncStatusToaster({
             toast.error('Pipedrive Sync Fout', {
               description: (
                 <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
+                  <XCircle className="size-4 text-red-600" />
                   <span>{newErrors} synchronisatie{newErrors !== 1 ? 's' : ''} mislukt</span>
                 </div>
               ),
@@ -93,7 +93,7 @@ export function SyncStatusToaster({
             toast('Synchronisatie Gestart', {
               description: (
                 <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                   <span>Blocklist synchronisatie is bezig...</span>
                 </div>
               ),
@@ -106,7 +106,7 @@ export function SyncStatusToaster({
             toast.success('Synchronisatie Compleet', {
               description: (
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-blue-600" />
+                  <Shield className="size-4 text-blue-600" />
                   <span>Alle blocklist entries zijn gesynchroniseerd</span>
                 </div>
               ),
@@ -140,7 +140,7 @@ export function SyncStatusToaster({
               description: (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <AlertCircle className="size-4 text-yellow-600" />
                     <span>Mogelijk connectie probleem</span>
                   </div>
                   <p className="text-xs text-gray-600">{status.platforms.instantly.last_error}</p>
@@ -162,7 +162,7 @@ export function SyncStatusToaster({
               description: (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <AlertCircle className="size-4 text-yellow-600" />
                     <span>Mogelijk connectie probleem</span>
                   </div>
                   <p className="text-xs text-gray-600">{status.platforms.pipedrive.last_error}</p>
@@ -203,7 +203,7 @@ export function showSyncToast(
       toast(`${platform === 'both' ? 'Volledige' : platform} Synchronisatie`, {
         description: (
           <div className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 animate-spin" />
+            <RefreshCw className="size-4 animate-spin" />
             <span>Synchronisatie wordt gestart...</span>
           </div>
         ),
@@ -215,7 +215,7 @@ export function showSyncToast(
       toast.success('Synchronisatie Succesvol', {
         description: (
           <div className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CheckCircle className="size-4 text-green-600" />
             <span>
               {details?.count
                 ? `${details.count} entries gesynchroniseerd naar ${platform}`
@@ -232,7 +232,7 @@ export function showSyncToast(
         description: (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-red-600" />
+              <XCircle className="size-4 text-red-600" />
               <span>Fout bij synchroniseren naar {platform}</span>
             </div>
             {details?.error && (
@@ -259,7 +259,7 @@ export function showBulkOperationToast(
       toast(`Bulk ${operationText}`, {
         description: (
           <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
             <span>Bezig met {details?.total || 0} items...</span>
           </div>
         ),
@@ -274,7 +274,7 @@ export function showBulkOperationToast(
           description: (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-blue-600" />
+                <Zap className="size-4 text-blue-600" />
                 <span>{details.completed} van {details.total} voltooid</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -294,7 +294,7 @@ export function showBulkOperationToast(
       toast.success(`${operationText} Voltooid`, {
         description: (
           <div className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CheckCircle className="size-4 text-green-600" />
             <span>
               {details?.completed || 0} succesvol
               {details?.failed ? `, ${details.failed} mislukt` : ''}
@@ -310,7 +310,7 @@ export function showBulkOperationToast(
         description: (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-red-600" />
+              <XCircle className="size-4 text-red-600" />
               <span>Bulk operatie mislukt</span>
             </div>
             {details?.error && (

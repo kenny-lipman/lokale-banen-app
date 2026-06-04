@@ -71,10 +71,10 @@ export default async function AccountPage() {
             <img
               src={user.imageUrl}
               alt=""
-              className="h-16 w-16 rounded-full bg-surface object-cover"
+              className="size-16 rounded-full bg-surface object-cover"
             />
           ) : (
-            <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center">
+            <div className="size-16 rounded-full bg-primary flex items-center justify-center">
               <span className="text-h2 font-bold text-primary-ink">{initial}</span>
             </div>
           )}
@@ -95,9 +95,9 @@ export default async function AccountPage() {
               className="group block bg-surface border border-divider-subtle p-5 hover:shadow-card-hover transition-shadow"
             >
               <div className="flex items-center gap-4">
-                <span className="inline-flex items-center justify-center w-11 h-11 bg-primary-tint shrink-0">
+                <span className="inline-flex items-center justify-center size-11 bg-primary-tint shrink-0">
                   <item.icon
-                    className="h-5 w-5 text-primary"
+                    className="size-5 text-primary"
                     strokeWidth={1.75}
                     aria-hidden="true"
                   />
@@ -118,7 +118,7 @@ export default async function AccountPage() {
         <div className="mt-10 max-w-2xl">
           <SignOutButton>
             <PillButton type="button">
-              <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              <LogOut className="size-4" strokeWidth={2} aria-hidden="true" />
               Uitloggen
             </PillButton>
           </SignOutButton>

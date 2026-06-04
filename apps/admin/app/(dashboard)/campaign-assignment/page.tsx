@@ -135,7 +135,7 @@ export default function CampaignAssignmentPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Mail className="h-8 w-8" />
+            <Mail className="size-8" />
             Campaign Assignment
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -155,7 +155,7 @@ export default function CampaignAssignmentPage() {
             </Label>
             {autoRefreshEnabled && (
               <Badge variant="secondary" className="text-xs">
-                <Zap className="h-3 w-3 mr-1" />
+                <Zap className="size-3 mr-1" />
                 Live
               </Badge>
             )}
@@ -167,12 +167,12 @@ export default function CampaignAssignmentPage() {
           <Button onClick={handleRunAssignment} disabled={isRunning}>
             {isRunning ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="size-4 mr-2 animate-spin" />
                 Bezig...
               </>
             ) : (
               <>
-                <Play className="h-4 w-4 mr-2" />
+                <Play className="size-4 mr-2" />
                 Run Now
               </>
             )}
@@ -192,7 +192,7 @@ export default function CampaignAssignmentPage() {
         <Card className="border-gray-200 bg-gray-50/50">
           <CardContent className="py-4">
             <div className="flex items-center gap-2 text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               <span className="text-sm">Controleren op actieve batches...</span>
             </div>
           </CardContent>
@@ -203,7 +203,7 @@ export default function CampaignAssignmentPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <Loader2 className="size-5 animate-spin text-blue-600" />
                 <CardTitle className="text-lg">Parallel Assignment Actief</CardTitle>
                 <Badge variant="secondary" className="bg-blue-100 text-blue-700">
                   {activeOrchestration.platformCount} platforms
@@ -225,7 +225,7 @@ export default function CampaignAssignmentPage() {
                   }
                 }}
               >
-                <Square className="h-4 w-4 mr-1" />
+                <Square className="size-4 mr-1" />
                 Stop Alles
               </Button>
             </div>
@@ -277,7 +277,7 @@ export default function CampaignAssignmentPage() {
                       ) : batch.status === 'failed' ? (
                         <span className="text-red-500">✗</span>
                       ) : (
-                        <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                        <Loader2 className="size-3 animate-spin text-blue-500" />
                       )}
                       <span className="truncate flex-1" title={batch.platform_name || batch.batch_id}>
                         {batch.platform_name || batch.batch_id.slice(0, 15)}
@@ -296,7 +296,7 @@ export default function CampaignAssignmentPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <Loader2 className="size-5 animate-spin text-blue-600" />
                 <CardTitle className="text-lg">Batch Actief</CardTitle>
                 <Badge variant="secondary" className="bg-blue-100 text-blue-700">
                   {activeBatch.batch_id.slice(0, 25)}...
@@ -318,7 +318,7 @@ export default function CampaignAssignmentPage() {
                   }
                 }}
               >
-                <Square className="h-4 w-4 mr-1" />
+                <Square className="size-4 mr-1" />
                 Stop
               </Button>
             </div>
@@ -369,15 +369,15 @@ export default function CampaignAssignmentPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="logs" className="flex items-center gap-2">
-            <LayoutList className="h-4 w-4" />
+            <LayoutList className="size-4" />
             Logs
           </TabsTrigger>
           <TabsTrigger value="batches" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
+            <History className="size-4" />
             Batches
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
+            <Settings className="size-4" />
             Instellingen
           </TabsTrigger>
         </TabsList>
@@ -389,7 +389,7 @@ export default function CampaignAssignmentPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
+                  <Filter className="size-4" />
                   <CardTitle className="text-lg">Filters</CardTitle>
                   {hasActiveFilters && (
                     <Badge variant="secondary" className="ml-2">
@@ -405,7 +405,7 @@ export default function CampaignAssignmentPage() {
                       onClick={clearFilters}
                       className="text-muted-foreground"
                     >
-                      <X className="h-4 w-4 mr-1" />
+                      <X className="size-4 mr-1" />
                       Wissen
                     </Button>
                   )}
@@ -426,7 +426,7 @@ export default function CampaignAssignmentPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Zoeken</label>
                     <div className="relative">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
                       <Input
                         placeholder="Email of bedrijf..."
                         value={filters.search || ""}

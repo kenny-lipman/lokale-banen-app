@@ -88,8 +88,7 @@ export default async function AutomationDetailPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ days?: string }>
 }) {
-  const { id } = await params
-  const { days: rawDays } = await searchParams
+  const [{ id }, { days: rawDays }] = await Promise.all([params, searchParams])
   const days = parseDays(rawDays)
   const detail = await fetchDetail(id, days)
   if (!detail) notFound()

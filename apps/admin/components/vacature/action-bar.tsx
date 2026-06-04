@@ -416,7 +416,7 @@ export function VacatureActionBar({
             <span className={variant === "compact" ? "sr-only" : undefined}>
               Bekijk op site
             </span>
-            <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-60" aria-hidden="true" />
+            <ChevronDown className="size-3.5 ml-1 opacity-60" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
@@ -434,7 +434,7 @@ export function VacatureActionBar({
             className="flex-col items-start gap-0.5 cursor-pointer"
           >
             <div className="flex items-center gap-2 font-medium">
-              <Globe className="h-4 w-4" aria-hidden="true" />
+              <Globe className="size-4" aria-hidden="true" />
               <span>Productie</span>
               {!hasProductionUrl && (
                 <span className="ml-auto text-xs text-muted-foreground">(n.v.t.)</span>
@@ -456,7 +456,7 @@ export function VacatureActionBar({
             className="flex-col items-start gap-0.5 cursor-pointer"
           >
             <div className="flex items-center gap-2 font-medium">
-              <Rocket className="h-4 w-4" aria-hidden="true" />
+              <Rocket className="size-4" aria-hidden="true" />
               <span>Vercel preview</span>
               <span className="ml-auto text-xs text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
                 draft

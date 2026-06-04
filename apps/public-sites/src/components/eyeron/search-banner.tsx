@@ -171,9 +171,9 @@ export function SearchBanner({
           <button
             type="submit"
             aria-label="Zoeken"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-[39px] h-[39px] rounded-full bg-secondary text-secondary-ink inline-flex items-center justify-center hover:bg-secondary-hover active:bg-secondary-active focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-dark transition-colors"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 size-[39px] rounded-full bg-secondary text-secondary-ink inline-flex items-center justify-center hover:bg-secondary-hover active:bg-secondary-active focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-dark transition-colors"
           >
-            <Search className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+            <Search className="size-5" strokeWidth={2} aria-hidden="true" />
           </button>
         </form>
 
@@ -202,7 +202,7 @@ export function SearchBanner({
                   )}
                 >
                   <Search
-                    className="inline-block h-4 w-4 text-muted mr-3 align-text-bottom"
+                    className="inline-block size-4 text-muted mr-3 align-text-bottom"
                     strokeWidth={1.75}
                     aria-hidden="true"
                   />

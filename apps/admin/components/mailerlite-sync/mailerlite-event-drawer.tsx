@@ -44,7 +44,7 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
       <SheetContent className="w-[500px] sm:max-w-[500px]">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
+            <Mail className="size-5" />
             MailerLite Sync Detail
           </SheetTitle>
           <SheetDescription>
@@ -60,12 +60,12 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
               <div className="flex items-center gap-2">
                 {event.sync_success ? (
                   <Badge variant="secondary" className="bg-green-100 text-green-700">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    <CheckCircle2 className="size-3 mr-1" />
                     Succesvol
                   </Badge>
                 ) : (
                   <Badge variant="destructive">
-                    <XCircle className="h-3 w-3 mr-1" />
+                    <XCircle className="size-3 mr-1" />
                     Gefaald
                   </Badge>
                 )}
@@ -85,18 +85,18 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
               <h4 className="text-sm font-medium mb-3">Subscriber</h4>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <Mail className="size-4 text-muted-foreground" />
                   <span className="font-medium">{event.email}</span>
                 </div>
                 {event.mailerlite_subscriber_id && (
                   <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                    <User className="size-4 text-muted-foreground" />
                     <span>Subscriber ID: {event.mailerlite_subscriber_id}</span>
                   </div>
                 )}
                 {event.hoofddomein && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <Globe className="size-4 text-muted-foreground" />
                     <span>{event.hoofddomein}</span>
                   </div>
                 )}
@@ -112,7 +112,7 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
                 <div className="space-y-2">
                   {event.mailerlite_group_name && (
                     <div className="flex items-center gap-2 text-sm">
-                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Users className="size-4 text-muted-foreground" />
                       <span className="font-medium">{event.mailerlite_group_name}</span>
                     </div>
                   )}
@@ -139,7 +139,7 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
                   {event.pipedrive_org_id && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <Building2 className="size-4 text-muted-foreground" />
                         <span className="font-medium">Org #{event.pipedrive_org_id}</span>
                       </div>
                       <Button
@@ -152,7 +152,7 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
                           )
                         }}
                       >
-                        <ExternalLink className="h-3 w-3 mr-1" />
+                        <ExternalLink className="size-3 mr-1" />
                         Open
                       </Button>
                     </div>
@@ -161,7 +161,7 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
                   {event.pipedrive_person_id && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground" />
+                        <User className="size-4 text-muted-foreground" />
                         <span className="font-medium">Person #{event.pipedrive_person_id}</span>
                       </div>
                       <Button
@@ -174,7 +174,7 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
                           )
                         }}
                       >
-                        <ExternalLink className="h-3 w-3 mr-1" />
+                        <ExternalLink className="size-3 mr-1" />
                         Open
                       </Button>
                     </div>
@@ -194,20 +194,20 @@ export function MailerLiteEventDrawer({ event, open, onClose }: MailerLiteEventD
               <h4 className="text-sm font-medium mb-3">Tijdlijn</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <Clock className="size-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Aangemaakt:</span>
                   <span>{format(createdAt, "d MMM yyyy HH:mm:ss", { locale: nl })}</span>
                 </div>
                 {syncedAt && (
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Clock className="size-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Gesynced:</span>
                     <span>{format(syncedAt, "d MMM yyyy HH:mm:ss", { locale: nl })}</span>
                   </div>
                 )}
                 {updatedAt && (
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Clock className="size-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Bijgewerkt:</span>
                     <span>{format(updatedAt, "d MMM yyyy HH:mm:ss", { locale: nl })}</span>
                   </div>

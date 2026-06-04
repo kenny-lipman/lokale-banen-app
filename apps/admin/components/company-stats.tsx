@@ -62,9 +62,9 @@ export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {Array.from({ length: 4 }).map((_, index) => (
           <Card key={index}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
               <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
-              <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="size-4 bg-gray-200 rounded animate-pulse"></div>
             </CardHeader>
             <CardContent>
               <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
@@ -81,9 +81,9 @@ export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Totaal Bedrijven</CardTitle>
-          <Building2 className="h-4 w-4 text-orange-500" />
+          <Building2 className="size-4 text-orange-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.totalCompanies.toLocaleString()}</div>
@@ -92,33 +92,33 @@ export function CompanyStats({ refreshKey }: { refreshKey?: any } = {}) {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Qualification Status</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded-full bg-gray-400"></span>
+              <span className="inline-block size-3 rounded-full bg-gray-400"></span>
               <span className="text-sm">Pending:</span>
               <span className="font-bold">{formatCount(qualificationCounts.pending, qualificationCounts.is_capped.pending)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
+              <span className="inline-block size-3 rounded-full bg-green-500"></span>
               <span className="text-sm">Qualified:</span>
               <span className="font-bold">{formatCount(qualificationCounts.qualified, qualificationCounts.is_capped.qualified)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded-full bg-purple-500"></span>
+              <span className="inline-block size-3 rounded-full bg-purple-500"></span>
               <span className="text-sm">Enriched:</span>
               <span className="font-bold">{formatCount(qualificationCounts.enriched, qualificationCounts.is_capped.enriched)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded-full bg-yellow-500"></span>
+              <span className="inline-block size-3 rounded-full bg-yellow-500"></span>
               <span className="text-sm">Review:</span>
               <span className="font-bold">{formatCount(qualificationCounts.review, qualificationCounts.is_capped.review)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded-full bg-red-500"></span>
+              <span className="inline-block size-3 rounded-full bg-red-500"></span>
               <span className="text-sm">Disqualified:</span>
               <span className="font-bold">{formatCount(qualificationCounts.disqualified, qualificationCounts.is_capped.disqualified)}</span>
             </div>

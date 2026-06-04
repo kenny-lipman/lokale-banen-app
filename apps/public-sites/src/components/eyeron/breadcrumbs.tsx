@@ -37,7 +37,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
               )}
               {!isLast && (
                 <ChevronRight
-                  className="w-3.5 h-3.5 text-secondary shrink-0"
+                  className="size-3.5 text-secondary shrink-0"
                   strokeWidth={2}
                   aria-hidden="true"
                 />

@@ -42,13 +42,13 @@ interface BackfillHistoryProps {
 }
 
 const STATUS_CONFIG: Record<BackfillBatchStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
-  pending: { label: "Wachtend", variant: "outline", icon: <Clock className="h-3 w-3" /> },
-  collecting: { label: "Verzamelen", variant: "secondary", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-  processing: { label: "Verwerken", variant: "default", icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-  paused: { label: "Gepauzeerd", variant: "outline", icon: <Pause className="h-3 w-3" /> },
-  completed: { label: "Voltooid", variant: "default", icon: <CheckCircle2 className="h-3 w-3" /> },
-  failed: { label: "Mislukt", variant: "destructive", icon: <XCircle className="h-3 w-3" /> },
-  cancelled: { label: "Geannuleerd", variant: "outline", icon: <Ban className="h-3 w-3" /> },
+  pending: { label: "Wachtend", variant: "outline", icon: <Clock className="size-3" /> },
+  collecting: { label: "Verzamelen", variant: "secondary", icon: <Loader2 className="size-3 animate-spin" /> },
+  processing: { label: "Verwerken", variant: "default", icon: <Loader2 className="size-3 animate-spin" /> },
+  paused: { label: "Gepauzeerd", variant: "outline", icon: <Pause className="size-3" /> },
+  completed: { label: "Voltooid", variant: "default", icon: <CheckCircle2 className="size-3" /> },
+  failed: { label: "Mislukt", variant: "destructive", icon: <XCircle className="size-3" /> },
+  cancelled: { label: "Geannuleerd", variant: "outline", icon: <Ban className="size-3" /> },
 }
 
 export function BackfillHistory({ onSelectBatch }: BackfillHistoryProps) {
@@ -87,7 +87,7 @@ export function BackfillHistory({ onSelectBatch }: BackfillHistoryProps) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
-              <History className="h-5 w-5" />
+              <History className="size-5" />
               Batch Geschiedenis
             </CardTitle>
             <CardDescription>
@@ -123,7 +123,7 @@ export function BackfillHistory({ onSelectBatch }: BackfillHistoryProps) {
           </div>
         ) : batches.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <History className="h-8 w-8 mb-2 opacity-50" />
+            <History className="size-8 mb-2 opacity-50" />
             <p>Geen batches gevonden</p>
           </div>
         ) : (
@@ -151,7 +151,7 @@ export function BackfillHistory({ onSelectBatch }: BackfillHistoryProps) {
                           </span>
                           {batch.dry_run && (
                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700 text-xs">
-                              <FlaskConical className="h-2.5 w-2.5 mr-1" />
+                              <FlaskConical className="size-2.5 mr-1" />
                               DRY
                             </Badge>
                           )}
@@ -166,15 +166,15 @@ export function BackfillHistory({ onSelectBatch }: BackfillHistoryProps) {
                       <TableCell>
                         <div className="flex items-center gap-3 text-sm">
                           <span className="text-green-600 flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
+                            <CheckCircle2 className="size-3" />
                             {batch.synced_leads}
                           </span>
                           <span className="text-amber-600 flex items-center gap-1">
-                            <SkipForward className="h-3 w-3" />
+                            <SkipForward className="size-3" />
                             {batch.skipped_leads}
                           </span>
                           <span className="text-red-600 flex items-center gap-1">
-                            <XCircle className="h-3 w-3" />
+                            <XCircle className="size-3" />
                             {batch.failed_leads}
                           </span>
                           <span className="text-muted-foreground">
@@ -197,7 +197,7 @@ export function BackfillHistory({ onSelectBatch }: BackfillHistoryProps) {
                             size="sm"
                             onClick={() => onSelectBatch(batch.batch_id)}
                           >
-                            <Eye className="h-4 w-4 mr-1" />
+                            <Eye className="size-4 mr-1" />
                             Details
                           </Button>
                         )}

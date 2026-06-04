@@ -107,7 +107,7 @@ export function BlocklistBulkActions({
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={onExport} disabled={loading}>
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="size-4 mr-2" />
               Exporteren
             </Button>
             <Button
@@ -116,11 +116,11 @@ export function BlocklistBulkActions({
               onClick={() => setShowImportModal(true)}
               disabled={loading}
             >
-              <Upload className="h-4 w-4 mr-2" />
+              <Upload className="size-4 mr-2" />
               Importeren
             </Button>
             <Button variant="outline" size="sm" onClick={onSyncAll} disabled={loading}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="size-4 mr-2" />
               Alles Synchroniseren
             </Button>
           </div>
@@ -147,9 +147,9 @@ export function BlocklistBulkActions({
             variant="ghost"
             size="sm"
             onClick={onClearSelection}
-            className="h-6 w-6 p-0 hover:bg-blue-100"
+            className="size-6 p-0 hover:bg-blue-100"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </Button>
         </div>
 
@@ -158,16 +158,16 @@ export function BlocklistBulkActions({
             <DropdownMenuTrigger asChild>
               <Button size="sm" disabled={loading}>
                 Acties
-                <ChevronDown className="ml-2 h-4 w-4" />
+                <ChevronDown className="ml-2 size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => handleBulkAction("activate")}>
-                <Power className="mr-2 h-4 w-4 text-green-600" />
+                <Power className="mr-2 size-4 text-green-600" />
                 Activeren
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleBulkAction("deactivate")}>
-                <PowerOff className="mr-2 h-4 w-4 text-orange-600" />
+                <PowerOff className="mr-2 size-4 text-orange-600" />
                 Deactiveren
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -175,14 +175,14 @@ export function BlocklistBulkActions({
                 onClick={confirmDelete}
                 className="text-red-600 focus:text-red-600"
               >
-                <Trash className="mr-2 h-4 w-4" />
+                <Trash className="mr-2 size-4" />
                 Verwijderen
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           <Button variant="outline" size="sm" onClick={onExport} disabled={loading}>
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="size-4 mr-2" />
             Exporteren
           </Button>
         </div>

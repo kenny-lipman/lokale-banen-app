@@ -22,7 +22,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, React.ComponentP
           onClick={() => setShow((v) => !v)}
           aria-label={show ? "Verberg wachtwoord" : "Toon wachtwoord"}
         >
-          {show ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
         </button>
       </div>
     )

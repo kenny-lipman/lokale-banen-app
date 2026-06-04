@@ -75,9 +75,9 @@ export function LeadBrancheSelect({ runId, brancheOverride, suggestion, onChange
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-y-0">
         <CardTitle className="text-base">Branche</CardTitle>
-        {saving ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> : null}
+        {saving ? <Loader2 className="size-4 animate-spin text-gray-400" /> : null}
       </CardHeader>
       <CardContent className="space-y-3">
         <Select
@@ -111,7 +111,7 @@ export function LeadBrancheSelect({ runId, brancheOverride, suggestion, onChange
             <Badge variant="secondary">{effectiveLabel}</Badge>
             {brancheOverride == null && suggestion ? (
               <Badge variant="outline" className="gap-1">
-                <Sparkles className="h-3 w-3" />
+                <Sparkles className="size-3" />
                 AI {suggestion.confidence}%
               </Badge>
             ) : null}

@@ -595,7 +595,7 @@ export default function ContactsPage() {
                 disabled={selectedContacts.size === 0}
                 className={selectedContacts.size === 0 ? "opacity-50 cursor-not-allowed" : ""}
               >
-                <Target className="w-4 h-4 mr-2" />
+                <Target className="size-4 mr-2" />
                 Naar campagne {selectedContacts.size > 0 ? `(${selectedContacts.size})` : ""}
               </Button>
             </DialogTrigger>
@@ -619,16 +619,16 @@ export default function ContactsPage() {
                     <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2 duration-300">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-white rounded-full shadow-sm">
-                          <Sparkles className="w-5 h-5 text-purple-600" />
+                          <Sparkles className="size-5 text-purple-600" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium text-gray-700">Aanbevolen platform</span>
-                            <MapPin className="w-4 h-4 text-purple-400" />
+                            <MapPin className="size-4 text-purple-400" />
                           </div>
                           {recommendationLoading ? (
                             <div className="flex items-center gap-2">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                              <div className="animate-spin rounded-full size-4 border-b-2 border-purple-600"></div>
                               <span className="text-sm text-gray-500">Analyseren...</span>
                             </div>
                           ) : platformRecommendation ? (
@@ -720,7 +720,7 @@ export default function ContactsPage() {
                 disabled={selectedContacts.size === 0}
                 className={selectedContacts.size === 0 ? "opacity-50 cursor-not-allowed" : ""}
               >
-                <Edit className="w-4 h-4 mr-2" />
+                <Edit className="size-4 mr-2" />
                 Status wijzigen
               </Button>
             </DialogTrigger>
@@ -761,7 +761,7 @@ export default function ContactsPage() {
             className={selectedContacts.size === 0 ? "opacity-50 cursor-not-allowed" : ""}
             onClick={() => setIsPipedriveSyncOpen(true)}
           >
-            <ArrowUpRight className="w-4 h-4 mr-2" />
+            <ArrowUpRight className="size-4 mr-2" />
             Sync Pipedrive {selectedContacts.size > 0 ? `(${selectedContacts.size})` : ""}
           </Button>
           <PipedriveSyncDialog
@@ -790,7 +790,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Zoekterm: "{searchQuery}"
                     <X 
-                      className="h-3 w-3 cursor-pointer ml-1" 
+                      className="size-3 cursor-pointer ml-1" 
                       onClick={() => setSearchQuery("")}
                     />
                   </Badge>
@@ -799,7 +799,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Campagne: {inCampaignFilter === "with" ? "Met" : "Zonder"}
                     <X 
-                      className="h-3 w-3 cursor-pointer ml-1" 
+                      className="size-3 cursor-pointer ml-1" 
                       onClick={() => setInCampaignFilter("all")}
                     />
                   </Badge>
@@ -808,7 +808,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Email: {hasEmailFilter === "with" ? "Met" : "Zonder"}
                     <X 
-                      className="h-3 w-3 cursor-pointer ml-1" 
+                      className="size-3 cursor-pointer ml-1" 
                       onClick={() => setHasEmailFilter("all")}
                     />
                   </Badge>
@@ -817,7 +817,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Company Status: {companyStatusFilter.length} geselecteerd
                     <X 
-                      className="h-3 w-3 cursor-pointer ml-1" 
+                      className="size-3 cursor-pointer ml-1" 
                       onClick={() => setCompanyStatusFilter([])}
                     />
                   </Badge>
@@ -826,7 +826,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Company Start: {companyStartFilter.length} geselecteerd
                     <X 
-                      className="h-3 w-3 cursor-pointer ml-1" 
+                      className="size-3 cursor-pointer ml-1" 
                       onClick={() => setCompanyStartFilter([])}
                     />
                   </Badge>
@@ -835,7 +835,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Bedrijfsgrootte: {companySizeFilter.length} geselecteerd
                     <X 
-                      className="h-3 w-3 cursor-pointer ml-1" 
+                      className="size-3 cursor-pointer ml-1" 
                       onClick={() => setCompanySizeFilter([])}
                     />
                   </Badge>
@@ -844,7 +844,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Kwalificatiestatus: {categoryStatusFilter.length} geselecteerd
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setCategoryStatusFilter([])}
                     />
                   </Badge>
@@ -853,7 +853,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Pipedrive: {pipedriveFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setPipedriveFilter("all")}
                     />
                   </Badge>
@@ -862,7 +862,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Instantly: {instantlyFilter === "synced" ? "Gesynchroniseerd" : "Niet gesynchroniseerd"}
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setInstantlyFilter("all")}
                     />
                   </Badge>
@@ -871,7 +871,7 @@ export default function ContactsPage() {
                   <Badge variant="secondary" className="gap-1">
                     Platform: {platformFilter.length} geselecteerd
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => setPlatformFilter([])}
                     />
                   </Badge>
@@ -885,7 +885,7 @@ export default function ContactsPage() {
                         : `Tot ${new Date(dateTo!).toLocaleDateString('nl-NL')}`
                     }
                     <X
-                      className="h-3 w-3 cursor-pointer ml-1"
+                      className="size-3 cursor-pointer ml-1"
                       onClick={() => { setDateFrom(null); setDateTo(null); }}
                     />
                   </Badge>
@@ -914,7 +914,7 @@ export default function ContactsPage() {
             {/* Search */}
             <div className="lg:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 size-4 text-gray-400" />
                 <Input
                   placeholder="Zoek op voornaam, achternaam, bedrijf of email..."
                   value={searchQuery}
@@ -1049,7 +1049,7 @@ export default function ContactsPage() {
               onClick={resetAllFilters}
               className="w-full flex items-center justify-center gap-2"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="size-4" />
               Reset Filters
             </Button>
           </div>
@@ -1066,12 +1066,12 @@ export default function ContactsPage() {
                 {Object.values(columnVisibility).filter(Boolean).length} van {Object.keys(columnVisibility).length} kolommen zichtbaar
               </CardDescription>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-x-4">
               <ColumnVisibilityToggle
                 visibility={columnVisibility}
                 onVisibilityChange={setColumnVisibility}
               />
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-x-2">
                 <span className="text-sm text-gray-600">Rijen per pagina:</span>
                 <Select value={itemsPerPage.toString()} onValueChange={(value) => {
                   setItemsPerPage(value === 'all' ? count || 1000 : parseInt(value))
@@ -1107,7 +1107,7 @@ export default function ContactsPage() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-blue-600" />
+                      <CheckCircle className="size-5 text-blue-600" />
                       <span className="font-medium text-blue-900">
                         {selectedContacts.size} contact{selectedContacts.size === 1 ? '' : 'en'} geselecteerd
                       </span>
@@ -1118,7 +1118,7 @@ export default function ContactsPage() {
                       onClick={() => setSelectedContacts(new Set())}
                       className="bg-white hover:bg-gray-50 border-blue-300 text-blue-700 hover:text-blue-800"
                     >
-                      <X className="w-4 h-4 mr-1" />
+                      <X className="size-4 mr-1" />
                       Deselecteer alle
                     </Button>
                   </div>
@@ -1315,19 +1315,19 @@ export default function ContactsPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenContactDrawer(contact)}
-                                className="h-8 w-8 p-0 hover:bg-purple-100 shadow-sm"
+                                className="size-8 p-0 hover:bg-purple-100 shadow-sm"
                                 title="Contact details bekijken"
                               >
-                                <Eye className="h-4 w-4 text-purple-600" />
+                                <Eye className="size-4 text-purple-600" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditContact(contact)}
-                                className="h-8 w-8 p-0 hover:bg-blue-100 shadow-sm"
+                                className="size-8 p-0 hover:bg-blue-100 shadow-sm"
                                 title="Contact bewerken"
                               >
-                                <Edit3 className="h-4 w-4 text-blue-600" />
+                                <Edit3 className="size-4 text-blue-600" />
                               </Button>
                             </div>
                           </TableCell>
@@ -1344,14 +1344,14 @@ export default function ContactsPage() {
                   <div className="text-sm text-gray-600">
                     Toont {((currentPage - 1) * itemsPerPage) + 1} tot {Math.min(currentPage * itemsPerPage, count).toLocaleString("nl-NL")} van {isCapped ? "10.000+" : count.toLocaleString("nl-NL")} contacten
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-x-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <ChevronLeft className="size-4" />
                       Vorige
                     </Button>
                     <span className="text-sm">
@@ -1364,7 +1364,7 @@ export default function ContactsPage() {
                       disabled={currentPage === totalPages}
                     >
                       Volgende
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="size-4" />
                     </Button>
                   </div>
                 </div>

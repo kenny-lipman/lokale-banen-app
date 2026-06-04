@@ -266,7 +266,7 @@ export function ActivityLog({ vacature }: ActivityLogProps) {
                   TONE_CLASSES[entry.iconTone],
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="size-3.5" />
               </div>
               {!isLast && (
                 <span

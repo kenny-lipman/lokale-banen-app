@@ -32,8 +32,7 @@ export const metadata: Metadata = {
 }
 
 export default async function PreviewPage({ params, searchParams }: PreviewPageProps) {
-  const { id } = await params
-  const { token, platform } = await searchParams
+  const [{ id }, { token, platform }] = await Promise.all([params, searchParams])
 
   if (!token || !verifyPreviewToken(id, token)) notFound()
 
@@ -71,7 +70,7 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
       >
         <div className="max-w-content mx-auto px-pad py-2.5 flex items-center gap-3 text-meta">
           <AlertTriangle
-            className="h-4 w-4 shrink-0"
+            className="size-4 shrink-0"
             strokeWidth={2}
             aria-hidden="true"
           />

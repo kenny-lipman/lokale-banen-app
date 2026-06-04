@@ -78,7 +78,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
         </CardHeader>
         <CardContent>
           <Button onClick={() => triggerSync('auto')} disabled={syncing}>
-            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            {syncing ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
             Sync naar Pipedrive
           </Button>
         </CardContent>
@@ -92,7 +92,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+            <Loader2 className="size-5 text-blue-600 animate-spin" />
             <CardTitle>Sync loopt…</CardTitle>
           </div>
           <CardDescription>Dedupe → Org → Persons → Deal → Notitie</CardDescription>
@@ -111,7 +111,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
       <Card className="border-yellow-300 bg-yellow-50">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-yellow-600" />
+            <AlertTriangle className="size-5 text-yellow-600" />
             <CardTitle>Bedrijf bestaat al in Pipedrive</CardTitle>
           </div>
           <CardDescription>
@@ -134,13 +134,13 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
                 target="_blank"
                 rel="noreferrer"
               >
-                Open in Pipedrive <ExternalLink className="w-3 h-3 ml-1" />
+                Open in Pipedrive <ExternalLink className="size-3 ml-1" />
               </a>
             </Button>
             {confirmingForce ? (
               <>
                 <Button variant="destructive" disabled={syncing} onClick={() => triggerSync('new')}>
-                  {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {syncing ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
                   Bevestig: nieuwe organisatie
                 </Button>
                 <Button variant="ghost" onClick={() => setConfirmingForce(false)}>
@@ -150,7 +150,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
             ) : (
               <>
                 <Button disabled={syncing} onClick={() => triggerSync('existing')}>
-                  {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {syncing ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
                   Deal in bestaande organisatie
                 </Button>
                 <Button variant="outline" disabled={syncing} onClick={() => setConfirmingForce(true)}>
@@ -174,7 +174,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
       <Card className="border-green-300 bg-green-50">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <CheckCircle2 className="size-5 text-green-600" />
             <CardTitle>Sync voltooid</CardTitle>
           </div>
           <CardDescription>
@@ -214,7 +214,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Org <ExternalLink className="w-3 h-3 ml-1" />
+                  Org <ExternalLink className="size-3 ml-1" />
                 </a>
               </Button>
             )}
@@ -225,7 +225,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Deal <ExternalLink className="w-3 h-3 ml-1" />
+                  Deal <ExternalLink className="size-3 ml-1" />
                 </a>
               </Button>
             )}
@@ -237,7 +237,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Persoon {i + 1} <ExternalLink className="w-3 h-3 ml-1" />
+                    Persoon {i + 1} <ExternalLink className="size-3 ml-1" />
                   </a>
                 </Button>
               ))}
@@ -262,7 +262,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
       <Card className="border-red-300 bg-red-50">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <XCircle className="w-5 h-5 text-red-600" />
+            <XCircle className="size-5 text-red-600" />
             <CardTitle>{canRetrySync ? 'Sync mislukt' : 'Verrijking mislukt'}</CardTitle>
           </div>
           <CardDescription className="text-red-800">{run.error ?? 'Onbekende fout'}</CardDescription>
@@ -280,7 +280,7 @@ export function LeadSyncStatus({ run, ownerLabel, onSynced }: Props) {
           )}
           {canRetrySync ? (
             <Button onClick={() => triggerSync('auto')} disabled={syncing}>
-              {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCw className="w-4 h-4 mr-2" />}
+              {syncing ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RotateCw className="size-4 mr-2" />}
               Hervatten
             </Button>
           ) : (

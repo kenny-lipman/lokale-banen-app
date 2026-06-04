@@ -103,7 +103,7 @@ export function MobileBottomBar({
           className="flex-1 justify-center h-12"
           aria-label={`Filters openen${activeFilterCount > 0 ? `, ${activeFilterCount} actief` : ''}`}
         >
-          <SlidersHorizontal className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+          <SlidersHorizontal className="size-4" strokeWidth={2} aria-hidden="true" />
           Filters
           {activeFilterCount > 0 && (
             <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-secondary text-on-dark text-small font-bold">
@@ -234,7 +234,7 @@ function ChevronUpIcon() {
 function CloseIcon() {
   return (
     <svg
-      className="w-6 h-6"
+      className="size-6"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

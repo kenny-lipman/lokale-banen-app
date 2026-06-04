@@ -100,11 +100,11 @@ export function CompanyDrawerCareerPages({ companyId, companyName }: Props) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          <LinkIcon className="w-4 h-4 text-slate-500" />
+          <LinkIcon className="size-4 text-slate-500" />
           Werken-bij bronnen ({rows.length})
         </h3>
         <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus className="w-4 h-4 mr-1" />
+          <Plus className="size-4 mr-1" />
           URL toevoegen
         </Button>
       </div>
@@ -129,7 +129,7 @@ export function CompanyDrawerCareerPages({ companyId, companyName }: Props) {
                       className="font-mono text-xs text-blue-600 hover:underline truncate flex items-center gap-1 max-w-full"
                     >
                       <span className="truncate">{row.url}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0 opacity-50" />
+                      <ExternalLink className="size-3 shrink-0 opacity-50" />
                     </a>
                     {row.review_status === 'pending' && (
                       <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs">⏳ Pending</Badge>
@@ -153,8 +153,8 @@ export function CompanyDrawerCareerPages({ companyId, companyName }: Props) {
                   {row.review_status === 'approved' && (
                     <Switch checked={!!row.active} onCheckedChange={(v) => onToggle(row, v)} />
                   )}
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => setDeleteRow(row)}>
-                    <Trash2 className="w-4 h-4" />
+                  <Button size="icon" variant="ghost" className="size-7 text-red-600" onClick={() => setDeleteRow(row)}>
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               </div>
