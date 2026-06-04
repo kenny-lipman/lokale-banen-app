@@ -23,14 +23,16 @@ async function matchCompanyHandler(req: NextRequest, authResult: AuthResult) {
     if (data) return NextResponse.json({ match: data as CompanyMatch })
   }
 
-  // 2. Website apex-domein
+  // 2. Website apex-domein. Grens-bewust matchen zodat `bakker.nl` niet ook
+  // `mijnbakker.nl` vangt: de apex moet aan het begin staan, of voorafgegaan
+  // worden door een `/` (na protocol) of een `.` (subdomein zoals www).
   if (domain) {
     const apex = extractApex(domain)
     if (apex) {
       const { data } = await supabase
         .from('companies')
         .select('id, name, website')
-        .ilike('website', `%${apex}%`)
+        .or(`website.ilike.${apex}*,website.ilike.*/${apex}*,website.ilike.*.${apex}*`)
         .limit(1)
         .maybeSingle()
       if (data) return NextResponse.json({ match: data as CompanyMatch })
