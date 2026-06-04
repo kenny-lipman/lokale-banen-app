@@ -24,7 +24,7 @@ async function getHandler(_req: NextRequest, _auth: AuthResult, ctx: RouteContex
 async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: RouteContext) {
   const { id } = await ctx.params
   const body = (await req.json().catch(() => null)) as
-    | { master_record?: unknown; selected_contacts?: unknown }
+    | { master_record?: unknown; selected_contacts?: unknown; manual_vacancies?: unknown }
     | null
   if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
 
@@ -32,6 +32,7 @@ async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: RouteConte
     updated_at: string
     master_record?: Json
     selected_contacts?: Json
+    manual_vacancies?: Json
   } = { updated_at: new Date().toISOString() }
   let touched = false
   if ('master_record' in body && body.master_record !== undefined) {
@@ -43,6 +44,13 @@ async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: RouteConte
       return NextResponse.json({ error: 'selected_contacts moet array zijn' }, { status: 400 })
     }
     update.selected_contacts = body.selected_contacts as Json
+    touched = true
+  }
+  if ('manual_vacancies' in body && body.manual_vacancies !== undefined) {
+    if (!Array.isArray(body.manual_vacancies)) {
+      return NextResponse.json({ error: 'manual_vacancies moet array zijn' }, { status: 400 })
+    }
+    update.manual_vacancies = body.manual_vacancies as Json
     touched = true
   }
   if (!touched) {
