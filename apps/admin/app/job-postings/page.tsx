@@ -91,7 +91,7 @@ function JobPostingsContent() {
     }
   }, [rawStatus, router, searchParams])
 
-  // Fetch review counts (refetches when refreshTick bumps — e.g. after bulk action)
+  // Fetch review counts (refetches when refreshTick bumps, e.g. after bulk action)
   const fetchCounts = useCallback(async () => {
     setCountsLoading(true)
     try {
@@ -111,7 +111,7 @@ function JobPostingsContent() {
     fetchCounts()
   }, [fetchCounts, refreshTick])
 
-  // Handle URL query param for job ID — always fetch full data from API
+  // Handle URL query param for job ID, always fetch full data from API
   // so the drawer gets platform domain, slug, published_at, header_image_url etc.
   const fetchJobIdRef = useRef<string | null>(null)
   useEffect(() => {
