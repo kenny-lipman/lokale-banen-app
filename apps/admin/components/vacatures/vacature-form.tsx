@@ -72,7 +72,6 @@ export function VacatureForm({
     initialCompanyOption ? [initialCompanyOption] : [],
   )
   const [platforms, setPlatforms] = useState<Platform[]>([])
-  const [companySearch, setCompanySearch] = useState('')
 
   const [title, setTitle] = useState('')
   const [companyId, setCompanyId] = useState(initialValues?.companyId ?? '')
@@ -116,11 +115,9 @@ export function VacatureForm({
     }
   }, [initialCompanyOption])
 
-  useEffect(() => {
-    const timer = setTimeout(() => { searchCompanies(companySearch) }, 300)
-    return () => clearTimeout(timer)
-  }, [companySearch, searchCompanies])
-
+  // Laadt eenmalig de eerste 50 bedrijven; de Combobox filtert daarna
+  // client-side. Server-side zoeken-op-typen is bewust niet bedraad (de
+  // Combobox heeft geen onSearch-hook).
   useEffect(() => { searchCompanies('') }, [searchCompanies])
 
   useEffect(() => {
