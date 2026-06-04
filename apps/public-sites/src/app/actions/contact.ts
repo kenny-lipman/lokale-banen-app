@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { getResendClient, MAIL_FROM } from '@/lib/email'
 import { COMPANY_INFO } from '@/lib/company-info'
 import { getTenant } from '@/lib/tenant'
+import { checkRateLimit } from '@/lib/contact-rate-limit'
 
 export interface ContactFormResult {
   ok: boolean
@@ -98,22 +99,4 @@ export async function submitContactForm(formData: FormData): Promise<ContactForm
       message: 'Er ging iets mis bij het versturen. Probeer het later opnieuw.',
     }
   }
-}
-
-// ── Rate-limiting (in-memory, per-instance) ─────────────────────────────────
-// Voor multi-instance setups zou Upstash beter zijn. Voor de huidige
-// load (lage volume contactformulieren) is in-memory voldoende.
-
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
-const RATE_LIMIT_MAX = 3
-const submissions = new Map<string, number[]>()
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const cutoff = now - RATE_LIMIT_WINDOW_MS
-  const history = (submissions.get(ip) || []).filter((t) => t > cutoff)
-  if (history.length >= RATE_LIMIT_MAX) return false
-  history.push(now)
-  submissions.set(ip, history)
-  return true
 }

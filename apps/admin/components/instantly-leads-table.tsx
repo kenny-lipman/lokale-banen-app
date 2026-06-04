@@ -33,7 +33,36 @@ interface InstantlyLeadsTableProps {
 type SortField = keyof Lead
 type SortDirection = 'asc' | 'desc'
 
-export function InstantlyLeadsTable({ 
+// Render sortable column header
+function SortableHeader({
+  field,
+  children,
+  sortField,
+  sortDirection,
+  onSort,
+}: {
+  field: SortField
+  children: React.ReactNode
+  sortField: SortField
+  sortDirection: SortDirection
+  onSort: (field: SortField) => void
+}) {
+  return (
+    <TableHead
+      className="cursor-pointer select-none hover:bg-gray-50"
+      onClick={() => onSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField !== field && <ArrowUpDown className="size-4 text-gray-400" />}
+        {sortField === field && sortDirection === 'asc' && <ChevronUp className="size-4 text-gray-600" />}
+        {sortField === field && sortDirection === 'desc' && <ChevronDown className="size-4 text-gray-600" />}
+      </div>
+    </TableHead>
+  )
+}
+
+export function InstantlyLeadsTable({
   data, 
   loading, 
   error, 
@@ -231,21 +260,6 @@ export function InstantlyLeadsTable({
     return new Date(dateString).toLocaleDateString('nl-NL')
   }
 
-  // Render sortable column header
-  const SortableHeader = ({ field, children }: { field: SortField, children: React.ReactNode }) => (
-    <TableHead 
-      className="cursor-pointer select-none hover:bg-gray-50"
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center gap-1">
-        {children}
-        {sortField !== field && <ArrowUpDown className="size-4 text-gray-400" />}
-        {sortField === field && sortDirection === 'asc' && <ChevronUp className="size-4 text-gray-600" />}
-        {sortField === field && sortDirection === 'desc' && <ChevronDown className="size-4 text-gray-600" />}
-      </div>
-    </TableHead>
-  )
-
   if (error) {
     return (
       <div className="text-center py-12">
@@ -337,15 +351,15 @@ export function InstantlyLeadsTable({
                   aria-label="Selecteer alle leads"
                 />
               </TableHead>
-              <SortableHeader field="name">
+              <SortableHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
                 <User className="size-4 mr-1" />
                 Naam
               </SortableHeader>
-              <SortableHeader field="email">
+              <SortableHeader field="email" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
                 <Mail className="size-4 mr-1" />
                 Email
               </SortableHeader>
-              <SortableHeader field="company_name">
+              <SortableHeader field="company_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
                 <Building2 className="size-4 mr-1" />
                 Bedrijf
               </SortableHeader>
@@ -353,8 +367,8 @@ export function InstantlyLeadsTable({
               <TableHead>Status</TableHead>
               <TableHead>Response</TableHead>
               <TableHead>Blocklist</TableHead>
-              <SortableHeader field="campaign_name">Campagne</SortableHeader>
-              <SortableHeader field="created_at">Toegevoegd</SortableHeader>
+              <SortableHeader field="campaign_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Campagne</SortableHeader>
+              <SortableHeader field="created_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Toegevoegd</SortableHeader>
               <TableHead className="w-[100px]">Acties</TableHead>
             </TableRow>
           </TableHeader>

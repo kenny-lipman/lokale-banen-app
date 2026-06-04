@@ -39,12 +39,13 @@ export function ProcessingNotesModal({
     if (isOpen && run) {
       setCurrentNotes(run.processing_notes || '')
       setHasUnsavedChanges(false)
-      setTimeout(() => {
+      const id = setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus()
           adjustTextareaHeight()
         }
       }, 100)
+      return () => clearTimeout(id)
     }
   }, [isOpen, run])
 

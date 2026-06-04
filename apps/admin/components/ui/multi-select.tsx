@@ -39,6 +39,7 @@ export function MultiSelect({
   className,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false)
+  const listId = React.useId()
 
   const handleSelect = (value: string) => {
     const newSelected = selected.includes(value)
@@ -83,6 +84,7 @@ export function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-controls={listId}
           className={cn(
             "w-full justify-between h-10 px-3 py-2",
             selected.length > 0 && "border-orange-300 bg-orange-50",
@@ -113,7 +115,7 @@ export function MultiSelect({
           <div className="px-2 py-1.5 text-xs text-muted-foreground border-b bg-muted/50">
             Meerdere opties mogelijk
           </div>
-          <CommandGroup className="max-h-64 overflow-auto">
+          <CommandGroup id={listId} role="listbox" className="max-h-64 overflow-auto">
             {options.map((option) => (
               <CommandItem
                 key={option.value}

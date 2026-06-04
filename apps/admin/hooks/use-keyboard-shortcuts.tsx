@@ -1,7 +1,7 @@
 // @ts-nocheck — gebruikt OTIS WorkflowContextType (in quarantaine)
 "use client"
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useWorkflow } from '@/contexts/otis-workflow-context'
 
 interface KeyboardShortcutsProps {
@@ -12,7 +12,7 @@ export function useKeyboardShortcuts({ onStageChange }: KeyboardShortcutsProps) 
   const workflow = useWorkflow()
   // WorkflowContextType exposes currentStage/isLoading directly (no nested state object)
   const state = { currentStage: workflow.currentStage, isProcessing: workflow.isLoading }
-  const canNavigateToStage = (_stage: string) => true
+  const canNavigateToStage = useCallback((_stage: string) => true, [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

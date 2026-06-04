@@ -834,7 +834,7 @@ function FullOtisDashboard() {
         toast.error("Validation Error", { description: "Please select an existing Apify run" })
         return
       }
-      await useExistingRun()
+      await runExistingScraping()
     }
   }
 
@@ -945,7 +945,7 @@ function FullOtisDashboard() {
     }
   }
 
-  const useExistingRun = async () => {
+  const runExistingScraping = async () => {
     if (!selectedExistingRun) return
 
     setIsScraping(true)

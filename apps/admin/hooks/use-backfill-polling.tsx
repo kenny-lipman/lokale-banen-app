@@ -79,6 +79,8 @@ export function useBackfillPolling(
   config: Partial<BackfillPollingConfig> = {},
 ) {
   const fullConfig = { ...DEFAULT_CONFIG, ...config }
+  const configRef = useRef(config)
+  configRef.current = config
   const [enabled, setEnabled] = useState(true)
   const [phase, setPhase] = useState<"active" | "manual" | "stopped">("stopped")
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -157,14 +159,14 @@ export function useBackfillPolling(
   // Status callbacks + completion-toast bij terminal-overgang
   useEffect(() => {
     if (!batchId || !data) return
-    fullConfig.onStatusChange?.(data)
+    configRef.current.onStatusChange?.(data)
 
     if (TERMINAL.includes(data.batch.status)) {
       if (notifiedTerminalRef.current !== data.batch.batch_id) {
         notifiedTerminalRef.current = data.batch.batch_id
         setPhase("stopped")
         setCanManualRefresh(false)
-        fullConfig.onComplete?.(data.batch.batch_id, data.batch)
+        configRef.current.onComplete?.(data.batch.batch_id, data.batch)
 
         const isSuccess = data.batch.status === "completed"
         toast.success(isSuccess ? "Backfill Complete!" : `Backfill ${data.batch.status}`, {
@@ -174,14 +176,14 @@ export function useBackfillPolling(
         })
       }
     }
-  }, [data, batchId, fullConfig])
+  }, [data, batchId])
 
   useEffect(() => {
     if (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      fullConfig.onError?.(errorMessage)
+      configRef.current.onError?.(errorMessage)
     }
-  }, [error, fullConfig])
+  }, [error])
 
   const stopPolling = useCallback(() => {
     setEnabled(false)
@@ -210,7 +212,7 @@ export function useBackfillPolling(
         if (fresh.success) {
           await mutate(fresh, { revalidate: false })
           if (TERMINAL.includes(fresh.batch.status)) {
-            fullConfig.onComplete?.(fresh.batch.batch_id, fresh.batch)
+            configRef.current.onComplete?.(fresh.batch.batch_id, fresh.batch)
           }
         }
       } else {
@@ -219,7 +221,7 @@ export function useBackfillPolling(
     } finally {
       setTimeout(() => setCanManualRefresh(true), 2000)
     }
-  }, [batchId, canManualRefresh, fullConfig, mutate])
+  }, [batchId, canManualRefresh, mutate])
 
   const getStatusMessage = useCallback(() => {
     if (!data?.batch) return "Initializing..."

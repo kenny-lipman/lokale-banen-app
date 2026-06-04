@@ -59,8 +59,10 @@ const AUTO_REFRESH_INTERVAL = 3000 // 3 seconds
 export function BackfillActivityLog({ batchId, batchStatus }: BackfillActivityLogProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const isAutoRefreshing =
+    (batchStatus === 'processing' || batchStatus === 'collecting') && !!batchId
 
   const fetchLogs = useCallback(async (silent = false) => {
     if (!batchId) return
@@ -92,12 +94,10 @@ export function BackfillActivityLog({ batchId, batchStatus }: BackfillActivityLo
     const isProcessing = batchStatus === 'processing' || batchStatus === 'collecting'
 
     if (isProcessing && batchId) {
-      setIsAutoRefreshing(true)
       refreshIntervalRef.current = setInterval(() => {
         fetchLogs(true)
       }, AUTO_REFRESH_INTERVAL)
     } else {
-      setIsAutoRefreshing(false)
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current)
         refreshIntervalRef.current = null

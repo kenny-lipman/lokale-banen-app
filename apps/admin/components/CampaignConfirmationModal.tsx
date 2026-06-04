@@ -169,9 +169,10 @@ export function CampaignConfirmationModal({
   useEffect(() => {
     if (isOpen && confirmButtonRef.current) {
       // Small delay to ensure modal is rendered
-      setTimeout(() => {
+      const id = setTimeout(() => {
         confirmButtonRef.current?.focus()
       }, 100)
+      return () => clearTimeout(id)
     }
   }, [isOpen])
 

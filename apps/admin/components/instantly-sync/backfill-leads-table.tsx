@@ -53,7 +53,6 @@ const AUTO_REFRESH_INTERVAL = 5000 // 5 seconds
 export function BackfillLeadsTable({ batchId, batchStatus }: BackfillLeadsTableProps) {
   const [leads, setLeads] = useState<BackfillLead[]>([])
   const [loading, setLoading] = useState(false)
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 25,
@@ -65,6 +64,9 @@ export function BackfillLeadsTable({ batchId, batchStatus }: BackfillLeadsTableP
     search: "",
   })
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const isAutoRefreshing =
+    (batchStatus === 'processing' || batchStatus === 'collecting') && !!batchId
 
   // Fetch leads
   const fetchLeads = useCallback(async (silent = false) => {
@@ -108,12 +110,10 @@ export function BackfillLeadsTable({ batchId, batchStatus }: BackfillLeadsTableP
     const isProcessing = batchStatus === 'processing' || batchStatus === 'collecting'
 
     if (isProcessing && batchId) {
-      setIsAutoRefreshing(true)
       refreshIntervalRef.current = setInterval(() => {
         fetchLeads(true) // Silent refresh
       }, AUTO_REFRESH_INTERVAL)
     } else {
-      setIsAutoRefreshing(false)
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current)
         refreshIntervalRef.current = null

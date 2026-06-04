@@ -54,6 +54,7 @@ export function CampaignCombobox({
 }: CampaignComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [searchValue, setSearchValue] = React.useState("")
+  const listId = React.useId()
   const scrollableRef = React.useRef<HTMLDivElement>(null)
   
   // Debounce search for better performance
@@ -120,6 +121,7 @@ export function CampaignCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-controls={listId}
           className="w-full justify-between h-auto min-h-[40px] font-normal"
         >
           {selectedCampaign ? (
@@ -161,7 +163,7 @@ export function CampaignCombobox({
               scrollbarColor: '#d1d5db #f3f4f6'
             }}
           >
-            <CommandList className="max-h-none">
+            <CommandList id={listId} role="listbox" className="max-h-none">
               {totalFilteredCampaigns === 0 ? (
                 <CommandEmpty>
                   {searchValue ? `Geen campagnes gevonden voor "${searchValue}"` : "Geen campagnes beschikbaar"}
