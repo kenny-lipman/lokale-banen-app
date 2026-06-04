@@ -1,17 +1,31 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 import type { NormalizedVacancy, RunEnrichments } from '@/lib/services/sales-leads/types'
+import type { VacaturePayload } from '@/lib/services/sales-leads/manual-vacancy'
+import { LeadAddVacancyModal } from './lead-add-vacancy-modal'
 
 type Props = {
   manualVacancies: NormalizedVacancy[]
   enrichments: RunEnrichments
   selectedTitles: string[]
   onChange: (selectedTitles: string[]) => void
+  // Lead-context voor de 'vacature toevoegen'-modal.
+  lead: {
+    companyName?: string | null
+    domain?: string | null
+    kvk?: string | null
+    city?: string | null
+  }
+  onVacancyCreated: (payload: VacaturePayload) => void
 }
 
-export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitles, onChange }: Props) {
+export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitles, onChange, lead, onVacancyCreated }: Props) {
+  const [modalOpen, setModalOpen] = useState(false)
   const websiteVacancies = enrichments.website?.parsed?.vacancies ?? []
   const all: NormalizedVacancy[] = [...manualVacancies, ...websiteVacancies]
   const seen = new Set<string>()
@@ -35,8 +49,12 @@ export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitl
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Vacatures</CardTitle>
+        <Button size="sm" variant="outline" onClick={() => setModalOpen(true)}>
+          <Plus className="size-4 mr-1" />
+          Toevoegen
+        </Button>
       </CardHeader>
       <CardContent className="space-y-3">
         {unique.length === 0 && (
@@ -81,6 +99,12 @@ export function LeadVacanciesColumn({ manualVacancies, enrichments, selectedTitl
             </label>
           )
         })}
+        <LeadAddVacancyModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          lead={lead}
+          onCreated={onVacancyCreated}
+        />
       </CardContent>
     </Card>
   )
