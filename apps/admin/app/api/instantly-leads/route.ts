@@ -3,10 +3,13 @@ import { withAuth, AuthResult } from '@/lib/auth-middleware'
 
 // @auth SESSION
 
-const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
+const INSTANTLY_API_KEY = process.env.INSTANTLY_API_KEY
 const LEAD_LIST_ID = "2af5c1a6-bf57-4511-bb30-3eaa86e17104"
 
 async function getHandler(_req: NextRequest, _auth: AuthResult) {
+  if (!INSTANTLY_API_KEY) {
+    return NextResponse.json({ error: "INSTANTLY_API_KEY is niet geconfigureerd" }, { status: 500 })
+  }
   try {
     const res = await fetch("https://api.instantly.ai/api/v2/leads/list", {
       method: "POST",

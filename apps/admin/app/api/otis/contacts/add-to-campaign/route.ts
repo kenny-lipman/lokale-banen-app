@@ -5,7 +5,7 @@ import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { RateLimiter, RateLimitUtils, getClientIp } from '@/middleware/rate-limiting'
 import { pipedriveClient, STATUS_PROSPECT_OPTIONS } from '@/lib/pipedrive-client'
 
-const INSTANTLY_API_KEY = "ZmVlNjJlZjktNWQwMC00Y2JmLWFiNmItYmU4YTk1YWEyMGE0OlFFeFVoYk9Ra1FXbw=="
+const INSTANTLY_API_KEY = process.env.INSTANTLY_API_KEY
 
 // Klant status ID - leads with this status should NEVER be added to Instantly
 const KLANT_STATUS_ID = STATUS_PROSPECT_OPTIONS.KLANT // 303
@@ -30,6 +30,13 @@ async function addToCampaignHandler(request: NextRequest, authResult: AuthResult
         status: 429,
         headers: RateLimitUtils.getRateLimitHeaders(rateLimitResult)
       })
+    }
+
+    if (!INSTANTLY_API_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'INSTANTLY_API_KEY is niet geconfigureerd', code: 'INSTANTLY_API_KEY_ERROR' },
+        { status: 500 }
+      )
     }
 
     const { contactIds, campaignId, campaignName, runId } = await request.json()
