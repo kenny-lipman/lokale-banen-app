@@ -170,6 +170,77 @@ export function stripChatGptArtifacts(input: string): string {
 }
 
 /**
+ * Domeinen van vacature-aggregators / scrape-bronnen. Een sollicitatielink naar
+ * zo'n domein is niet de eigen sollicitatiepagina van de werkgever en wordt
+ * daarom niet als apply-URL gebruikt.
+ */
+const AGGREGATOR_DOMAINS = [
+  'indeed.',
+  'linkedin.com',
+  'glassdoor.',
+  'monsterboard.',
+  'monster.',
+  'nationalevacaturebank.nl',
+  'jobbird.com',
+  'werk.nl',
+  'vacatures.nl',
+  'jooble.',
+  'neuvoo.',
+  'talent.com',
+  'simplyhired.',
+  'adzuna.',
+  'jobrapido.',
+  'trovit.',
+  'whatjobs.',
+  'lokalebanen.nl',
+]
+
+/**
+ * Normaliseer een URL-string naar een parsebare http(s)-URL. Waarden zonder
+ * protocol (bijv. "www.bedrijf.nl") krijgen `https://` als prefix.
+ */
+function toHttpUrl(url: string | null | undefined): URL | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (!trimmed) return null
+  const withProtocol = trimmed.includes('://') ? trimmed : `https://${trimmed}`
+  try {
+    return new URL(withProtocol)
+  } catch {
+    return null
+  }
+}
+
+/** True als de URL ongeldig is of naar een aggregator/scrape-bron wijst. */
+export function isAggregatorUrl(url: string | null | undefined): boolean {
+  const parsed = toHttpUrl(url)
+  if (!parsed) return true
+  const host = parsed.hostname.toLowerCase()
+  return AGGREGATOR_DOMAINS.some((domain) => host.includes(domain))
+}
+
+/**
+ * Bepaal de toegestane sollicitatie-URL voor een vacature. Voorkeur:
+ * 1) de bron-URL als die een echte (niet-aggregator) eigen URL is
+ * 2) anders de bedrijfswebsite als die geldig en niet-aggregator is
+ * 3) anders null (geen sollicitatielink)
+ */
+export function resolveApplyUrl(input: {
+  url?: string | null
+  company?: { website?: string | null } | null
+}): string | null {
+  const { url, company } = input
+  if (url && !isAggregatorUrl(url)) return url
+
+  const website = company?.website
+  if (website && !isAggregatorUrl(website)) {
+    return website.includes('://') ? website : `https://${website.trim()}`
+  }
+
+  return null
+}
+
+/**
  * Compute the great-circle distance between two coordinates (km).
  * Haversine formula - accurate enough for regional distances.
  */

@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { Briefcase, Clock, GraduationCap, MapPin, Calendar, Globe, Linkedin } from 'lucide-react'
-import { formatRelative, stripChatGptArtifacts, unwrapDescription } from '@/lib/utils'
+import { formatRelative, resolveApplyUrl, stripChatGptArtifacts, unwrapDescription } from '@/lib/utils'
 import type { JobPosting } from '@/lib/queries'
 import { slugifyCity } from '@lokale-banen/database'
 import { ApplyButton } from './apply-button'
@@ -29,6 +29,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
   const markdownContent = stripChatGptArtifacts(
     (job.content_md || unwrapDescription(job.description) || '').trim()
   )
+  const applyUrl = resolveApplyUrl(job)
 
   return (
     <article className="lg:grid lg:gap-gap-content lg:items-start lg:[grid-template-columns:1fr_344px]">
@@ -76,7 +77,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
         {/* Apply CTA boven de fold - mobile + tablet (op desktop dekt sticky sidebar af) */}
         <div className="lg:hidden mt-6">
           <ApplyButton
-            jobUrl={job.url}
+            jobUrl={applyUrl}
             jobId={job.id}
             jobTitle={job.title}
             isExpired={isExpired}
@@ -179,7 +180,7 @@ export function JobDetail({ job, relatedJobs, pageUrl }: JobDetailProps) {
       >
         <div className="bg-surface shadow-card p-6 flex flex-col gap-4">
           <ApplyButton
-            jobUrl={job.url}
+            jobUrl={applyUrl}
             jobId={job.id}
             jobTitle={job.title}
             isExpired={isExpired}
