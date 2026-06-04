@@ -26,8 +26,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, Trash2, Building2, Globe, Sparkles } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Building2, Globe, Sparkles, Download } from "lucide-react"
 import Link from "next/link"
+import { ImageUpload } from "@/components/ui/image-upload"
 
 const PROVINCES = [
   "Noord-Holland",
@@ -82,6 +83,9 @@ export default function BewerkBedrijfPage() {
   const [sizeMin, setSizeMin] = useState("")
   const [sizeMax, setSizeMax] = useState("")
 
+  // Logo state
+  const [logoFetching, setLogoFetching] = useState(false)
+
   // AI-omschrijving state
   const [sourceLoading, setSourceLoading] = useState(false)
   const [rewriting, setRewriting] = useState(false)
@@ -128,6 +132,24 @@ export default function BewerkBedrijfPage() {
     }
     fetchCompany()
   }, [id, router])
+
+  const handleFetchLogo = async () => {
+    setLogoFetching(true)
+    try {
+      const res = await fetch(`/api/bedrijven/${id}/logo-suggest`, { method: "POST" })
+      const result = await res.json()
+      if (!result.success) {
+        toast.error(result.error || "Logo ophalen mislukt")
+        return
+      }
+      setLogoUrl(result.data.logoUrl)
+      toast.success("Logo opgehaald, controleer en sla op")
+    } catch {
+      toast.error("Logo ophalen mislukt")
+    } finally {
+      setLogoFetching(false)
+    }
+  }
 
   const handleFetchSource = async () => {
     setSourceLoading(true)
@@ -339,18 +361,46 @@ export default function BewerkBedrijfPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="logo">Logo URL</Label>
-              <Input
-                id="logo"
-                type="url"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://..."
-              />
-              <p className="text-xs text-muted-foreground">
-                Directe URL naar het logo. File upload wordt later ondersteund.
-              </p>
+            <div className="space-y-3">
+              <Label>Logo</Label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="w-48 max-w-[200px]">
+                  <ImageUpload
+                    bucket="company-logos"
+                    path={`${id}/logo`}
+                    currentUrl={logoUrl}
+                    aspectRatio="1:1"
+                    label="Logo"
+                    onUpload={(url) => setLogoUrl(url)}
+                    onRemove={() => setLogoUrl("")}
+                  />
+                </div>
+                <div className="space-y-3 flex-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleFetchLogo}
+                    disabled={!website.trim() || logoFetching}
+                  >
+                    {logoFetching ? (
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="size-4 mr-2" />
+                    )}
+                    Logo ophalen van website
+                  </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="logo">Of plak een logo-URL</Label>
+                    <Input
+                      id="logo"
+                      type="url"
+                      value={logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">

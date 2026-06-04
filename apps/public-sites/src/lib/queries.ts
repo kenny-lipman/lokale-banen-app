@@ -827,6 +827,74 @@ export async function getJobsByCompany(
   return { jobs, total: count || 0 }
 }
 
+export interface CompanyWithCount {
+  id: string
+  name: string
+  slug: string | null
+  logo_url: string | null
+  city: string | null
+  count: number
+}
+
+/**
+ * Bedrijven met openstaande (approved + gepubliceerde) vacatures voor een tenant,
+ * met het aantal vacatures per bedrijf. Gesorteerd op aantal aflopend.
+ * Twee-staps: eerst lichtgewicht company_id's tellen (zoals getTopCities),
+ * daarna de bedrijfsdetails voor de top-N ophalen.
+ */
+export async function getCompaniesWithJobCounts(
+  tenantId: string,
+  limit = 60
+): Promise<CompanyWithCount[]> {
+
+  const supabase = createPublicClient()
+
+  // Stap 1: alleen company_id van alle live vacatures ophalen (lichtgewicht).
+  const { data } = await supabase
+    .from('job_postings')
+    .select('company_id')
+    .eq('platform_id', tenantId)
+    .eq('review_status', 'approved')
+    .not('published_at', 'is', null)
+    .is('archived_at', null)
+    .not('company_id', 'is', null)
+
+  if (!data || data.length === 0) return []
+
+  // Stap 2: tellen per company_id (in-memory).
+  const counts = new Map<string, number>()
+  for (const row of data) {
+    if (row.company_id) {
+      counts.set(row.company_id, (counts.get(row.company_id) || 0) + 1)
+    }
+  }
+
+  // Stap 3: sorteer op count aflopend, neem de top-N company_id's.
+  const topIds = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id)
+
+  if (topIds.length === 0) return []
+
+  // Stap 4: bedrijfsdetails voor de top-N ophalen.
+  const { data: companies, error } = await supabase
+    .from('companies')
+    .select('id, name, slug, logo_url, city')
+    .in('id', topIds)
+
+  if (error || !companies) return []
+
+  // Stap 5: counts mergen, bedrijven zonder detail-rij overslaan,
+  // sorteren op count aflopend en bij gelijke count alfabetisch op naam.
+  return companies
+    .map(company => ({
+      ...company,
+      count: counts.get(company.id) || 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+}
+
 /**
  * Fetch the top cities by approved job count for a tenant.
  * Fetches only the city column (no row limit) and counts in-memory.

@@ -232,6 +232,8 @@ export function VacatureActionBar({
         return
       }
       toast.success("Vacature is gepubliceerd", {
+        description:
+          "Hij staat nu onder het tabblad Approved en is live op de site. Niet meer in Pending betekent gepubliceerd, niet verdwenen.",
         action: publicUrl
           ? {
               label: "Bekijk op site",

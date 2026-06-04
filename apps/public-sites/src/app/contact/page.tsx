@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Mail, Phone, MapPin, Instagram, Facebook, Linkedin } from 'lucide-react'
+import { Mail, Phone, Instagram, Facebook, Linkedin } from 'lucide-react'
 import { getTenant } from '@/lib/tenant'
 import { getCitiesWithJobCounts } from '@/lib/queries'
 import { COMPANY_INFO } from '@/lib/company-info'
@@ -85,11 +85,6 @@ export default async function ContactPage() {
                     {tenant.contact_phone}
                   </ContactInfoRow>
                 )}
-                <ContactInfoRow icon={MapPin}>
-                  {COMPANY_INFO.address.street}
-                  <br />
-                  {COMPANY_INFO.address.postalCode} {COMPANY_INFO.address.city}
-                </ContactInfoRow>
               </ul>
             </div>
 
