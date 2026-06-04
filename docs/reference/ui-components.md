@@ -172,6 +172,8 @@ Props: `bucket: 'platform-assets'|'company-logos'|'job-images'`, `path: string`,
 />
 ```
 
+In "bedrijf bewerken" (`app/bedrijven/[id]/bewerken/page.tsx`) kan een logo op drie manieren worden ingesteld, allemaal gekoppeld aan dezelfde `logoUrl` state: (1) automatisch ophalen van het websitedomein via `POST /api/bedrijven/[id]/logo-suggest`, dat het logo bij Clearbit ophaalt en naar de `company-logos` bucket schrijft; (2) zelf een bestand uploaden via de `ImageUpload`-component hierboven; (3) handmatig een logo-URL plakken als override. Lukt de auto-fetch niet, dan toont de UI "Geen logo gevonden voor dit domein" en uploadt de gebruiker zelf.
+
 ### `logo.tsx` — `Logo`
 
 Tekst-wordmark "OTIS" (placeholder, nog geen echt logo-asset). Props: `size?: 'sm'|'md'|'lg'|'xl'`, `variant?: 'default'|'white'|'monochrome'`, `className?`.

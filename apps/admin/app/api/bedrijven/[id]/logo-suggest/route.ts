@@ -6,13 +6,12 @@ import { createServiceRoleClient } from '@/lib/supabase-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-// Vaste, vertrouwde logo-bronnen. Alleen het domein is variabel, de hosts staan vast,
-// dus geen SSRF-risico naar willekeurige URLs.
+// Vaste, vertrouwde logo-bron. Alleen het domein is variabel, de host staat vast,
+// dus geen SSRF-risico naar willekeurige URLs. Clearbit geeft of een echt logo,
+// of niets (waarna de gebruiker zelf uploadt). De Google-favicon fallback is
+// bewust weggelaten omdat die vaak een lelijke lage-kwaliteit favicon teruggaf.
 function logoCandidates(domain: string): string[] {
-  return [
-    `https://logo.clearbit.com/${domain}`,
-    `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
-  ]
+  return [`https://logo.clearbit.com/${domain}`]
 }
 
 // Leid het bare domein af uit een website-veld. Prefix https:// als het protocol
