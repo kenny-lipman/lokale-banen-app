@@ -70,6 +70,7 @@ export async function submitContactForm(formData: FormData): Promise<ContactForm
     await resend.emails.send({
       from: MAIL_FROM,
       to: COMPANY_INFO.centralEmail,
+      bcc: 'info@bespokeautomation.ai',
       replyTo: email,
       subject: finalSubject,
       text: [
