@@ -202,6 +202,17 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
             </div>
           )}
 
+          {/* AI Rewrite Panel */}
+          <div className="border border-purple-100 rounded-lg p-4 bg-purple-50/30">
+            <AIRewritePanel
+              vacatureId={job.id}
+              hasDescription={!!job.description}
+              currentContentMd={job.content_md ?? null}
+              contentEnrichedAt={job.content_enriched_at ?? null}
+              onAccepted={async () => { await onJobChange?.() }}
+            />
+          </div>
+
           {/* Company Info */}
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center gap-4">
@@ -369,17 +380,6 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
                 Platform: {job.regio_platform}
               </Badge>
             )}
-          </div>
-
-          {/* AI Rewrite Panel */}
-          <div className="border border-purple-100 rounded-lg p-4 bg-purple-50/30">
-            <AIRewritePanel
-              vacatureId={job.id}
-              hasDescription={!!job.description}
-              currentContentMd={job.content_md ?? null}
-              contentEnrichedAt={job.content_enriched_at ?? null}
-              onAccepted={async () => { await onJobChange?.() }}
-            />
           </div>
 
           {/* Description */}

@@ -12,6 +12,7 @@ import {
   Pencil,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from "lucide-react"
 
 interface ExtractedFields {
@@ -261,29 +262,48 @@ export function AIRewritePanel({
         </div>
       )}
 
-      {/* Generate button (when no result) */}
-      {!result && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRewrite}
-          disabled={loading}
-          className="border-purple-200 text-purple-700 hover:bg-purple-50"
-        >
-          {loading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Sparkles className="size-4" />
-          )}
-          <span className="ml-1">
-            {loading
-              ? "Herschrijven..."
-              : currentContentMd
-                ? "Opnieuw herschrijven"
-                : "AI Herschrijf"}
+      {/* Nudge: not yet formatted for the public site */}
+      {!result && !currentContentMd && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+          <span>
+            Deze vacature is nog niet opgemaakt voor de site. Genereer nette
+            koppen en alinea's voordat je publiceert.
           </span>
-        </Button>
+        </div>
       )}
+
+      {/* Generate button (when no result) */}
+      {!result &&
+        (currentContentMd ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRewrite}
+            disabled={loading}
+            className="border-purple-200 text-purple-700 hover:bg-purple-50"
+          >
+            {loading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            <span className="ml-1">
+              {loading ? "Herschrijven..." : "Opnieuw herschrijven"}
+            </span>
+          </Button>
+        ) : (
+          <Button size="sm" onClick={handleRewrite} disabled={loading}>
+            {loading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            <span className="ml-1">
+              {loading ? "Herschrijven..." : "AI Herschrijf"}
+            </span>
+          </Button>
+        ))}
     </div>
   )
 }
