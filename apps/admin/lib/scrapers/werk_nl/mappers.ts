@@ -1,6 +1,12 @@
 /**
  * Mapt een werk.nl SearchItem naar een minimale job_postings insert-rij.
  * company_id blijft null (dedup gebeurt in Fase 2 via de detail-API).
+ *
+ * BELANGRIJK: we zetten hier bewust GEEN `needs_detail_scrape`. Die boolean is
+ * eigendom van de career-page-detail-scrape flow (een bron-blinde cron die elke
+ * rij met die vlag oppakt en de generieke career-page-extractor erop draait).
+ * werk.nl is een eigen bounded context: de detail-backlog komt in Fase 2 als
+ * aparte `werk_nl_scrape_queue`, niet via deze gedeelde vlag.
  */
 
 import type { SearchItem } from "./types";
@@ -18,7 +24,6 @@ export interface JobPostingRow {
   working_hours_max: number | null;
   status: string;
   review_status: string;
-  needs_detail_scrape: true;
   last_seen_in_sitemap: string;
   scraped_at: string;
 }
@@ -46,7 +51,6 @@ export function mapSearchItem(item: SearchItem, sourceId: string, nowIso: string
     working_hours_max: item.maxHours ?? null,
     status: "new",
     review_status: "pending",
-    needs_detail_scrape: true,
     last_seen_in_sitemap: nowIso,
     scraped_at: nowIso,
   };

@@ -5,8 +5,10 @@
  * POST /api/scrapers/werk-nl  body: { maxPages?: number, keywords?: string, location?: string }
  *
  * Bootstrapt een anonieme OAM-sessie, pagineert de publieke zoek-API op nieuwste,
- * en upsert elke vacature als minimale job_postings rij (needs_detail_scrape=true).
- * Detail-verrijging, dedup en delisting volgen in Fase 2/3.
+ * en upsert elke vacature als minimale job_postings rij. Detail-verrijking, dedup
+ * en delisting volgen in Fase 2/3. We zetten bewust GEEN needs_detail_scrape: die
+ * vlag is eigendom van de career-page flow; de werk.nl detail-backlog komt in Fase
+ * 2 als eigen werk_nl_scrape_queue.
  */
 
 import { NextRequest, NextResponse } from "next/server";

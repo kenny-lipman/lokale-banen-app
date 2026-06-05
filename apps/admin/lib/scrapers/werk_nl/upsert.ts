@@ -1,8 +1,11 @@
 /**
  * Upsert van één lijst-vacature in job_postings.
  * - Nieuw (external_vacancy_id + source_id niet gevonden) -> insert minimale rij.
- * - Bestaand -> alleen last_seen verversen en needs_detail_scrape opnieuw zetten
- *   (zodat gewijzigde vacatures opnieuw verrijkt worden in Fase 2).
+ * - Bestaand -> alleen last_seen verversen (delisting-signaal voor Fase 3).
+ *
+ * We raken `needs_detail_scrape` bewust niet aan: die vlag is eigendom van de
+ * career-page-detail-scrape flow. De werk.nl detail-backlog wordt in Fase 2 via
+ * een eigen `werk_nl_scrape_queue` bijgehouden.
  */
 
 import type { SupabaseClient } from "@/lib/scrapers/shared";
@@ -29,7 +32,7 @@ export async function upsertListing(
   if (existing) {
     const { error } = await supabase
       .from("job_postings")
-      .update({ last_seen_in_sitemap: nowIso, needs_detail_scrape: true })
+      .update({ last_seen_in_sitemap: nowIso })
       .eq("id", (existing as { id: string }).id);
     if (error) throw new Error(`[werknl] update faalde: ${error.message}`);
     return "seen";

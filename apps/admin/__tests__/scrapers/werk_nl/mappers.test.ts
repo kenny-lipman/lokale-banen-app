@@ -25,9 +25,10 @@ describe("mapSearchItem", () => {
     expect(row.url).toBe("https://www.werk.nl/werkzoekenden/mijn-werkmap/kia/publiek/zoekenvacatures/api/vacature/123");
     expect(row.working_hours_min).toBe(24);
     expect(row.working_hours_max).toBe(36);
-    expect(row.needs_detail_scrape).toBe(true);
     expect(row.review_status).toBe("pending");
     expect(row.company_id).toBeNull();
+    // bewust geen needs_detail_scrape: die vlag is eigendom van de career-page flow
+    expect("needs_detail_scrape" in row).toBe(false);
   });
 
   test("valt terug op profession als vacatureTitle ontbreekt", () => {
