@@ -2889,6 +2889,27 @@ export type Database = {
         }
         Relationships: []
       }
+      werk_nl_scan_state: {
+        Row: {
+          id: number
+          pass_completed_at: string | null
+          pass_cursor: number
+          pass_started_at: string | null
+        }
+        Insert: {
+          id?: number
+          pass_completed_at?: string | null
+          pass_cursor?: number
+          pass_started_at?: string | null
+        }
+        Update: {
+          id?: number
+          pass_completed_at?: string | null
+          pass_cursor?: number
+          pass_started_at?: string | null
+        }
+        Relationships: []
+      }
       werk_nl_scrape_queue: {
         Row: {
           attempts: number
