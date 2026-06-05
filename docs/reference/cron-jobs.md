@@ -22,6 +22,11 @@ Alle cron jobs draaien via **Vercel Cron** (geconfigureerd in `vercel.json`). Au
 | Auto-archive Old | `30 3 * * *` | 04:30 | `/api/cron/auto-archive-old` |
 | Cleanup Reset Tokens | `0 4 * * *` | 05:00 | `/api/cron/cleanup-reset-tokens` |
 | Career-page Detail Scrape | `*/10 * * * *` | Elke 10 min | `/api/cron/career-page-detail-scrape` |
+| Werk.nl Lijst-scan (incrementeel) | `0 6 * * *` | 07:00 | `/api/scrapers/werk-nl` (GET) |
+| Werk.nl Volledige pass | `*/30 * * * *` | Elke 30 min (self-gating) | `/api/scrapers/werk-nl/full-pass` |
+| Werk.nl Detail-worker | `*/10 * * * *` | Elke 10 min | `/api/scrapers/werk-nl/worker` |
+
+**Werk.nl scan-strategie (Fase 3):** de incrementele scan (GET) ontdekt dagelijks nieuwe vacatures en stopt vroeg zodra hij enkel bekende ziet; hij archiveert nooit. De volledige pass is self-gating: hij doet alleen werk als een pass actief is of de vorige > 7 dagen geleden afrondde (anders meteen "niet due"), loopt cursor-gestuurd over ~14.300 pagina's verspreid over runs, en archiveert bij voltooiing alles met `last_seen_in_sitemap < pass_started_at` (ADR 0002, delisting). De worker draint orchestratie-agnostisch de detail-queue en reset vastgelopen `processing`-rijen (reaper). Monitoring loopt via `job_sources.consecutive_failures` (bestaande watchdog).
 
 ## Resterende pg_cron Jobs (Supabase)
 
