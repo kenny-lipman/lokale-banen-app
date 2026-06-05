@@ -29,7 +29,7 @@ export interface JobPostingRow {
 }
 
 /** Title-case een UWV-stad ("TERNEUZEN" -> "Terneuzen", "MAASTRICHT-AIRPORT" -> "Maastricht-Airport"). */
-function titleCaseCity(raw: string | null | undefined): string | null {
+export function titleCaseCity(raw: string | null | undefined): string | null {
   const s = (raw ?? "").trim();
   if (!s) return null;
   return s
