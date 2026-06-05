@@ -51,12 +51,15 @@ Lokale Banen scrapet vacatures uit meerdere bronnen. Een deel draait lokaal (gee
   - Search (POST): `.../kia/publiek/zoekenvacatures/api/search` (gepagineerd, 20 items per pagina, sort op nieuwste)
   - Detail (GET): `.../kia/publiek/zoekenvacatures/api/vacature/{referenceNumber}` (Fase 2)
 - **Anti-detection**: realistic Chrome-fingerprint (gedeelde identity-pool met werkenindekempen), `preferredRegion: ['fra1','ams1']` (EU-IPs), 0,8-1,5s human-delay tussen pagina's, session-cookie reuse binnen run.
-- **Fase 1 (huidig) - lijst-scan**: elke vacature wordt als minimale rij in `job_postings` gezet met `company_id=null`, `review_status='pending'`. Per `external_vacancy_id` + `source_id`: nieuw -> insert, bestaand -> alleen `last_seen_in_sitemap` verversen. Geen Mistral, geen company-dedup.
+- **Fase 1 (huidig) - lijst-scan**: elke vacature wordt als minimale rij in `job_postings` gezet met `company_id=null`, `review_status='pending'`. Per `external_vacancy_id` + `source_id`: nieuw -> insert (+ enqueue in `werk_nl_scrape_queue`), bestaand -> alleen `last_seen_in_sitemap` verversen. Geen Mistral, geen company-dedup in deze stap.
 - **Bewust geen `needs_detail_scrape`**: die boolean is eigendom van de career-page-detail-scrape flow (een bron-blinde cron die elke rij met die vlag oppakt en de generieke career-page-extractor erop draait). werk.nl is een eigen bounded context; de detail-backlog komt in Fase 2 als aparte `werk_nl_scrape_queue`, niet via die gedeelde vlag.
+- **Fase 2 - detail-verrijking (worker + eigen queue)**: de worker claimt batches (atomic via RPC `werknl_claim_batch`, `FOR UPDATE SKIP LOCKED`), haalt de detail-API op (2-5s delay), en mapt de payload naar `job_postings`-detailvelden (`description`, `salary`, `working_hours_*`, `education_level`, `expires_at`, `acquisition_not_appreciated`). Company-dedup 3-laags: `werknl_employer_id` (= `employer.referenceNumber`) -> `normalized_name` -> `hoofddomein` -> create, met backfill van `werknl_employer_id` bij cross-source match. Contact uit `contactPerson`. Geen Mistral. Bij 404 of verstreken `expirationDate` -> archiveren (`archived_reason='not_in_werknl'` resp. `'expired'`).
+- **Bemiddelaar-detectie**: werk.nl heeft geen schoon signaal (`isByEmployerDirectly` staat ook op `true` voor een zelf-plaatsend uitzendbureau). Heuristiek op `organizationName`/`website` (uitzend/detach/payroll/werving/...), vastgelegd als `companies.is_bemiddelaar` (bronoverstijgend). Zie CONTEXT.md.
 - **API**:
-  - `POST /api/scrapers/werk-nl` - manual lijst-scan met `Authorization: Bearer $CRON_SECRET`. Body: `{ maxPages?, keywords?, location? }` (default `maxPages=5`).
-- **Code**: `lib/scrapers/werk_nl/` (constants, session, types, search-client, mappers, upsert). Job source naam: `Werk.nl`. Log-prefix: `[werknl]`.
-- **Later (Fase 2/3)**: detail-verrijking via de detail-API (queue + worker), 3-laags company-dedup op `werknl_employer_id`, contacten, delisting + cron-registratie + watchdog.
+  - `POST /api/scrapers/werk-nl` - manual lijst-scan met `Authorization: Bearer $CRON_SECRET`. Body: `{ maxPages?, keywords?, location? }` (default `maxPages=5`). Geeft `orchestration_id` terug.
+  - `POST/GET /api/scrapers/werk-nl/worker` - detail-verrijking. Body: `{ orchestrationId, batchSize?, maxBatches? }`.
+- **Code**: `lib/scrapers/werk_nl/` (constants, session, types, search-client, mappers, upsert, detail-types, detail-client, detail-mapper, dedup, queue, process-one). Job source naam: `Werk.nl`. Log-prefix: `[werknl]`.
+- **Later (Fase 3)**: generatie-gebaseerde delisting via voltooide volledige pass (ADR 0002), incrementele early-stop lijst-scan, cron-registratie in `vercel.json`, watchdog.
 
 ## Overige scrapers (Apify-based)
 - Indeed
