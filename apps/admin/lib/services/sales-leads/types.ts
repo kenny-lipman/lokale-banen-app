@@ -121,6 +121,13 @@ export type NormalizedContact = {
   ai_priority_reason?: string
   source_origin: Array<'apollo' | 'website' | 'kvk' | 'manual' | 'synthetic'>
   is_warm_lead?: boolean
+  /**
+   * True wanneer de gebruiker de `name` handmatig heeft aangepast in de OTIS
+   * review (bijv. "Afdeling Personeelszaken" -> "Joris"). Bij sync naar een
+   * bestaande Pipedrive-persoon (e-mailmatch) wordt de naam dan wel meegestuurd;
+   * automatisch verrijkte namen laten de bestaande Pipedrive-naam ongemoeid.
+   */
+  name_overridden?: boolean
 }
 
 /**

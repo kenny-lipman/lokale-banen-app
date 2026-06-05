@@ -146,7 +146,13 @@ function applyUpdates(c: NormalizedContact, updates: UpdatableFields): Normalize
     const fn = (next.first_name ?? '').trim()
     const ln = (next.last_name ?? '').trim()
     const composed = `${fn} ${ln}`.trim()
-    if (composed.length > 0) next.name = composed
+    if (composed.length > 0 && composed !== c.name) {
+      next.name = composed
+      // Markeer als handmatig aangepast zodat de Pipedrive-sync deze naam ook
+      // doorzet naar een al bestaande persoon (e-mailmatch), i.p.v. de oude
+      // Pipedrive-naam te laten staan.
+      next.name_overridden = true
+    }
   }
   return next
 }

@@ -86,6 +86,28 @@ export function computeExistingOrgFlow(
 }
 
 /**
+ * Bouw de update-payload voor een al bestaande Pipedrive-persoon (gevonden via
+ * e-mailmatch in de bestaande-org-flow). Twee onafhankelijke redenen om te
+ * updaten:
+ *   - `org_id`: koppel aan de gekozen org, maar alleen als de persoon nog geen
+ *     org heeft (`shouldLinkOrg`) zodat een bestaande klant-koppeling intact blijft.
+ *   - `name`: alleen als de gebruiker de naam handmatig in OTIS heeft aangepast
+ *     (`name_overridden`); automatisch verrijkte namen laten de Pipedrive-naam staan.
+ * Leeg object => caller doet geen updatePerson-call.
+ */
+export function buildExistingPersonPatch(
+  contact: Pick<NormalizedContact, 'name' | 'name_overridden'>,
+  orgId: number | null,
+  shouldLinkOrg: boolean,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {}
+  if (shouldLinkOrg && orgId != null) patch.org_id = orgId
+  const overriddenName = contact.name_overridden ? contact.name?.trim() : undefined
+  if (overriddenName) patch.name = overriddenName
+  return patch
+}
+
+/**
  * Orchestrator: dedupe → org → persons → deal → notitie → participants → interne linking.
  *
  * Idempotent via DB-state: skipt stappen waar `pipedrive_org_id` /
@@ -255,15 +277,15 @@ export class PipedriveSyncService {
           const match = await this.findExistingPersonByEmail(selected[i].email)
           if (match) {
             personId = match.id
-            // Koppel het contact aan de gekozen org alleen als het nog geen org
-            // heeft; een bestaande (andere) org-koppeling laten we ongemoeid om
-            // klantdata niet te verstoren. Het contact wordt sowieso aan de deal
-            // gehangen via personIds[] (person_id / participant).
-            if (match.shouldLinkOrg) {
+            // Org-koppeling (alleen als persoon nog geen org heeft) en/of de
+            // handmatig aangepaste naam doorzetten. Beide redenen worden in een
+            // enkele patch gebundeld; leeg => geen call.
+            const personPatch = buildExistingPersonPatch(selected[i], orgId, match.shouldLinkOrg)
+            if (Object.keys(personPatch).length > 0) {
               try {
-                await this.pd.updatePerson(personId, { org_id: orgId } as unknown as Partial<PipedrivePerson>)
+                await this.pd.updatePerson(personId, personPatch as unknown as Partial<PipedrivePerson>)
               } catch (e) {
-                console.error(`[pipedrive-sync] updatePerson(${personId}, org_id=${orgId}):`, e)
+                console.error(`[pipedrive-sync] updatePerson(${personId}, ${JSON.stringify(personPatch)}):`, e)
               }
             }
           }
@@ -491,10 +513,11 @@ export class PipedriveSyncService {
   }
 
   /**
-   * Vul lege velden van een bestaande org aan met de gewenste payload, zonder
-   * bestaande waarden te overschrijven. Vergelijkt via V2 (custom_fields-wrapper)
-   * zodat de veld-representaties matchen. Doet alleen een PATCH als er iets aan
-   * te vullen valt.
+   * Reconcileer een bestaande org met de gewenste payload. Regel: alleen lege
+   * velden aanvullen, bestaande waarden niet overschrijven. Uitzondering: het
+   * `address` is leidend vanuit OTIS en overschrijft altijd (zie inline comment).
+   * Vergelijkt via V2 (custom_fields-wrapper) zodat de veld-representaties
+   * matchen. Doet alleen een PATCH als er iets te wijzigen valt.
    */
   private async fillEmptyOrgFields(
     orgId: number,
@@ -519,12 +542,12 @@ export class PipedriveSyncService {
       custom_fields?: Record<string, unknown>
     } = {}
 
-    // Top-level standaardvelden - alleen aanvullen als leeg op de bestaande org.
-    // V2 levert `address` als object ({ value, formatted_address, ... }); leegte
-    // zit in `address.value`, niet in het object zelf. Defensief ook string toestaan.
-    const existingAddr = existing.address as { value?: unknown } | string | null | undefined
-    const existingAddrValue = typeof existingAddr === 'string' ? existingAddr : existingAddr?.value
-    if (desired.address && isEmpty(existingAddrValue)) patch.address = desired.address
+    // Adres is een bewuste uitzondering op de "alleen lege velden"-regel: het
+    // OTIS-adres is leidend en overschrijft een bestaand Pipedrive-adres
+    // (feature-request: bij een nieuwe deal op een bestaande org het OTIS-adres
+    // overnemen, ook al staat er al een ander adres). Alleen overschrijven als
+    // OTIS een adres heeft; een bestaand adres nooit wissen met een leeg OTIS-adres.
+    if (desired.address) patch.address = desired.address
     if (desired.industry != null && isEmpty(existing.industry)) patch.industry = desired.industry
     if (
       desired.employee_count != null &&
