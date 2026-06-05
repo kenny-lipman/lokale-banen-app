@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import { getCompanyForEdit } from '@/lib/companies/get-company-for-edit'
 import type { Database } from '@/lib/supabase'
 
 type CompanyUpdate = Database['public']['Tables']['companies']['Update']
@@ -12,51 +13,19 @@ async function getBedrijfHandler(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServiceRoleClient()
     const { id } = await params
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID is verplicht' }, { status: 400 })
     }
 
-    const { data: company, error } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const data = await getCompanyForEdit(id)
 
-    if (error || !company) {
+    if (!data) {
       return NextResponse.json({
         success: false,
         error: 'Bedrijf niet gevonden',
-        details: error?.message,
       }, { status: 404 })
-    }
-
-    // De UI-form gebruikt single-string `industry`, `kvk_number`, `street`, `zipcode` —
-    // remap zodat de bewerken-pagina ongewijzigd blijft. DB heeft `industries: text[]`,
-    // `kvk`, `street_address`, `postal_code`.
-    const data = {
-      id: company.id,
-      name: company.name,
-      website: company.website,
-      description: company.description,
-      logo_url: company.logo_url,
-      linkedin_url: company.linkedin_url,
-      kvk_number: company.kvk,
-      street: company.street_address,
-      city: company.city,
-      zipcode: company.postal_code,
-      state: company.state,
-      country: company.country,
-      phone: company.phone,
-      industry: company.industries?.[0] ?? null,
-      size_min: company.size_min,
-      size_max: company.size_max,
-      location: company.location,
-      status: company.status,
-      is_customer: company.is_customer,
-      created_at: company.created_at,
     }
 
     return NextResponse.json({
