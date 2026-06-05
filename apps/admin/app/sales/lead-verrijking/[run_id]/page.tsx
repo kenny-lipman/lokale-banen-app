@@ -22,6 +22,7 @@ import { LeadDiscrepancyWarnings } from '@/components/sales/lead-discrepancy-war
 import { LeadCareerPageSuggestions } from '@/components/sales/lead-career-page-suggestions'
 import { LeadSitemapPages } from '@/components/sales/lead-sitemap-pages'
 import type { MasterRecord, NormalizedContact, NormalizedVacancy } from '@/lib/services/sales-leads/types'
+import { normalizeManualVacancies, payloadToNormalizedVacancy, type VacaturePayload } from '@/lib/services/sales-leads/manual-vacancy'
 
 type PageProps = { params: Promise<{ run_id: string }> }
 type OwnerConfig = {
@@ -32,27 +33,7 @@ type OwnerConfig = {
   contactmoment_offset_workdays?: number
 }
 
-// Backend POST /create slaat manual_vacancies op zonder `source`-veld. Hier
-// wordt het op `'manual'` gezet zodat NormalizedVacancy-shape compleet is en
-// de UI-source-badge correct rendert.
-function normalizeManualVacancies(raw: unknown): NormalizedVacancy[] {
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((v): NormalizedVacancy[] => {
-    if (!v || typeof v !== 'object') return []
-    const r = v as { title?: unknown; url?: unknown; location?: unknown }
-    if (typeof r.title !== 'string' || !r.title.trim()) return []
-    return [
-      {
-        title: r.title,
-        url: typeof r.url === 'string' ? r.url : undefined,
-        location: typeof r.location === 'string' ? r.location : undefined,
-        source: 'manual',
-      },
-    ]
-  })
-}
-
-// Dedupe op `title.trim().toLowerCase()`. Eerste voorkomen wint — gebruik
+// Dedupe op `title.trim().toLowerCase()`. Eerste voorkomen wint - gebruik
 // dus volgorde manual-eerst zodat manual-source en -url winnen bij conflict.
 function dedupeVacancies(list: NormalizedVacancy[]): NormalizedVacancy[] {
   const seen = new Set<string>()
@@ -73,6 +54,7 @@ export default function RunDetailPage({ params }: PageProps) {
 
   const [master, setMaster] = useState<MasterRecord | null>(null)
   const [selected, setSelected] = useState<NormalizedContact[]>([])
+  const [manualVacancies, setManualVacancies] = useState<NormalizedVacancy[]>([])
   const [owners, setOwners] = useState<OwnerConfig[] | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [replaying, setReplaying] = useState(false)
@@ -86,7 +68,7 @@ export default function RunDetailPage({ params }: PageProps) {
     if (!run) return
     if (run.status === 'enriching') return
     if (hydratedRef.current) return
-    // Wacht met hydratie tot master_record daadwerkelijk geladen is — anders
+    // Wacht met hydratie tot master_record daadwerkelijk geladen is - anders
     // race tussen onReplay (zet hydratedRef=false + refetch) en de async
     // orchestrator: eerste polling-tick zou master kunnen hydraten als null en
     // hydratedRef pinnen op true vóórdat de orchestrator klaar is.
@@ -99,6 +81,7 @@ export default function RunDetailPage({ params }: PageProps) {
     }
     setMaster(initial)
     setSelected((run.selected_contacts ?? []) as NormalizedContact[])
+    setManualVacancies(normalizeManualVacancies(run.manual_vacancies))
     hydratedRef.current = true
   }, [run])
 
@@ -117,6 +100,7 @@ export default function RunDetailPage({ params }: PageProps) {
   // Debounced auto-save
   const debouncedMaster = useDebounce(master, 500)
   const debouncedSelected = useDebounce(selected, 500)
+  const debouncedManualVacancies = useDebounce(manualVacancies, 500)
   const lastSentRef = useRef<string>('')
   const seqRef = useRef(0)
   useEffect(() => {
@@ -136,6 +120,7 @@ export default function RunDetailPage({ params }: PageProps) {
     const payload = JSON.stringify({
       master_record: debouncedMaster,
       selected_contacts: debouncedSelected,
+      manual_vacancies: debouncedManualVacancies,
     })
     if (payload === lastSentRef.current) return
     lastSentRef.current = payload
@@ -164,7 +149,7 @@ export default function RunDetailPage({ params }: PageProps) {
         setSaveState('error')
         toast.error('Auto-save mislukt', { description: (e as Error).message })
       })
-  }, [debouncedMaster, debouncedSelected, run_id, run])
+  }, [debouncedMaster, debouncedSelected, debouncedManualVacancies, run_id, run])
 
   useEffect(() => {
     return () => {
@@ -208,6 +193,7 @@ export default function RunDetailPage({ params }: PageProps) {
       hydratedRef.current = false
       setMaster(null)
       setSelected([])
+      setManualVacancies([])
       await refetch()
     } catch (e) {
       toast.error('Replay mislukt', { description: (e as Error).message })
@@ -215,6 +201,23 @@ export default function RunDetailPage({ params }: PageProps) {
       setReplaying(false)
     }
   }, [run_id, refetch])
+
+  const onVacancyCreated = useCallback(
+    (payload: VacaturePayload) => {
+      const vac = payloadToNormalizedVacancy(payload)
+      const key = vac.title.trim().toLowerCase()
+      setManualVacancies((prev) =>
+        prev.some((v) => v.title.trim().toLowerCase() === key) ? prev : [vac, ...prev],
+      )
+      setMaster((prev) => {
+        if (!prev) return prev
+        const current = prev.vacancies ?? []
+        if (current.some((v) => v.title.trim().toLowerCase() === key)) return prev
+        return { ...prev, vacancies: [...current, vac] }
+      })
+    },
+    [],
+  )
 
   if (loading && !run) return <div className="p-8 text-sm text-gray-500">Laden…</div>
   if (error && !run) return <div className="p-8 text-sm text-red-600">{error}</div>
@@ -244,7 +247,6 @@ export default function RunDetailPage({ params }: PageProps) {
     run.status === 'duplicate'
 
   function renderReviewGrid(currentMaster: MasterRecord) {
-    const manualVacancies = normalizeManualVacancies(run!.manual_vacancies)
     const websiteVacancies = run!.enrichments?.website?.parsed?.vacancies ?? []
     const allVacancies = dedupeVacancies([...manualVacancies, ...websiteVacancies])
     const selectedTitleSet = new Set(
@@ -305,12 +307,24 @@ export default function RunDetailPage({ params }: PageProps) {
             enrichments={run!.enrichments ?? {}}
             selectedTitles={selectedVacancyTitles}
             onChange={setSelectedVacancyTitles}
+            lead={{
+              companyName: currentMaster.company_name ?? null,
+              domain: run!.input_domain ? extractApex(run!.input_domain) : null,
+              kvk: currentMaster.kvk_number ?? null,
+              city: currentMaster.address?.city ?? null,
+            }}
+            onVacancyCreated={onVacancyCreated}
+            canAddVacancy={
+              run!.status === 'review' ||
+              run!.status === 'failed' ||
+              run!.status === 'duplicate'
+            }
           />
         </div>
         <div className="lg:col-span-5 space-y-4">
           <LeadCareerPageSuggestions runId={run_id} />
           {/* pages_crawled/pages_discovered direct uit fresh run-data lezen
-              i.p.v. lokale `currentMaster` — die wordt door `hydratedRef`
+              i.p.v. lokale `currentMaster` - die wordt door `hydratedRef`
               maar éénmaal gehydrateerd en mist updates uit een website-replay. */}
           <LeadSitemapPages
             master={{
@@ -392,7 +406,7 @@ export default function RunDetailPage({ params }: PageProps) {
           <div>
             <p className="font-medium">Polling time-out na 5 minuten.</p>
             <p className="text-xs mt-1">
-              De orchestrator draait waarschijnlijk nog — handmatig vernieuwen om de status opnieuw op te halen.
+              De orchestrator draait waarschijnlijk nog - handmatig vernieuwen om de status opnieuw op te halen.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
@@ -403,7 +417,7 @@ export default function RunDetailPage({ params }: PageProps) {
       )}
       {showEnriching && (
         <div className="mt-6 rounded-md border border-dashed p-6 text-sm text-gray-500">
-          Verrijking loopt — review verschijnt zodra de orchestrator klaar is.
+          Verrijking loopt - review verschijnt zodra de orchestrator klaar is.
         </div>
       )}
       {showReview && master && <div className="mt-6">{renderReviewGrid(master)}</div>}
