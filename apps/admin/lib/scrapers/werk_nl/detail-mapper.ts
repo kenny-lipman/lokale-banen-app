@@ -58,15 +58,21 @@ export function mapDetail(detail: WerknlDetail): MappedDetail {
   const emp = detail.employer;
   const cp = detail.contactPerson;
 
+  const detailCity = titleCaseCity(prop?.workLocation?.city);
   const jobPatch: Record<string, unknown> = {
     description: detail.description?.trim() || null,
     salary: prop?.salary?.amountIndication?.trim() || null,
     working_hours_min: prop?.workhours?.minimumHours ?? null,
     working_hours_max: prop?.workhours?.maximumHours ?? null,
-    city: titleCaseCity(prop?.workLocation?.city),
     education_level: detail.cvOffer?.educationLevel?.name?.trim() || null,
     acquisition_not_appreciated: detail.isAcquisitionNotAppreciated ?? false,
   };
+  // city/location alleen overschrijven als de detail een stad heeft (anders niet de
+  // lijst-waarde nullen). location is nodig voor de geocoding-worker (filter op location).
+  if (detailCity) {
+    jobPatch.city = detailCity;
+    jobPatch.location = detailCity;
+  }
   if (detail.title?.trim()) jobPatch.title = detail.title.trim();
 
   const bemiddelaar = emp ? isBemiddelaar(emp.organizationName, emp.website) : false;
