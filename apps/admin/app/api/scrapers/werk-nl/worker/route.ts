@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCronAuth } from "@/lib/auth-middleware";
 import { createSupabaseClient, getOrCreateJobSource, updateJobSourceStatus } from "@/lib/scrapers/shared";
 import { bootstrapSession } from "@/lib/scrapers/werk_nl/session";
-import { claimBatch } from "@/lib/scrapers/werk_nl/queue";
+import { claimBatch, reapStaleProcessing } from "@/lib/scrapers/werk_nl/queue";
 import { processOne, type ProcessOutcome } from "@/lib/scrapers/werk_nl/process-one";
 import { JOB_SOURCE_NAME } from "@/lib/scrapers/werk_nl/constants";
 
@@ -25,19 +25,18 @@ export const maxDuration = 300;
 const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_MAX_BATCHES = 50;
 const TIME_BUDGET_MS = 270_000; // marge t.o.v. maxDuration
+const STALE_PROCESSING_MS = 600_000; // 10 min: reset vastgelopen processing-rijen
 
-async function postHandler(req: NextRequest): Promise<NextResponse> {
+async function handler(req: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
   let body: { orchestrationId?: string; batchSize?: number; maxBatches?: number } = {};
   try {
     body = await req.json();
   } catch {
-    /* lege body toegestaan */
+    /* lege body toegestaan (cron-GET) */
   }
-  if (!body.orchestrationId) {
-    return NextResponse.json({ success: false, error: "orchestrationId is verplicht" }, { status: 400 });
-  }
-  const orchestrationId = body.orchestrationId;
+  // Zonder orchestrationId (cron) draaien we in drain-modus: claim alles wat pending is.
+  const orchestrationId = body.orchestrationId ?? null;
   const batchSize = Math.max(1, Math.min(body.batchSize ?? DEFAULT_BATCH_SIZE, 100));
   const maxBatches = Math.max(1, Math.min(body.maxBatches ?? DEFAULT_MAX_BATCHES, 1000));
 
@@ -53,6 +52,10 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   let errorCount = 0;
 
   try {
+    // Vastgelopen processing-rijen terugzetten naar pending (watchdog).
+    const reaped = await reapStaleProcessing(supabase, STALE_PROCESSING_MS);
+    if (reaped > 0) console.log(`[werknl] worker reaped ${reaped} vastgelopen processing-rijen`);
+
     const session = await bootstrapSession();
 
     for (let batch = 0; batch < maxBatches; batch++) {
@@ -103,5 +106,5 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const POST = withCronAuth(postHandler);
+export const POST = withCronAuth(handler);
 export const GET = POST;

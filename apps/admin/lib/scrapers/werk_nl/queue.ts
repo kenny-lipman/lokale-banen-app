@@ -32,10 +32,13 @@ export interface ClaimedItem {
   attempts: number;
 }
 
-/** Atomic claim van N pending rijen via de werknl_claim_batch RPC (FOR UPDATE SKIP LOCKED). */
+/**
+ * Atomic claim van N pending rijen via de werknl_claim_batch RPC (FOR UPDATE SKIP LOCKED).
+ * `orchestrationId = null` claimt orchestratie-agnostisch (cron-worker drain-modus).
+ */
 export async function claimBatch(
   supabase: SupabaseClient,
-  orchestrationId: string,
+  orchestrationId: string | null,
   batchSize: number
 ): Promise<ClaimedItem[]> {
   const { data, error } = await supabase.rpc("werknl_claim_batch", {
@@ -47,6 +50,21 @@ export async function claimBatch(
     jobPostingId: row.job_posting_id,
     attempts: row.attempts,
   }));
+}
+
+/** Reset 'processing'-rijen die langer dan staleAfterMs vastzitten terug naar 'pending'. */
+export async function reapStaleProcessing(
+  supabase: SupabaseClient,
+  staleAfterMs: number
+): Promise<number> {
+  const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
+  const { count, error } = await supabase
+    .from("werk_nl_scrape_queue")
+    .update({ status: "pending", picked_at: null }, { count: "exact" })
+    .eq("status", "processing")
+    .lt("picked_at", cutoff);
+  if (error) throw new Error(`[werknl] reapStaleProcessing faalde: ${error.message}`);
+  return count ?? 0;
 }
 
 /** Sluit een queue-rij af. */
