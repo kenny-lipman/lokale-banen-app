@@ -1,0 +1,102 @@
+// @auth SECRET
+/**
+ * werk.nl scraper - Fase 1 lijst-scan (manual trigger).
+ *
+ * POST /api/scrapers/werk-nl  body: { maxPages?: number, keywords?: string, location?: string }
+ *
+ * Bootstrapt een anonieme OAM-sessie, pagineert de publieke zoek-API op nieuwste,
+ * en upsert elke vacature als minimale job_postings rij (needs_detail_scrape=true).
+ * Detail-verrijging, dedup en delisting volgen in Fase 2/3.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { withCronAuth } from "@/lib/auth-middleware";
+import {
+  createSupabaseClient,
+  getOrCreateJobSource,
+  updateJobSourceStatus,
+} from "@/lib/scrapers/shared";
+import { bootstrapSession } from "@/lib/scrapers/werk_nl/session";
+import { searchPage } from "@/lib/scrapers/werk_nl/search-client";
+import { upsertListing } from "@/lib/scrapers/werk_nl/upsert";
+import { JOB_SOURCE_NAME, PAGE_SIZE } from "@/lib/scrapers/werk_nl/constants";
+
+export const runtime = "nodejs";
+export const preferredRegion = ["fra1", "ams1"];
+export const maxDuration = 300;
+
+const DEFAULT_MAX_PAGES = 5;
+
+async function postHandler(req: NextRequest): Promise<NextResponse> {
+  const startTime = Date.now();
+  let body: { maxPages?: number; keywords?: string; location?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    /* lege body is toegestaan */
+  }
+  const maxPages = Math.max(1, Math.min(body.maxPages ?? DEFAULT_MAX_PAGES, 1000));
+  const keywords = body.keywords ?? "";
+  const location = body.location ?? "";
+
+  const supabase = createSupabaseClient();
+  const sourceId = await getOrCreateJobSource(supabase, JOB_SOURCE_NAME);
+
+  let newCount = 0;
+  let seenCount = 0;
+  let total = 0;
+  try {
+    const session = await bootstrapSession();
+    const nowIso = new Date().toISOString();
+
+    for (let page = 1; page <= maxPages; page++) {
+      const { items, total: t } = await searchPage(session, page, keywords, location);
+      total = t;
+      if (items.length === 0) break;
+      for (const item of items) {
+        const outcome = await upsertListing(supabase, item, sourceId, nowIso);
+        if (outcome === "new") newCount++;
+        else seenCount++;
+      }
+      // politeness tussen pagina's
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
+    }
+
+    await updateJobSourceStatus(supabase, sourceId, {
+      success: true,
+      count: newCount,
+    });
+
+    console.log(
+      `[werknl] lijst-scan klaar: pages<=${maxPages} new=${newCount} seen=${seenCount} total=${total}`
+    );
+    return NextResponse.json({
+      success: true,
+      stats: {
+        pages_scanned: Math.min(maxPages, Math.ceil(total / PAGE_SIZE) || maxPages),
+        new: newCount,
+        seen: seenCount,
+        total_available: total,
+      },
+      duration_ms: Date.now() - startTime,
+    });
+  } catch (err) {
+    await updateJobSourceStatus(supabase, sourceId, {
+      success: false,
+      earlyExitReason: "fatal",
+      count: newCount,
+    });
+    console.error("[werknl] lijst-scan fataal:", err);
+    return NextResponse.json(
+      {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown error",
+        stats: { new: newCount, seen: seenCount },
+        duration_ms: Date.now() - startTime,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export const POST = withCronAuth(postHandler);
