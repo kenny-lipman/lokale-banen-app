@@ -115,16 +115,16 @@ function sanitizeHtml(html: string): string {
     .replace(/\n/g, '<br/>')
 }
 
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("nl-NL", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
+}
+
 export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChange }: JobPostingDrawerProps) {
   if (!job) return null
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("nl-NL", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    })
-  }
 
   const getWorkingHours = () => {
     if (job.working_hours_min && job.working_hours_max) {
@@ -346,8 +346,8 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
                 Type vacature
               </h4>
               <div className="flex flex-wrap gap-2">
-                {jobTypes.map((type, idx) => (
-                  <Badge key={idx} variant="outline" className="text-sm">
+                {jobTypes.map((type) => (
+                  <Badge key={type} variant="outline" className="text-sm">
                     {type.trim()}
                   </Badge>
                 ))}

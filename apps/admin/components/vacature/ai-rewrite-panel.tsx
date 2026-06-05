@@ -74,7 +74,7 @@ export function AIRewritePanel({
     } finally {
       setLoading(false)
     }
-  }, [loading, vacatureId])
+  }, [loading, saving, vacatureId])
 
   const handleAccept = React.useCallback(async () => {
     if (!result || saving) return

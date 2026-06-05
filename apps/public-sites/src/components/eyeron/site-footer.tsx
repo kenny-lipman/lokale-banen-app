@@ -93,7 +93,7 @@ export function SiteFooter({ tenant, cities }: SiteFooterProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pt-5">
-          <p className="text-small font-light text-on-dark m-0">
+          <p className="text-small font-light text-on-dark m-0" suppressHydrationWarning>
             © {new Date().getFullYear()} {tenant.name} · Alle rechten voorbehouden
           </p>
           {!isMaster && (
