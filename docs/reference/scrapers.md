@@ -58,8 +58,8 @@ Lokale Banen scrapet vacatures uit meerdere bronnen. Een deel draait lokaal (gee
 - **API**:
   - `POST /api/scrapers/werk-nl` - manual lijst-scan met `Authorization: Bearer $CRON_SECRET`. Body: `{ maxPages?, keywords?, location? }` (default `maxPages=5`). Geeft `orchestration_id` terug.
   - `POST/GET /api/scrapers/werk-nl/worker` - detail-verrijking. Body: `{ orchestrationId, batchSize?, maxBatches? }`.
-- **Code**: `lib/scrapers/werk_nl/` (constants, session, types, search-client, mappers, upsert, detail-types, detail-client, detail-mapper, dedup, queue, process-one). Job source naam: `Werk.nl`. Log-prefix: `[werknl]`.
-- **Later (Fase 3)**: generatie-gebaseerde delisting via voltooide volledige pass (ADR 0002), incrementele early-stop lijst-scan, cron-registratie in `vercel.json`, watchdog.
+- **Fase 3 - delisting + cron**: drie cron-routes. (1) Incrementele lijst-scan (`GET /api/scrapers/werk-nl`, dagelijks): stopt na N opeenvolgende volledig-bekende pagina's; archiveert nooit. (2) Volledige pass (`/api/scrapers/werk-nl/full-pass`, elke 30 min, self-gating): cursor-gestuurd over alle ~14.300 pagina's verspreid over runs (state in `werk_nl_scan_state`); bij voltooiing archiveert de sweep alles met `last_seen_in_sitemap < pass_started_at` (`archived_reason='not_in_werknl'`, ADR 0002). Een nieuwe pass start automatisch > 7 dagen na de vorige. (3) Detail-worker (elke 10 min): drained orchestratie-agnostisch de queue en reset vastgelopen `processing`-rijen (reaper). `expirationDate` blijft het snelle per-vacature vervalsignaal (archiveer-op-verlopen in de worker).
+- **Code**: `lib/scrapers/werk_nl/` (constants, session, types, search-client, mappers, upsert, detail-types, detail-client, detail-mapper, dedup, queue, process-one, incremental, scan-state, delisted). Job source naam: `Werk.nl`. Log-prefix: `[werknl]`. Crons + `maxDuration` in `apps/admin/vercel.json`; zie `docs/reference/cron-jobs.md`.
 
 ## Overige scrapers (Apify-based)
 - Indeed
