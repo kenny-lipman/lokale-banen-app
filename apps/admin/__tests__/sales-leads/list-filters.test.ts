@@ -10,9 +10,18 @@ describe('parseRunListQuery', () => {
       search: null,
       date_from: null,
       date_to: null,
+      include_archived: false,
       page: 1,
       limit: 25,
     })
+  })
+
+  it('parsed include_archived alleen bij archived=1 of archived=true', () => {
+    expect(parseRunListQuery(new URLSearchParams('archived=1')).include_archived).toBe(true)
+    expect(parseRunListQuery(new URLSearchParams('archived=true')).include_archived).toBe(true)
+    expect(parseRunListQuery(new URLSearchParams('archived=0')).include_archived).toBe(false)
+    expect(parseRunListQuery(new URLSearchParams('archived=foo')).include_archived).toBe(false)
+    expect(parseRunListQuery(new URLSearchParams()).include_archived).toBe(false)
   })
 
   it('parsed status alleen als waarde in ALLOWED_STATUSES staat', () => {

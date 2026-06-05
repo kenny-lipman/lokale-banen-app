@@ -25,6 +25,7 @@
     - method `html_link` (Mistral heeft echte link gezien) -> `'approved'`
     - method `sitemap` of `subdomain_probe` -> `'pending'` (vereist user-approval)
   - V1B forward-compat: `next_scrape_at` is gevuld. Scheduler picks `kind='company_career_page' AND review_status='approved' AND active=true AND next_scrape_at <= now()`.
+- `sales_lead_runs` - OTIS lead-verrijking runs (1 per ingevoerde URL). `status` = pipeline-state (`enriching`/`review`/`syncing`/`completed`/`failed`/`duplicate`). `archived_at` (timestamptz, nullable) = soft-archive: NULL = actief, gezet => verborgen uit de lijsten zonder statusverlies, omkeerbaar. De lijst-query (`GET /api/sales-leads`) en de enrich-worker-claim filteren `archived_at IS NULL`; `DELETE /api/sales-leads/[id]` archiveert. Partial index `sales_lead_runs_active_created_idx (created_at DESC) WHERE archived_at IS NULL`. Pipedrive-sync: zie `docs/reference/pipedrive.md`.
 - `campaign_assignment_batches` - Campaign assignment run tracking (met `orchestration_id` voor parallel grouping)
 - `campaign_assignment_logs` - Per-contact processing logs
 - `wetarget_leads_staging` - Staging table voor WeTarget campaign leads (sector-based)

@@ -2593,6 +2593,7 @@ export type Database = {
       }
       sales_lead_runs: {
         Row: {
+          archived_at: string | null
           audit_log: Json
           branche_override: number | null
           contactmoment_override: string | null
@@ -2617,6 +2618,7 @@ export type Database = {
           worker_claimed_at: string | null
         }
         Insert: {
+          archived_at?: string | null
           audit_log?: Json
           branche_override?: number | null
           contactmoment_override?: string | null
@@ -2641,6 +2643,7 @@ export type Database = {
           worker_claimed_at?: string | null
         }
         Update: {
+          archived_at?: string | null
           audit_log?: Json
           branche_override?: number | null
           contactmoment_override?: string | null
