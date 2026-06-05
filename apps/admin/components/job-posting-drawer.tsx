@@ -7,6 +7,7 @@ import { VacatureActionBar } from "@/components/vacature/action-bar"
 import { AIRewritePanel } from "@/components/vacature/ai-rewrite-panel"
 import { LivePreview } from "@/components/vacature/live-preview"
 import { ActivityLog } from "@/components/vacature/activity-log"
+import DOMPurify from "isomorphic-dompurify"
 import {
   Archive,
   Briefcase,
@@ -91,19 +92,13 @@ interface JobPostingDrawerProps {
 }
 
 /**
- * Sanitize HTML from scraped descriptions — strip script/style tags and
- * event handler attributes to prevent XSS from third-party data.
+ * Sanitize HTML from scraped descriptions. Decode common entities for display,
+ * then run DOMPurify at the boundary to strip every XSS vector (script/style,
+ * event handlers, javascript: URLs) from this third-party data. DOMPurify runs
+ * after decoding, so entity-encoded tags like &lt;script&gt; are stripped too.
  */
 function sanitizeHtml(html: string): string {
-  return html
-    // Remove script, style, iframe, object, embed tags entirely
-    .replace(/<(script|style|iframe|object|embed|noscript)[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<(script|style|iframe|object|embed|noscript)[^>]*\/?>/gi, '')
-    // Remove event handler attributes (on*)
-    .replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-    // Remove javascript: protocol in href/src
-    .replace(/(href|src)\s*=\s*["']?\s*javascript:/gi, '$1="')
-    // Decode common HTML entities for display
+  const decoded = html
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -113,6 +108,7 @@ function sanitizeHtml(html: string): string {
     .replace(/&euml;/g, 'ë')
     .replace(/&iuml;/g, 'ï')
     .replace(/\n/g, '<br/>')
+  return DOMPurify.sanitize(decoded)
 }
 
 const formatDate = (dateString: string) => {
@@ -392,6 +388,7 @@ export function JobPostingDrawer({ job, open, onClose, onCompanyClick, onJobChan
               <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
                 <div
                   className="text-sm text-gray-700 prose prose-sm max-w-none"
+                  // eslint-disable-next-line react/no-danger -- scraped vacaturetekst, gesanitized via DOMPurify aan de grens (sanitizeHtml)
                   dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(job.description)
                   }}
