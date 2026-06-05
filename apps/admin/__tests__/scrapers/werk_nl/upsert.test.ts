@@ -15,7 +15,9 @@ function mockClient(existing: { id: string } | null) {
       }),
       insert: (payload: Record<string, unknown>) => {
         insertSpy(payload);
-        return Promise.resolve({ error: null });
+        return {
+          select: () => ({ single: async () => ({ data: { id: "jp-new" }, error: null }) }),
+        };
       },
       update: (patch: Record<string, unknown>) => ({
         eq: async () => {
@@ -30,18 +32,18 @@ function mockClient(existing: { id: string } | null) {
 }
 
 describe("upsertListing", () => {
-  test("nieuw item -> insert", async () => {
+  test("nieuw item -> insert, geeft jobPostingId terug", async () => {
     const client = mockClient(null);
     const r = await upsertListing(client as any, item, "src-1", "2026-06-05T10:00:00.000Z");
-    expect(r).toBe("new");
+    expect(r).toEqual({ jobPostingId: "jp-new", outcome: "new" });
     expect(client._spies.insertSpy).toHaveBeenCalledOnce();
     expect(client._spies.updateSpy).not.toHaveBeenCalled();
   });
 
-  test("bestaand item -> alleen last_seen + needs_detail refresh, geen insert", async () => {
+  test("bestaand item -> alleen last_seen verversen, geen insert", async () => {
     const client = mockClient({ id: "jp-9" });
     const r = await upsertListing(client as any, item, "src-1", "2026-06-05T10:00:00.000Z");
-    expect(r).toBe("seen");
+    expect(r).toEqual({ jobPostingId: "jp-9", outcome: "seen" });
     expect(client._spies.insertSpy).not.toHaveBeenCalled();
     expect(client._spies.updateSpy).toHaveBeenCalledWith(
       expect.objectContaining({ last_seen_in_sitemap: "2026-06-05T10:00:00.000Z" })

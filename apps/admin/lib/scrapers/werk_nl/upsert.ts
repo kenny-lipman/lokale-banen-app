@@ -14,12 +14,17 @@ import type { SearchItem } from "./types";
 
 export type UpsertOutcome = "new" | "seen";
 
+export interface UpsertResult {
+  jobPostingId: string;
+  outcome: UpsertOutcome;
+}
+
 export async function upsertListing(
   supabase: SupabaseClient,
   item: SearchItem,
   sourceId: string,
   nowIso: string
-): Promise<UpsertOutcome> {
+): Promise<UpsertResult> {
   const externalId = String(item.referenceNumber);
 
   const { data: existing } = await supabase
@@ -30,16 +35,21 @@ export async function upsertListing(
     .maybeSingle();
 
   if (existing) {
+    const id = (existing as { id: string }).id;
     const { error } = await supabase
       .from("job_postings")
       .update({ last_seen_in_sitemap: nowIso })
-      .eq("id", (existing as { id: string }).id);
+      .eq("id", id);
     if (error) throw new Error(`[werknl] update faalde: ${error.message}`);
-    return "seen";
+    return { jobPostingId: id, outcome: "seen" };
   }
 
   const row = mapSearchItem(item, sourceId, nowIso);
-  const { error } = await supabase.from("job_postings").insert(row);
-  if (error) throw new Error(`[werknl] insert faalde: ${error.message}`);
-  return "new";
+  const { data: inserted, error } = await supabase
+    .from("job_postings")
+    .insert(row)
+    .select("id")
+    .single();
+  if (error || !inserted) throw new Error(`[werknl] insert faalde: ${error?.message ?? "geen data"}`);
+  return { jobPostingId: (inserted as { id: string }).id, outcome: "new" };
 }

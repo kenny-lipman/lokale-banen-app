@@ -21,6 +21,7 @@ import {
 import { bootstrapSession } from "@/lib/scrapers/werk_nl/session";
 import { searchPage } from "@/lib/scrapers/werk_nl/search-client";
 import { upsertListing } from "@/lib/scrapers/werk_nl/upsert";
+import { enqueue } from "@/lib/scrapers/werk_nl/queue";
 import { JOB_SOURCE_NAME, PAGE_SIZE } from "@/lib/scrapers/werk_nl/constants";
 
 export const runtime = "nodejs";
@@ -47,6 +48,9 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   let newCount = 0;
   let seenCount = 0;
   let total = 0;
+  // Nieuwe vacatures verzamelen om in de detail-queue te zetten (Fase 2).
+  const newIds: string[] = [];
+  const orchestrationId = `werknl-${crypto.randomUUID()}`;
   try {
     const session = await bootstrapSession();
     const nowIso = new Date().toISOString();
@@ -56,13 +60,20 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       total = t;
       if (items.length === 0) break;
       for (const item of items) {
-        const outcome = await upsertListing(supabase, item, sourceId, nowIso);
-        if (outcome === "new") newCount++;
-        else seenCount++;
+        const { jobPostingId, outcome } = await upsertListing(supabase, item, sourceId, nowIso);
+        if (outcome === "new") {
+          newCount++;
+          newIds.push(jobPostingId);
+        } else {
+          seenCount++;
+        }
       }
       // politeness tussen pagina's
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
     }
+
+    // Nieuwe vacatures in de detail-queue zetten (worker verrijkt later).
+    const enqueued = await enqueue(supabase, newIds, orchestrationId);
 
     await updateJobSourceStatus(supabase, sourceId, {
       success: true,
@@ -70,7 +81,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     });
 
     console.log(
-      `[werknl] lijst-scan klaar: pages<=${maxPages} new=${newCount} seen=${seenCount} total=${total}`
+      `[werknl] lijst-scan klaar: pages<=${maxPages} new=${newCount} seen=${seenCount} enqueued=${enqueued} total=${total}`
     );
     return NextResponse.json({
       success: true,
@@ -78,8 +89,10 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
         pages_scanned: Math.min(maxPages, Math.ceil(total / PAGE_SIZE) || maxPages),
         new: newCount,
         seen: seenCount,
+        enqueued,
         total_available: total,
       },
+      orchestration_id: orchestrationId,
       duration_ms: Date.now() - startTime,
     });
   } catch (err) {
