@@ -575,6 +575,7 @@ export type Database = {
           instantly_total_leads: number | null
           instantly_total_opens: number | null
           instantly_total_replies: number | null
+          is_bemiddelaar: boolean
           is_customer: boolean | null
           job_counts: number | null
           keywords: string[] | null
@@ -622,6 +623,7 @@ export type Database = {
           verified: boolean | null
           website: string | null
           werkenindekempen_id: string | null
+          werknl_employer_id: string | null
           WeTarget: string | null
         }
         Insert: {
@@ -659,6 +661,7 @@ export type Database = {
           instantly_total_leads?: number | null
           instantly_total_opens?: number | null
           instantly_total_replies?: number | null
+          is_bemiddelaar?: boolean
           is_customer?: boolean | null
           job_counts?: number | null
           keywords?: string[] | null
@@ -706,6 +709,7 @@ export type Database = {
           verified?: boolean | null
           website?: string | null
           werkenindekempen_id?: string | null
+          werknl_employer_id?: string | null
           WeTarget?: string | null
         }
         Update: {
@@ -743,6 +747,7 @@ export type Database = {
           instantly_total_leads?: number | null
           instantly_total_opens?: number | null
           instantly_total_replies?: number | null
+          is_bemiddelaar?: boolean
           is_customer?: boolean | null
           job_counts?: number | null
           keywords?: string[] | null
@@ -790,6 +795,7 @@ export type Database = {
           verified?: boolean | null
           website?: string | null
           werkenindekempen_id?: string | null
+          werknl_employer_id?: string | null
           WeTarget?: string | null
         }
         Relationships: [
@@ -1795,6 +1801,7 @@ export type Database = {
       }
       job_postings: {
         Row: {
+          acquisition_not_appreciated: boolean
           apify_run_id: string | null
           archived_at: string | null
           archived_by: string | null
@@ -1814,6 +1821,7 @@ export type Database = {
           education_level: string | null
           employment: string | null
           end_date: string | null
+          expires_at: string | null
           external_vacancy_id: string | null
           geocoded_via: string | null
           geocoding_failed: boolean | null
@@ -1853,6 +1861,7 @@ export type Database = {
           zipcode: string | null
         }
         Insert: {
+          acquisition_not_appreciated?: boolean
           apify_run_id?: string | null
           archived_at?: string | null
           archived_by?: string | null
@@ -1872,6 +1881,7 @@ export type Database = {
           education_level?: string | null
           employment?: string | null
           end_date?: string | null
+          expires_at?: string | null
           external_vacancy_id?: string | null
           geocoded_via?: string | null
           geocoding_failed?: boolean | null
@@ -1911,6 +1921,7 @@ export type Database = {
           zipcode?: string | null
         }
         Update: {
+          acquisition_not_appreciated?: boolean
           apify_run_id?: string | null
           archived_at?: string | null
           archived_by?: string | null
@@ -1930,6 +1941,7 @@ export type Database = {
           education_level?: string | null
           employment?: string | null
           end_date?: string | null
+          expires_at?: string | null
           external_vacancy_id?: string | null
           geocoded_via?: string | null
           geocoding_failed?: boolean | null
@@ -2876,6 +2888,71 @@ export type Database = {
           role?: string | null
         }
         Relationships: []
+      }
+      werk_nl_scan_state: {
+        Row: {
+          id: number
+          pass_completed_at: string | null
+          pass_cursor: number
+          pass_started_at: string | null
+        }
+        Insert: {
+          id?: number
+          pass_completed_at?: string | null
+          pass_cursor?: number
+          pass_started_at?: string | null
+        }
+        Update: {
+          id?: number
+          pass_completed_at?: string | null
+          pass_cursor?: number
+          pass_started_at?: string | null
+        }
+        Relationships: []
+      }
+      werk_nl_scrape_queue: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          enqueued_at: string
+          error_message: string | null
+          job_posting_id: string
+          orchestration_id: string
+          picked_at: string | null
+          result_stats: Json | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          enqueued_at?: string
+          error_message?: string | null
+          job_posting_id: string
+          orchestration_id: string
+          picked_at?: string | null
+          result_stats?: Json | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          enqueued_at?: string
+          error_message?: string | null
+          job_posting_id?: string
+          orchestration_id?: string
+          picked_at?: string | null
+          result_stats?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "werk_nl_scrape_queue_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: true
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       werkenindekempen_scrape_queue: {
         Row: {
@@ -4749,6 +4826,13 @@ export type Database = {
               error: true
             } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
+      werknl_claim_batch: {
+        Args: { p_batch_size: number; p_orchestration_id: string }
+        Returns: {
+          attempts: number
+          job_posting_id: string
+        }[]
+      }
       wik_claim_batch: {
         Args: { p_batch_size: number; p_orchestration_id: string }
         Returns: {

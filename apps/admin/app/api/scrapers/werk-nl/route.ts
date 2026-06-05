@@ -1,14 +1,14 @@
 // @auth SECRET
 /**
- * werk.nl scraper - Fase 1 lijst-scan (manual trigger).
+ * werk.nl lijst-scan.
  *
- * POST /api/scrapers/werk-nl  body: { maxPages?: number, keywords?: string, location?: string }
+ * POST (manual): scant tot `maxPages`. body: { maxPages?, keywords?, location?, incremental?, stopAfterKnownPages? }
+ * GET (cron): incrementeel - stopt na N opeenvolgende pagina's met enkel reeds-bekende vacatures.
  *
  * Bootstrapt een anonieme OAM-sessie, pagineert de publieke zoek-API op nieuwste,
- * en upsert elke vacature als minimale job_postings rij. Detail-verrijking, dedup
- * en delisting volgen in Fase 2/3. We zetten bewust GEEN needs_detail_scrape: die
- * vlag is eigendom van de career-page flow; de werk.nl detail-backlog komt in Fase
- * 2 als eigen werk_nl_scrape_queue.
+ * upsert elke vacature als minimale job_postings rij (ververst `last_seen`), en
+ * enqueuet nieuwe in de detail-queue. Archiveert NOOIT (dat doet de volledige pass,
+ * zie full-pass route + ADR 0002). Geen needs_detail_scrape (ADR 0001).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -20,7 +20,9 @@ import {
 } from "@/lib/scrapers/shared";
 import { bootstrapSession } from "@/lib/scrapers/werk_nl/session";
 import { searchPage } from "@/lib/scrapers/werk_nl/search-client";
-import { upsertListing } from "@/lib/scrapers/werk_nl/upsert";
+import { upsertListing, type UpsertOutcome } from "@/lib/scrapers/werk_nl/upsert";
+import { enqueue } from "@/lib/scrapers/werk_nl/queue";
+import { pageAllKnown, shouldStopIncremental } from "@/lib/scrapers/werk_nl/incremental";
 import { JOB_SOURCE_NAME, PAGE_SIZE } from "@/lib/scrapers/werk_nl/constants";
 
 export const runtime = "nodejs";
@@ -28,16 +30,34 @@ export const preferredRegion = ["fra1", "ams1"];
 export const maxDuration = 300;
 
 const DEFAULT_MAX_PAGES = 5;
+const INCREMENTAL_MAX_PAGES = 1000; // hoge cap; early-stop beeindigt eerder
+const DEFAULT_STOP_AFTER_KNOWN_PAGES = 2;
 
-async function postHandler(req: NextRequest): Promise<NextResponse> {
+interface ScanBody {
+  maxPages?: number;
+  keywords?: string;
+  location?: string;
+  incremental?: boolean;
+  stopAfterKnownPages?: number;
+}
+
+/**
+ * Lijst-scan. `defaultIncremental=true` (cron-GET) stopt na N opeenvolgende pagina's
+ * met enkel reeds-bekende vacatures; `false` (manual POST) scant tot maxPages.
+ */
+async function runScan(req: NextRequest, defaultIncremental: boolean): Promise<NextResponse> {
   const startTime = Date.now();
-  let body: { maxPages?: number; keywords?: string; location?: string } = {};
+  let body: ScanBody = {};
   try {
     body = await req.json();
   } catch {
-    /* lege body is toegestaan */
+    /* lege body is toegestaan (cron-GET) */
   }
-  const maxPages = Math.max(1, Math.min(body.maxPages ?? DEFAULT_MAX_PAGES, 1000));
+  const incremental = body.incremental ?? defaultIncremental;
+  const stopThreshold = Math.max(1, body.stopAfterKnownPages ?? DEFAULT_STOP_AFTER_KNOWN_PAGES);
+  const maxPages = incremental
+    ? INCREMENTAL_MAX_PAGES
+    : Math.max(1, Math.min(body.maxPages ?? DEFAULT_MAX_PAGES, 1000));
   const keywords = body.keywords ?? "";
   const location = body.location ?? "";
 
@@ -47,6 +67,12 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   let newCount = 0;
   let seenCount = 0;
   let total = 0;
+  let pagesScanned = 0;
+  let stoppedEarly = false;
+  let consecutiveKnownPages = 0;
+  // Nieuwe vacatures verzamelen om in de detail-queue te zetten (Fase 2).
+  const newIds: string[] = [];
+  const orchestrationId = `werknl-${crypto.randomUUID()}`;
   try {
     const session = await bootstrapSession();
     const nowIso = new Date().toISOString();
@@ -55,31 +81,50 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       const { items, total: t } = await searchPage(session, page, keywords, location);
       total = t;
       if (items.length === 0) break;
+      pagesScanned++;
+      const outcomes: UpsertOutcome[] = [];
       for (const item of items) {
-        const outcome = await upsertListing(supabase, item, sourceId, nowIso);
-        if (outcome === "new") newCount++;
-        else seenCount++;
+        const { jobPostingId, outcome } = await upsertListing(supabase, item, sourceId, nowIso);
+        outcomes.push(outcome);
+        if (outcome === "new") {
+          newCount++;
+          newIds.push(jobPostingId);
+        } else {
+          seenCount++;
+        }
+      }
+      // Incrementele early-stop: tel opeenvolgende volledig-bekende pagina's.
+      if (incremental) {
+        consecutiveKnownPages = pageAllKnown(outcomes) ? consecutiveKnownPages + 1 : 0;
+        if (shouldStopIncremental(consecutiveKnownPages, stopThreshold)) {
+          stoppedEarly = true;
+          break;
+        }
       }
       // politeness tussen pagina's
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
     }
 
-    await updateJobSourceStatus(supabase, sourceId, {
-      success: true,
-      count: newCount,
-    });
+    // Nieuwe vacatures in de detail-queue zetten (worker verrijkt later).
+    const enqueued = await enqueue(supabase, newIds, orchestrationId);
+
+    await updateJobSourceStatus(supabase, sourceId, { success: true, count: newCount });
 
     console.log(
-      `[werknl] lijst-scan klaar: pages<=${maxPages} new=${newCount} seen=${seenCount} total=${total}`
+      `[werknl] lijst-scan klaar: mode=${incremental ? "incrementeel" : "manual"} pages=${pagesScanned} new=${newCount} seen=${seenCount} enqueued=${enqueued} stoppedEarly=${stoppedEarly} total=${total}`
     );
     return NextResponse.json({
       success: true,
       stats: {
-        pages_scanned: Math.min(maxPages, Math.ceil(total / PAGE_SIZE) || maxPages),
+        mode: incremental ? "incrementeel" : "manual",
+        pages_scanned: pagesScanned,
         new: newCount,
         seen: seenCount,
+        enqueued,
+        stopped_early: stoppedEarly,
         total_available: total,
       },
+      orchestration_id: orchestrationId,
       duration_ms: Date.now() - startTime,
     });
   } catch (err) {
@@ -101,4 +146,6 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const POST = withCronAuth(postHandler);
+// POST = manual (default volledige scan tot maxPages). GET = cron (incrementeel).
+export const POST = withCronAuth((req: NextRequest) => runScan(req, false));
+export const GET = withCronAuth((req: NextRequest) => runScan(req, true));

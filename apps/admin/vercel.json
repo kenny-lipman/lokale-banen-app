@@ -16,7 +16,10 @@
     { "path": "/api/cron/cleanup-reset-tokens", "schedule": "0 4 * * *" },
     { "path": "/api/cron/werkenindekempen-finalize", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/sales-leads-watchdog", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/career-page-detail-scrape", "schedule": "*/10 * * * *" }
+    { "path": "/api/cron/career-page-detail-scrape", "schedule": "*/10 * * * *" },
+    { "path": "/api/scrapers/werk-nl", "schedule": "0 6 * * *" },
+    { "path": "/api/scrapers/werk-nl/full-pass", "schedule": "*/30 * * * *" },
+    { "path": "/api/scrapers/werk-nl/worker", "schedule": "*/10 * * * *" }
   ],
   "functions": {
     "app/api/cron/campaign-assignment/route.ts": { "maxDuration": 300 },
@@ -36,6 +39,9 @@
     "app/api/cron/auto-archive-old/route.ts": { "maxDuration": 300 },
     "app/api/cron/fix-job-postings-geocoding/route.ts": { "maxDuration": 300 },
     "app/api/cron/career-page-detail-scrape/route.ts": { "maxDuration": 300, "memory": 1024 },
+    "app/api/scrapers/werk-nl/route.ts": { "maxDuration": 300 },
+    "app/api/scrapers/werk-nl/full-pass/route.ts": { "maxDuration": 300 },
+    "app/api/scrapers/werk-nl/worker/route.ts": { "maxDuration": 300 },
     "app/api/sales-leads/create/route.ts": { "maxDuration": 300, "memory": 1024 },
     "app/api/sales-leads/test/website/route.ts": { "maxDuration": 300, "memory": 1024 }
   }

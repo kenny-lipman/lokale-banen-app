@@ -24,6 +24,9 @@ Het archiveren van een vacature omdat die niet meer bij de bron bestaat. Een ged
 **Verlopen vacature**:
 Een vacature waarvan de bron een expliciete vervaldatum (`expirationDate`) heeft die gepasseerd is. Direct delisting-signaal, los van of de vacature nog in een scan verschijnt.
 
+**Acquisitie niet gewenst**:
+Signaal van de bron dat de plaatser niet benaderd wil worden naar aanleiding van deze vacature. Een do-not-approach-markering op vacatureniveau waar sales op filtert.
+
 **Volledige pass**:
 Eén complete doorloop van alle vacatures van een bron. Voor werk.nl het autoritatieve moment waarop delisting bepaald wordt: niet-gezien-in-de-laatste-voltooide-pass betekent gedelijst. Onderscheiden van de **incrementele scan**, die alleen nieuwe/gewijzigde vacatures ontdekt en nooit archiveert.
 
@@ -36,4 +39,4 @@ Eén complete doorloop van alle vacatures van een bron. Voor werk.nl het autorit
 ## Flagged ambiguities
 
 - "organisation" / "employer" / "company" werden door elkaar gebruikt voor zowel de eindwerkgever als de plaatsende bemiddelaar. Resolutie: dit zijn verschillende rollen. De plaatsende partij is niet automatisch de eindwerkgever; voor lead-gen is dat onderscheid wezenlijk.
-- Open vraag (Fase 2): of een bronpayload (bv. werk.nl detail-API) expliciet signaleert dat de plaatser een **bemiddelaar** is, of dat we dat heuristisch moeten afleiden. Bepaalt hoe we het bemiddelaar-signaal op **Company** vastleggen.
+- Bemiddelaar-detectie (Fase 2, resolved): de werk.nl detail-API heeft **geen** schoon bemiddelaar-signaal (`isByEmployerDirectly` staat ook op `true` voor een uitzendbureau dat zelf plaatst). Resolutie: **keyword-heuristiek** op `organizationName`/`website`, vastgelegd als `companies.is_bemiddelaar`. Sector-code-mapping uitgesteld tot de heuristiek tekortschiet.
