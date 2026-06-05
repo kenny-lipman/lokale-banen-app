@@ -1,0 +1,7 @@
+# 0002 - werk.nl delisting op voltooide-pass-generatie, niet op rollende last_seen
+
+werk.nl heeft geen sitemap die elke run alle vacatures toont; een volledige lijst-scan is ~14.300 pagina's (286k vacatures / 20) en loopt uren, verspreid over veel cron-runs met een cursor. Een rollende `last_seen`-teller met korte grace (bv. 3 dagen, zoals werkenindekempen) is daardoor fragiel: elke onvolledige scan laat een groep nog-actieve vacatures zonder verse `last_seen` achter, die dan ten onrechte gearchiveerd worden en bij de volgende volledige scan weer terugkomen (flapping). Bij werkenindekempen speelt dit niet, want die ziet sitemap-driven elke run alle URL's.
+
+**Besluit:** delisting wordt bepaald op een **voltooide volledige pass**, niet op een tijdsdrempel. Elke volledige scan krijgt een generatie-stempel; geziene rijen worden mee gestempeld; alleen na een als-voltooid-gemarkeerde pass archiveert een bulk-update alles dat nog op een oudere generatie staat. De dagelijkse incrementele scan ontdekt en update alleen (archiveert nooit). `expirationDate` uit de detail-API blijft het snelle per-rij vervalsignaal.
+
+**Consequentie:** de faalmodus is veiliger - bij herhaald mislukkende scans onder-archiveren we (verlopen vacature blijft iets langer staan) in plaats van actieve werkgevers te laten flikkeren. Kosten: extra state (generatie-tracking op `job_sources`/queue). Bewuste afwijking van het werkenindekempen-sitemappatroon.

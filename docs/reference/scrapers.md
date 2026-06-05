@@ -42,6 +42,22 @@ Lokale Banen scrapet vacatures uit meerdere bronnen. Een deel draait lokaal (gee
   - `POST /api/scrapers/werkenindekempen/backfill` - handmatige bulk-run met `Authorization: Bearer $CRON_SECRET`
 - **Config options**: `maxUrlsPerRun` (default 200), `delayMinMs`/`delayMaxMs`, `skipAI`, `dryRun`, `skipStartJitter`
 
+## Werk.nl
+- **Source**: publieke UWV vacature-zoek-API (`werk.nl`, ~286.000 actieve vacatures, landelijk). Geen DigiD nodig; wel OAM-gated (Oracle Access Manager).
+- **Method**: server-side, geen browser en geen Apify. Een sessie-laag bootstrapt een anonieme OAM-sessie (volgt de redirect-keten met een eigen cookie-jar), haalt een XSRF-token op, en POST daarna op de zoek-API. Node `fetch` met handmatige cookie-jar, geen extra dependency.
+- **Endpoints**:
+  - Bootstrap (GET): `https://www.werk.nl/nl/vacatures/?friendlyurl=%2Fvacatures` (zet `OAMAuthnCookie`)
+  - XSRF (GET): `.../kia/publiek/zoekenvacatures` (404-respons, maar zet `XSRF-TOKEN` cookie)
+  - Search (POST): `.../kia/publiek/zoekenvacatures/api/search` (gepagineerd, 20 items per pagina, sort op nieuwste)
+  - Detail (GET): `.../kia/publiek/zoekenvacatures/api/vacature/{referenceNumber}` (Fase 2)
+- **Anti-detection**: realistic Chrome-fingerprint (gedeelde identity-pool met werkenindekempen), `preferredRegion: ['fra1','ams1']` (EU-IPs), 0,8-1,5s human-delay tussen pagina's, session-cookie reuse binnen run.
+- **Fase 1 (huidig) - lijst-scan**: elke vacature wordt als minimale rij in `job_postings` gezet met `company_id=null`, `review_status='pending'`. Per `external_vacancy_id` + `source_id`: nieuw -> insert, bestaand -> alleen `last_seen_in_sitemap` verversen. Geen Mistral, geen company-dedup.
+- **Bewust geen `needs_detail_scrape`**: die boolean is eigendom van de career-page-detail-scrape flow (een bron-blinde cron die elke rij met die vlag oppakt en de generieke career-page-extractor erop draait). werk.nl is een eigen bounded context; de detail-backlog komt in Fase 2 als aparte `werk_nl_scrape_queue`, niet via die gedeelde vlag.
+- **API**:
+  - `POST /api/scrapers/werk-nl` - manual lijst-scan met `Authorization: Bearer $CRON_SECRET`. Body: `{ maxPages?, keywords?, location? }` (default `maxPages=5`).
+- **Code**: `lib/scrapers/werk_nl/` (constants, session, types, search-client, mappers, upsert). Job source naam: `Werk.nl`. Log-prefix: `[werknl]`.
+- **Later (Fase 2/3)**: detail-verrijking via de detail-API (queue + worker), 3-laags company-dedup op `werknl_employer_id`, contacten, delisting + cron-registratie + watchdog.
+
 ## Overige scrapers (Apify-based)
 - Indeed
 - LinkedIn
