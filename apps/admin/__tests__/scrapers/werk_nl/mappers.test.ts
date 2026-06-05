@@ -22,6 +22,7 @@ describe("mapSearchItem", () => {
     expect(row.external_vacancy_id).toBe("123");
     expect(row.source_id).toBe("src-1");
     expect(row.city).toBe("Terneuzen"); // title-case
+    expect(row.location).toBe("Terneuzen"); // = city, nodig voor de geocoding-worker
     expect(row.url).toBe("https://www.werk.nl/werkzoekenden/mijn-werkmap/kia/publiek/zoekenvacatures/api/vacature/123");
     expect(row.working_hours_min).toBe(24);
     expect(row.working_hours_max).toBe(36);
@@ -36,8 +37,9 @@ describe("mapSearchItem", () => {
     expect(row.title).toBe("Verpleegkundige");
   });
 
-  test("lege city wordt null, niet lege string", () => {
+  test("lege city wordt null, niet lege string (location ook)", () => {
     const row = mapSearchItem({ ...base, workLocationCity: null }, "src-1", "2026-06-05T10:00:00.000Z");
     expect(row.city).toBeNull();
+    expect(row.location).toBeNull();
   });
 });

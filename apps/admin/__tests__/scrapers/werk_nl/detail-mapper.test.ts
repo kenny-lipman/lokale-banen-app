@@ -42,6 +42,7 @@ describe("mapDetail", () => {
     expect(m.jobPatch.working_hours_min).toBe(36);
     expect(m.jobPatch.working_hours_max).toBe(40);
     expect(m.jobPatch.city).toBe("Utrecht");
+    expect(m.jobPatch.location).toBe("Utrecht"); // nodig voor geocoding-worker
     expect(m.jobPatch.education_level).toBe("Vmbo");
     expect(m.jobPatch.acquisition_not_appreciated).toBe(true);
     expect(m.expiresAt).toBe("2026-07-03T00:00:00");

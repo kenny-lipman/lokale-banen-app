@@ -19,6 +19,7 @@ export interface JobPostingRow {
   company_id: null;
   url: string;
   city: string | null;
+  location: string | null;
   employment: string | null;
   working_hours_min: number | null;
   working_hours_max: number | null;
@@ -39,13 +40,17 @@ export function titleCaseCity(raw: string | null | undefined): string | null {
 
 export function mapSearchItem(item: SearchItem, sourceId: string, nowIso: string): JobPostingRow {
   const title = (item.vacatureTitle || item.profession || "").trim() || "Onbekende vacature";
+  const city = titleCaseCity(item.workLocationCity);
   return {
     title,
     external_vacancy_id: String(item.referenceNumber),
     source_id: sourceId,
     company_id: null,
     url: `${DETAIL_URL_BASE}/${item.referenceNumber}`,
-    city: titleCaseCity(item.workLocationCity),
+    city,
+    // location = city: nodig zodat de geocoding-worker (filtert op location is not null)
+    // werk.nl-vacatures oppakt en aan een regio/platform koppelt. Mirror van werkenindekempen.
+    location: city,
     employment: item.contractType?.trim() || null,
     working_hours_min: item.minHours ?? null,
     working_hours_max: item.maxHours ?? null,
