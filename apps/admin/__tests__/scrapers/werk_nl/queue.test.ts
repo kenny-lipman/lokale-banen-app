@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import { enqueue, claimBatch, finalize, reapStaleProcessing } from "@/lib/scrapers/werk_nl/queue";
 
 function mockClient(reapCount = 0) {
-  const calls: { upsert?: any; rpc?: any; update?: any; filters: Array<[string, unknown]> } = { filters: [] };
+  const calls: { upserts: any[]; rpc?: any; update?: any; filters: Array<[string, unknown]> } = { upserts: [], filters: [] };
   const updateBuilder: any = {
     eq: (col: string, val: unknown) => {
       calls.filters.push([`eq:${col}`, val]);
@@ -18,7 +18,7 @@ function mockClient(reapCount = 0) {
   const client = {
     from: () => ({
       upsert: (rows: unknown, opts: unknown) => {
-        calls.upsert = { rows, opts };
+        calls.upserts.push({ rows, opts });
         return Promise.resolve({ error: null });
       },
       update: (patch: Record<string, unknown>) => {
@@ -39,12 +39,21 @@ describe("queue", () => {
   test("enqueue upsert met onConflict ignore, lege lijst doet niets", async () => {
     const c = mockClient();
     expect(await enqueue(c as any, [], "orch")).toBe(0);
-    expect(c._calls.upsert).toBeUndefined();
+    expect(c._calls.upserts).toHaveLength(0);
     const n = await enqueue(c as any, ["jp-1", "jp-2"], "orch-x");
     expect(n).toBe(2);
-    expect(c._calls.upsert.rows[0]).toEqual(
+    expect(c._calls.upserts[0].rows[0]).toEqual(
       expect.objectContaining({ job_posting_id: "jp-1", orchestration_id: "orch-x", status: "pending" })
     );
+  });
+
+  test("enqueue chunkt grote batches", async () => {
+    const c = mockClient();
+    const ids = Array.from({ length: 1001 }, (_, i) => `jp-${i}`);
+    const n = await enqueue(c as any, ids, "orch-x");
+    expect(n).toBe(1001);
+    expect(c._calls.upserts).toHaveLength(3);
+    expect(c._calls.upserts.map((u: any) => u.rows.length)).toEqual([500, 500, 1]);
   });
 
   test("claimBatch met orchestrationId", async () => {

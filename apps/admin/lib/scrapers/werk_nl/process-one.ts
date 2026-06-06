@@ -15,6 +15,11 @@ import type { WerknlSession } from "./session";
 
 export type ProcessOutcome = "enriched" | "archived_gone" | "archived_expired" | "skipped_no_ref";
 
+export function parseWerknlDateAsUtc(value: string): Date {
+  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`);
+}
+
 async function archive(
   supabase: SupabaseClient,
   jobPostingId: string,
@@ -56,9 +61,10 @@ export async function processOne(
   }
 
   const mapped = mapDetail(result.detail);
+  const expiresAt = mapped.expiresAt ? parseWerknlDateAsUtc(mapped.expiresAt).toISOString() : null;
 
   // Verstreken vervaldatum -> archiveren.
-  if (mapped.expiresAt && new Date(mapped.expiresAt).getTime() < new Date(nowIso).getTime()) {
+  if (expiresAt && Date.parse(expiresAt) < Date.parse(nowIso)) {
     await archive(supabase, jobPostingId, "expired", nowIso);
     await finalize(supabase, jobPostingId, { status: "success", stats: { archived: "expired" } });
     return "archived_expired";
@@ -77,7 +83,7 @@ export async function processOne(
     .update({
       ...mapped.jobPatch,
       company_id: companyId,
-      expires_at: mapped.expiresAt,
+      expires_at: expiresAt,
       detail_scraped_at: nowIso,
     })
     .eq("id", jobPostingId);

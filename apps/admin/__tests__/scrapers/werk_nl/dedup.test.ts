@@ -14,18 +14,24 @@ const input: WerknlCompanyInput = {
 
 function mockClient(opts: {
   byEmployerId?: { id: string } | null;
+  byEmployerIdSequence?: Array<{ id: string } | null>;
   byNormalized?: { id: string; werknl_employer_id: string | null } | null;
   byHoofddomein?: { id: string; werknl_employer_id: string | null } | null;
   createdId?: string;
+  insertError?: { code?: string; message: string };
 }) {
   const updates: Array<Record<string, unknown>> = [];
   const inserts: Array<Record<string, unknown>> = [];
+  const employerIdReads = [...(opts.byEmployerIdSequence ?? [])];
   const client = {
     from: () => ({
       select: () => ({
         eq: (col: string) => ({
           maybeSingle: async () => {
-            if (col === "werknl_employer_id") return { data: opts.byEmployerId ?? null };
+            if (col === "werknl_employer_id") {
+              if (employerIdReads.length > 0) return { data: employerIdReads.shift() ?? null };
+              return { data: opts.byEmployerId ?? null };
+            }
             if (col === "normalized_name") return { data: opts.byNormalized ?? null };
             if (col === "hoofddomein") return { data: opts.byHoofddomein ?? null };
             return { data: null };
@@ -42,6 +48,7 @@ function mockClient(opts: {
         select: () => ({
           single: async () => {
             inserts.push(row);
+            if (opts.insertError) return { data: null, error: opts.insertError };
             return { data: { id: opts.createdId ?? "new-id" }, error: null };
           },
         }),
@@ -82,6 +89,21 @@ describe("findOrCreateCompanyWerknl", () => {
     expect(r).toEqual(expect.objectContaining({ id: "c-new", matchedLayer: "new" }));
     expect(c._inserts[0]).toEqual(
       expect.objectContaining({ werknl_employer_id: "32609", is_bemiddelaar: true, name: "Urgent Uitzendburo B.V." })
+    );
+  });
+
+  test("create-race op werknl_employer_id herleest en herstelt", async () => {
+    const c = mockClient({
+      byEmployerIdSequence: [null, { id: "c-race" }],
+      insertError: { code: "23505", message: "duplicate key value violates unique constraint" },
+    });
+    const r = await findOrCreateCompanyWerknl(c as any, input, "src");
+    expect(r).toEqual(
+      expect.objectContaining({
+        id: "c-race",
+        matchedLayer: "werknl_employer_id",
+        conflict: expect.stringContaining("Layer-4 create race"),
+      })
     );
   });
 });

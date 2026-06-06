@@ -6,8 +6,8 @@
  *
  * Loopt cursor-gestuurd over ALLE vacatures, verspreid over meerdere cron-runs.
  * Elke geziene vacature krijgt een verse `last_seen_in_sitemap`; nieuwe worden
- * geinsert + enqueued. Bij het bereiken van het einde (lege pagina) is de pass
- * VOLTOOID: de delisting-sweep archiveert alles dat sinds pass-start niet gezien is.
+ * geinsert + enqueued. Bij het bereiken van het einde volgens totalResults is de
+ * pass VOLTOOID: de delisting-sweep archiveert alles dat sinds pass-start niet gezien is.
  * Een nieuwe pass start automatisch als de vorige > STALE_DAYS geleden voltooide.
  */
 
@@ -21,6 +21,7 @@ import { enqueue } from "@/lib/scrapers/werk_nl/queue";
 import { archiveNotSeenSince } from "@/lib/scrapers/werk_nl/delisted";
 import { getScanState, isPassDue, startPass, saveCursor, completePass } from "@/lib/scrapers/werk_nl/scan-state";
 import { JOB_SOURCE_NAME } from "@/lib/scrapers/werk_nl/constants";
+import { hasTimeBudget, shouldCompleteFullPass } from "@/lib/scrapers/werk_nl/scan-progress";
 
 export const runtime = "nodejs";
 export const preferredRegion = ["fra1", "ams1"];
@@ -67,20 +68,29 @@ async function handler(_req: NextRequest): Promise<NextResponse> {
     const session = await bootstrapSession();
     const orchestrationId = `werknl-fullpass-${passStartedAt}`;
 
-    while (pagesThisRun < MAX_PAGES_PER_RUN && Date.now() - startTime < TIME_BUDGET_MS) {
+    while (pagesThisRun < MAX_PAGES_PER_RUN && hasTimeBudget(startTime, Date.now(), TIME_BUDGET_MS)) {
       const { items, total: t } = await searchPage(session, cursor);
       total = t;
+      const pageCompletesPass = shouldCompleteFullPass(cursor, items.length, total);
       if (items.length === 0) {
-        passComplete = true;
-        break;
+        if (pageCompletesPass) {
+          passComplete = true;
+          break;
+        }
+        throw new Error(`[werknl] lege zoekpagina ${cursor} terwijl totalResults=${total}; pass niet voltooid`);
       }
+      const page = cursor;
       for (const item of items) {
         const { jobPostingId, outcome } = await upsertListing(supabase, item, sourceId, nowIso);
         if (outcome === "new") newIds.push(jobPostingId);
         else refreshed++;
       }
-      cursor++;
+      cursor = page + 1;
       pagesThisRun++;
+      if (pageCompletesPass) {
+        passComplete = true;
+        break;
+      }
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
     }
 
@@ -88,8 +98,8 @@ async function handler(_req: NextRequest): Promise<NextResponse> {
 
     let archived = 0;
     if (passComplete) {
-      await completePass(supabase, nowIso);
       archived = await archiveNotSeenSince(supabase, sourceId, passStartedAt, nowIso);
+      await completePass(supabase, nowIso);
     } else {
       await saveCursor(supabase, cursor);
     }

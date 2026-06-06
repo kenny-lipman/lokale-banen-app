@@ -5,7 +5,7 @@ vi.mock("@/lib/scrapers/werk_nl/dedup", () => ({ findOrCreateCompanyWerknl: vi.f
 vi.mock("@/lib/scrapers/shared", () => ({ findOrCreateContact: vi.fn() }));
 vi.mock("@/lib/scrapers/werk_nl/queue", () => ({ finalize: vi.fn() }));
 
-import { processOne } from "@/lib/scrapers/werk_nl/process-one";
+import { parseWerknlDateAsUtc, processOne } from "@/lib/scrapers/werk_nl/process-one";
 import { fetchDetail } from "@/lib/scrapers/werk_nl/detail-client";
 import { findOrCreateCompanyWerknl } from "@/lib/scrapers/werk_nl/dedup";
 import { findOrCreateContact } from "@/lib/scrapers/shared";
@@ -53,6 +53,11 @@ function detailWith(expiration: string | null) {
 beforeEach(() => vi.clearAllMocks());
 
 describe("processOne", () => {
+  test("parseWerknlDateAsUtc behandelt naive datum als UTC", () => {
+    expect(parseWerknlDateAsUtc("2026-07-03T00:00:00").toISOString()).toBe("2026-07-03T00:00:00.000Z");
+    expect(parseWerknlDateAsUtc("2026-07-03T00:00:00+02:00").toISOString()).toBe("2026-07-02T22:00:00.000Z");
+  });
+
   test("verrijkt: dedup + job_postings update + contact + finalize success", async () => {
     (fetchDetail as any).mockResolvedValue(detailWith("2026-12-31T00:00:00"));
     (findOrCreateCompanyWerknl as any).mockResolvedValue({ id: "comp-1", matchedLayer: "new" });
@@ -64,6 +69,7 @@ describe("processOne", () => {
     expect(findOrCreateCompanyWerknl).toHaveBeenCalledOnce();
     const patch = c._updates.at(-1)!;
     expect(patch).toEqual(expect.objectContaining({ company_id: "comp-1", detail_scraped_at: NOW, description: "tekst" }));
+    expect(patch.expires_at).toBe("2026-12-31T00:00:00.000Z");
     expect(findOrCreateContact).toHaveBeenCalledOnce();
     expect(finalize).toHaveBeenCalledWith(c, "jp-1", expect.objectContaining({ status: "success" }));
   });

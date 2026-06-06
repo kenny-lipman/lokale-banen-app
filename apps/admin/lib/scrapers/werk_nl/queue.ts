@@ -8,6 +8,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type FinalizeStatus = "success" | "error" | "validation_failed";
 
+const ENQUEUE_CHUNK_SIZE = 500;
+
 /** Enqueue job_posting_ids als pending. Bestaande rijen blijven ongemoeid (PK = job_posting_id). */
 export async function enqueue(
   supabase: SupabaseClient,
@@ -20,10 +22,13 @@ export async function enqueue(
     orchestration_id: orchestrationId,
     status: "pending",
   }));
-  const { error } = await supabase
-    .from("werk_nl_scrape_queue")
-    .upsert(rows, { onConflict: "job_posting_id", ignoreDuplicates: true });
-  if (error) throw new Error(`[werknl] enqueue faalde: ${error.message}`);
+  for (let i = 0; i < rows.length; i += ENQUEUE_CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + ENQUEUE_CHUNK_SIZE);
+    const { error } = await supabase
+      .from("werk_nl_scrape_queue")
+      .upsert(chunk, { onConflict: "job_posting_id", ignoreDuplicates: true });
+    if (error) throw new Error(`[werknl] enqueue faalde: ${error.message}`);
+  }
   return rows.length;
 }
 
