@@ -6,6 +6,7 @@ import { ApolloService, ApolloApiError } from './apollo.service'
 import { WebsiteService } from './website.service'
 import { MistralService } from './mistral.service'
 import { computePrimaryMaster } from './master-record'
+import { getSourcePreferences } from './source-preferences'
 import { generateDealNote } from './auto-note'
 import { getBrancheOptions } from './branche-options.service'
 import {
@@ -121,7 +122,8 @@ export class EnrichmentOrchestratorService {
     )
     if (!hasParsed) return
 
-    const master = computePrimaryMaster(run.enrichments, run.input_url)
+    const sourcePreferences = await this.loadSourcePreferencesSafe()
+    const master = computePrimaryMaster(run.enrichments, run.input_url, sourcePreferences)
     master.deal_note_text = await generateDealNote({
       master,
       selectedVacancies: master.vacancies,
@@ -508,7 +510,8 @@ export class EnrichmentOrchestratorService {
 
   private async finalize(runId: string): Promise<void> {
     const run = await this.loadRun(runId)
-    const master = computePrimaryMaster(run.enrichments, run.input_url)
+    const sourcePreferences = await this.loadSourcePreferencesSafe()
+    const master = computePrimaryMaster(run.enrichments, run.input_url, sourcePreferences)
 
     // Altijd "Afdeling Personeelszaken" beschikbaar maken in de contact-lijst,
     // ook wanneer Mistral/Apollo geen HR-persoon vonden en de site geen generieke
@@ -631,6 +634,15 @@ export class EnrichmentOrchestratorService {
       input_domain: data.input_domain,
       scrape_vacancies: data.scrape_vacancies,
       enrichments: (data.enrichments ?? {}) as RunEnrichments,
+    }
+  }
+
+  private async loadSourcePreferencesSafe() {
+    try {
+      return (await getSourcePreferences({ supabase: this.supabase })).preferences
+    } catch (e) {
+      console.warn('[orchestrator] bronvoorkeuren laden faalde, gebruik defaults:', e)
+      return {}
     }
   }
 

@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, AuthResult } from '@/lib/auth-middleware'
 import { createServiceRoleClient } from '@/lib/supabase-server'
-import { computePrimaryMaster } from '@/lib/services/sales-leads/master-record'
 import { generateDealNote } from '@/lib/services/sales-leads/auto-note'
 import type { Json } from '@/lib/supabase'
 import type { MasterRecord, RunEnrichments } from '@/lib/services/sales-leads/types'
@@ -69,30 +68,32 @@ async function handler(req: NextRequest, _auth: AuthResult, ctx: RouteContext) {
   // master-record.ts: address, coordinates, rating, ratings_total,
   // business_status, opening_hours, business_types, photos_count).
   // Andere user-edits behouden.
-  const updatedEnrichments: RunEnrichments = { ...enrichments, google_maps: newEntry }
-  const fresh = computePrimaryMaster(updatedEnrichments, run.input_url)
   const existing = (run.master_record ?? {}) as MasterRecord
+  const maps = newEntry.parsed ?? {}
 
   const merged: MasterRecord = {
     ...existing,
-    address: fresh.address ?? existing.address,
-    coordinates: fresh.coordinates ?? existing.coordinates,
-    rating: fresh.rating ?? existing.rating,
-    ratings_total: fresh.ratings_total ?? existing.ratings_total,
-    business_status: fresh.business_status ?? existing.business_status,
-    opening_hours: fresh.opening_hours ?? existing.opening_hours,
-    business_types: fresh.business_types ?? existing.business_types,
-    photos_count: fresh.photos_count ?? existing.photos_count,
+    address:
+      existing.source_overrides?.address === 'custom'
+        ? existing.address
+        : maps.address ?? existing.address,
+    coordinates: maps.coordinates ?? existing.coordinates,
+    rating: maps.rating ?? existing.rating,
+    ratings_total: maps.ratings_total ?? existing.ratings_total,
+    business_status: maps.business_status ?? existing.business_status,
+    opening_hours: maps.opening_hours ?? existing.opening_hours,
+    business_types: maps.business_types ?? existing.business_types,
+    photos_count: maps.photos_count ?? existing.photos_count,
   }
   // Maps' company_name kan ook anders zijn — alleen overschrijven als bestaand
   // master nog geen company_name had (anders winnen KvK/Apollo via priority
   // bovenop user-edits).
-  if (!existing.company_name && fresh.company_name) {
-    merged.company_name = fresh.company_name
+  if (!existing.company_name && maps.company_name) {
+    merged.company_name = maps.company_name
   }
   // Idem voor website (Maps levert website van het Google-listing).
-  if (!existing.website && fresh.website) {
-    merged.website = fresh.website
+  if (!existing.website && maps.website) {
+    merged.website = maps.website
   }
 
   merged.deal_note_text = await generateDealNote({

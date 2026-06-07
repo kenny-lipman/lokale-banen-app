@@ -6,11 +6,40 @@ import type {
 } from './types'
 
 type SourcePriority = Array<Exclude<SourceKey, 'custom'>>
+export type SourcePreferenceSource = Exclude<SourceKey, 'custom'>
+
+export const SOURCE_PREFERENCE_FIELDS = [
+  'address',
+  'industry',
+  'employee_count',
+  'phone',
+  'email',
+] as const satisfies ReadonlyArray<keyof NormalizedFields>
+
+export type SourcePreferenceField = (typeof SOURCE_PREFERENCE_FIELDS)[number]
+export type SourcePreferences = Partial<Record<SourcePreferenceField, SourcePreferenceSource>>
+
+const SOURCE_PREFERENCE_FIELD_SET = new Set<keyof NormalizedFields>(SOURCE_PREFERENCE_FIELDS)
+
+export const SOURCE_PREFERENCE_DEFAULTS: Record<SourcePreferenceField, SourcePreferenceSource> = {
+  address: 'website',
+  industry: 'apollo',
+  employee_count: 'kvk',
+  phone: 'website',
+  email: 'website',
+}
 
 /**
  * Bron-prioriteit per veld (sectie 6.4 spec). Eerste bron met een non-empty
- * waarde wint. `industry` wijkt af: Apollo wint over KvK SBI bij conflict
- * (sales-relevanter), zie spec.
+ * waarde wint.
+ *
+ * Leidend principe:
+ *   - Officiele identiteit (statutaire naam, KvK-nummer, RSIN, rechtsvorm,
+ *     vestigingsnummer, SBI): KvK voorop -- dat is de bron-van-waarheid.
+ *   - Contact-/leadgegevens (adres, telefoon, e-mail): website -> Apollo ->
+ *     Google Maps -> KvK. Website en Apollo leveren in de praktijk de bruikbaarste
+ *     leaddata; KvK is hier de minst actuele en blijft enkel fallback.
+ * `industry` wijkt af: Apollo wint over KvK SBI bij conflict (sales-relevanter).
  */
 const FIELD_PRIORITY: Partial<Record<keyof NormalizedFields, SourcePriority>> = {
   company_name: ['kvk', 'apollo', 'website'],
@@ -19,14 +48,14 @@ const FIELD_PRIORITY: Partial<Record<keyof NormalizedFields, SourcePriority>> = 
   vestigingsnummer: ['kvk'],
   trade_names: ['kvk'],
   legal_form: ['kvk'],
-  address: ['google_maps', 'kvk', 'website'],
+  address: ['website', 'apollo', 'google_maps', 'kvk'],
   coordinates: ['google_maps', 'kvk'],
   bag_id: ['kvk'],
-  phone: ['kvk', 'apollo', 'website'],
-  phones_all: ['kvk', 'apollo', 'website'],
-  email: ['kvk', 'website'],
-  emails_all: ['kvk', 'website'],
-  website: ['apollo', 'kvk', 'website'],
+  phone: ['website', 'apollo', 'google_maps', 'kvk'],
+  phones_all: ['website', 'apollo', 'google_maps', 'kvk'],
+  email: ['website', 'apollo', 'google_maps', 'kvk'],
+  emails_all: ['website', 'apollo', 'google_maps', 'kvk'],
+  website: ['website', 'apollo', 'kvk'],
   linkedin_url: ['apollo'],
   twitter_url: ['apollo', 'website'],
   facebook_url: ['apollo', 'website'],
@@ -79,6 +108,7 @@ function isPresent(v: unknown): boolean {
 export function computePrimaryMaster(
   enrichments: RunEnrichments,
   inputUrl: string,
+  sourcePreferences: SourcePreferences = {},
 ): MasterRecord {
   const sourceParsed: Record<Exclude<SourceKey, 'custom'>, NormalizedFields | undefined> = {
     kvk: enrichments.kvk?.parsed,
@@ -93,7 +123,14 @@ export function computePrimaryMaster(
   for (const [field, priority] of Object.entries(FIELD_PRIORITY) as Array<
     [keyof NormalizedFields, SourcePriority]
   >) {
-    for (const src of priority) {
+    const preferred = SOURCE_PREFERENCE_FIELD_SET.has(field)
+      ? sourcePreferences[field as SourcePreferenceField]
+      : undefined
+    const effectivePriority = preferred
+      ? [preferred, ...priority.filter((src) => src !== preferred)]
+      : priority
+
+    for (const src of effectivePriority) {
       const parsed = sourceParsed[src]
       if (!parsed) continue
       const v = parsed[field]

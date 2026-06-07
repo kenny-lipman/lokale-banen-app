@@ -11,8 +11,10 @@ import { BrancheMappingClient } from "@/app/admin/instellingen/branche-mapping/b
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useAuth } from "@/components/auth-provider"
+import { SourcePreferencesSettings } from "@/components/sales/source-preferences-settings"
 
-const VALID_TABS = ["platforms", "regions", "mailerlite", "lokalebanen", "cron", "branche-mapping"] as const
+const VALID_TABS = ["platforms", "regions", "mailerlite", "lokalebanen", "otis-bronnen", "cron", "branche-mapping"] as const
+const ADMIN_ONLY_TABS = new Set<string>(["otis-bronnen", "branche-mapping"])
 type TabValue = (typeof VALID_TABS)[number]
 
 export default function SettingsPage() {
@@ -21,8 +23,11 @@ export default function SettingsPage() {
   const router = useRouter()
 
   const tabParam = searchParams.get("tab")
+  const validTabs = (VALID_TABS as readonly string[]).filter(
+    (tab) => isAdmin || !ADMIN_ONLY_TABS.has(tab),
+  )
   const initialTab: TabValue =
-    tabParam && (VALID_TABS as readonly string[]).includes(tabParam)
+    tabParam && validTabs.includes(tabParam)
       ? (tabParam as TabValue)
       : "platforms"
 
@@ -37,7 +42,7 @@ export default function SettingsPage() {
     [router, searchParams],
   )
 
-  const tabCols = isAdmin ? "grid-cols-6" : "grid-cols-5"
+  const tabCols = isAdmin ? "grid-cols-7" : "grid-cols-5"
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -50,14 +55,17 @@ export default function SettingsPage() {
 
       <ErrorBoundary>
         <Tabs value={initialTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={`grid w-full ${tabCols}`}>
-            <TabsTrigger value="platforms">Platforms</TabsTrigger>
-            <TabsTrigger value="regions">Regio&apos;s</TabsTrigger>
-            <TabsTrigger value="mailerlite">MailerLite</TabsTrigger>
-            <TabsTrigger value="lokalebanen">Lokale Banen</TabsTrigger>
-            <TabsTrigger value="cron">Cron Jobs</TabsTrigger>
-            {isAdmin && <TabsTrigger value="branche-mapping">Branche-mapping</TabsTrigger>}
-          </TabsList>
+          <div className="overflow-x-auto pb-1">
+            <TabsList className={`grid min-w-[720px] w-full ${tabCols}`}>
+              <TabsTrigger value="platforms">Platforms</TabsTrigger>
+              <TabsTrigger value="regions">Regio&apos;s</TabsTrigger>
+              <TabsTrigger value="mailerlite">MailerLite</TabsTrigger>
+              <TabsTrigger value="lokalebanen">Lokale Banen</TabsTrigger>
+              {isAdmin && <TabsTrigger value="otis-bronnen">OTIS bronnen</TabsTrigger>}
+              <TabsTrigger value="cron">Cron Jobs</TabsTrigger>
+              {isAdmin && <TabsTrigger value="branche-mapping">Branche-mapping</TabsTrigger>}
+            </TabsList>
+          </div>
 
           <TabsContent value="platforms">
             <PlatformAutomationSection
@@ -86,6 +94,12 @@ export default function SettingsPage() {
           <TabsContent value="lokalebanen">
             <LokaleBanenMappingSection />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="otis-bronnen">
+              <SourcePreferencesSettings />
+            </TabsContent>
+          )}
 
           <TabsContent value="cron">
             <CronJobMonitor />

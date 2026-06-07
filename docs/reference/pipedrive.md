@@ -10,6 +10,7 @@ Hoe OTIS (sales automation / Lead Verrijking) bedrijven, contactpersonen en deal
 | Sync-orchestrator | `apps/admin/lib/services/sales-leads/pipedrive-sync.service.ts` |
 | Payload-builders (org/person/deal velden) | `apps/admin/lib/services/sales-leads/pipedrive-payloads.ts` |
 | Bron-prioriteit verrijkte velden | `apps/admin/lib/services/sales-leads/master-record.ts` (`FIELD_PRIORITY`) |
+| Globale bronvoorkeuren | `apps/admin/lib/services/sales-leads/source-preferences.ts`, UI onder `/settings?tab=otis-bronnen` |
 | UI-trigger (sync-knop, "in bestaande organisatie") | `apps/admin/components/sales/lead-sync-status.tsx` |
 | API-route | `apps/admin/app/api/sales-leads/[id]/sync-pipedrive/route.ts` |
 
@@ -46,6 +47,12 @@ Pipedrive werkt met een **token-budget per dag** (gedeeld over het hele account)
 2. **Organisatie**: nieuw -> aanmaken met volledige payload. Bestaand ("in bestaande organisatie") -> `fillEmptyOrgFields`: lege velden aanvullen, bestaande Pipedrive-data niet overschrijven. **Uitzondering: het adres is leidend vanuit OTIS en overschrijft altijd.**
 3. **Contactpersonen**: bij bestaande-org-flow eerst zoeken op e-mail (`findExistingPersonByEmail`). Match -> persoon hergebruiken; `org_id` koppelen als de persoon nog geen org heeft, en de naam meesturen als die handmatig in OTIS is aangepast (`name_overridden`). Geen match -> nieuwe persoon aanmaken met naam uit `selected_contacts[].name`.
 4. **Deal**: nieuwe deal onder de org; extra contacten als participants.
+
+## Bronprioriteit en globale voorkeuren
+
+`computePrimaryMaster` kiest per veld de eerste bron met een non-empty waarde. De basisvolgorde voor contact-/leadvelden is website -> Apollo -> Google Maps -> KvK; officiele identiteit blijft beschermd met KvK voorop.
+
+Onder `/settings?tab=otis-bronnen` kan een globale favoriete bron worden ingesteld voor alleen deze reviewvelden: `address`, `industry`, `employee_count`, `phone`, `email`. Als de favoriete bron leeg is, valt OTIS terug op de basisvolgorde. `company_name`, `kvk_number` en `website` zijn bewust niet configureerbaar: bedrijfsnaam/KvK blijven KvK-geleid en `website` blijft altijd de input-URL.
 
 ### Gedragsregel: aanvullen, met gerichte uitzonderingen
 
