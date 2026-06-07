@@ -24,6 +24,22 @@ export interface DedupResult {
   conflict?: string;
 }
 
+function isUniqueViolation(error: { code?: string; message?: string } | null | undefined): boolean {
+  return error?.code === "23505" || /duplicate key value violates unique constraint/i.test(error?.message ?? "");
+}
+
+async function findByWerknlEmployerId(
+  supabase: SupabaseClient,
+  werknlEmployerId: string
+): Promise<{ id: string } | null> {
+  const { data } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("werknl_employer_id", werknlEmployerId)
+    .maybeSingle();
+  return data?.id ? { id: data.id } : null;
+}
+
 export async function findOrCreateCompanyWerknl(
   supabase: SupabaseClient,
   input: WerknlCompanyInput,
@@ -39,11 +55,7 @@ export async function findOrCreateCompanyWerknl(
 
   // LAAG 1: werknl_employer_id
   if (input.werknl_employer_id) {
-    const { data: l1 } = await supabase
-      .from("companies")
-      .select("id")
-      .eq("werknl_employer_id", input.werknl_employer_id)
-      .maybeSingle();
+    const l1 = await findByWerknlEmployerId(supabase, input.werknl_employer_id);
     if (l1?.id) return { id: l1.id, matchedLayer: "werknl_employer_id" };
   }
 
@@ -103,6 +115,16 @@ export async function findOrCreateCompanyWerknl(
     .single();
 
   if (error || !created) {
+    if (input.werknl_employer_id && isUniqueViolation(error)) {
+      const raced = await findByWerknlEmployerId(supabase, input.werknl_employer_id);
+      if (raced?.id) {
+        return {
+          id: raced.id,
+          matchedLayer: "werknl_employer_id",
+          conflict: `Layer-4 create race: ${error?.message ?? "unique violation"}`,
+        };
+      }
+    }
     throw new Error(`[werknl] create company faalde: ${error?.message ?? "geen data"}`);
   }
   return { id: created.id, matchedLayer: "new" };

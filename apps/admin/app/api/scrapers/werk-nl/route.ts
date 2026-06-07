@@ -23,7 +23,8 @@ import { searchPage } from "@/lib/scrapers/werk_nl/search-client";
 import { upsertListing, type UpsertOutcome } from "@/lib/scrapers/werk_nl/upsert";
 import { enqueue } from "@/lib/scrapers/werk_nl/queue";
 import { pageAllKnown, shouldStopIncremental } from "@/lib/scrapers/werk_nl/incremental";
-import { JOB_SOURCE_NAME, PAGE_SIZE } from "@/lib/scrapers/werk_nl/constants";
+import { JOB_SOURCE_NAME } from "@/lib/scrapers/werk_nl/constants";
+import { hasTimeBudget } from "@/lib/scrapers/werk_nl/scan-progress";
 
 export const runtime = "nodejs";
 export const preferredRegion = ["fra1", "ams1"];
@@ -32,6 +33,7 @@ export const maxDuration = 300;
 const DEFAULT_MAX_PAGES = 5;
 const INCREMENTAL_MAX_PAGES = 1000; // hoge cap; early-stop beeindigt eerder
 const DEFAULT_STOP_AFTER_KNOWN_PAGES = 2;
+const TIME_BUDGET_MS = 270_000;
 
 interface ScanBody {
   maxPages?: number;
@@ -69,6 +71,7 @@ async function runScan(req: NextRequest, defaultIncremental: boolean): Promise<N
   let total = 0;
   let pagesScanned = 0;
   let stoppedEarly = false;
+  let stopReason: "known_pages" | "time_budget" | null = null;
   let consecutiveKnownPages = 0;
   // Nieuwe vacatures verzamelen om in de detail-queue te zetten (Fase 2).
   const newIds: string[] = [];
@@ -78,6 +81,11 @@ async function runScan(req: NextRequest, defaultIncremental: boolean): Promise<N
     const nowIso = new Date().toISOString();
 
     for (let page = 1; page <= maxPages; page++) {
+      if (!hasTimeBudget(startTime, Date.now(), TIME_BUDGET_MS)) {
+        stoppedEarly = true;
+        stopReason = "time_budget";
+        break;
+      }
       const { items, total: t } = await searchPage(session, page, keywords, location);
       total = t;
       if (items.length === 0) break;
@@ -98,6 +106,7 @@ async function runScan(req: NextRequest, defaultIncremental: boolean): Promise<N
         consecutiveKnownPages = pageAllKnown(outcomes) ? consecutiveKnownPages + 1 : 0;
         if (shouldStopIncremental(consecutiveKnownPages, stopThreshold)) {
           stoppedEarly = true;
+          stopReason = "known_pages";
           break;
         }
       }
@@ -122,6 +131,7 @@ async function runScan(req: NextRequest, defaultIncremental: boolean): Promise<N
         seen: seenCount,
         enqueued,
         stopped_early: stoppedEarly,
+        stop_reason: stopReason,
         total_available: total,
       },
       orchestration_id: orchestrationId,
