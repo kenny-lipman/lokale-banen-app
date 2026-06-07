@@ -69,5 +69,24 @@ async function patchHandler(req: NextRequest, _auth: AuthResult, ctx: RouteConte
   return NextResponse.json({ ok: true })
 }
 
+async function deleteHandler(_req: NextRequest, _auth: AuthResult, ctx: RouteContext) {
+  const { id } = await ctx.params
+  const supabase = createServiceRoleClient()
+  // Soft-archive: verberg de run uit de OTIS-lijsten zonder de pipeline-status
+  // te verliezen. Werkt vanuit elke status (enriching/review/.../duplicate) en
+  // is omkeerbaar (archived_at terug op null). Idempotent: een al gearchiveerde
+  // run nogmaals archiveren is geen fout.
+  const { data: updated, error } = await supabase
+    .from('sales_lead_runs')
+    .update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id')
+    .maybeSingle()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!updated) return NextResponse.json({ error: 'Run niet gevonden' }, { status: 404 })
+  return NextResponse.json({ ok: true })
+}
+
 export const GET = withAuth(getHandler)
 export const PATCH = withAuth(patchHandler)
+export const DELETE = withAuth(deleteHandler)

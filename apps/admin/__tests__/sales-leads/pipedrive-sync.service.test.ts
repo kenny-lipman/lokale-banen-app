@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   PipedriveSyncService,
   computeExistingOrgFlow,
+  buildExistingPersonPatch,
 } from '@/lib/services/sales-leads/pipedrive-sync.service'
 
 /**
@@ -201,7 +202,31 @@ describe('fillEmptyOrgFields (alleen lege velden aanvullen)', () => {
     expect('hoofddomein' in patch.custom_fields).toBe(false) // al gevuld
   })
 
-  it('doet geen PATCH als er niets aan te vullen valt', async () => {
+  it('overschrijft een bestaand adres met het OTIS-adres (adres is leidend)', async () => {
+    const updateOrganizationV2 = vi.fn().mockResolvedValue({ id: 100 })
+    const service = makeService({
+      getOrganizationV2: vi.fn().mockResolvedValue({
+        id: 100,
+        address: { value: 'Oud adres 9, 1000 AA Amsterdam' }, // gevuld -> toch overschrijven
+        industry: 5,
+        employee_count: 20,
+        custom_fields: { kvk: 999, hoofddomein: 222, telefoon: 'x' },
+      }),
+      updateOrganizationV2,
+    })
+    await service.fillEmptyOrgFields(100, desired)
+
+    expect(updateOrganizationV2).toHaveBeenCalledTimes(1)
+    const patch = updateOrganizationV2.mock.calls[0][1]
+    // Alleen het adres wijzigt; alle andere velden zijn gevuld en blijven staan.
+    expect(patch.address).toEqual({ value: 'Straat 1, 2685 Poeldijk' })
+    expect('industry' in patch).toBe(false)
+    expect('employee_count' in patch).toBe(false)
+    expect('custom_fields' in patch).toBe(false)
+  })
+
+  it('doet geen PATCH als er niets aan te vullen valt (geen OTIS-adres, rest gevuld)', async () => {
+    const { address: _omit, ...desiredNoAddress } = desired
     const updateOrganizationV2 = vi.fn()
     const service = makeService({
       getOrganizationV2: vi.fn().mockResolvedValue({
@@ -213,7 +238,7 @@ describe('fillEmptyOrgFields (alleen lege velden aanvullen)', () => {
       }),
       updateOrganizationV2,
     })
-    await service.fillEmptyOrgFields(100, desired)
+    await service.fillEmptyOrgFields(100, desiredNoAddress)
     expect(updateOrganizationV2).not.toHaveBeenCalled()
   })
 
@@ -261,5 +286,52 @@ describe('fillEmptyOrgFields (alleen lege velden aanvullen)', () => {
     })
     await expect(service.fillEmptyOrgFields(100, desired)).resolves.toBeUndefined()
     expect(updateOrganizationV2).not.toHaveBeenCalled()
+  })
+})
+
+describe('buildExistingPersonPatch (bestaande-persoon update)', () => {
+  it('koppelt org als de persoon nog geen org heeft', () => {
+    const patch = buildExistingPersonPatch({ name: 'Jan' }, 200, true)
+    expect(patch).toEqual({ org_id: 200 })
+  })
+
+  it('koppelt org NIET als de persoon al een org heeft', () => {
+    const patch = buildExistingPersonPatch({ name: 'Jan' }, 200, false)
+    expect(patch).toEqual({})
+  })
+
+  it('stuurt de naam mee als die handmatig is aangepast', () => {
+    const patch = buildExistingPersonPatch(
+      { name: 'Joris', name_overridden: true },
+      200,
+      false,
+    )
+    expect(patch).toEqual({ name: 'Joris' })
+  })
+
+  it('combineert org-koppeling en handmatige naam', () => {
+    const patch = buildExistingPersonPatch(
+      { name: '  Joris  ', name_overridden: true },
+      200,
+      true,
+    )
+    expect(patch).toEqual({ org_id: 200, name: 'Joris' })
+  })
+
+  it('stuurt de naam NIET mee als die niet handmatig is aangepast', () => {
+    const patch = buildExistingPersonPatch(
+      { name: 'Afdeling Personeelszaken' },
+      200,
+      false,
+    )
+    expect(patch).toEqual({})
+  })
+
+  it('negeert een lege/whitespace naam ook als overridden gezet is', () => {
+    expect(buildExistingPersonPatch({ name: '   ', name_overridden: true }, 200, false)).toEqual({})
+  })
+
+  it('koppelt geen org als orgId null is', () => {
+    expect(buildExistingPersonPatch({ name: 'Jan' }, null, true)).toEqual({})
   })
 })

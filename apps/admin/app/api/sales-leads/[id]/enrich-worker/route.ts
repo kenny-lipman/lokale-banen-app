@@ -41,6 +41,8 @@ async function handler(req: NextRequest, ctx: RouteContext) {
     .update({ worker_claimed_at: new Date().toISOString() })
     .eq('id', id)
     .is('worker_claimed_at', null)
+    // Een gearchiveerde run niet (meer) verrijken: scheelt KvK/Apollo-credits.
+    .is('archived_at', null)
     .select('id')
     .maybeSingle()
 

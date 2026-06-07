@@ -2603,8 +2603,41 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_lead_source_preferences: {
+        Row: {
+          created_at: string
+          field_name: string
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          source: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_lead_source_preferences_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_lead_runs: {
         Row: {
+          archived_at: string | null
           audit_log: Json
           branche_override: number | null
           contactmoment_override: string | null
@@ -2629,6 +2662,7 @@ export type Database = {
           worker_claimed_at: string | null
         }
         Insert: {
+          archived_at?: string | null
           audit_log?: Json
           branche_override?: number | null
           contactmoment_override?: string | null
@@ -2653,6 +2687,7 @@ export type Database = {
           worker_claimed_at?: string | null
         }
         Update: {
+          archived_at?: string | null
           audit_log?: Json
           branche_override?: number | null
           contactmoment_override?: string | null

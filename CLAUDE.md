@@ -39,6 +39,7 @@ Commands (vanuit repo-root, tenzij anders):
 | Database | `docs/reference/database.md` | Schema, key tables, dedup-logica, job_sources cascade. |
 | Auth & users | `docs/reference/auth.md` | Session-flow, role-systeem, users CRUD, password reset. |
 | Campaigns | `docs/reference/campaigns.md` | Campaign assignment orchestrator/worker, WeTarget, Instantly API. |
+| Pipedrive | `docs/reference/pipedrive.md` | OTIS/sales-automation sync naar Pipedrive (org/person/deal), bron-prioriteit verrijkte velden, API v1/v2, rate limits. |
 
 ### Aanvullende guides (root)
 

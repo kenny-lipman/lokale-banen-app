@@ -20,6 +20,9 @@ async function listHandler(req: NextRequest, _auth: AuthResult, _ctx: RouteConte
     )
     .order('created_at', { ascending: false })
 
+  // Gearchiveerde runs standaard verbergen (soft-archive). Met ?archived=1 toon
+  // je ze wel (data-laag is voorbereid op een eventuele "toon gearchiveerd"-toggle).
+  if (!q.include_archived) query = query.is('archived_at', null)
   if (q.status) query = query.eq('status', q.status)
   if (q.owner_config_id) query = query.eq('owner_config_id', q.owner_config_id)
   if (q.search) query = query.ilike('input_domain', `%${q.search}%`)

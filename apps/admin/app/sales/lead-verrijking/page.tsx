@@ -48,7 +48,7 @@ export default function LeadVerrijkingPage() {
 
   const queryString = useMemo(() => buildQueryString(filters, page, limit), [filters, page])
 
-  const { data, error, isLoading, isValidating } = useSWR<RunListResponse>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<RunListResponse>(
     `/api/sales-leads?${queryString}`,
     fetcher,
     pollingOptions<RunListResponse>((latest) => {
@@ -115,7 +115,11 @@ export default function LeadVerrijkingPage() {
             </div>
           )}
 
-          <LeadRunsTable runs={runs} loading={isLoading && !data} />
+          <LeadRunsTable
+            runs={runs}
+            loading={isLoading && !data}
+            onArchived={() => void mutate()}
+          />
 
           {total > limit && (
             <div className="flex items-center justify-between mt-4 pt-3 border-t">

@@ -15,6 +15,8 @@ export type RunListQuery = {
   search: string | null
   date_from: string | null
   date_to: string | null
+  /** Gearchiveerde runs meenemen. Default false: alleen actieve runs tonen. */
+  include_archived: boolean
   page: number
   limit: number
 }
@@ -46,10 +48,13 @@ export function parseRunListQuery(params: URLSearchParams): RunListQuery {
   const dateToRaw = params.get('date_to')
   const date_to = dateToRaw && DATE_RE.test(dateToRaw) ? dateToRaw : null
 
+  const archivedRaw = params.get('archived')
+  const include_archived = archivedRaw === '1' || archivedRaw === 'true'
+
   const page = parsePositiveInt(params.get('page'), 1, 1)
   const limitRaw = params.get('limit')
   const limitN = limitRaw ? Number.parseInt(limitRaw, 10) : 25
   const limit = Number.isFinite(limitN) && limitN >= 1 ? Math.min(limitN, 100) : 25
 
-  return { status, owner_config_id, search, date_from, date_to, page, limit }
+  return { status, owner_config_id, search, date_from, date_to, include_archived, page, limit }
 }

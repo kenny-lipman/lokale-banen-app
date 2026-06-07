@@ -1,9 +1,22 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, ExternalLink } from 'lucide-react'
+import { Eye, ExternalLink, Archive } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import type { RunListItem } from '@/lib/services/sales-leads/types'
 import type { RunStatus } from '@/lib/services/sales-leads/list-filters'
 
@@ -32,12 +45,83 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('nl-NL')
 }
 
+/**
+ * Archiveer-knop per run met bevestiging. Soft-archive (DELETE) verbergt de run
+ * uit de lijst; de onderliggende data blijft bestaan en is omkeerbaar in de DB.
+ */
+function ArchiveRunButton({
+  runId,
+  companyName,
+  onArchived,
+}: {
+  runId: string
+  companyName: string
+  onArchived?: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  async function archive() {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/sales-leads/${runId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      toast.success('Lead gearchiveerd')
+      onArchived?.()
+    } catch (e) {
+      toast.error(`Archiveren mislukt: ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-gray-500 hover:text-red-600"
+          title="Lead archiveren"
+        >
+          <Archive className="size-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Lead archiveren?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {companyName} wordt uit de lijst verwijderd. De gegevens blijven
+            bewaard en kunnen later worden teruggezet. Bestaande Pipedrive-deals
+            blijven ongemoeid.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Annuleren</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={busy}
+            onClick={(e) => {
+              e.preventDefault()
+              void archive()
+            }}
+          >
+            Archiveren
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 type Props = {
   runs: RunListItem[]
   loading: boolean
+  onArchived?: () => void
 }
 
-export function LeadRunsTable({ runs, loading }: Props) {
+export function LeadRunsTable({ runs, loading, onArchived }: Props) {
   if (loading) {
     return <div className="text-sm text-gray-500 py-4">Laden…</div>
   }
@@ -105,11 +189,18 @@ export function LeadRunsTable({ runs, loading }: Props) {
                 )}
               </td>
               <td className="py-3">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={`/sales/lead-verrijking/${r.id}`}>
-                    <Eye className="size-4" />
-                  </Link>
-                </Button>
+                <div className="flex items-center justify-end gap-1">
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href={`/sales/lead-verrijking/${r.id}`}>
+                      <Eye className="size-4" />
+                    </Link>
+                  </Button>
+                  <ArchiveRunButton
+                    runId={r.id}
+                    companyName={companyName}
+                    onArchived={onArchived}
+                  />
+                </div>
               </td>
             </tr>
           )
