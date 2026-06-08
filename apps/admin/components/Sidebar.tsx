@@ -22,6 +22,7 @@ import {
   Mail,
   Monitor,
   Workflow,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
@@ -45,6 +46,7 @@ type NavLeaf = {
   href: string
   icon: LucideIcon
   label: string
+  badge?: string
 }
 
 type NavItem = NavLeaf & {
@@ -62,6 +64,7 @@ const sections: NavSection[] = [
     items: [
       { href: "/", icon: Home, label: "OTIS" },
       { href: "/agents/otis/enhanced", icon: Bot, label: "Otis" },
+      { href: "/agents/ai-chat", icon: Sparkles, label: "AI Chat", badge: "beta" },
     ],
   },
   {
@@ -231,6 +234,11 @@ export default function Sidebar() {
           )}
         />
         {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && item.badge && (
+          <span className="ml-auto rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-orange-600">
+            {item.badge}
+          </span>
+        )}
       </Link>
     )
 
