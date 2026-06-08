@@ -37,7 +37,8 @@ export async function processOne(
   supabase: SupabaseClient,
   session: WerknlSession,
   jobPostingId: string,
-  nowIso: string
+  nowIso: string,
+  sourceId: string
 ): Promise<ProcessOutcome> {
   // Bron-id (referenceNumber) ophalen.
   const { data: row } = await supabase
@@ -73,7 +74,7 @@ export async function processOne(
   // Company-dedup.
   let companyId: string | null = null;
   if (mapped.company) {
-    const dedup = await findOrCreateCompanyWerknl(supabase, mapped.company, JOB_SOURCE_NAME);
+    const dedup = await findOrCreateCompanyWerknl(supabase, mapped.company, sourceId);
     companyId = dedup.id;
   }
 
