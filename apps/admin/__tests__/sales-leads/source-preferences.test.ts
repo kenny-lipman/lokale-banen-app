@@ -3,11 +3,23 @@ import {
   DEFAULT_SOURCE_PREFERENCES,
   SOURCE_PREFERENCE_FIELDS,
   SOURCE_PREFERENCE_SOURCES,
+  getSourcePreferences,
   isResetSourcePreferencesRequest,
+  isMissingSourcePreferencesTableError,
   mergeSourcePreferences,
   parseSourcePreferencePatch,
   rowsToSourcePreferenceOverrides,
 } from '@/lib/services/sales-leads/source-preferences'
+
+function mockSupabaseSelectResult(result: unknown) {
+  return {
+    from: () => ({
+      select: () => ({
+        order: async () => result,
+      }),
+    }),
+  }
+}
 
 describe('source preferences helpers', () => {
   it('expose alleen configureerbare velden en toegestane bronnen', () => {
@@ -67,5 +79,32 @@ describe('source preferences helpers', () => {
         { field_name: 'phone', source: 'custom' },
       ]),
     ).toEqual({ address: 'kvk' })
+  })
+
+  it('herkent ontbrekende source-preferences tabel fouten', () => {
+    expect(isMissingSourcePreferencesTableError({
+      code: '42P01',
+      message: 'relation "sales_lead_source_preferences" does not exist',
+    })).toBe(true)
+    expect(isMissingSourcePreferencesTableError({
+      code: 'PGRST205',
+      message: "Could not find the table 'public.sales_lead_source_preferences' in the schema cache",
+    })).toBe(true)
+    expect(isMissingSourcePreferencesTableError({ code: '23505', message: 'duplicate key' })).toBe(false)
+  })
+
+  it('valt bij ontbrekende db-tabel terug op defaults voor GET', async () => {
+    const result = await getSourcePreferences({
+      supabase: mockSupabaseSelectResult({
+        data: null,
+        error: {
+          code: 'PGRST205',
+          message: "Could not find the table 'public.sales_lead_source_preferences' in the schema cache",
+        },
+      }) as never,
+    })
+
+    expect(result.preferences).toEqual(DEFAULT_SOURCE_PREFERENCES)
+    expect(result.overrides).toEqual({})
   })
 })

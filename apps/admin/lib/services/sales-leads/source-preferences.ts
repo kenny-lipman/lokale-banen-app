@@ -115,6 +115,26 @@ export function isResetSourcePreferencesRequest(input: unknown): boolean {
   return !!input && typeof input === 'object' && !Array.isArray(input) && (input as { reset?: unknown }).reset === true
 }
 
+export function isMissingSourcePreferencesTableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const record = error as { code?: unknown; message?: unknown }
+  const code = typeof record.code === 'string' ? record.code : ''
+  const message = typeof record.message === 'string' ? record.message.toLowerCase() : ''
+  return (
+    code === '42P01' ||
+    code === 'PGRST205' ||
+    (
+      message.includes('sales_lead_source_preferences') &&
+      (
+        message.includes('does not exist') ||
+        message.includes('could not find') ||
+        message.includes('schema cache') ||
+        message.includes('relation')
+      )
+    )
+  )
+}
+
 function metadata(overrides: SourcePreferenceOverrides): SourcePreferencesResponse {
   return {
     preferences: mergeSourcePreferences(overrides),
@@ -132,6 +152,12 @@ async function loadOverrides(supabase: SB): Promise<SourcePreferenceOverrides> {
     .select('field_name, source')
     .order('field_name', { ascending: true })
   if (error) {
+    if (isMissingSourcePreferencesTableError(error)) {
+      console.warn(
+        '[source-preferences] sales_lead_source_preferences ontbreekt; gebruik app-defaults totdat de migratie is toegepast.',
+      )
+      return {}
+    }
     throw new Error(`Kon source preferences niet laden: ${error.message}`)
   }
   return rowsToSourcePreferenceOverrides((data ?? []) as SourcePreferenceRow[])
