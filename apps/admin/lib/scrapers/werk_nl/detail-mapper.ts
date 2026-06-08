@@ -8,11 +8,13 @@
 
 import type { WerknlDetail } from "./detail-types";
 import { titleCaseCity } from "./mappers";
+import { extractCompanyEvidence } from "./company-evidence";
 
 export interface WerknlCompanyInput {
   werknl_employer_id: string | null;
   name: string;
   website: string | null;
+  match_domains: string[];
   city: string | null;
   postal_code: string | null;
   street_address: string | null;
@@ -57,10 +59,12 @@ export function mapDetail(detail: WerknlDetail): MappedDetail {
   const prop = detail.proposition;
   const emp = detail.employer;
   const cp = detail.contactPerson;
+  const evidence = extractCompanyEvidence(detail);
 
   const detailCity = titleCaseCity(prop?.workLocation?.city);
+  const description = detail.description?.trim() || prop?.function?.description?.trim() || null;
   const jobPatch: Record<string, unknown> = {
-    description: detail.description?.trim() || null,
+    description,
     salary: prop?.salary?.amountIndication?.trim() || null,
     working_hours_min: prop?.workhours?.minimumHours ?? null,
     working_hours_max: prop?.workhours?.maximumHours ?? null,
@@ -80,9 +84,10 @@ export function mapDetail(detail: WerknlDetail): MappedDetail {
   const company: WerknlCompanyInput | null =
     emp && emp.organizationName?.trim()
       ? {
-          werknl_employer_id: emp.referenceNumber != null ? String(emp.referenceNumber) : null,
+          werknl_employer_id: evidence.werknlEmployerId,
           name: emp.organizationName.trim(),
-          website: emp.website?.trim() || null,
+          website: evidence.employerWebsiteDomain ? emp.website?.trim() || null : null,
+          match_domains: evidence.trustedDomains,
           city: titleCaseCity(emp.addressNetherlands?.city),
           postal_code: emp.addressNetherlands?.postcode?.trim() || null,
           street_address: emp.addressNetherlands?.streetName?.trim() || null,
