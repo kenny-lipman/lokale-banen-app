@@ -66,7 +66,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       for (const { jobPostingId } of claimed) {
         if (Date.now() - startTime > TIME_BUDGET_MS) break;
         try {
-          const outcome = await processOne(supabase, session, jobPostingId, new Date().toISOString());
+          const outcome = await processOne(supabase, session, jobPostingId, new Date().toISOString(), sourceId);
           counts[outcome]++;
         } catch (err) {
           errorCount++;

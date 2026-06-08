@@ -14,6 +14,7 @@ import type { WerknlSession } from "@/lib/scrapers/werk_nl/session";
 
 const session = {} as WerknlSession;
 const NOW = "2026-06-05T12:00:00.000Z";
+const SOURCE_ID = "source-uuid";
 
 function mockSupabase() {
   const updates: Array<Record<string, unknown>> = [];
@@ -64,9 +65,9 @@ describe("processOne", () => {
     (findOrCreateContact as any).mockResolvedValue({ id: "ct-1", created: true });
     const c = mockSupabase();
 
-    const r = await processOne(c as any, session, "jp-1", NOW);
+    const r = await processOne(c as any, session, "jp-1", NOW, SOURCE_ID);
     expect(r).toBe("enriched");
-    expect(findOrCreateCompanyWerknl).toHaveBeenCalledOnce();
+    expect(findOrCreateCompanyWerknl).toHaveBeenCalledWith(c, expect.any(Object), SOURCE_ID);
     const patch = c._updates.at(-1)!;
     expect(patch).toEqual(expect.objectContaining({ company_id: "comp-1", detail_scraped_at: NOW, description: "tekst" }));
     expect(patch.expires_at).toBe("2026-12-31T00:00:00.000Z");
@@ -77,7 +78,7 @@ describe("processOne", () => {
   test("404 -> archiveert (not_in_werknl), geen dedup", async () => {
     (fetchDetail as any).mockResolvedValue({ notFound: true });
     const c = mockSupabase();
-    const r = await processOne(c as any, session, "jp-2", NOW);
+    const r = await processOne(c as any, session, "jp-2", NOW, SOURCE_ID);
     expect(r).toBe("archived_gone");
     expect(findOrCreateCompanyWerknl).not.toHaveBeenCalled();
     expect(c._updates.at(-1)).toEqual(expect.objectContaining({ archived_reason: "not_in_werknl", archived_at: NOW }));
@@ -87,7 +88,7 @@ describe("processOne", () => {
   test("verstreken expirationDate -> archiveert (expired), geen dedup", async () => {
     (fetchDetail as any).mockResolvedValue(detailWith("2026-01-01T00:00:00"));
     const c = mockSupabase();
-    const r = await processOne(c as any, session, "jp-3", NOW);
+    const r = await processOne(c as any, session, "jp-3", NOW, SOURCE_ID);
     expect(r).toBe("archived_expired");
     expect(findOrCreateCompanyWerknl).not.toHaveBeenCalled();
     expect(c._updates.at(-1)).toEqual(expect.objectContaining({ archived_reason: "expired" }));
