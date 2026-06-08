@@ -22,6 +22,7 @@ import {
   Mail,
   Monitor,
   Workflow,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
@@ -62,6 +63,7 @@ const sections: NavSection[] = [
     items: [
       { href: "/", icon: Home, label: "OTIS" },
       { href: "/agents/otis/enhanced", icon: Bot, label: "Otis" },
+      { href: "/agents/ai-chat", icon: Sparkles, label: "AI Chat" },
     ],
   },
   {

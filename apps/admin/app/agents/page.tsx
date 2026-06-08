@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Bot } from "lucide-react"
+import { Bot, Sparkles } from "lucide-react"
 
 export default function AgentsOverviewPage() {
   return (
@@ -23,7 +23,22 @@ export default function AgentsOverviewPage() {
             </Link>
           </CardContent>
         </Card>
-        {/* Hier kun je in de toekomst meer agents toevoegen */}
+        <Card>
+          <CardHeader className="flex items-center gap-x-3">
+            <div className="size-10 bg-slate-900 rounded-lg flex items-center justify-center">
+              <Sparkles className="size-6 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-xl">AI publicatiechat</CardTitle>
+              <CardDescription>Claude-chat voor vacaturepublicatie en read-only controles</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Link href="/agents/ai-chat" className="text-orange-600 hover:underline font-semibold">
+              Open AI chat
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
