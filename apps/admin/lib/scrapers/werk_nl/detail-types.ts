@@ -36,6 +36,11 @@ const ContactPersonSchema = z
   .nullable()
   .default(null);
 
+const ApplicationMethodSchema = z.object({
+  sollicitatieWijze: z.number().nullable().optional(),
+  urlApplicationForm: z.string().nullable().optional(),
+});
+
 const PropositionSchema = z
   .object({
     function: z
@@ -72,12 +77,15 @@ const PropositionSchema = z
 
 export const DetailResponseSchema = z.object({
   referenceNumber: z.number(),
+  source: z.string().nullable().optional(),
+  employerInternalVacatureId: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   expirationDate: z.string().nullable().optional(),
   modifiedDate: z.string().nullable().optional(),
   isAcquisitionNotAppreciated: z.boolean().nullable().optional(),
   isByEmployerDirectly: z.boolean().nullable().optional(),
+  applicationMethods: z.array(ApplicationMethodSchema).nullable().optional().default([]),
   proposition: PropositionSchema,
   contactPerson: ContactPersonSchema,
   employer: EmployerSchema,

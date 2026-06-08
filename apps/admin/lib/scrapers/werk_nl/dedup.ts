@@ -3,24 +3,23 @@
  *
  * Match-volgorde (eerste hit wint):
  *   1. companies.werknl_employer_id = employer.referenceNumber
- *   2. companies.normalized_name (cross-source: zelfde werkgever op andere bronnen)
- *   3. companies.hoofddomein (catch-all op website-domain)
- *   4. -> CREATE nieuwe row
+ *   2. companies.hoofddomein op betrouwbare employer/contact/application-domain
+ *   3. normalized_name + adresvelden
+ *   4. normalized_name alleen als er een geldige werk.nl employer-id is
+ *   5. -> CREATE nieuwe row
  *
- * Bij match op laag 2/3 backfillen we werknl_employer_id (en zetten is_bemiddelaar
- * op true als de heuristiek dat zegt), zodat volgende runs direct laag 1 hit en de
- * cross-source company-graaf zich opbouwt. Backfill-conflict throwt niet, maar wordt
- * via DedupResult.conflict gemeld. Adaptatie van werkenindekempen/dedup.ts.
+ * Bij fallback-match backfillen we alleen geldige werknl_employer_id's en zetten
+ * we is_bemiddelaar monotoon op true als de heuristiek dat zegt. Backfill-conflict
+ * throwt niet, maar wordt via DedupResult.conflict gemeld.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateNormalizedName } from "@/lib/scrapers/shared/utils";
-import { extractHoofddomein } from "@/lib/scrapers/werkenindekempen/normalizers";
 import type { WerknlCompanyInput } from "./detail-mapper";
 
 export interface DedupResult {
   id: string;
-  matchedLayer: "werknl_employer_id" | "normalized_name" | "hoofddomein" | "new";
+  matchedLayer: "werknl_employer_id" | "hoofddomein" | "name_address" | "normalized_name" | "new";
   conflict?: string;
 }
 
@@ -46,9 +45,9 @@ export async function findOrCreateCompanyWerknl(
   sourceId: string
 ): Promise<DedupResult> {
   const normalized = generateNormalizedName(input.name);
-  const hoofddomein = extractHoofddomein(input.website);
+  const hoofddomein = input.match_domains[0] ?? null;
 
-  // Backfill-patch voor laag 2/3: werknl_employer_id + (monotoon) bemiddelaar-vlag.
+  // Backfill-patch: alleen geldige werknl_employer_id's worden teruggeschreven.
   const backfill: Record<string, unknown> = {};
   if (input.werknl_employer_id) backfill.werknl_employer_id = input.werknl_employer_id;
   if (input.is_bemiddelaar) backfill.is_bemiddelaar = true;
@@ -59,41 +58,60 @@ export async function findOrCreateCompanyWerknl(
     if (l1?.id) return { id: l1.id, matchedLayer: "werknl_employer_id" };
   }
 
-  // LAAG 2: normalized_name
-  if (normalized) {
+  // LAAG 2: betrouwbaar hoofddomein uit employer.website/contact/app-url.
+  for (const domain of input.match_domains) {
+    const { data: domainHit } = await supabase
+      .from("companies")
+      .select("id, werknl_employer_id")
+      .eq("hoofddomein", domain)
+      .maybeSingle();
+    if (domainHit?.id) {
+      const result: DedupResult = { id: domainHit.id, matchedLayer: "hoofddomein" };
+      if (Object.keys(backfill).length > 0) {
+        const { error } = await supabase.from("companies").update(backfill).eq("id", domainHit.id);
+        if (error) result.conflict = `Domain backfill: ${error.message}`;
+      }
+      return result;
+    }
+  }
+
+  // LAAG 3: naam + adres. Dit is bewust strenger dan alleen normalized_name.
+  if (normalized && input.postal_code && input.street_address) {
     const { data: l2 } = await supabase
       .from("companies")
       .select("id, werknl_employer_id")
       .eq("normalized_name", normalized)
+      .eq("postal_code", input.postal_code)
+      .eq("street_address", input.street_address)
       .maybeSingle();
     if (l2?.id) {
-      const result: DedupResult = { id: l2.id, matchedLayer: "normalized_name" };
+      const result: DedupResult = { id: l2.id, matchedLayer: "name_address" };
       if (Object.keys(backfill).length > 0) {
         const { error } = await supabase.from("companies").update(backfill).eq("id", l2.id);
-        if (error) result.conflict = `Layer-2 backfill: ${error.message}`;
+        if (error) result.conflict = `Name-address backfill: ${error.message}`;
       }
       return result;
     }
   }
 
-  // LAAG 3: hoofddomein
-  if (hoofddomein) {
-    const { data: l3 } = await supabase
+  // LAAG 4: normalized_name alleen gebruiken als we daarna een geldige employer-id kunnen backfillen.
+  if (normalized && input.werknl_employer_id) {
+    const { data: l4 } = await supabase
       .from("companies")
       .select("id, werknl_employer_id")
-      .eq("hoofddomein", hoofddomein)
+      .eq("normalized_name", normalized)
       .maybeSingle();
-    if (l3?.id) {
-      const result: DedupResult = { id: l3.id, matchedLayer: "hoofddomein" };
+    if (l4?.id) {
+      const result: DedupResult = { id: l4.id, matchedLayer: "normalized_name" };
       if (Object.keys(backfill).length > 0) {
-        const { error } = await supabase.from("companies").update(backfill).eq("id", l3.id);
-        if (error) result.conflict = `Layer-3 backfill: ${error.message}`;
+        const { error } = await supabase.from("companies").update(backfill).eq("id", l4.id);
+        if (error) result.conflict = `Layer-4 backfill: ${error.message}`;
       }
       return result;
     }
   }
 
-  // LAAG 4: CREATE
+  // LAAG 5: CREATE
   const { data: created, error } = await supabase
     .from("companies")
     .insert({
